@@ -85,7 +85,7 @@ export default async function LeadDashboard() {
           Цикл {cycleName(cycle)}
         </div>
         <h1 className="font-display text-5xl font-light tracking-tight mb-3">
-          Мои дизайнеры
+          Мои дизайнеры <span className="text-sm text-red-500">[deploy-check-v2]</span>
         </h1>
         <p className="text-stone leading-relaxed max-w-xl">
           {stats.total} дизайнеров под твоим лидерством.{' '}
