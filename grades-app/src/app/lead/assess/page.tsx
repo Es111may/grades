@@ -66,7 +66,7 @@ export default async function AssessPage({
     include: {
       weights: { where: { buildId: designer.buildId! } },
       group: { include: { taxonomy: true } },
-      masteryLevels: { orderBy: { level: 'asc' } },
+      masteries: { orderBy: { level: 'asc' } },
     },
     orderBy: [
       { group: { taxonomy: { sortOrder: 'asc' } } },
@@ -94,7 +94,7 @@ export default async function AssessPage({
     taxonomyCode: s.group.taxonomy.code,
     taxonomyName: s.group.taxonomy.name,
     groupName: s.group.name,
-    levels: s.masteryLevels.map((ml) => ({
+    levels: s.masteries.map((ml) => ({
       level: ml.level,
       title: ml.title,
       criteria: ml.criteria ?? '',
