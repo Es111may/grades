@@ -8,6 +8,7 @@ import { loadPortraitData } from '@/lib/portrait';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
 import Portrait from '@/app/designer/Portrait';
+import PortraitActions from './PortraitActions';
 
 export default async function LeadPortraitPage({
   searchParams,
@@ -72,11 +73,10 @@ export default async function LeadPortraitPage({
 
   return (
     <>
-      <div className="max-w-[1300px] mx-auto px-8 pt-6">
-        <Link href="/lead" className="text-sm text-stone hover:text-ink">
-          ← к списку
-        </Link>
-      </div>
+      <PortraitActions
+        designerId={designerId}
+        publishedAssessmentId={result.data.assessmentId}
+      />
       <Portrait data={result.data} />
     </>
   );

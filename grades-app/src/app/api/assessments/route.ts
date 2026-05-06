@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
 
   // Try to find existing assessment for this cycle
   let assessment = await prisma.assessment.findFirst({
-    where: { designerId, cycle },
+    where: { designerId, cycle, status: { not: 'archived' } },
+    orderBy: { createdAt: 'desc' },
     include: { scores: true },
   });
 

@@ -25,6 +25,7 @@ const TAXONOMY_LABELS: Record<string, string> = {
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
 
 export type PortraitData = {
+  assessmentId: number;
   designer: {
     fullName: string;
     buildCode: BuildCode | null;

@@ -136,6 +136,7 @@ export async function loadPortraitData(designerId: number): Promise<
     : null;
 
   const data: PortraitData = {
+    assessmentId: assessment.id,
     designer: {
       fullName: designer.fullName,
       buildCode: (designer.build?.code as BuildCode) ?? null,

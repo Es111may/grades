@@ -34,7 +34,8 @@ export default async function LeadDashboard() {
     include: {
       build: true,
       assessmentsAsDesigner: {
-        where: { cycle },
+        where: { cycle, status: { not: 'archived' } },
+        orderBy: { createdAt: 'desc' },
         take: 1,
       },
     },

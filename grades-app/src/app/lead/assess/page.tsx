@@ -43,7 +43,8 @@ export default async function AssessPage({
 
   // Get or create draft assessment
   let assessment = await prisma.assessment.findFirst({
-    where: { designerId, cycle },
+    where: { designerId, cycle, status: { not: 'archived' } },
+    orderBy: { createdAt: 'desc' },
     include: { scores: true },
   });
 
