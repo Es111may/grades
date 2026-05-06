@@ -1,0 +1,2791 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Грейды — мокапы v4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Inter as Wix Madefor substitute, Playfair / Manrope for display, JetBrains Mono for numbers -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        canvas: '#faf9f7',
+        snow: '#ffffff',
+        ink: '#000000',
+        graphite: '#232529',
+        slate2: '#324158',
+        stone: '#696f7b',
+        ash: '#cfcfcf',
+        cloud: '#e6e6e6',
+        lime: { DEFAULT: '#ade900', light: '#ebffb1', dim: '#f6ffce' },
+        sunset: '#d8723c',
+        blaze: '#ff631f',
+      },
+      fontFamily: {
+        display: ['Manrope', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+      },
+      boxShadow: {
+        soft: 'rgba(34,40,42,0.04) 0px 3px 10px',
+        'soft-lg': 'rgba(34,40,42,0.06) 0px 6px 24px',
+      },
+      borderRadius: {
+        card: '8px',
+        prominent: '14px',
+        modal: '16px',
+        pill: '999px',
+        compact: '300px',
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { background: #faf9f7; color: #000; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; letter-spacing: 0.005em; }
+  .display { font-family: 'Manrope', system-ui, sans-serif; font-weight: 300; letter-spacing: -0.01em; }
+  .display-tight { font-family: 'Manrope', system-ui, sans-serif; font-weight: 400; letter-spacing: -0.025em; }
+  .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #696f7b; font-weight: 500; }
+  .card { background: #ffffff; border-radius: 8px; box-shadow: rgba(34,40,42,0.04) 0px 3px 10px; }
+  .card-flat { background: #ffffff; border-radius: 8px; border: 1px solid #e6e6e6; }
+  .card-prominent { background: #ffffff; border-radius: 14px; box-shadow: rgba(34,40,42,0.04) 0px 3px 10px; }
+
+  .btn-primary { background: #ebffb1; color: #000; border: 1px solid #ade900; border-radius: 999px; padding: 9px 20px; font-size: 14px; font-weight: 500; transition: all 0.15s; cursor:pointer; }
+  .btn-primary:hover { background: #d8ff70; }
+  .btn-ghost { background: transparent; color: #000; border: 1px solid #cfcfcf; border-radius: 999px; padding: 9px 18px; font-size: 14px; font-weight: 400; transition: all 0.15s; cursor:pointer; }
+  .btn-ghost:hover { background: #ffffff; border-color: #696f7b; }
+  .btn-orange { background: transparent; color: #d8723c; border: 1px solid #d8723c; border-radius: 999px; padding: 9px 18px; font-size: 14px; font-weight: 500; transition: all 0.15s; cursor:pointer; }
+  .btn-orange:hover { background: #d8723c10; }
+
+  .pill-tab { background: transparent; color: #000; border: 1px solid rgba(15,15,15,0.2); border-radius: 999px; padding: 6px 16px; font-size: 13px; font-weight: 400; transition: all 0.15s; }
+  .pill-tab:hover { background: #ffffff; border-color: #696f7b; }
+  .pill-tab.active { background: #ebffb1; border-color: #ade900; font-weight: 500; }
+  .input-base { background: #ffffff; border: 1px solid #cfcfcf; border-radius: 8px; padding: 10px 14px; font-size: 14px; outline: none; transition: border-color 0.15s; color: #000; width: 100%; }
+  .input-base:focus { border-color: #ade900; box-shadow: 0 0 0 3px #ebffb155; }
+  .input-base::placeholder { color: #696f7b; }
+  textarea.input-base { line-height: 1.5; }
+
+  .nav-tab { padding: 10px 0; margin-right: 28px; color: #696f7b; font-size: 14px; border-bottom: 2px solid transparent; transition: all 0.15s; cursor:pointer; }
+  .nav-tab.active { color: #000; border-bottom-color: #000; font-weight: 500; }
+  .nav-link { color: #000; font-size: 15px; font-weight: 400; }
+  .nav-link.muted { color: #696f7b; }
+  .nav-link:hover { color: #000; }
+
+  .build-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; vertical-align: middle; margin-right: 7px; }
+  .build-creator { background: #ade900; }
+  .build-visioner { background: #ff631f; }
+  .build-navigator { background: #324158; }
+  .skill-dot { width: 6px; height: 6px; border-radius: 999px; background: #cfcfcf; display: inline-block; margin-right: 6px; }
+
+  .mastery-btn { background: transparent; border: 1px solid rgba(15,15,15,0.2); color: #000; border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 400; transition: all 0.12s; }
+  .mastery-btn.active { background: #ebffb1; color: #000; border-color: #ade900; font-weight: 500; }
+  .mastery-btn:not(.active):hover { background: #ffffff; border-color: #696f7b; }
+
+  .skill-card-row { padding: 22px 26px; border-top: 1px solid #f5f3ee; transition: background 0.15s; }
+  .skill-card-row:first-child { border-top: 0; }
+  .skill-card-row:hover { background: #faf9f7; }
+  .desc-italic { font-style: italic; color: #696f7b; font-size: 13.5px; line-height: 1.6; }
+  .crit-block { background: #faf9f7; border-radius: 8px; padding: 14px 18px; }
+  .crit-block.active-level { background: #ebffb155; border: 1px solid #ade90060; }
+  .gate-row.passed td { color: #000; }
+  .gate-row.current td { background: #ebffb150; }
+  .gate-row.failed td { color: #696f7b; }
+
+  details > summary { list-style: none; cursor: pointer; user-select: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary .chev { transition: transform 0.15s; display: inline-block; }
+  details[open] > summary .chev { transform: rotate(90deg); }
+
+  .pulse-save { animation: pulseSave 0.6s ease-out; }
+  @keyframes pulseSave { 0%{opacity:1} 100%{opacity:0} }
+
+  .modal-backdrop { background: rgba(35,37,41,0.4); }
+
+  .grade-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 500; letter-spacing: 0.02em; }
+  .grade-pill.passed { background: #ebffb1; color: #000; border: 1px solid #ade90060; }
+  .grade-pill.current { background: #000; color: #fff; }
+  .grade-pill.locked { background: transparent; color: #696f7b; border: 1px solid #cfcfcf; }
+
+  table.matrix-table tbody tr { border-top: 1px solid #f5f3ee; }
+  table.matrix-table tbody tr:hover { background: #faf9f7; }
+  table.matrix-table tbody tr.inactive { opacity: 0.5; }
+  table.matrix-table tbody tr.inactive .skill-name { text-decoration: line-through; }
+
+  .floor-banner { background: linear-gradient(135deg, #ebffb1 0%, #faf9f7 100%); border: 1px solid #ade90060; border-radius: 14px; padding: 18px 22px; }
+  .progress-thin { height: 4px; background: #e6e6e6; border-radius: 999px; overflow: hidden; }
+  .progress-thin > div { height: 100%; background: #000; transition: width 0.3s; border-radius: 999px; }
+  .progress-thin.lime > div { background: #ade900; }
+
+  .toggle { position: relative; display: inline-block; width: 36px; height: 20px; cursor: pointer; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle .track { position: absolute; inset: 0; background: #cfcfcf; border-radius: 999px; transition: 0.2s; }
+  .toggle .knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 999px; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+  .toggle input:checked + .track { background: #ade900; }
+  .toggle input:checked + .track .knob { transform: translateX(16px); }
+
+  hr.hairline { border: 0; height: 1px; background: #e6e6e6; }
+  .hero-gradient { background: linear-gradient(180deg, #faf9f7 0%, #faf9f7 60%, #ebffb140 100%); }
+</style>
+</head>
+<body>
+
+<!-- TOP MOCKUP SWITCHER -->
+<div class="border-b border-cloud" style="background:#faf9f7;">
+  <div class="max-w-[1400px] mx-auto px-8 py-3 flex items-center gap-1 overflow-x-auto">
+    <span class="eyebrow whitespace-nowrap mr-4">Мокап v4</span>
+    <button onclick="showView('lead-list')" id="tab-lead-list" class="nav-tab whitespace-nowrap">Lead — мои дизайнеры</button>
+    <button onclick="showView('lead')" id="tab-lead" class="nav-tab active whitespace-nowrap">Lead — оценка</button>
+    <button onclick="showView('designer')" id="tab-designer" class="nav-tab whitespace-nowrap">Designer — портрет</button>
+    <button onclick="showView('admin-users')" id="tab-admin-users" class="nav-tab whitespace-nowrap">Admin — пользователи</button>
+    <button onclick="showView('admin')" id="tab-admin" class="nav-tab whitespace-nowrap">Admin — матрица</button>
+    <span class="ml-auto text-xs text-stone whitespace-nowrap pl-4">v0.4 · Base44 · skill toggle · users CRUD</span>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- VIEW: LEAD — MY DESIGNERS LIST                                -->
+<!-- ============================================================ -->
+<section id="view-lead-list" class="view hidden">
+  <header class="border-b border-cloud" style="background:#faf9f7;">
+    <div class="max-w-[1300px] mx-auto px-8 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-10">
+        <div class="display-tight text-2xl">Грейды</div>
+        <nav class="flex items-center gap-7">
+          <a class="nav-link">Мои дизайнеры</a>
+          <a class="nav-link muted">Все оценки</a>
+        </nav>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="text-right">
+          <div class="text-sm font-medium">Pavel G.</div>
+          <div class="text-xs text-stone">Дизайн-лид · Inhouse</div>
+        </div>
+        <div class="w-9 h-9 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium">PG</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="hero-gradient">
+    <div class="max-w-[1300px] mx-auto px-8 pt-16 pb-12">
+      <div class="eyebrow mb-3">Цикл апрель 2026 · до конца цикла 12 дней</div>
+      <h1 class="display text-6xl mb-3" style="line-height:1.05;">Мои дизайнеры</h1>
+      <p class="text-stone text-base max-w-xl leading-relaxed">5 дизайнеров под твоим лидерством. 3 оценки опубликовано, 1 в черновике, 1 ещё не начата.</p>
+    </div>
+  </div>
+
+  <div class="max-w-[1300px] mx-auto px-8 pb-20">
+    <div class="flex items-center gap-2 mb-6 mt-2 flex-wrap">
+      <button class="pill-tab active">Все · 5</button>
+      <button class="pill-tab">Не оценено · 1</button>
+      <button class="pill-tab">Черновик · 1</button>
+      <button class="pill-tab">Опубликовано · 3</button>
+      <span class="ml-auto"><input type="text" placeholder="Поиск дизайнера…" class="input-base" style="width:280px;"></span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-5">
+      <!-- Designer card 1: published -->
+      <article class="card p-7 hover:shadow-soft-lg transition-shadow cursor-pointer" onclick="showView('lead')">
+        <div class="flex items-start justify-between mb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-pill bg-canvas flex items-center justify-center text-base font-medium">ИП</div>
+            <div>
+              <div class="display-tight text-xl">Иван Петров</div>
+              <div class="flex items-center gap-2 text-xs mt-1">
+                <span class="flex items-center"><span class="build-dot build-creator"></span><span>Создатель</span></span>
+                <span class="text-ash">·</span>
+                <span class="text-stone">Inhouse</span>
+              </div>
+            </div>
+          </div>
+          <span class="grade-pill passed">Опубликовано</span>
+        </div>
+        <div class="grid grid-cols-3 gap-4 pt-4 border-t border-cloud">
+          <div>
+            <div class="eyebrow mb-1">Грейд</div>
+            <div class="display text-2xl">Мидл</div>
+          </div>
+          <div>
+            <div class="eyebrow mb-1">XP</div>
+            <div class="display text-2xl">162</div>
+            <div class="text-xs text-stone mt-0.5">из 255</div>
+          </div>
+          <div>
+            <div class="eyebrow mb-1">До Мидл+</div>
+            <div class="display text-2xl">18</div>
+            <div class="text-xs text-stone mt-0.5">XP и 5 гейтов</div>
+          </div>
+        </div>
+        <div class="mt-4 text-xs text-stone">Опубликовано 28.04.2026</div>
+      </article>
+
+      <!-- Designer card 2: draft -->
+      <article class="card p-7 hover:shadow-soft-lg transition-shadow cursor-pointer" style="border:1px solid #ade90040;">
+        <div class="flex items-start justify-between mb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-pill bg-canvas flex items-center justify-center text-base font-medium">МА</div>
+            <div>
+              <div class="display-tight text-xl">Мария Алексеева</div>
+              <div class="flex items-center gap-2 text-xs mt-1">
+                <span class="flex items-center"><span class="build-dot build-visioner"></span><span>Визионер</span></span>
+                <span class="text-ash">·</span>
+                <span class="text-stone">Create</span>
+              </div>
+            </div>
+          </div>
+          <span class="grade-pill" style="background:#fff7e6; color:#d8723c; border:1px solid #d8723c40;">Черновик</span>
+        </div>
+        <div class="grid grid-cols-3 gap-4 pt-4 border-t border-cloud">
+          <div>
+            <div class="eyebrow mb-1">Прогноз грейда</div>
+            <div class="display text-2xl">Джун+</div>
+          </div>
+          <div>
+            <div class="eyebrow mb-1">XP</div>
+            <div class="display text-2xl">98</div>
+            <div class="text-xs text-stone mt-0.5">из 244</div>
+          </div>
+          <div>
+            <div class="eyebrow mb-1">Заполнено</div>
+            <div class="display text-2xl">23/51</div>
+            <div class="progress-thin lime mt-2"><div style="width:45%"></div></div>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center justify-between">
+          <span class="text-xs text-stone">Черновик создан 02.05.2026</span>
+          <button class="btn-ghost" style="padding:5px 14px; font-size:12px;">Продолжить →</button>
+        </div>
+      </article>
+
+      <!-- Designer card 3: published -->
+      <article class="card p-7 hover:shadow-soft-lg transition-shadow cursor-pointer">
+        <div class="flex items-start justify-between mb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-pill bg-canvas flex items-center justify-center text-base font-medium">АС</div>
+            <div>
+              <div class="display-tight text-xl">Анна Соколова</div>
+              <div class="flex items-center gap-2 text-xs mt-1">
+                <span class="flex items-center"><span class="build-dot build-navigator"></span><span>Навигатор</span></span>
+                <span class="text-ash">·</span>
+                <span class="text-stone">Improve</span>
+              </div>
+            </div>
+          </div>
+          <span class="grade-pill passed">Опубликовано</span>
+        </div>
+        <div class="grid grid-cols-3 gap-4 pt-4 border-t border-cloud">
+          <div>
+            <div class="eyebrow mb-1">Грейд</div>
+            <div class="display text-2xl">Мидл+</div>
+          </div>
+          <div>
+            <div class="eyebrow mb-1">XP</div>
+            <div class="display text-2xl">203</div>
+            <div class="text-xs text-stone mt-0.5">из 250</div>
+          </div>
+          <div>
+            <div class="eyebrow mb-1">До Синьор</div>
+            <div class="display text-2xl">27</div>
+            <div class="text-xs text-stone mt-0.5">XP и 5 гейтов</div>
+          </div>
+        </div>
+        <div class="mt-4 text-xs text-stone">Опубликовано 25.04.2026</div>
+      </article>
+
+      <!-- Designer card 4: not started -->
+      <article class="card p-7 hover:shadow-soft-lg transition-shadow cursor-pointer" style="border:1px dashed #cfcfcf;">
+        <div class="flex items-start justify-between mb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-pill bg-canvas flex items-center justify-center text-base font-medium">ДК</div>
+            <div>
+              <div class="display-tight text-xl">Дмитрий Климов</div>
+              <div class="flex items-center gap-2 text-xs mt-1">
+                <span class="flex items-center"><span class="build-dot build-creator"></span><span>Создатель</span></span>
+                <span class="text-ash">·</span>
+                <span class="text-stone">Inhouse · новичок</span>
+              </div>
+            </div>
+          </div>
+          <span class="grade-pill locked">Не начато</span>
+        </div>
+        <div class="text-sm text-stone leading-relaxed">Найм 02.04.2026. Цикл Apr 2026 — первый. Прошлой оценки нет.</div>
+        <div class="mt-4 flex items-center justify-end">
+          <button class="btn-primary" style="padding:6px 16px; font-size:13px;">Начать оценку</button>
+        </div>
+      </article>
+
+      <!-- Designer card 5: published with floor -->
+      <article class="card p-7 hover:shadow-soft-lg transition-shadow cursor-pointer">
+        <div class="flex items-start justify-between mb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-pill bg-canvas flex items-center justify-center text-base font-medium">ОТ</div>
+            <div>
+              <div class="display-tight text-xl">Олег Терехов</div>
+              <div class="flex items-center gap-2 text-xs mt-1">
+                <span class="flex items-center"><span class="build-dot build-visioner"></span><span>Визионер</span></span>
+                <span class="text-ash">·</span>
+                <span class="text-stone">Create</span>
+                <span class="text-ash">·</span>
+                <span class="text-sunset font-medium">grade floor: Мидл</span>
+              </div>
+            </div>
+          </div>
+          <span class="grade-pill passed">Опубликовано</span>
+        </div>
+        <div class="grid grid-cols-3 gap-4 pt-4 border-t border-cloud">
+          <div>
+            <div class="eyebrow mb-1">Эфф. грейд</div>
+            <div class="display text-2xl">Мидл</div>
+            <div class="text-xs text-sunset mt-0.5">зафиксирован</div>
+          </div>
+          <div>
+            <div class="eyebrow mb-1">Расчёт</div>
+            <div class="display text-2xl text-stone">Джун+</div>
+            <div class="text-xs text-stone mt-0.5">115 XP</div>
+          </div>
+          <div>
+            <div class="eyebrow mb-1">XP</div>
+            <div class="display text-2xl">115</div>
+            <div class="text-xs text-stone mt-0.5">из 244</div>
+          </div>
+        </div>
+        <div class="mt-4 text-xs text-stone">Опубликовано 27.04.2026 · переход со старой системы</div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- VIEW: LEAD - ASSESSMENT FORM                                  -->
+<!-- ============================================================ -->
+<section id="view-lead" class="view">
+  <header class="border-b border-cloud" style="background:#faf9f7;">
+    <div class="max-w-[1400px] mx-auto px-8 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-10">
+        <div class="display-tight text-2xl">Грейды</div>
+        <nav class="flex items-center gap-7">
+          <a class="nav-link cursor-pointer" onclick="showView('lead-list')">Мои дизайнеры</a>
+          <a class="nav-link muted">Все оценки</a>
+        </nav>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="text-right">
+          <div class="text-sm font-medium">Pavel G.</div>
+          <div class="text-xs text-stone">Дизайн-лид · Inhouse</div>
+        </div>
+        <div class="w-9 h-9 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium">PG</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-[1400px] mx-auto px-8 pt-10 pb-8">
+    <div class="text-xs text-stone mb-3">
+      <a class="hover:underline cursor-pointer" onclick="showView('lead-list')">Мои дизайнеры</a> <span class="text-ash mx-1.5">/</span> Иван Петров
+    </div>
+    <div class="flex items-end justify-between gap-8">
+      <div>
+        <div class="eyebrow mb-2">Цикл апрель 2026 · черновик оценки</div>
+        <h1 class="display text-5xl mb-4" style="line-height:1.05;">Иван Петров</h1>
+        <div class="flex items-center gap-3 text-sm">
+          <span class="flex items-center"><span class="build-dot build-creator"></span><span>Создатель</span></span>
+          <span class="text-ash">·</span>
+          <span class="text-stone">Inhouse</span>
+          <span class="text-ash">·</span>
+          <span class="text-stone">Текущий <span class="text-ink font-medium">Мидл</span></span>
+          <span class="text-ash">·</span>
+          <span class="text-stone">Найм 14.03.2024</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="saveIndicator" class="text-xs text-stone opacity-0">сохранено</span>
+        <button class="btn-ghost">Отменить черновик</button>
+        <button id="publishBtn" class="btn-primary">Опубликовать</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-[1400px] mx-auto px-8 pb-16">
+    <div class="grid grid-cols-12 gap-8">
+      <!-- LEFT NAV -->
+      <aside class="col-span-3">
+        <div class="sticky top-6 card p-6">
+          <div class="eyebrow mb-4">Скиллы</div>
+          <div id="skillNav" class="space-y-3.5"></div>
+          <hr class="hairline my-5">
+          <div class="eyebrow mb-2">Заполнено</div>
+          <div class="flex items-baseline gap-1.5 mb-2">
+            <span id="filledCount" class="display text-3xl">0</span>
+            <span class="text-sm text-stone">/ <span id="totalCount">0</span></span>
+          </div>
+          <div class="progress-thin lime"><div id="fillBar" style="width:0%"></div></div>
+        </div>
+      </aside>
+
+      <!-- CENTER: skill cards -->
+      <main class="col-span-6">
+        <div id="skillsList" class="space-y-6"></div>
+      </main>
+
+      <!-- RIGHT: live calc + notes -->
+      <aside class="col-span-3">
+        <div class="sticky top-6 space-y-5">
+          <div class="card p-6">
+            <div class="eyebrow mb-2">Прогноз грейда</div>
+            <div id="predictedGrade" class="display text-5xl mb-2" style="line-height:1;">Мидл</div>
+            <div id="gradeNote" class="text-xs text-stone mb-5 leading-relaxed">До «Мидл+» нужно ещё 18 XP</div>
+            <hr class="hairline mb-4">
+            <div class="flex items-baseline gap-1.5 mb-2">
+              <span id="totalXp" class="display text-4xl">162</span>
+              <span class="text-sm text-stone">/ 255 XP</span>
+            </div>
+            <div class="progress-thin lime mb-5"><div id="totalBar" style="width:63%"></div></div>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between"><span class="text-stone">UI</span><span id="xp-UI" class="font-mono text-xs">27</span></div>
+              <div class="flex justify-between"><span class="text-stone">UX</span><span id="xp-UX" class="font-mono text-xs">35</span></div>
+              <div class="flex justify-between"><span class="text-stone">PRD</span><span id="xp-PRD" class="font-mono text-xs">19</span></div>
+              <div class="flex justify-between"><span class="text-stone">IND</span><span id="xp-IND" class="font-mono text-xs">43</span></div>
+              <div class="flex justify-between"><span class="text-stone">RES</span><span id="xp-RES" class="font-mono text-xs">38</span></div>
+            </div>
+          </div>
+
+          <div class="card p-6">
+            <div class="eyebrow mb-3">Гейты на «Мидл+»</div>
+            <div class="space-y-2.5 text-sm">
+              <div class="flex items-start gap-2"><span class="text-ink mt-0.5 text-xs">●</span><span>UX/Кросс-платформа: Мастер</span></div>
+              <div class="flex items-start gap-2"><span class="text-ink mt-0.5 text-xs">●</span><span>UX/Прототипирование: AI-сборка</span></div>
+              <div class="flex items-start gap-2"><span class="text-stone mt-0.5 text-xs">○</span><span class="text-stone">IND/Защита: Мастер</span></div>
+              <div class="flex items-start gap-2"><span class="text-stone mt-0.5 text-xs">○</span><span class="text-stone">PRD/Структура: Userflow</span></div>
+              <div class="flex items-start gap-2"><span class="text-stone mt-0.5 text-xs">○</span><span class="text-stone">RES/Тех-чеккинг: Мастер</span></div>
+            </div>
+          </div>
+
+          <div class="card p-6">
+            <div class="flex items-center justify-between mb-3">
+              <div class="eyebrow">Заметки лида</div>
+              <span class="text-xs text-stone">приватно</span>
+            </div>
+            <textarea class="input-base text-xs" rows="5" placeholder="Контекст по дизайнеру…">Перешёл со старой системы грейдов в апреле 2026. По прошлой шкале был «Мидл», по новой матрице набирает 162 XP — соответствует Мидл. Договорённость: уровни не откатываем.</textarea>
+            <div class="text-xs text-stone mt-2">Видны только лидам и админам. Не показываются дизайнеру.</div>
+          </div>
+
+          <div class="floor-banner">
+            <div class="flex items-center justify-between mb-2">
+              <div class="eyebrow" style="color:#000;">Зафиксированный грейд</div>
+              <label class="toggle">
+                <input type="checkbox" checked>
+                <span class="track"><span class="knob"></span></span>
+              </label>
+            </div>
+            <div class="text-xs text-graphite mb-3 leading-relaxed">Грейд не может опуститься ниже:</div>
+            <select class="input-base text-sm">
+              <option>Мидл</option>
+              <option>Джун+</option>
+              <option>Джун</option>
+              <option>Intern</option>
+            </select>
+            <div class="text-xs text-stone mt-2 leading-relaxed">Если расчёт по XP даст более низкий грейд, в портрете будет показан этот.</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- VIEW: DESIGNER PORTRAIT                                       -->
+<!-- ============================================================ -->
+<section id="view-designer" class="view hidden">
+  <header class="border-b border-cloud" style="background:#faf9f7;">
+    <div class="max-w-[1200px] mx-auto px-8 py-4 flex items-center justify-between">
+      <div class="display-tight text-2xl">Грейды</div>
+      <div class="flex items-center gap-3">
+        <div class="text-right">
+          <div class="text-sm font-medium">Иван Петров</div>
+          <div class="text-xs text-stone">Дизайнер · Inhouse</div>
+        </div>
+        <div class="w-9 h-9 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium">ИП</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="hero-gradient">
+    <div class="max-w-[1200px] mx-auto px-8 pt-14 pb-10">
+      <div class="grid grid-cols-12 gap-12 items-center">
+        <div class="col-span-7">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="flex items-center text-sm"><span class="build-dot build-creator"></span><span class="font-medium">Создатель</span></span>
+            <span class="text-ash">·</span>
+            <span class="text-xs text-stone">Опубликовано 28.04.2026</span>
+            <span class="text-ash">·</span>
+            <span class="text-xs text-stone">Лидом Pavel G.</span>
+          </div>
+          <div class="eyebrow mb-3">Текущий грейд</div>
+          <h1 class="display mb-5" style="font-size:96px; line-height:0.95; letter-spacing:-0.04em;">Мидл</h1>
+          <div class="flex items-baseline gap-3">
+            <span class="display text-3xl">162</span>
+            <span class="text-stone text-sm">XP, максимум для билда 255</span>
+          </div>
+        </div>
+        <div class="col-span-5">
+          <div class="card-prominent p-6">
+            <canvas id="radarChart" width="380" height="380"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-[1200px] mx-auto px-8 py-12">
+    <div class="floor-banner mb-12">
+      <div class="flex items-start gap-3">
+        <span class="text-xl leading-none mt-0.5">●</span>
+        <div class="flex-1">
+          <div class="font-medium text-sm mb-1.5">Грейд зафиксирован при переходе со старой системы</div>
+          <div class="text-xs text-graphite leading-relaxed">По расчёту новой матрицы у тебя <span class="font-medium">Мидл</span> (162 XP). При переходе со старой шкалы лид зафиксировал минимальный грейд — <span class="font-medium">Мидл</span>. Если бы XP давало меньше, всё равно показывался бы Мидл.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-14">
+      <div class="eyebrow mb-3">До следующего грейда</div>
+      <div class="display text-4xl mb-4" style="line-height:1.1;">«Мидл+»: ещё 18 XP и 5 гейтов</div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="grade-pill locked">UX/Кросс-платформа: Мастер</span>
+        <span class="grade-pill locked">UX/Прототипирование: AI-сборка</span>
+        <span class="grade-pill locked">IND/Защита: Мастер</span>
+        <span class="grade-pill locked">PRD/Структура: Userflow</span>
+        <span class="grade-pill locked">RES/Тех-чеккинг: Мастер</span>
+      </div>
+    </div>
+
+    <hr class="hairline mb-14">
+
+    <div class="mb-14">
+      <div class="flex items-end justify-between mb-7">
+        <div>
+          <div class="eyebrow mb-2">Гейты грейдов</div>
+          <h2 class="display text-3xl">XP-пороги и обязательные навыки</h2>
+        </div>
+        <div class="text-xs text-stone">по матрице v3 для билда «Создатель»</div>
+      </div>
+
+      <div class="card-prominent p-8 mb-6">
+        <div class="relative pt-2 pb-1">
+          <div class="absolute h-1 bg-cloud left-0 right-0 rounded-pill" style="top:14px;"></div>
+          <div class="absolute h-1 bg-lime left-0 rounded-pill" style="top:14px; width:65%;"></div>
+          <div class="grid grid-cols-6 relative" style="z-index:1;">
+            <div class="text-center">
+              <div class="w-3.5 h-3.5 mx-auto rounded-pill bg-ink ring-4 ring-canvas" style="margin-top:9px;"></div>
+              <div class="text-xs font-medium mt-3">Intern</div>
+              <div class="text-xs text-stone">— XP</div>
+            </div>
+            <div class="text-center">
+              <div class="w-3.5 h-3.5 mx-auto rounded-pill bg-ink ring-4 ring-canvas" style="margin-top:9px;"></div>
+              <div class="text-xs font-medium mt-3">Джун</div>
+              <div class="text-xs text-stone">от 0</div>
+            </div>
+            <div class="text-center">
+              <div class="w-3.5 h-3.5 mx-auto rounded-pill bg-ink ring-4 ring-canvas" style="margin-top:9px;"></div>
+              <div class="text-xs font-medium mt-3">Джун+</div>
+              <div class="text-xs text-stone">от 70</div>
+            </div>
+            <div class="text-center">
+              <div class="w-6 h-6 mx-auto rounded-pill bg-ink ring-4 ring-canvas" style="margin-top:3px;"></div>
+              <div class="text-xs font-semibold mt-2">Мидл ←</div>
+              <div class="text-xs text-stone">от 120</div>
+            </div>
+            <div class="text-center">
+              <div class="w-3.5 h-3.5 mx-auto rounded-pill bg-cloud ring-4 ring-canvas" style="margin-top:9px;"></div>
+              <div class="text-xs font-medium mt-3 text-stone">Мидл+</div>
+              <div class="text-xs text-stone">от 180</div>
+            </div>
+            <div class="text-center">
+              <div class="w-3.5 h-3.5 mx-auto rounded-pill bg-cloud ring-4 ring-canvas" style="margin-top:9px;"></div>
+              <div class="text-xs font-medium mt-3 text-stone">Синьор</div>
+              <div class="text-xs text-stone">от 230</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-flat overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-cloud">
+              <th class="text-left py-3.5 px-6 font-normal eyebrow">Грейд</th>
+              <th class="text-left py-3.5 px-6 font-normal eyebrow">Порог XP</th>
+              <th class="text-left py-3.5 px-6 font-normal eyebrow">Обязательные навыки (Создатель)</th>
+              <th class="text-center py-3.5 px-6 font-normal eyebrow w-32">Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="gate-row passed border-t border-cloud">
+              <td class="py-4 px-6 font-medium">Джун</td>
+              <td class="py-4 px-6"><span class="text-stone">от 0</span> · <span class="text-ink">162 ✓</span></td>
+              <td class="py-4 px-6 text-xs text-stone">Базовый: Figma, типография, чистота слоёв</td>
+              <td class="py-4 px-6 text-center"><span class="grade-pill passed">Пройден</span></td>
+            </tr>
+            <tr class="gate-row passed border-t border-cloud">
+              <td class="py-4 px-6 font-medium">Джун+</td>
+              <td class="py-4 px-6"><span class="text-stone">от 70</span> · <span class="text-ink">162 ✓</span></td>
+              <td class="py-4 px-6 text-xs text-stone">UI/Концептинг L1 ✓ · UX/Прототипирование L1 ✓ · UX/Компоненты Освоен ✓ · RES/Аккуратность ✓ · IND/Оптимизация ✓</td>
+              <td class="py-4 px-6 text-center"><span class="grade-pill passed">Пройден</span></td>
+            </tr>
+            <tr class="gate-row current border-t border-cloud">
+              <td class="py-4 px-6 font-semibold">Мидл</td>
+              <td class="py-4 px-6"><span class="text-stone">от 120</span> · <span class="text-ink font-medium">162 ✓</span></td>
+              <td class="py-4 px-6 text-xs">UX/Компоненты Мастер ✓ · UX/Гайдинг L1 ✓ · IND/Оптимизация Мастер ✓ · PRD/Гипотезы ✓ · IND/Декомпозиция ✓ · IND/Коммуникация ✓ · RES/Design QA ✓ · RES/Саморевью ✓</td>
+              <td class="py-4 px-6 text-center"><span class="grade-pill current">Текущий</span></td>
+            </tr>
+            <tr class="gate-row failed border-t border-cloud">
+              <td class="py-4 px-6 font-medium">Мидл+</td>
+              <td class="py-4 px-6"><span class="text-stone">от 180</span> · <span class="text-stone">162</span> <span class="text-xs">(−18)</span></td>
+              <td class="py-4 px-6 text-xs">UX/Кросс-платформа Мастер · UX/Прототипирование L2 · IND/Защита Мастер · IND/Сложные задачи · RES/Ревью · PRD/Структура L2 · RES/Тех-чеккинг Мастер</td>
+              <td class="py-4 px-6 text-center"><span class="grade-pill locked">Не пройден</span></td>
+            </tr>
+            <tr class="gate-row failed border-t border-cloud">
+              <td class="py-4 px-6 font-medium">Синьор</td>
+              <td class="py-4 px-6"><span class="text-stone">от 230</span> · <span class="text-stone">162</span> <span class="text-xs">(−68)</span></td>
+              <td class="py-4 px-6 text-xs">IND/Проактивность · IND/Переговоры · RES/Фокус · PRD/Бизнес · RES/Процессы</td>
+              <td class="py-4 px-6 text-center"><span class="grade-pill locked">Не пройден</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-4 text-xs text-stone leading-relaxed max-w-3xl">
+        Двойной гейт: чтобы получить грейд, должны быть выполнены <span class="text-ink">и порог XP, и все обязательные навыки</span>. Если XP набрано, но один из гейтов-навыков не освоен — грейд не присваивается (антифарм).
+      </div>
+    </div>
+
+    <div class="mb-14">
+      <div class="eyebrow mb-4">Освоенные навыки по уровням</div>
+      <div class="grid grid-cols-4 gap-6">
+        <div class="card p-5">
+          <div class="flex items-center gap-2 mb-4 pb-3 border-b border-lime/40">
+            <span class="text-lime text-xs">●</span>
+            <span class="text-sm font-semibold">Джун+</span>
+          </div>
+          <div class="space-y-2.5 text-sm">
+            <div>UI/Концептинг — L1</div>
+            <div>UX/Прототипирование — L1</div>
+            <div>UX/Компоненты — Освоен</div>
+            <div>RES/Аккуратность — Освоен</div>
+            <div>IND/Оптимизация — Освоен</div>
+          </div>
+        </div>
+        <div class="card p-5">
+          <div class="flex items-center gap-2 mb-4 pb-3 border-b border-lime/40">
+            <span class="text-lime text-xs">●</span>
+            <span class="text-sm font-semibold">Мидл</span>
+          </div>
+          <div class="space-y-2.5 text-sm">
+            <div>IND/Декомпозиция — Освоен</div>
+            <div>IND/Коммуникация — Освоен</div>
+            <div>RES/Design QA — Освоен</div>
+            <div>RES/Саморевью — Освоен</div>
+            <div>UX/Компоненты — Мастер</div>
+            <div>UX/Гайдинг — L1</div>
+            <div>IND/Оптимизация — Мастер</div>
+            <div>PRD/Гипотезы — Освоен</div>
+          </div>
+        </div>
+        <div class="card-flat p-5">
+          <div class="flex items-center gap-2 mb-4 pb-3 border-b border-cloud">
+            <span class="text-stone text-xs">○</span>
+            <span class="text-sm font-medium text-stone">Мидл+</span>
+          </div>
+          <div class="space-y-2.5 text-sm text-stone">
+            <div>UX/Кросс-платформа — Мастер</div>
+            <div>UX/Прототипирование — L2</div>
+            <div>IND/Защита — Мастер</div>
+            <div>IND/Сложные задачи</div>
+            <div>RES/Ревью — Освоен</div>
+            <div>PRD/Структура — Userflow</div>
+            <div>RES/Тех-чеккинг — Мастер</div>
+          </div>
+        </div>
+        <div class="card-flat p-5">
+          <div class="flex items-center gap-2 mb-4 pb-3 border-b border-cloud">
+            <span class="text-stone text-xs">○</span>
+            <span class="text-sm font-medium text-stone">Синьор</span>
+          </div>
+          <div class="space-y-2.5 text-sm text-stone">
+            <div>IND/Проактивность — Высший</div>
+            <div>IND/Переговоры — Освоен</div>
+            <div>RES/Фокус — Доведение</div>
+            <div>PRD/Бизнес — CJM покупки</div>
+            <div>RES/Процессы — Улучшение</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="flex items-end justify-between mb-5">
+        <div class="eyebrow">Все навыки</div>
+        <div class="flex gap-1.5">
+          <button class="pill-tab active">Все</button>
+          <button class="pill-tab">UI</button>
+          <button class="pill-tab">UX</button>
+          <button class="pill-tab">PRD</button>
+          <button class="pill-tab">IND</button>
+          <button class="pill-tab">RES</button>
+        </div>
+      </div>
+      <div class="card-flat overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-cloud">
+              <th class="text-left py-3 px-6 font-normal eyebrow">Скилл / Группа / Навык</th>
+              <th class="text-left py-3 px-6 font-normal eyebrow">Мастерство</th>
+              <th class="text-right py-3 px-6 font-normal eyebrow">Вес</th>
+              <th class="text-right py-3 px-6 font-normal eyebrow">XP</th>
+              <th class="text-right py-3 px-6 font-normal eyebrow">Max</th>
+            </tr>
+          </thead>
+          <tbody id="portraitSkills"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- VIEW: ADMIN — USERS                                           -->
+<!-- ============================================================ -->
+<section id="view-admin-users" class="view hidden">
+  <header class="border-b border-cloud" style="background:#faf9f7;">
+    <div class="max-w-[1400px] mx-auto px-8 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-10">
+        <div class="display-tight text-2xl">Грейды</div>
+        <nav class="flex items-center gap-7">
+          <a class="nav-link">Пользователи</a>
+          <a class="nav-link muted cursor-pointer" onclick="showView('admin')">Матрица</a>
+          <a class="nav-link muted">Оценки</a>
+          <a class="nav-link muted">Аудит-лог</a>
+        </nav>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="grade-pill" style="background:#ff631f15; color:#ff631f; border:1px solid #ff631f30;">Admin</span>
+        <div class="text-right">
+          <div class="text-sm font-medium">Pavel G.</div>
+          <div class="text-xs text-stone">Дизайн-директор</div>
+        </div>
+        <div class="w-9 h-9 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium">PG</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-[1400px] mx-auto px-8 pt-12 pb-16">
+    <div class="flex items-end justify-between mb-8">
+      <div>
+        <div class="eyebrow mb-2">Пользователи системы</div>
+        <h1 class="display text-5xl mb-2" style="line-height:1.05;">Команда</h1>
+        <div class="text-sm text-stone">28 дизайнеров · 5 лидов · 1 админ</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="btn-ghost">Импорт CSV</button>
+        <button class="btn-primary" onclick="openUserModal('new')">+ Добавить пользователя</button>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-6 flex-wrap">
+      <span class="text-xs text-stone mr-1">Роль:</span>
+      <button class="pill-tab active">Все · 34</button>
+      <button class="pill-tab">Дизайнеры · 28</button>
+      <button class="pill-tab">Лиды · 5</button>
+      <button class="pill-tab">Админы · 1</button>
+      <span class="ml-auto"><input type="text" placeholder="Поиск по имени/email…" class="input-base" style="width:280px;"></span>
+    </div>
+
+    <div class="card-flat overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-cloud">
+            <th class="text-left py-3.5 px-6 font-normal eyebrow">Имя</th>
+            <th class="text-left py-3.5 px-4 font-normal eyebrow">Роль</th>
+            <th class="text-left py-3.5 px-4 font-normal eyebrow">Билд</th>
+            <th class="text-left py-3.5 px-4 font-normal eyebrow">Отдел</th>
+            <th class="text-left py-3.5 px-4 font-normal eyebrow">Лид</th>
+            <th class="text-left py-3.5 px-4 font-normal eyebrow">Найм</th>
+            <th class="text-center py-3.5 px-4 font-normal eyebrow">Floor</th>
+            <th class="text-center py-3.5 px-4 font-normal eyebrow">Активен</th>
+            <th class="w-20"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-cloud">
+          <tr class="hover:bg-canvas">
+            <td class="py-3 px-6"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium">ИП</div><div><div class="font-medium">Иван Петров</div><div class="text-xs text-stone">ip@idaproject.com</div></div></div></td>
+            <td class="py-3 px-4 text-sm">Дизайнер</td>
+            <td class="py-3 px-4"><span class="flex items-center text-sm"><span class="build-dot build-creator"></span>Создатель</span></td>
+            <td class="py-3 px-4 text-sm">Inhouse</td>
+            <td class="py-3 px-4 text-sm">Pavel G.</td>
+            <td class="py-3 px-4 text-sm text-stone">14.03.24</td>
+            <td class="py-3 px-4 text-center text-sm text-stone">—</td>
+            <td class="py-3 px-4 text-center"><label class="toggle"><input type="checkbox" checked><span class="track"><span class="knob"></span></span></label></td>
+            <td class="py-3 px-4 text-center"><button onclick="openUserModal(0)" class="pill-tab" style="font-size:11px; padding:4px 12px;">Открыть</button></td>
+          </tr>
+          <tr class="hover:bg-canvas">
+            <td class="py-3 px-6"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium">МА</div><div><div class="font-medium">Мария Алексеева</div><div class="text-xs text-stone">ma@idaproject.com</div></div></div></td>
+            <td class="py-3 px-4 text-sm">Дизайнер</td>
+            <td class="py-3 px-4"><span class="flex items-center text-sm"><span class="build-dot build-visioner"></span>Визионер</span></td>
+            <td class="py-3 px-4 text-sm">Create</td>
+            <td class="py-3 px-4 text-sm">Pavel G.</td>
+            <td class="py-3 px-4 text-sm text-stone">22.07.25</td>
+            <td class="py-3 px-4 text-center text-sm text-stone">—</td>
+            <td class="py-3 px-4 text-center"><label class="toggle"><input type="checkbox" checked><span class="track"><span class="knob"></span></span></label></td>
+            <td class="py-3 px-4 text-center"><button onclick="openUserModal(1)" class="pill-tab" style="font-size:11px; padding:4px 12px;">Открыть</button></td>
+          </tr>
+          <tr class="hover:bg-canvas">
+            <td class="py-3 px-6"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium">ОТ</div><div><div class="font-medium">Олег Терехов</div><div class="text-xs text-stone">ot@idaproject.com</div></div></div></td>
+            <td class="py-3 px-4 text-sm">Дизайнер</td>
+            <td class="py-3 px-4"><span class="flex items-center text-sm"><span class="build-dot build-visioner"></span>Визионер</span></td>
+            <td class="py-3 px-4 text-sm">Create</td>
+            <td class="py-3 px-4 text-sm">Pavel G.</td>
+            <td class="py-3 px-4 text-sm text-stone">01.11.22</td>
+            <td class="py-3 px-4 text-center"><span class="grade-pill" style="background:#fff7e6; color:#d8723c; border:1px solid #d8723c40;">Мидл</span></td>
+            <td class="py-3 px-4 text-center"><label class="toggle"><input type="checkbox" checked><span class="track"><span class="knob"></span></span></label></td>
+            <td class="py-3 px-4 text-center"><button onclick="openUserModal(2)" class="pill-tab" style="font-size:11px; padding:4px 12px;">Открыть</button></td>
+          </tr>
+          <tr class="hover:bg-canvas">
+            <td class="py-3 px-6"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium">PG</div><div><div class="font-medium">Pavel G.</div><div class="text-xs text-stone">pg@idaproject.com</div></div></div></td>
+            <td class="py-3 px-4 text-sm font-medium">Лид</td>
+            <td class="py-3 px-4 text-sm text-stone">—</td>
+            <td class="py-3 px-4 text-sm">Inhouse</td>
+            <td class="py-3 px-4 text-sm text-stone">—</td>
+            <td class="py-3 px-4 text-sm text-stone">10.01.21</td>
+            <td class="py-3 px-4 text-center text-sm text-stone">—</td>
+            <td class="py-3 px-4 text-center"><label class="toggle"><input type="checkbox" checked><span class="track"><span class="knob"></span></span></label></td>
+            <td class="py-3 px-4 text-center"><button onclick="openUserModal(3)" class="pill-tab" style="font-size:11px; padding:4px 12px;">Открыть</button></td>
+          </tr>
+          <tr class="hover:bg-canvas" style="opacity:0.55;">
+            <td class="py-3 px-6"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium">АС</div><div><div class="font-medium">Андрей Степанов</div><div class="text-xs text-stone">as@idaproject.com</div></div></div></td>
+            <td class="py-3 px-4 text-sm">Дизайнер</td>
+            <td class="py-3 px-4"><span class="flex items-center text-sm"><span class="build-dot build-navigator"></span>Навигатор</span></td>
+            <td class="py-3 px-4 text-sm">Improve</td>
+            <td class="py-3 px-4 text-sm">Pavel G.</td>
+            <td class="py-3 px-4 text-sm text-stone">02.04.23</td>
+            <td class="py-3 px-4 text-center text-sm text-stone">—</td>
+            <td class="py-3 px-4 text-center"><label class="toggle"><input type="checkbox"><span class="track"><span class="knob"></span></span></label></td>
+            <td class="py-3 px-4 text-center"><button class="pill-tab" style="font-size:11px; padding:4px 12px;">Открыть</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-3 text-xs text-stone">Серая строка — деактивированный пользователь. Оценки сохраняются в архиве, в матрице оценки больше не показывается.</div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- VIEW: ADMIN — MATRIX                                          -->
+<!-- ============================================================ -->
+<section id="view-admin" class="view hidden">
+  <header class="border-b border-cloud" style="background:#faf9f7;">
+    <div class="max-w-[1400px] mx-auto px-8 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-10">
+        <div class="display-tight text-2xl">Грейды</div>
+        <nav class="flex items-center gap-7">
+          <a class="nav-link muted cursor-pointer" onclick="showView('admin-users')">Пользователи</a>
+          <a class="nav-link">Матрица</a>
+          <a class="nav-link muted">Оценки</a>
+          <a class="nav-link muted">Аудит-лог</a>
+        </nav>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="grade-pill" style="background:#ff631f15; color:#ff631f; border:1px solid #ff631f30;">Admin</span>
+        <div class="text-right">
+          <div class="text-sm font-medium">Pavel G.</div>
+          <div class="text-xs text-stone">Дизайн-директор</div>
+        </div>
+        <div class="w-9 h-9 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium">PG</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-[1400px] mx-auto px-8 pt-12 pb-16">
+    <div class="flex items-end justify-between mb-8">
+      <div>
+        <div class="eyebrow mb-2">Матрица v3 — действующая · 23 опубликованных оценок</div>
+        <h1 class="display text-5xl mb-2" style="line-height:1.05;">Матрица компетенций</h1>
+        <div class="text-sm text-stone">Создана 12.04.2026 · Pavel G.</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="btn-ghost">История версий</button>
+        <button class="btn-ghost">Импорт из Excel</button>
+        <button onclick="openSkillModal('new')" class="btn-ghost">+ Добавить навык</button>
+        <button class="btn-primary">Создать v4</button>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-5 flex-wrap">
+      <span class="text-xs text-stone mr-1">Скилл:</span>
+      <button class="pill-tab active">Все · 51</button>
+      <button class="pill-tab">UI</button>
+      <button class="pill-tab">UX</button>
+      <button class="pill-tab">PRD</button>
+      <button class="pill-tab">IND</button>
+      <button class="pill-tab">RES</button>
+      <span class="mx-3 text-ash">·</span>
+      <button class="pill-tab">Активные · 49</button>
+      <button class="pill-tab">Архив · 2</button>
+      <span class="ml-auto text-xs text-stone">Клик «Открыть» — полное редактирование</span>
+    </div>
+
+    <div class="card-flat overflow-hidden">
+      <table class="w-full text-sm matrix-table">
+        <thead>
+          <tr class="border-b border-cloud">
+            <th class="text-left py-3 px-6 font-normal eyebrow">Скилл / Группа / Навык</th>
+            <th class="text-center py-3 px-3 font-normal eyebrow w-16">Тип</th>
+            <th class="text-center py-3 px-3 font-normal eyebrow w-16">Max ур.</th>
+            <th class="text-center py-3 px-3 font-normal eyebrow w-24"><span class="build-dot build-creator"></span>Создатель</th>
+            <th class="text-center py-3 px-3 font-normal eyebrow w-24"><span class="build-dot build-visioner"></span>Визионер</th>
+            <th class="text-center py-3 px-3 font-normal eyebrow w-24"><span class="build-dot build-navigator"></span>Навигатор</th>
+            <th class="text-center py-3 px-3 font-normal eyebrow w-16">Гейт?</th>
+            <th class="text-center py-3 px-3 font-normal eyebrow w-16">Max XP</th>
+            <th class="text-center py-3 px-3 font-normal eyebrow w-20">Активен</th>
+            <th class="w-20"></th>
+          </tr>
+        </thead>
+        <tbody id="matrixTable"></tbody>
+      </table>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4 mt-6">
+      <div class="card p-5">
+        <div class="flex items-center gap-2 mb-2"><span class="build-dot build-creator"></span><span class="text-sm font-medium">Создатель</span></div>
+        <div class="display text-3xl">255</div>
+        <div class="text-xs text-stone mt-1">Σ MAX XP · порог Синьор: 230</div>
+      </div>
+      <div class="card p-5">
+        <div class="flex items-center gap-2 mb-2"><span class="build-dot build-visioner"></span><span class="text-sm font-medium">Визионер</span></div>
+        <div class="display text-3xl">244</div>
+        <div class="text-xs text-stone mt-1">Σ MAX XP · порог Синьор: 230</div>
+      </div>
+      <div class="card p-5">
+        <div class="flex items-center gap-2 mb-2"><span class="build-dot build-navigator"></span><span class="text-sm font-medium">Навигатор</span></div>
+        <div class="display text-3xl">250</div>
+        <div class="text-xs text-stone mt-1">Σ MAX XP · порог Синьор: 230</div>
+      </div>
+    </div>
+
+    <div class="card p-6 mt-6 floor-banner">
+      <div class="flex items-start justify-between gap-6">
+        <div class="flex-1">
+          <div class="font-medium text-sm mb-1.5">Безвозвратное удаление неактивных навыков</div>
+          <div class="text-xs text-graphite leading-relaxed">В архиве 2 неактивных навыка. Их можно удалить из системы безвозвратно. Это удалит их и из старых snapshot-оценок (старые портреты могут немного измениться, XP пересчитается без них).</div>
+        </div>
+        <button class="btn-orange whitespace-nowrap">Удалить 2 архивных навыка</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- MODAL: USER EDIT                                              -->
+<!-- ============================================================ -->
+<div id="userModal" class="fixed inset-0 z-50 hidden">
+  <div class="modal-backdrop absolute inset-0" onclick="closeUserModal()"></div>
+  <div class="absolute inset-0 flex items-start justify-center pt-10 pb-10 px-4 overflow-y-auto">
+    <div class="relative bg-canvas w-full max-w-2xl" style="border-radius:16px; box-shadow:0 24px 60px rgba(35,37,41,0.18);">
+      <div class="sticky top-0 px-7 py-4 flex items-center justify-between rounded-t-modal border-b border-cloud z-10" style="background:#faf9f7;">
+        <div>
+          <div class="eyebrow" id="userModalBreadcrumb">Команда / Дизайнер</div>
+          <h2 class="display-tight text-2xl mt-0.5" id="userModalTitle">Иван Петров</h2>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="closeUserModal()" class="btn-ghost">Отмена</button>
+          <button onclick="saveUser()" class="btn-primary">Сохранить</button>
+        </div>
+      </div>
+      <div class="p-7 space-y-7 bg-snow">
+        <section>
+          <div class="eyebrow mb-3">Основное</div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs text-stone mb-1.5">ФИО</label>
+              <input class="input-base" value="Иван Петров">
+            </div>
+            <div>
+              <label class="block text-xs text-stone mb-1.5">Email</label>
+              <input class="input-base" value="ip@idaproject.com">
+            </div>
+            <div>
+              <label class="block text-xs text-stone mb-1.5">Роль</label>
+              <select class="input-base"><option>Дизайнер</option><option>Лид</option><option>Админ</option></select>
+            </div>
+            <div>
+              <label class="block text-xs text-stone mb-1.5">Билд</label>
+              <select class="input-base"><option>Создатель</option><option>Визионер</option><option>Навигатор</option></select>
+            </div>
+            <div>
+              <label class="block text-xs text-stone mb-1.5">Отдел</label>
+              <select class="input-base"><option>Inhouse</option><option>Create</option><option>Improve</option></select>
+            </div>
+            <div>
+              <label class="block text-xs text-stone mb-1.5">Лид</label>
+              <select class="input-base"><option>Pavel G.</option><option>Не назначен</option></select>
+            </div>
+            <div>
+              <label class="block text-xs text-stone mb-1.5">Дата найма</label>
+              <input type="date" class="input-base" value="2024-03-14">
+            </div>
+            <div>
+              <label class="block text-xs text-stone mb-1.5">Активен</label>
+              <div class="flex items-center gap-3 pt-2.5">
+                <label class="toggle"><input type="checkbox" checked><span class="track"><span class="knob"></span></span></label>
+                <span class="text-sm">Учётка активна</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="floor-banner">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <div class="font-medium text-sm">Зафиксированный грейд (grade floor)</div>
+              <div class="text-xs text-graphite mt-0.5">Используется при переходе со старой системы — чтобы не откатывать уровень</div>
+            </div>
+            <label class="toggle"><input type="checkbox"><span class="track"><span class="knob"></span></span></label>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mt-4">
+            <div>
+              <label class="block text-xs text-graphite mb-1.5">Минимальный грейд</label>
+              <select class="input-base text-sm" disabled style="opacity:0.6;"><option>Не задан</option><option>Intern</option><option>Джун</option><option>Джун+</option><option>Мидл</option><option>Мидл+</option><option>Синьор</option></select>
+            </div>
+            <div>
+              <label class="block text-xs text-graphite mb-1.5">Обоснование</label>
+              <input class="input-base text-sm" disabled style="opacity:0.6;" placeholder="Например: переход со старой системы">
+            </div>
+          </div>
+          <div class="text-xs text-stone mt-3">
+            <strong class="text-graphite">Правило:</strong> Понижение grade_floor — только Admin, с подтверждением. Все изменения фиксируются в аудит-логе.
+          </div>
+        </section>
+
+        <section>
+          <div class="eyebrow mb-3">Заметка по дизайнеру</div>
+          <textarea rows="4" class="input-base text-sm" placeholder="Контекст, договорённости, особенности — приватно для лидов и админов"></textarea>
+          <div class="text-xs text-stone mt-2">Не показывается дизайнеру. Привязана к человеку, переживает циклы.</div>
+        </section>
+
+        <section>
+          <div class="eyebrow mb-3">Опасная зона</div>
+          <div class="card-flat p-5 flex items-center justify-between">
+            <div>
+              <div class="font-medium text-sm">Удалить пользователя</div>
+              <div class="text-xs text-stone mt-1">История оценок сохранится в архиве. Действие необратимо.</div>
+            </div>
+            <button class="btn-orange">Удалить</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL: SKILL EDIT                                             -->
+<!-- ============================================================ -->
+<div id="skillModal" class="fixed inset-0 z-50 hidden">
+  <div class="modal-backdrop absolute inset-0" onclick="closeSkillModal()"></div>
+  <div class="absolute inset-0 flex items-start justify-center pt-10 pb-10 px-4 overflow-y-auto">
+    <div class="relative bg-canvas w-full max-w-4xl" style="border-radius:16px; box-shadow:0 24px 60px rgba(35,37,41,0.18);">
+      <div class="sticky top-0 px-7 py-4 flex items-center justify-between rounded-t-modal border-b border-cloud z-10" style="background:#faf9f7;">
+        <div>
+          <div class="eyebrow" id="modalBreadcrumb">Матрица v3 / UI / Реализация</div>
+          <h2 class="display-tight text-2xl mt-0.5" id="modalTitle">Концептинг</h2>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 mr-2">
+            <span class="text-xs text-stone">Активен</span>
+            <label class="toggle"><input type="checkbox" checked id="m_active"><span class="track"><span class="knob"></span></span></label>
+          </div>
+          <button onclick="closeSkillModal()" class="btn-ghost">Отмена</button>
+          <button onclick="saveSkill()" class="btn-primary">Сохранить</button>
+        </div>
+      </div>
+
+      <div class="p-7 space-y-7 bg-snow">
+        <section>
+          <div class="eyebrow mb-3">Основное</div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs text-stone mb-1.5">Скилл</label>
+              <select id="m_tax" class="input-base"><option>UI · Визуальное</option><option>UX · Сценарии</option><option>PRD · Продукт</option><option>IND · Самостоятельность</option><option>RES · Результативность</option></select>
+            </div>
+            <div>
+              <label class="block text-xs text-stone mb-1.5">Группа</label>
+              <select id="m_group" class="input-base"><option>Реализация</option><option>Интеграция</option><option>Моушен</option><option>AI</option></select>
+            </div>
+            <div>
+              <label class="block text-xs text-stone mb-1.5">Название навыка</label>
+              <input id="m_name" class="input-base" value="Концептинг">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-stone mb-1.5">Тип</label>
+                <select id="m_type" class="input-base"><option value="CORE">CORE — основной</option><option value="SEC">SEC — вторичный</option></select>
+              </div>
+              <div>
+                <label class="block text-xs text-stone mb-1.5">Max уровень</label>
+                <input id="m_max" type="number" min="1" max="5" value="4" class="input-base">
+              </div>
+            </div>
+            <div class="col-span-2">
+              <label class="block text-xs text-stone mb-1.5">Описание (italic в карточке)</label>
+              <textarea id="m_desc" rows="3" class="input-base" style="font-style:italic;">Навык формирования целостного и масштабируемого визуального решения...</textarea>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="eyebrow mb-3">Веса по билдам</div>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="card-flat p-4">
+              <div class="flex items-center gap-2 mb-3"><span class="build-dot build-creator"></span><span class="text-sm font-medium">Создатель</span></div>
+              <input type="number" min="0" max="5" step="0.5" value="4" class="input-base text-center">
+              <div class="text-xs text-stone mt-2">Max XP = 4 × 4 = <span class="font-medium text-ink">16</span></div>
+            </div>
+            <div class="card-flat p-4">
+              <div class="flex items-center gap-2 mb-3"><span class="build-dot build-visioner"></span><span class="text-sm font-medium">Визионер</span></div>
+              <input type="number" min="0" max="5" step="0.5" value="5" class="input-base text-center">
+              <div class="text-xs text-stone mt-2">Max XP = 4 × 5 = <span class="font-medium text-ink">20</span></div>
+            </div>
+            <div class="card-flat p-4">
+              <div class="flex items-center gap-2 mb-3"><span class="build-dot build-navigator"></span><span class="text-sm font-medium">Навигатор</span></div>
+              <input type="number" min="0" max="5" step="0.5" value="3" class="input-base text-center">
+              <div class="text-xs text-stone mt-2">Max XP = 4 × 3 = <span class="font-medium text-ink">12</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="flex items-center justify-between mb-3">
+            <div class="eyebrow">Уровни мастерства</div>
+            <button class="btn-ghost text-xs" style="padding:5px 14px; font-size:12px;">+ Добавить уровень</button>
+          </div>
+          <div id="masteryLevelsEdit" class="space-y-3"></div>
+          <div class="mt-3 floor-banner">
+            <label class="block text-xs font-medium text-ink mb-1.5">Заменяемые навыки (пометка «(З)»)</label>
+            <textarea rows="2" class="input-base text-xs">Заменяемые навыки (З) — могут меняться между собой в зависимости от контекста, с которым работал дизайнер.</textarea>
+          </div>
+        </section>
+
+        <section>
+          <div class="eyebrow mb-3">Гейт-настройки</div>
+          <div class="text-xs text-stone mb-3 leading-relaxed">Является ли этот навык обязательным для получения грейда. Для каждого билда задаётся минимальный требуемый уровень мастерства.</div>
+          <div class="card-flat overflow-hidden">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-cloud">
+                  <th class="text-left py-2.5 px-4 font-normal eyebrow">Грейд</th>
+                  <th class="text-center py-2.5 px-3 font-normal eyebrow w-32"><span class="build-dot build-creator"></span>Создатель</th>
+                  <th class="text-center py-2.5 px-3 font-normal eyebrow w-32"><span class="build-dot build-visioner"></span>Визионер</th>
+                  <th class="text-center py-2.5 px-3 font-normal eyebrow w-32"><span class="build-dot build-navigator"></span>Навигатор</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-cloud">
+                <tr><td class="py-2 px-4 font-medium">Джун</td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option>—</option><option selected>1 (Масштабирование)</option></select></td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option>—</option><option selected>1</option></select></td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option>—</option><option selected>1</option></select></td></tr>
+                <tr><td class="py-2 px-4 font-medium">Джун+</td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option selected>—</option></select></td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option selected>—</option></select></td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option selected>—</option></select></td></tr>
+                <tr><td class="py-2 px-4 font-medium">Мидл</td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option selected>—</option></select></td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option>—</option><option selected>2 (Сервисный)</option></select></td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option selected>—</option></select></td></tr>
+                <tr><td class="py-2 px-4 font-medium">Мидл+</td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option selected>—</option></select></td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option>—</option><option selected>3 (WOW)</option></select></td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option selected>—</option></select></td></tr>
+                <tr><td class="py-2 px-4 font-medium">Синьор</td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option selected>—</option></select></td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option>—</option><option selected>4 (Уник. стиль)</option></select></td><td class="text-center"><select class="input-base text-xs" style="padding:6px 10px;"><option selected>—</option></select></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="floor-banner">
+          <div class="flex items-start gap-3">
+            <span class="text-lg leading-none mt-0.5">●</span>
+            <div>
+              <div class="font-medium text-sm mb-1.5">Влияние изменений</div>
+              <div class="text-xs text-graphite space-y-1 leading-relaxed">
+                <div>• <strong>Любая правка</strong> создаст новую версию матрицы (v4). Опубликованные оценки на v3 останутся неизменными.</div>
+                <div>• <strong>Деактивация навыка</strong> уберёт его из формы оценки, но не удалит из старых snapshot-портретов.</div>
+                <div>• <strong>Удаление навыка</strong> возможно только из архивных (деактивированных) — кнопкой «Удалить N архивных навыков» в матрице.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================================================
+// FULL SKILLS DATA from Шаблон Скиллсет 2.0 (51 skills)
+// =========================================================================
+const SKILLS = 
+[
+  {
+    "tax": "UI",
+    "group": "Реализация",
+    "name": "Концептинг",
+    "desc": "Навык формирования целостного и масштабируемого визуального решения: умение работать с композицией и пространством при размещении большого объёма информации, управлять вниманием пользователя с помощью акцентов (цвет, типографика, ритм, воздух), осознанно применять типографику с учётом восприятия, иерархий и влияния на SEO. Включает работу с референсами и визуальным бенчмаркингом, развитие насмотренности и трансформацию идей в собственные решения. Предполагает создание визуальных концепций для сайтов застройщиков и премиальных продуктов, поддержание консистентного стиля в долгосрочной перспективе, масштабируемость контента и интерфейсов, а также формирование уникального визуального языка, выходящего за рамки типовых корпоративных решений.",
+    "type": "CORE",
+    "max": 4,
+    "w": [
+      4.0,
+      5.0,
+      3.0
+    ],
+    "cur": 2,
+    "levels": [
+      {
+        "title": "Масштабирование",
+        "criteria": "Умеешь работать с дизайн-базой (мало ошибок), консистентно и качественно развивать дизайн в рамках системы или за автором. 6 мес. развивал дизайн + подтверждение качества от лида."
+      },
+      {
+        "title": "Сервисный дизайн (З)",
+        "criteria": "Создаешь качественные концепции в сервисном стиле (СЗ, ЛКК, ЛКБ, ЖК и пр.). Реализовал 2 концепции любого продукта с подтвержденным качеством от лида."
+      },
+      {
+        "title": "WOW дизайн (З)",
+        "criteria": "Создаешь концепции премиальных продуктов (ЖК, СЗ), сервисные концепции выросли по уровню. Реализовал 2 премиум-концепции, 1 новый концепт СЗ выше качеством с подтвержденным качеством от лида."
+      },
+      {
+        "title": "Уникальный стиль",
+        "criteria": "Создаешь концепции с уникальной фишкой или стилистикой (моушен, 3D, микро-интерекшен и пр.). Реализовал 2 уникальных концепции с подтверждением от лида."
+      }
+    ],
+    "note": "Заменяемые навыки (З) — могут меняться между собой в зависимости от контекста, с которым работал дизайнер. Например, ранее реализовал 1 премиалку и 1 сайт застройщика — значит получил нод \"Сервисный дизайн\".",
+    "rationale": "Визионер — творец. Создатель — делает \"крепкий\" дизайн. Навигатор — функциональный.",
+    "active": true
+  },
+  {
+    "tax": "UI",
+    "group": "Реализация",
+    "name": "Внедрение контента",
+    "desc": "Навык подбора и интеграции визуальных материалов в дизайн: умение находить, оценивать и органично встраивать фотографии, рендеры, 3D-графику, иллюстрации и другие визуальные элементы в макеты. Предполагает работу с качеством, стилистическим соответствием и смысловой нагрузкой контента, а также понимание того, как визуальные материалы усиливают восприятие продукта, повышают выразительность интерфейса и делают дизайн более убедительным и «живым».",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      5.0,
+      2.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Качественно внедряешь визуальный контент в свои макеты — рендеры, фото, иллюстрации, иконографика, 3D, ролики. На протяжении 9 месяцев был заметен прогресс по улучшению качества интегрируемого контента."
+      }
+    ],
+    "note": "",
+    "rationale": "Создатель должен уметь красиво собрать лендинг.",
+    "active": true
+  },
+  {
+    "tax": "UI",
+    "group": "Реализация",
+    "name": "Инфографика",
+    "desc": "Навык представления больших объёмов данных в ограниченном пространстве: умение проектировать графики, диаграммы, дэшборды и другие элементы инфографики в понятном, структурированном и визуально привлекательном формате. Включает работу с иерархией, акцентами и визуальными паттернами, позволяющими быстро считывать смысл, сравнивать показатели и принимать решения без перегрузки интерфейса.",
+    "type": "SEC",
+    "max": 1,
+    "w": [
+      3.0,
+      4.0,
+      3.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеешь реализовывать дэшборды и инфографику. 3 раза делал инфографичный UI с подтвержденным качеством от лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Навигатору важнее (сложные данные).",
+    "active": true
+  },
+  {
+    "tax": "UI",
+    "group": "Интеграция",
+    "name": "Импорт",
+    "desc": "Навык переноса бренд-гайдлайнов в цифровую среду и развития бренда в интерфейсах: умение интерпретировать брендбук, сохранять наследственность и идентичность бренда, а также последовательно развивать исходную идею клиента в рамках всего цифрового продукта. Включает адаптацию визуального языка под digital-среду, поддержание целостного образа бренда на всех экранах и формирование устойчивой, узнаваемой системы, работающей на задачи бизнеса.",
+    "type": "CORE",
+    "max": 2,
+    "w": [
+      3.0,
+      5.0,
+      2.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Импорт гайдов",
+        "criteria": "Переносишь брендинг в цифровую среду без потери идентичность, соблюдаешь детали и наследственность. Есть 2 подтвержденных применения за последние 6 месяцев."
+      },
+      {
+        "title": "Digital-брендинг",
+        "criteria": "Находишь и консистентно развиваешь идею в рамках всего проекта, когда нет опоры на брендбук клиента. Есть 2 подтвержденных примера за последние 12 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Визионер создает стиль, остальные используют.",
+    "active": true
+  },
+  {
+    "tax": "UI",
+    "group": "Интеграция",
+    "name": "Брендинг",
+    "desc": "Навык формирования базового брендинга с нуля: разработка философии и ключевой идеи бренда, создание логотипа и визуальной айдентики без глубокой бизнес-платформы. Включает перевод смыслов в визуальный язык, формирование целостного образа бренда и его адаптацию для дальнейшего использования в цифровых продуктах и коммуникациях.",
+    "type": "SEC",
+    "max": 1,
+    "w": [
+      3.0,
+      4.0,
+      2.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеешь создать визуальный язык бренда и есть опыт создания бренд-платформы. Есть 2 проекта с подтвержденным качеством от лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Визионер создает стиль, остальные используют.",
+    "active": false
+  },
+  {
+    "tax": "UI",
+    "group": "Моушен",
+    "name": "Анимация",
+    "desc": "Навык пространственного и временного мышления при проектировании интерфейсов: умение использовать анимацию для усиления визуального восприятия, создания вау-эффекта и повышения ясности взаимодействий. Включает разработку микроанимаций и переходов, работу в Figma, Jitter, ProtoPie / Principle и других продвинутых инструментах, а также в After Effects и Rive. Предполагает способность создавать видеоролики с поэкранным переключением блоков, анимацией переходов и микроанимациями внутри отдельных элементов интерфейса.",
+    "type": "CORE",
+    "max": 3,
+    "w": [
+      3.0,
+      5.0,
+      2.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Простая анимация",
+        "criteria": "Умеешь анимировать макеты с использованием компонентов в Figma, Jitter или другом базовом инструменте, понимаешь причино-следственную связь и поверхностно ознакомлен с правилами анимации интерфесов (Уолт Дисней, курсы и пр.). Есть 5 проектов / блоков с подтвержденным качеством от лида."
+      },
+      {
+        "title": "Полноэкранная анимация",
+        "criteria": "Умеешь анимировать сторитейлинг в рамках одной или нескольких страниц, можешь реализовать нестандартные механики. Есть 3 проекта с потвержденным качеством от лида."
+      },
+      {
+        "title": "Моушен-дизайн",
+        "criteria": "Умеешь анимировать нестандартные композиции и переходы, способен собрать легкий шоурил решений, воплотить сложные анимации в реальность, используя AE, Rive и пр. Есть 3 проекта с подтвержденным качеством за последние 9 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Шоурилы — хлеб Визионера. Эксплорер делает микро-моушн.",
+    "active": true
+  },
+  {
+    "tax": "UI",
+    "group": "AI",
+    "name": "Генерация",
+    "desc": "Навык генерации визуального контента с помощью ИИ: создание фото, иллюстраций и 3D-изображений через GPT, NanoBanana и другие инструменты. Включает грамотный промптинг, работу с вариациями и стилями, а также организацию серийного производства изображений под задачи дизайна и бизнеса.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      5.0,
+      3.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеешь создавать серию консистентных изображений высокого качества при помощи ИИ. Есть 8+ подтверждений за последние 6 месяцев, 4 примера ускорения работы / роста качества при помощи генерации изображений."
+      }
+    ],
+    "note": "",
+    "rationale": "Буст для Создателя. Генерация заменяет ему команду иллюстраторов.",
+    "active": true
+  },
+  {
+    "tax": "UI",
+    "group": "AI",
+    "name": "Редактирование",
+    "desc": "Навык обработки и улучшения визуального контента: ретушь, цвето- и светокоррекция, повышение качества и детализации изображений с использованием Photoshop / Affinity или ИИ-инструментов. Включает умение сохранять естественность визуала, стилистическое соответствие проекту и готовность изображений к использованию в интерфейсах и маркетинговых материалах.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      4.0,
+      3.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеешь ретушировать, изменять и улучшать изображения при помощи привычных инструментов или ИИ. Есть 6+ подтверждений за последние 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Техническая ретушь важна Создателю.",
+    "active": true
+  },
+  {
+    "tax": "UI",
+    "group": "AI",
+    "name": "Оживление",
+    "desc": "Навык превращения статичных изображений в видеоконтент: генерация видео и анимация фото без визуальных артефактов с помощью инструментов вроде Kling, Krea и аналогичных сервисов. Предполагает понимание движения, ритма и переходов, а также умение усиливать эмоциональное восприятие визуала и применять такие видео в интерфейсах и коммуникациях.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      3.0,
+      4.0,
+      3.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеешь качественно оживлять изображения и привносить динамику в реализуемый дизайн. Есть 10+ подтверждений за последние 9 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Продажная фича Визионера.",
+    "active": true
+  },
+  {
+    "tax": "UX",
+    "group": "Архитектура",
+    "name": "Гайдинг",
+    "desc": "Навык сборки, развития и поддержки UI-Kit и дизайн-систем: создание и расширение наборов стилей, типографики, сеток, отступов и атомарных компонентов на основе шаблонов (например, Ида.Бейз). Включает работу с токенами, документирование компонентов, внедрение системы в проекты и поддержание её актуальности и консистентности в долгосрочной перспективе.",
+    "type": "CORE",
+    "max": 2,
+    "w": [
+      4.0,
+      3.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "UI-Kit",
+        "criteria": "Умеешь собирать UI-Kit и Модули на основе Ида.Бейз / Ида.Блоки, учитываешь все состояния и потребности разработки, используешь компоненты в дизайне макетов. Есть 2 подтвержденных собранных UI-Kit с подтвержденным качеством от лида."
+      },
+      {
+        "title": "Дизайн-система",
+        "criteria": "Умеешь собирать токкенизированные системы, работать с переменными и передачей массива в разработку, понимаешь как использовать систему для ускорения TTM. Есть 1 подтвержденние собранной ДС с подтвержденным ростом удобства / скорости сборки макетов / привнесенными нововведениями."
+      }
+    ],
+    "note": "",
+    "rationale": "Создатель содержит систему в порядке.",
+    "active": true
+  },
+  {
+    "tax": "UX",
+    "group": "Архитектура",
+    "name": "Кросс-платформа",
+    "desc": "Навык проектирования интерфейсов для разных платформ: понимание различий между веб- и мобильной архитектурой, особенностей тач-взаимодействия и ограничений экранов. Включает знание ключевых мобильных гайдлайнов и общих паттернов, а также умение адаптировать дизайн под разные устройства без потери логики, удобства и визуального качества.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      4.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Знаешь и применяешь понимание отличия различных устройств и браузеров, не допускаешь ошибок при передаче в разработку. Есть подтверждение 2 кейсов, где используются знания."
+      }
+    ],
+    "note": "",
+    "rationale": "Все не имеют права на ошибку в адаптивах.",
+    "active": true
+  },
+  {
+    "tax": "UX",
+    "group": "Архитектура",
+    "name": "Доступность",
+    "desc": "Навык учета принципов доступности в интерфейсах: умение оценивать и обеспечивать достаточную контрастность, работать с оттенками серого и визуальной иерархией. Включает базовое понимание потребностей пользователей с различными особенностями восприятия и способность проектировать интерфейсы, остающиеся понятными и удобными для максимально широкой аудитории.",
+    "type": "SEC",
+    "max": 1,
+    "w": [
+      2.0,
+      3.0,
+      2.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Не допускаешь ошибок в контрастности, знаешь ключевые принципы доступности систем. За 6 месяцев не было выявлено ни одного кейса с проблемами контрастности + знаешь ответы на вопросы.\n\nВопросы:\n\n1. Что такое контраст и почему он важен?\n2. Какие минимальные требования к контрасту ты знаешь? (хотя бы на уровне «должен быть достаточный»)\n3. Почему нельзя передавать смысл только цветом?\n4. Зачем проверять интерфейс в оттенках серого?\n5. С какими группами пользователей связана доступность? (зрение, цветовое восприятие, когнитивные особенности)"
+      }
+    ],
+    "note": "",
+    "rationale": "Базовая гигиена.",
+    "active": true
+  },
+  {
+    "tax": "UX",
+    "group": "Сборка",
+    "name": "Прототипирование",
+    "desc": "Навык быстрого и точного прототипирования интерфейсов: сборка статичных и интерактивных прототипов с использованием шаблонов и модулей (Ида.Бейз, Ида.Блоки). Включает AI-прототипирование — вайбкоддинг, ускоренную проверку гипотез и реализацию идей с помощью ИИ-инструментов (например, Claude и аналогов), позволяя быстро переходить от концепта к работающему решению.",
+    "type": "CORE",
+    "max": 2,
+    "w": [
+      3.0,
+      4.0,
+      3.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Прототипирование",
+        "criteria": "Умеешь собирать прототипы, используя Ида.Бейз + Ида.Блоки, собираешь по корректной системе с ранней сборкой компонентов и модулей для последующег использования в дизайне, умеешь собирать интерактивные прототипы. Реализовал 2 прототипа, показал 5 связанных решений с подтверждением качества от лида."
+      },
+      {
+        "title": "AI-сборка",
+        "criteria": "Умеешь вайбкодить простые прототипы, анимированные элементы для передачи в карзработку или быстрого концептинга. Есть 5 случаев подтверждения за последние 12 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Быстрая сборка идей — суперсила.",
+    "active": true
+  },
+  {
+    "tax": "UX",
+    "group": "Сборка",
+    "name": "Компоненты и лейауты",
+    "desc": "Навык эффективной работы с компонентами и авто-лейаутами: ускорение сборки интерфейсов, поддержание аккуратности и структурированности макетов, а также быстрое и безопасное внесение изменений. Предполагает умение выстраивать гибкие компоненты, упрощающие масштабирование дизайна и совместную работу в команде.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      3.0,
+      3.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Качественно собираешь макета на авто-лейаутах с использованием компонентов и стилей, сохраняешь аккуратность и структурность по правилам Проектной группы. Есть 12 подтвержденных случаев из разных задач или проектов, одобренных лидом."
+      }
+    ],
+    "note": "",
+    "rationale": "Идеальная верстка = много XP для Создателя.",
+    "active": true
+  },
+  {
+    "tax": "UX",
+    "group": "Логика",
+    "name": "Понятность",
+    "desc": "Навык детальной проработки поведения интерфейса: оформление всех микро-состояний (enabled, hover, active, loading, disabled), состояний ошибок в полях, формах и блоках, использование понятной иконографики и привычных паттернов взаимодействия. Включает внимательность к пользовательским сценариям и юзерфлоу, оценку заметности и понятности элементов, проверку интерфейсной системы на «сломанные» места. Дополняется умением смотреть на продукт глазами пользователя, упрощать путь и функциональность, устраняя перегруженность и лишнюю сложность.",
+    "type": "CORE",
+    "max": 2,
+    "w": [
+      5.0,
+      5.0,
+      5.0
+    ],
+    "cur": 2,
+    "levels": [
+      {
+        "title": "Состояние и логика",
+        "criteria": "Реализуешь все состояния интерфейса крупных и микро-блоков, используешь понятную иконографику и привычные паттерны взаимодействия. Обсуждается персонально с лидом после предоставления 6 случаев доказательств за последние 6 месяцев."
+      },
+      {
+        "title": "Упрощение",
+        "criteria": "Упрощаешь взаимодействие, сокращаешь путь достижения цели. Есть 4 примера упрощения взаимодействия за последние 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Создатель отвечает за то, чтобы пользователю было удобно.",
+    "active": true
+  },
+  {
+    "tax": "UX",
+    "group": "Логика",
+    "name": "Админ-интерфейсы",
+    "desc": "Навык работы с интерфейсами, содержащими большие объёмы данных: умение проектировать таблицы и сложные экраны так, чтобы информация оставалась структурированной, читаемой и удобной для работы. Включает продуманную иерархию, навигацию, фильтры и паттерны взаимодействия, позволяющие эффективно воспринимать и управлять данными без перегрузки пользователя.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      2.0,
+      5.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Удобно и понятно реализуешь табличные или сложно-системные интерфейсы. Реализовал 2 примера с подтвержденным качеством от лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Навигатор живет в таблицах.",
+    "active": true
+  },
+  {
+    "tax": "UX",
+    "group": "Контент-дизайн",
+    "name": "Текст",
+    "desc": "Навык создания ёмких и понятных текстов для интерфейсов: умение самостоятельно писать микротексты с учётом контекста, сценариев и правил редактуры. Включает использование ИИ для генерации, улучшения и адаптации текстов, сохраняя ясность, тональность бренда и пользу для пользователя.",
+    "type": "CORE",
+    "max": 2,
+    "w": [
+      5.0,
+      3.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "AI-копирайтинг",
+        "criteria": "Умеешь написать емкие и понятные текста с помощью ИИ. Есть 6 подтвержденных кейсов с подтвержденным качеством от любого участника команды."
+      },
+      {
+        "title": "UX-редактура",
+        "criteria": "Прочел книги Ильяхова, умеешь осознанно редактировать и упрощать текст с целью донесения смысла. Есть 3 подтверждения на разных проектах или 6 задачах."
+      }
+    ],
+    "note": "",
+    "rationale": "Создатель пишет тексты сам (или через AI) вместо копирайтера. Визионер создает макеты под замену текста.",
+    "active": true
+  },
+  {
+    "tax": "UX",
+    "group": "Контент-дизайн",
+    "name": "Промптинг",
+    "desc": "Навык эффективного взаимодействия с ИИ: умение формулировать точные и корректные запросы для получения нужного результата. Включает использование ИИ для построения структуры, анализа информации, генерации и развития идей, а также для ускорения базовых рабочих процессов и повышения общей продуктивности.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      4.0,
+      4.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Знаешь как корректно общаться с ИИ, используешь для формирования структуры, анализа, сбора идей и ускорения базовой работы. Есть 15 подтвержденных кейсов за последние 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Главный инструмент ускорения.",
+    "active": true
+  },
+  {
+    "tax": "PRD",
+    "group": "Экспертиза",
+    "name": "Паттерны",
+    "desc": "Навык понимания и применения типовых сценариев поведения пользователей при покупке недвижимости: знание ключевых продуктов отрасли (сайты застройщиков, личные кабинеты и сопутствующие сервисы), а также паттернов принятия решений. Включает работу с аналитикой и внутренними исследованиями компании, использование данных для проектирования более понятных, конверсионных и релевантных пользовательских сценариев.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      3.0,
+      5.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Понимаешь типовые userflow пользователей на СЗ, как взаимодействуют с ЛКК и ЛКБ, изучил подробно внутренние лекции по теме. Можешь ответить на все вопросы от лида, есть 6 подтверждений кейсов применения знаний.\n\nВопросы будут позднее"
+      }
+    ],
+    "note": "",
+    "rationale": "Доменная экспертиза критична для Гибрида.",
+    "active": true
+  },
+  {
+    "tax": "PRD",
+    "group": "Экспертиза",
+    "name": "Бизнес",
+    "desc": "Навык понимания полного пути пользователя (CJM) на сайте застройщика: от поиска и выбора объекта до покупки недвижимости. Включает общее знание этапов строительства, ввода домов в эксплуатацию и ключевых нюансов рынка недвижимости в РФ, что позволяет проектировать интерфейсы с учётом реальных ожиданий, вопросов и болей пользователей.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      3.0,
+      5.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Понимаешь как устроена покупка недвижимости, изучил CJM покупки (Figma) и знаешь основные термины. Можешь ответить на все вопросы от лида, есть 6 подтверждений кейсов применения знаний.\n\nВопросы будут позднее"
+      }
+    ],
+    "note": "",
+    "rationale": "Навигатор знает глубже, Создатель — базу.",
+    "active": true
+  },
+  {
+    "tax": "PRD",
+    "group": "Проектирование",
+    "name": "Структура",
+    "desc": "Навык проектирования логичной структуры и сценариев взаимодействия: самостоятельная разработка информационной архитектуры страниц на основе понимания целей бизнеса и способов подачи контента, а также создание userflow — последовательностей экранов, отражающих путь пользователя. Включает выявление и сокращение тупиковых сценариев, проработку логики переходов и перенос этих решений в прототипы и последующий дизайн.",
+    "type": "CORE",
+    "max": 2,
+    "w": [
+      4.0,
+      4.0,
+      5.0
+    ],
+    "cur": 2,
+    "levels": [
+      {
+        "title": "IA",
+        "criteria": "Умеешь без ТЗ разработать структуру страницы / функционала на основе имеющейся информации о потребностях бизнеса, понимание цели и способов представления контента. Есть 4 подтверждения за последние 6 месяцев с подтвержденным качеством от лида."
+      },
+      {
+        "title": "Userflow",
+        "criteria": "Умеешь собирать последовательности экранов для отображения пути взаимодействия пользователя и сокращения тупиков сценариев. Есть 5 подтверждений построенного userflow за последние 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Скелет продукта.",
+    "active": true
+  },
+  {
+    "tax": "PRD",
+    "group": "Проектирование",
+    "name": "Фреймворки",
+    "desc": "Навык построения аналитических схем для глубокого понимания пользователей: создание JTBD, Value Proposition Canvas и Customer Journey Map для выявления мотиваций, болей и ожиданий. Включает использование этих фреймворков для упрощения и обоснования продуктовых гипотез, а также для принятия более точных дизайн- и продуктовых решений.",
+    "type": "SEC",
+    "max": 1,
+    "w": [
+      3.0,
+      1.0,
+      3.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умешь применять фреймворки для формирования лучших решений в дизайне. Есть подтвержденный пример использования любых фреймворков на 6 задачах."
+      }
+    ],
+    "note": "",
+    "rationale": "Инструмент Навигатора.",
+    "active": true
+  },
+  {
+    "tax": "PRD",
+    "group": "Исследования",
+    "name": "Исследования",
+    "desc": "Навык исследования продукта и пользовательского опыта: регулярный анализ конкурентов и фич из разных областей для развития насмотренности, обогащения гипотез и оценки конкурентной среды. Включает проведение коридорных исследований и осознанного саморевью дизайна, понимание ценности внешнего мнения и умение доносить значимость исследований команде и клиенту. Предполагает проведение UX-тестов с использованием специализированных сервисов, а также организацию и проведение глубинных интервью с корректной постановкой вопросов и анализом полученных инсайтов.",
+    "type": "CORE",
+    "max": 4,
+    "w": [
+      3.0,
+      2.0,
+      4.0
+    ],
+    "cur": 2,
+    "levels": [
+      {
+        "title": "Конкурентный анализ",
+        "criteria": "Проводишь регулярное развитие насмотренности фич из разных областей для обогащения гипотез и оценки конкурентной среды. Есть подтверждение на 3 проектах или 12 задачах."
+      },
+      {
+        "title": "Корридорки",
+        "criteria": "Умеешь подготовить вопросы и провести корректное корридорное исследование на друзьях и колегах. Есть 6 подтвержденных кейсов за последние 6 месяцев с подтвержденным качеством от лида."
+      },
+      {
+        "title": "UX-исследования (З)",
+        "criteria": "Понимаешь как сделать корректно и проводишь UX-тесты, используя специальные сервисы для привлечения респондентов, на основе данных умеешь сделать выводы с пользой для дизайна. Есть 4 кейса с подтвержденным качеством от отдела исследований и аналитики."
+      },
+      {
+        "title": "Интервью (З)",
+        "criteria": "Проводишь глубинные исследований, используя корректный подход к ведению респондентов и составлению вопросов. Есть 3 кейса с подтвержденным качеством от отдела исследований и аналитики."
+      }
+    ],
+    "note": "Заменяемые навыки (З) — могут меняться между собой в зависимости от контекста, с которым работал дизайнер. Например, ранее провел 3 интервью, но не проводил UX-исследований — значит получил нод \"3\".",
+    "rationale": "Создатель делает коридорки, Навигатор — ux-тесты и глубинки.",
+    "active": true
+  },
+  {
+    "tax": "PRD",
+    "group": "Исследования",
+    "name": "A/B-тесты",
+    "desc": "Навык проверки дизайн- и продуктовых решений через эксперименты: понимание принципов работы A/B-тестов, их ограничений и влияния на метрики качества. Включает выбор подходящих инструментов, помощь в формировании гипотез и сценариев тестирования, а также участие в анализе результатов для принятия обоснованных решений.",
+    "type": "SEC",
+    "max": 1,
+    "w": [
+      3.0,
+      1.0,
+      4.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Присутствовал опыт проверки решений через A/B-тест, есть понимание как устроен процесс и почему это самый доказательный метод. Есть 3 кейса проведения теста."
+      }
+    ],
+    "note": "",
+    "rationale": "Опционально для Создателя.",
+    "active": true
+  },
+  {
+    "tax": "PRD",
+    "group": "Аналитика",
+    "name": "Метрики и аналитика",
+    "desc": "Навык осмысленной работы с данными: умение интерпретировать метрики и аналитику с учётом целей бизнеса, специфики отрасли и дизайнерских решений. Включает критическое мышление — способность корректно формулировать выводы, замечать неоднозначности в данных и при необходимости искать способы их уточнения или проверки через дополнительные гипотезы и исследования.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      3.0,
+      2.0,
+      5.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеет провести аналитику данных на основе знания потребностей бизнеса, понимания сферы и дизайна, предоставленных метрик, корректно интерпретирует выводы через критическое мышление (если данные не понятны → ищет как понять или провести проверку). Есть 8 примеров сбора данных и влияния на конечный результат за последние 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Навигатор работает с цифрами профессионально.",
+    "active": false
+  },
+  {
+    "tax": "PRD",
+    "group": "Аналитика",
+    "name": "Гипотезы",
+    "desc": "Навык системного формирования и проработки гипотез: регулярное выдвижение идей на основе понимания потребностей бизнеса и пользователей, корректная формулировка гипотез с фокусом на ценностное влияние. Включает умение связывать гипотезы с конкретными метриками, оценивать ожидаемый эффект и приоритезировать инициативы для максимального результата.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      3.0,
+      5.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Регулярно формирует гипотезы, влияющие на метрики. Есть 20 сформированных гипотез за последние 6 месяцев с подтвержденным качеством от лида / отдела R&D."
+      }
+    ],
+    "note": "",
+    "rationale": "Драйвер изменений.",
+    "active": true
+  },
+  {
+    "tax": "PRD",
+    "group": "Аналитика",
+    "name": "Я.Метрика",
+    "desc": "Навык использования Яндекс.Метрики для сбора и анализа данных: базовое понимание функционала инструмента, принципов работы отчётов и разметки целей в продукте или на сайте. Позволяет корректно интерпретировать пользовательское поведение и участвовать в формировании аналитической базы для принятия дизайн- и продуктовых решений.",
+    "type": "SEC",
+    "max": 1,
+    "w": [
+      3.0,
+      2.0,
+      4.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеет использовать Я.Метрику для поиска данных по тепловой карте, метрикам и скриннинга экранов. Есть 6 подтвержденных примеров применения Я.Метрики для решения задач."
+      }
+    ],
+    "note": "",
+    "rationale": "Технический скилл.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Эффективность",
+    "name": "Планирование",
+    "desc": "Навык структурирования и планирования задач: умение выстраивать план решения в краткосрочной и долгосрочной перспективе, определять приоритеты и последовательно двигаться к результату. Включает способность придерживаться плана, адаптировать его при изменении вводных и эффективно распределять время и усилия.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      3.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеет построить план решения задач и придерживаться его в краткосрочной и долгосрочной перспективе. Есть 4 подтвержденных кейса за последние 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Создатель должен быть предсказуемым. Визионер строит план от менеджмента.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Эффективность",
+    "name": "Оценка и декомпозиция",
+    "desc": "Навык точной оценки трудозатрат: умение декомпозировать задачи на составные этапы, корректно оценивать время на их реализацию и учитывать риски. Позволяет более предсказуемо планировать работу, управлять ожиданиями и повышать эффективность выполнения проектов.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      4.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеешь точно оценить время на реализацию задачи, разбиваешь на составные части. Есть 4 подтвержденных кейса за последние 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Точность сроков.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Эффективность",
+    "name": "Гибкость",
+    "desc": "Навык контроля собственного времени и сроков: умение работать в рамках заданных таймингов, отслеживать фактические затраты времени и своевременно корректировать подход при возникновении рисков или отклонений от плана.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      5.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеешь держаться в установленных сроках и изменять подход в случае рисков. Есть подтверждение на 4 проектах или 12 задачах от менеджмента или лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Тайм-менеджмент.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Эффективность",
+    "name": "Оптимизация",
+    "desc": "Навык повышения личной эффективности: использование горячих клавиш, массового редактирования, плагинов и лайфхаков в Figma и других инструментах. Включает автоматизацию рутинных задач с помощью ИИ, осознанное следование процессам компании или их обоснованное упрощение, а также продуктивный подход, направленный на ускорение работы без потери качества результата.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      5.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Применяешь методы ускорения работы, описанные в навыке. Есть подтверждение на 3 проектах или 9 задачах."
+      }
+    ],
+    "note": "",
+    "rationale": "Создатель и Визионер обязаны быть быстрыми.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Эффективность",
+    "name": "Автономность",
+    "desc": "Навык автономной работы: стремление решать задачи самостоятельно, привлекая лида как источник вектора и экспертного совета, а не для детального контроля. Предполагает уважение к времени лида, инициативу в принятии решений и готовность брать на себя более высокоуровневые задачи и ответственность за результат.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      5.0,
+      5.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Выдерживаешь должный уровень качества с минимальным привлечением лида. Есть подтверждение на 2 проектах или 9 задачах без потери качества с подтверждением от лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Высший приоритет.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Коммуникация",
+    "name": "Бриффинг",
+    "desc": "Навык выстраивания эффективной коммуникации с клиентом и внутренними командами для формирования ясных и полных требований. Включает использование структурированных методик опроса, умение углубляться в контекст и извлекать недостающую информацию на встречах и переговорах, что позволяет снижать неопределённость и находить наиболее точные и эффективные решения.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      4.0,
+      5.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеешь построить коммуникацию с клиентом и разными направлениями, используешь методологию опросов и умеешь углубиться в поиск информации (на переговорах вытягиваешь больше данных). Есть 5 случаев подтверждения с подтвержденным качеством от лида."
+      }
+    ],
+    "note": "",
+    "rationale": "\"Пойди и узнай сам\" — девиз Создателя.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Коммуникация",
+    "name": "Защита",
+    "desc": "Навык аргументированной защиты дизайна: умение отстаивать принятые решения, опираясь на логику, данные, цели бизнеса и пользовательские сценарии. Предполагает ответственность за результат, уверенную коммуникацию и способность снижать объём необоснованных правок за счёт качественной аргументации.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      5.0,
+      5.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеешь отстоять решение при помощи аргументации, защитить его как свое и, как следствие, получить меньший объем правок. Есть 5 подтверждений успешной защиты решения от менеджера, клиента или лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Все должны уметь защищать (требование бизнеса).",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Коммуникация",
+    "name": "Презентация",
+    "desc": "Навык структурированной и убедительной презентации дизайна внутри команды и перед клиентом: умение аргументировать решения, опираясь на цели бизнеса, знание сферы, пользовательские сценарии и метрики. Включает хорошо поставленную речь, ясную логику подачи и готовность отвечать на вопросы и работать с возражениями.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      5.0,
+      5.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Проводишь презентации с аргументацией дизайна для клиентов / бизнеса, отталкивающаясь от понимания потребностей бизнеса, знаний сферы и метрик, используешь хорошо поставленную речь и готов отвечать на вопросы. Есть 8 подтверждений успешной защиты решения от менеджера, клиента или лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Все должны уметь презентовать.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Коммуникация",
+    "name": "Переговоры",
+    "desc": "Навык проактивного продвижения собственных идей и дизайн-решений: умение обосновывать пользу для бизнеса и пользователя, предлагать и внедрять новые инструменты, подходы и гипотезы. Включает способность договариваться о сроках, скоупе и взаимных уступках в условиях бизнес-давления, сохраняя качество решения и достигая оптимального результата.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      4.0,
+      5.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеешь продвигать собственные гипотезы и решения через обоснование пользы и договариваться о сроках, скоупе, уступках, когда на тебя давит бизнес. Есть 8 подтверждений успешной защиты решения от менеджера, клиента или лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Умение договориться.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Влияние",
+    "name": "Решение проблем",
+    "desc": "Навык самостоятельного решения задач с высоким уровнем неопределённости: умение работать при недостатке исходных данных, формировать путь к решению, выдвигать гипотезы и последовательно проверять их. Предполагает минимальное участие старших коллег, ответственность за принятые решения и доведение таких задач до полноценной реализации.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      3.0,
+      5.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Самостоятельно решает задачи с высоким уровнем неопределенности (мало исходных данных), умеет построить путь к решению задачи без участия старших и доводит такие задач до реализации. Есть 5 подтверждений реализации таких задач с подтверждением от лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Создатель разруливает хаос.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Влияние",
+    "name": "Проактивность",
+    "desc": "Навык самостоятельного и осознанного действия: умение не ждать указаний, а приходить с готовыми идеями, решениями и предложениями, а не только с вопросами. Предполагает фокус не только на закрытии задач, но и на постоянном улучшении процессов, инструментов и среды вокруг себя.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      5.0,
+      5.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеет не ждать указаний от команды и самостоятельно приходить с решениями или предложениями, улучшает среду вокруг себя. Есть 8 подтверждений проактивности от менеджера, клиента или лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Инициатива.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Разработка",
+    "name": "Знание разработки",
+    "desc": "Навык эффективного взаимодействия с разработчиками: базовое понимание фронтенд-разработки в вебе, ожиданий и потребностей разработчиков от дизайн-макетов и прототипов. Включает знание того, как устроен процесс разработки внутри компании, проактивное выстраивание коммуникации, сопровождение задач и отслеживание корректности реализации дизайн-решений.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      3.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Применяет базовое понимание фронтенд-разработки в web, отсеживает результат. Есть 6 подтверждений от менеджера, разработчиков или лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Создатель говорит с разрабами на одном языке.",
+    "active": true
+  },
+  {
+    "tax": "IND",
+    "group": "Разработка",
+    "name": "Техничка",
+    "desc": "Навык проектирования с учётом технической реализуемости: умение самостоятельно оценивать сложность реализации дизайн-решений и своевременно консультироваться с разработчиками. Включает понимание ограничений разных браузеров и платформ, их влияния на отображение дизайна в продакшене, а также предварительный учёт этих факторов при разработке макетов, чтобы минимизировать риски нереализуемых или существенно упрощённых решений.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      3.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеет оценить сложность реализации решения на разработке, минимизирует сценарии, в которых предложенное и согласованное с клиентом решение оказалось невозможным в реализации. Есть 2 подтверждения от менеджера, разработчиков или лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Не рисовать нереализуемое.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Качество",
+    "name": "Тестирование",
+    "desc": "Навык контроля качества реализации дизайна: проведение дизайн-ревью на этапе разработки, понимание, что работа дизайнера заканчивается в продакшене, а не в макетах. Включает умение работать с баг-трекерами и таблицами дефектов, формулировать корректные замечания и настойчиво отслеживать исправление багов для достижения качественного финального результата.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      3.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Проводит дизайн-ревью разработки, понимает, что дизайн заканчивается на проде и желает качественно повлиять на этот результат, умеет работать с баг-таблицой. Есть 4 подтверждения от менеджера, разработчиков или лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Ответственность за прод.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Качество",
+    "name": "Прозрачность",
+    "desc": "Навык поддержания порядка и прозрачности в рабочем пространстве: соблюдение стандартов ведения файлов и чистоты макетов, обеспечение понятной и быстрой навигации по структуре проекта в долгосрочной перспективе. Включает регулярную очистку Figma от неактуальных экранов и состояний, чтобы в файлах было легко ориентироваться как команде, так и клиенту.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      3.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Соблюдает чистоту в рабочем пространстве, в файлах легко ориентируется команда и клиент. Есть 4 подтверждения от менеджера, разработчиков или лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Порядок в файлах.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Качество",
+    "name": "Стандарты",
+    "desc": "Навык открытого и проактивного взаимодействия в процессе работы: своевременное информирование о рисках и возможных проблемах с одновременным предложением решений. Включает регулярную оценку статуса задач и понятные отчёты для менеджера о ходе работ, обеспечивая предсказуемость и доверие в проекте.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      4.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Заранее информирует о возможных проблемах и предлагает решений, про-активно оценивает ситуацию, ведет регулярные отчеты перед менеджером о статусе работ. Есть 4 подтверждения от менеджера или лида в течении последних 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Отчетность.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Результат",
+    "name": "Фокус",
+    "desc": "Навык удержания фокуса на длительных и многосоставных задачах: целеустремлённость, приоритезация и последовательное снижение неопределённости по мере продвижения. Включает умение перестраивать подход и тактику работы при изменении вводных, сохраняя ориентацию на достижение финального результата.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      4.0,
+      5.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Доводит длительные задачи до конца, не спихивает ответственность. Есть подтверждение от менеджера или лида в течении последних 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Умение бежать марафон.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Результат",
+    "name": "Осознанность",
+    "desc": "Навык осознанного баланса между качеством и скоростью: умение вовремя остановиться и показать результат, учитывать сроки и собственный темп работы. Предполагает фокус на достижении достаточного уровня качества, при котором дизайн решает задачу эффективно, без излишней полировки и перерасхода ресурсов.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      3.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Знает и применяет правило Паретто, ценит качество и умеет вовремя остановиться. Есть подтверждение от менеджера или лида в течении последних 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Правило Создателя: сделанное лучше идеального.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Результат",
+    "name": "Саморевью",
+    "desc": "Навык критической оценки собственных решений: умение проводить саморевью на основе опыта, дизайнерских принципов и понимания сферы. Включает способность выявлять слабые места и ошибки до передачи в реализацию, стремление не допускать некачественные решения в продакшен и понимание того, как и за счёт чего эти проблемы можно исправить.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      5.0,
+      5.0,
+      5.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Проводит оценку качества решения на основе собственного опыта и критического мышления, не пропускает плохой вариант в реализацию. Есть подтверждение от менеджера или лида в течении последних 6 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Гигиенический минимум.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Результат",
+    "name": "Тех-чеккинг",
+    "desc": "Навык качественной передачи дизайна в разработку: оформление комментариев и пояснений в Figma, подготовка и проверка контента, использование стилей и компонентов из UI-Kit. Включает применение аннотаций и дизайн-стандартов, обеспечивающих корректную и предсказуемую реализацию решений без потери качества.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      5.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Оставляет комментарии для разработки в Figma, корректно подготавливает контент для разработки, использует стили и компоненты из UI-Kit. Есть подтверждение с 3 проектов или 9 задач от менеджера, разработчиков или лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Идеальная передача в разработку.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Результат",
+    "name": "Логгирование",
+    "desc": "Навык систематизации знаний и опыта: логгирование комментариев и вопросов клиента на встречах, фиксация возникающих проблем и принятых решений для последующего анализа. Включает формирование базы знаний по реализациям и типовым ответам в схожих ситуациях, что повышает качество решений и ускоряет работу в будущем.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      3.0,
+      3.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Делает пост-мит по комментариям от клиента / бизнеса на встречах, формирует базу знаний по реализациям / ответам в схожих ституациях. Есть подтверждение от лида."
+      }
+    ],
+    "note": "",
+    "rationale": "База знаний.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Развитие",
+    "name": "Рефлексия",
+    "desc": "Навык осознанного анализа собственной работы: умение разбирать принятые решения, выявлять сильные и слабые стороны и делать выводы для дальнейшего развития. Включает способность формировать индивидуальный план развития (ИПР) с учётом личных целей и потребностей, при необходимости обсуждая и корректируя его вместе с лидом.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      4.0,
+      4.0
+    ],
+    "cur": 1,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеет разбирать собственные решения и делать выводы о дальнейшем развитии, способен установить для себя план развития с учетом собственных потребностей. Есть 2 подтверждения от лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Рост.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Развитие",
+    "name": "Ревью",
+    "desc": "Навык качественного дизайн-ревью: корректная оценка работы младших дизайнеров с учётом ошибок, неточных или некорректных решений. Включает анализ качества сборки, использования стилей и компонентов, формулирование обоснованных предложений по улучшению и компактное, понятное донесение мыслей и рекомендаций.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      3.0,
+      4.0,
+      4.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Умеет проводить качественное ревью и достигать улучшения качества чужими руками, компактно доносит мысли. Есть 8 подтверждений от лида."
+      }
+    ],
+    "note": "",
+    "rationale": "Менторство.",
+    "active": true
+  },
+  {
+    "tax": "RES",
+    "group": "Развитие",
+    "name": "Процессы",
+    "desc": "Навык системного улучшения работы команды и продукта: создание и поддержка документации, развитие существующих и внедрение новых процессов с фокусом на повышение эффективности, качества и инновационности.",
+    "type": "CORE",
+    "max": 1,
+    "w": [
+      4.0,
+      4.0,
+      4.0
+    ],
+    "cur": 0,
+    "levels": [
+      {
+        "title": "Освоен",
+        "criteria": "Создает документацию, развивает текущие процессы и создает новые с ориентацией на рост эффективности / качества и инновационности. Есть 2 подтверждения от лида за последние 9 месяцев."
+      }
+    ],
+    "note": "",
+    "rationale": "Эксплорер чинит процессы.",
+    "active": true
+  }
+]
+;
+
+const BUILD_IDX = 0; // Создатель
+const TAXONOMIES = ["UI","UX","PRD","IND","RES"];
+const TAX_NAMES = { UI:"UI · Визуальное", UX:"UX · Сценарии", PRD:"PRD · Продукт", IND:"IND · Самостоятельность", RES:"RES · Результативность" };
+const GRADE_NAMES = { intern: 'Intern', junior: 'Джун', junior_plus: 'Джун+', middle: 'Мидл', middle_plus: 'Мидл+', senior: 'Синьор' };
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+  const target = document.getElementById('view-' + name);
+  if (target) target.classList.remove('hidden');
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('tab-' + name);
+  if (tab) tab.classList.add('active');
+  if (name === 'designer') drawRadar();
+  window.scrollTo(0, 0);
+}
+
+function calcXp() {
+  const xp = { UI:0, UX:0, PRD:0, IND:0, RES:0 };
+  let filled = 0;
+  SKILLS.forEach(s => {
+    if (!s.active) return; // skip inactive
+    xp[s.tax] += s.cur * s.w[BUILD_IDX];
+    if (s.cur > 0) filled++;
+  });
+  return { xp, total: Object.values(xp).reduce((a,b)=>a+b,0), filled };
+}
+
+function calcGrade(total) {
+  if (total >= 230) return 'senior';
+  if (total >= 180) return 'middle_plus';
+  if (total >= 120) return 'middle';
+  if (total >= 70) return 'junior_plus';
+  if (total > 0) return 'junior';
+  return 'intern';
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// =========================================================================
+// LEAD: assessment form
+// =========================================================================
+function renderSkillNav() {
+  const nav = document.getElementById('skillNav');
+  if (!nav) return;
+  nav.innerHTML = TAXONOMIES.map(t => {
+    const groupSkills = SKILLS.filter(s => s.tax === t && s.active);
+    const groupFilled = groupSkills.filter(s => s.cur > 0).length;
+    const pct = Math.round((groupFilled / Math.max(1, groupSkills.length)) * 100);
+    return `
+      <a href="#group-${t}" class="block">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-sm">${TAX_NAMES[t]}</span>
+          <span class="text-xs text-stone font-mono">${groupFilled}/${groupSkills.length}</span>
+        </div>
+        <div class="progress-thin lime"><div style="width:${pct}%"></div></div>
+      </a>`;
+  }).join('');
+  const { filled } = calcXp();
+  const totalActive = SKILLS.filter(s=>s.active).length;
+  document.getElementById('filledCount').textContent = filled;
+  document.getElementById('totalCount').textContent = totalActive;
+  document.getElementById('fillBar').style.width = (filled / totalActive * 100) + '%';
+}
+
+function renderSkillsList() {
+  const root = document.getElementById('skillsList');
+  if (!root) return;
+  root.innerHTML = TAXONOMIES.map(t => {
+    const grouped = {};
+    SKILLS.filter(s => s.tax === t && s.active).forEach(s => {
+      if (!grouped[s.group]) grouped[s.group] = [];
+      grouped[s.group].push(s);
+    });
+    return `
+      <section id="group-${t}" class="card overflow-hidden">
+        <div class="px-7 py-4 border-b border-cloud">
+          <div class="eyebrow">${TAX_NAMES[t]}</div>
+        </div>
+        ${Object.entries(grouped).map(([gr, items]) => `
+          <div>
+            <div class="px-7 pt-4 pb-2 text-xs font-medium text-stone" style="background:#faf9f7;">${gr}</div>
+            ${items.map(s => renderSkillCard(s, SKILLS.indexOf(s))).join('')}
+          </div>
+        `).join('')}
+      </section>`;
+  }).join('');
+}
+
+function renderSkillCard(s, idx) {
+  const xp = s.cur * s.w[BUILD_IDX];
+  return `
+    <article class="skill-card-row">
+      <div class="flex items-start justify-between gap-6 mb-3">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <span class="font-medium text-base">${s.name}</span>
+            <span class="text-xs px-2 py-0.5 rounded-pill ${s.type==='CORE'?'bg-ink text-canvas':'bg-canvas text-stone border border-cloud'}" style="font-size:10px; letter-spacing:0.05em;">${s.type}</span>
+            <span class="text-xs text-stone">·</span>
+            <span class="text-xs text-stone">вес ${s.w[BUILD_IDX]}</span>
+            <span class="text-xs text-stone">·</span>
+            <span class="text-xs text-stone">max ур. ${s.max}</span>
+          </div>
+          <div class="desc-italic">${escapeHtml(s.desc)}</div>
+        </div>
+        <div class="text-right shrink-0">
+          <div class="eyebrow mb-0.5">XP</div>
+          <div class="display text-3xl leading-none" id="xpcell-${idx}">${xp}</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 mt-4 flex-wrap">
+        <span class="text-xs text-stone mr-2">Мастерство:</span>
+        <button onclick="setMastery(${idx}, 0)" class="mastery-btn ${s.cur===0?'active':''}">0 — не оценено</button>
+        ${s.levels.map((lvl, k) => {
+          const n = k+1;
+          return `<button onclick="setMastery(${idx}, ${n})" class="mastery-btn ${s.cur===n?'active':''}" title="${escapeHtml(lvl.title)}">${n} — ${escapeHtml(lvl.title)}</button>`;
+        }).join('')}
+      </div>
+      <details class="mt-4" ${s.cur > 0 ? 'open' : ''}>
+        <summary class="text-xs text-stone hover:text-ink inline-flex items-center gap-1.5">
+          <span class="chev">›</span>
+          <span>Критерии подтверждения по уровням</span>
+        </summary>
+        <div class="mt-3 space-y-2.5">
+          ${s.levels.map((lvl, k) => {
+            const n = k+1;
+            const isActive = s.cur === n;
+            return `
+              <div class="crit-block ${isActive?'active-level':''}">
+                <div class="font-medium text-sm mb-1.5 flex items-center gap-2.5">
+                  <span class="display text-lg leading-none" style="color:${isActive?'#000':'#cfcfcf'};">${n}</span>
+                  <span>${escapeHtml(lvl.title)}</span>
+                </div>
+                <div class="text-xs text-graphite leading-relaxed">${escapeHtml(lvl.criteria)}</div>
+              </div>`;
+          }).join('')}
+          ${s.note ? `<div class="floor-banner text-xs leading-relaxed">${escapeHtml(s.note)}</div>` : ''}
+        </div>
+      </details>
+    </article>`;
+}
+
+function setMastery(idx, lvl) {
+  SKILLS[idx].cur = lvl;
+  const cell = document.querySelector(`#xpcell-${idx}`);
+  if (cell) {
+    const card = cell.closest('.skill-card-row');
+    card.outerHTML = renderSkillCard(SKILLS[idx], idx);
+  }
+  renderSkillNav();
+  renderRightPanel();
+  showSaveIndicator();
+}
+
+function renderRightPanel() {
+  const { xp, total } = calcXp();
+  const totalEl = document.getElementById('totalXp');
+  if (!totalEl) return;
+  totalEl.textContent = total;
+  TAXONOMIES.forEach(t => document.getElementById(`xp-${t}`).textContent = xp[t]);
+  const grade = calcGrade(total);
+  document.getElementById('predictedGrade').textContent = GRADE_NAMES[grade];
+  let note = '';
+  if (grade === 'senior') note = 'Достигнут потолок грейдов';
+  else if (grade === 'middle_plus') note = `До «Синьор» нужно ещё ${230 - total} XP`;
+  else if (grade === 'middle') note = `До «Мидл+» нужно ещё ${180 - total} XP`;
+  else if (grade === 'junior_plus') note = `До «Мидл» нужно ещё ${120 - total} XP`;
+  else if (grade === 'junior') note = `До «Джун+» нужно ещё ${70 - total} XP`;
+  else note = 'Оценка не начата';
+  document.getElementById('gradeNote').textContent = note;
+  document.getElementById('totalBar').style.width = Math.min(100, total/255*100) + '%';
+}
+
+function showSaveIndicator() {
+  const el = document.getElementById('saveIndicator');
+  if (!el) return;
+  el.classList.remove('opacity-0');
+  el.classList.add('pulse-save');
+  setTimeout(() => { el.classList.add('opacity-0'); el.classList.remove('pulse-save'); }, 1200);
+}
+
+// =========================================================================
+// DESIGNER PORTRAIT
+// =========================================================================
+let radarChart = null;
+function drawRadar() {
+  const ctx = document.getElementById('radarChart');
+  if (!ctx) return;
+  if (radarChart) radarChart.destroy();
+  const { xp } = calcXp();
+  const maxByTax = { UI:0, UX:0, PRD:0, IND:0, RES:0 };
+  SKILLS.forEach(s => { if (s.active) maxByTax[s.tax] += s.max * s.w[BUILD_IDX]; });
+  radarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: TAXONOMIES,
+      datasets: [
+        { label: 'MAX (билд)', data: TAXONOMIES.map(t => maxByTax[t]),
+          backgroundColor: 'rgba(230,230,230,0.5)', borderColor: 'rgba(207,207,207,0.8)', borderWidth: 1, pointRadius: 0 },
+        { label: 'Текущий', data: TAXONOMIES.map(t => xp[t]),
+          backgroundColor: 'rgba(173,233,0,0.2)', borderColor: 'rgb(173,233,0)', borderWidth: 2, pointBackgroundColor: 'rgb(0,0,0)', pointRadius: 4, pointBorderColor: '#fff', pointBorderWidth: 2 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      scales: { r: {
+        beginAtZero: true,
+        ticks: { display: false },
+        grid: { color: '#e6e6e6' },
+        angleLines: { color: '#e6e6e6' },
+        pointLabels: { font: { size: 13, weight: '500', family: 'Inter' }, color: '#000' }
+      } },
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11, family: 'Inter' }, color: '#696f7b', boxWidth: 12 } } }
+    }
+  });
+}
+
+function renderPortraitTable() {
+  const tbody = document.getElementById('portraitSkills');
+  if (!tbody) return;
+  tbody.innerHTML = SKILLS.filter(s=>s.active).map(s => {
+    const xp = s.cur * s.w[BUILD_IDX];
+    const maxXp = s.max * s.w[BUILD_IDX];
+    const isFull = xp === maxXp && xp > 0;
+    return `
+      <tr class="border-t border-cloud hover:bg-canvas">
+        <td class="py-3 px-6">
+          <div class="flex items-center gap-2">
+            <span class="skill-dot"></span>
+            <span class="text-xs text-stone font-mono w-9">${s.tax}</span>
+            <span class="text-stone text-xs">${s.group}</span>
+            <span class="text-ash text-xs">/</span>
+            <span class="font-medium">${s.name}</span>
+          </div>
+        </td>
+        <td class="py-3 px-6">${s.cur > 0 ? `<span class="grade-pill ${isFull?'current':'passed'}">${escapeHtml(s.levels[s.cur-1].title)}</span>` : '<span class="text-xs text-ash">—</span>'}</td>
+        <td class="py-3 px-6 text-right text-stone font-mono text-xs">${s.w[BUILD_IDX]}</td>
+        <td class="py-3 px-6 text-right font-mono text-sm">${xp}</td>
+        <td class="py-3 px-6 text-right text-ash font-mono text-xs">${maxXp}</td>
+      </tr>`;
+  }).join('');
+}
+
+// =========================================================================
+// ADMIN MATRIX
+// =========================================================================
+function renderMatrixTable() {
+  const tbody = document.getElementById('matrixTable');
+  if (!tbody) return;
+  const gateIndices = [0, 9, 13, 14, 30, 31, 33, 38];
+  tbody.innerHTML = SKILLS.map((s, i) => {
+    const maxXpCreator = s.max * s.w[0];
+    const isGate = gateIndices.includes(i);
+    return `
+      <tr class="${s.active?'':'inactive'}">
+        <td class="py-3 px-6">
+          <div class="flex items-center gap-2">
+            <span class="skill-dot"></span>
+            <span class="text-xs text-stone font-mono w-9">${s.tax}</span>
+            <span class="text-stone text-xs">${s.group}</span>
+            <span class="text-ash text-xs">/</span>
+            <span class="font-medium skill-name">${s.name}</span>
+          </div>
+        </td>
+        <td class="py-3 px-3 text-center"><span class="text-xs px-2 py-0.5 rounded-pill ${s.type==='CORE'?'bg-ink text-canvas':'bg-canvas text-stone border border-cloud'}" style="font-size:10px; letter-spacing:0.05em;">${s.type}</span></td>
+        <td class="py-3 px-3 text-center font-mono text-sm">${s.max}</td>
+        <td class="py-3 px-3 text-center font-mono text-sm">${s.w[0]}</td>
+        <td class="py-3 px-3 text-center font-mono text-sm">${s.w[1]}</td>
+        <td class="py-3 px-3 text-center font-mono text-sm">${s.w[2]}</td>
+        <td class="py-3 px-3 text-center">${isGate ? '<span class="grade-pill passed">да</span>' : '<span class="text-xs text-ash">—</span>'}</td>
+        <td class="py-3 px-3 text-center text-stone font-mono text-xs">${maxXpCreator}</td>
+        <td class="py-3 px-3 text-center"><label class="toggle"><input type="checkbox" ${s.active?'checked':''} onchange="toggleSkillActive(${i})"><span class="track"><span class="knob"></span></span></label></td>
+        <td class="py-3 px-3 text-center"><button onclick="openSkillModal(${i})" class="pill-tab" style="font-size:11px; padding:4px 12px;">Открыть</button></td>
+      </tr>`;
+  }).join('');
+}
+
+function toggleSkillActive(idx) {
+  SKILLS[idx].active = !SKILLS[idx].active;
+  renderMatrixTable();
+}
+
+function openSkillModal(arg) {
+  const modal = document.getElementById('skillModal');
+  const isNew = arg === 'new';
+  const s = isNew ? null : SKILLS[arg];
+  document.getElementById('modalTitle').textContent = isNew ? 'Новый навык' : s.name;
+  document.getElementById('modalBreadcrumb').textContent = isNew ? 'Матрица v3 / новый' : `Матрица v3 / ${s.tax} / ${s.group}`;
+  if (s) {
+    document.getElementById('m_name').value = s.name;
+    document.getElementById('m_desc').value = s.desc;
+    document.getElementById('m_type').value = s.type;
+    document.getElementById('m_max').value = s.max;
+    document.getElementById('m_active').checked = s.active;
+  }
+  const lvls = s ? s.levels : [{title:"", criteria:""}];
+  document.getElementById('masteryLevelsEdit').innerHTML = lvls.map((l, i) => `
+    <div class="card-flat p-4">
+      <div class="flex items-center gap-3 mb-2.5">
+        <span class="display text-2xl leading-none w-7">${i+1}</span>
+        <input value="${escapeHtml(l.title)}" placeholder="Название уровня" class="flex-1 input-base">
+        <button class="btn-orange" style="padding:5px 14px; font-size:12px;">Удалить</button>
+      </div>
+      <textarea rows="3" placeholder="Критерии подтверждения..." class="input-base text-xs">${escapeHtml(l.criteria)}</textarea>
+    </div>
+  `).join('');
+  modal.classList.remove('hidden');
+}
+function closeSkillModal() { document.getElementById('skillModal').classList.add('hidden'); }
+function saveSkill() { alert('Mock: сохранено. В реальной системе будет создана новая версия матрицы (v4).'); closeSkillModal(); }
+
+// =========================================================================
+// USER MODAL
+// =========================================================================
+function openUserModal(arg) {
+  const modal = document.getElementById('userModal');
+  modal.classList.remove('hidden');
+}
+function closeUserModal() { document.getElementById('userModal').classList.add('hidden'); }
+function saveUser() { alert('Mock: пользователь сохранён.'); closeUserModal(); }
+
+// init
+renderSkillNav();
+renderSkillsList();
+renderRightPanel();
+renderPortraitTable();
+renderMatrixTable();
+</script>
+
+</body>
+</html>

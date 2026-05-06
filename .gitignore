@@ -1,0 +1,28 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Node — все артефакты внутри grades-app/
+grades-app/node_modules/
+grades-app/.next/
+grades-app/out/
+grades-app/build/
+grades-app/dist/
+grades-app/.env
+grades-app/.env*.local
+grades-app/*.tsbuildinfo
+grades-app/next-env.d.ts
+
+# Prisma
+grades-app/prisma/migrations/dev.db*
+
+# Internal artifacts (созданы во время разработки в outputs/, не нужны в репо)
+*_part*.html

@@ -1,0 +1,311 @@
+// Грейды — Prisma schema
+// Источник правды: 02_PRD.md §5
+// Принципы:
+//   - Матрица (Skill, Weight, MasteryLevel, GradeLevel, SkillGate) версионируется через MatrixVersion
+//   - SkillTaxonomy и SkillGroup — глобальные (стабильные структурные элементы)
+//   - Skill.active = true/false (мягкое выключение); удаление — только из архива через каскад
+//   - Snapshot оценки замораживается в Assessment.snapshot — старые портреты не "съезжают" при правке матрицы
+//   - User.gradeFloor — зафиксированный грейд при переходе со старой системы
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// MATRIX VERSIONING
+// ============================================================
+
+model MatrixVersion {
+  id        Int      @id @default(autoincrement())
+  number    Int      @unique
+  comment   String?
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  createdBy Int?
+  creator   User?    @relation("MatrixCreatedBy", fields: [createdBy], references: [id])
+
+  skills      Skill[]
+  weights     SkillWeight[]
+  masteries   MasteryLevel[]
+  grades      GradeLevel[]
+  gates       SkillGate[]
+  assessments Assessment[]
+
+  @@map("matrix_versions")
+}
+
+// ============================================================
+// REFERENCE DATA (global, not versioned)
+// ============================================================
+
+model Build {
+  id          Int     @id @default(autoincrement())
+  code        String  @unique // "creator" | "visioner" | "navigator"
+  name        String
+  description String?
+  sortOrder   Int     @default(0)
+
+  weights   SkillWeight[]
+  gates     SkillGate[]
+  designers User[]
+
+  @@map("builds")
+}
+
+model SkillTaxonomy {
+  id        Int    @id @default(autoincrement())
+  code      String @unique // UI / UX / PRD / IND / RES
+  name      String
+  sortOrder Int    @default(0)
+
+  groups SkillGroup[]
+
+  @@map("skill_taxonomies")
+}
+
+model SkillGroup {
+  id         Int    @id @default(autoincrement())
+  taxonomyId Int
+  taxonomy   SkillTaxonomy @relation(fields: [taxonomyId], references: [id])
+  name       String
+  sortOrder  Int    @default(0)
+
+  skills Skill[]
+
+  @@unique([taxonomyId, name])
+  @@map("skill_groups")
+}
+
+// ============================================================
+// SKILLS (versioned, with active flag)
+// ============================================================
+
+model Skill {
+  id              Int     @id @default(autoincrement())
+  matrixVersionId Int
+  matrixVersion   MatrixVersion @relation(fields: [matrixVersionId], references: [id], onDelete: Cascade)
+  groupId         Int
+  group           SkillGroup    @relation(fields: [groupId], references: [id])
+
+  name            String
+  description     String  // italic-описание
+  type            String  // "CORE" | "SEC"
+  maxMasteryLevel Int     // 1..5
+  replaceableNote String? // "Заменяемые навыки (З) — ..."
+  rationale       String? // обоснование весов
+
+  // Soft-toggle архивирования (см. PRD §6.5)
+  active     Boolean   @default(true)
+  archivedAt DateTime?
+
+  weights   SkillWeight[]
+  masteries MasteryLevel[]
+  gates     SkillGate[]
+  scores    AssessmentScore[]
+
+  @@unique([matrixVersionId, groupId, name])
+  @@index([matrixVersionId, active])
+  @@map("skills")
+}
+
+model SkillWeight {
+  id              Int   @id @default(autoincrement())
+  matrixVersionId Int
+  matrixVersion   MatrixVersion @relation(fields: [matrixVersionId], references: [id], onDelete: Cascade)
+  skillId         Int
+  skill           Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  buildId         Int
+  build           Build         @relation(fields: [buildId], references: [id])
+  weight          Float
+
+  @@unique([matrixVersionId, skillId, buildId])
+  @@map("skill_weights")
+}
+
+model MasteryLevel {
+  id              Int    @id @default(autoincrement())
+  matrixVersionId Int
+  matrixVersion   MatrixVersion @relation(fields: [matrixVersionId], references: [id], onDelete: Cascade)
+  skillId         Int
+  skill           Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  level           Int    // 1..N
+  title           String // "Сервисный дизайн (З)"
+  criteria        String // полный текст критерия
+
+  @@unique([matrixVersionId, skillId, level])
+  @@map("mastery_levels")
+}
+
+// ============================================================
+// GRADES & GATES (versioned)
+// ============================================================
+
+model GradeLevel {
+  id              Int    @id @default(autoincrement())
+  matrixVersionId Int
+  matrixVersion   MatrixVersion @relation(fields: [matrixVersionId], references: [id], onDelete: Cascade)
+  code            String // "intern" | "junior" | "junior_plus" | "middle" | "middle_plus" | "senior"
+  name            String
+  sortOrder       Int
+  // Порог XP может различаться между билдами; jsonb { "creator": 230, "visioner": 230, "navigator": 230 }
+  xpThresholds    Json
+
+  gates SkillGate[]
+
+  @@unique([matrixVersionId, code])
+  @@map("grade_levels")
+}
+
+model SkillGate {
+  id              Int @id @default(autoincrement())
+  matrixVersionId Int
+  matrixVersion   MatrixVersion @relation(fields: [matrixVersionId], references: [id], onDelete: Cascade)
+  gradeLevelId    Int
+  gradeLevel      GradeLevel    @relation(fields: [gradeLevelId], references: [id], onDelete: Cascade)
+  buildId         Int
+  build           Build         @relation(fields: [buildId], references: [id])
+  skillId         Int
+  skill           Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  requiredMastery Int
+
+  @@unique([matrixVersionId, gradeLevelId, buildId, skillId])
+  @@map("skill_gates")
+}
+
+// ============================================================
+// USERS
+// ============================================================
+
+model User {
+  id        Int     @id @default(autoincrement())
+  email     String  @unique
+  fullName  String
+  ssoId     String? @unique
+  role      String  // "admin" | "lead" | "designer"
+
+  buildId    Int?
+  build      Build?    @relation(fields: [buildId], references: [id])
+  department String?
+  leadId     Int?
+  lead       User?     @relation("LeadDesigners", fields: [leadId], references: [id])
+  designers  User[]    @relation("LeadDesigners")
+  hiredAt    DateTime?
+  active     Boolean   @default(true)
+
+  // Grade floor (см. PRD §6.3)
+  gradeFloor       String? // grade code or null
+  gradeFloorReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Связи
+  matricesCreated      MatrixVersion[]    @relation("MatrixCreatedBy")
+  notesAboutMe         DesignerNote[]     @relation("NoteDesigner")
+  notesIWrote          DesignerNote[]     @relation("NoteAuthor")
+  assessmentsAsDesigner Assessment[]      @relation("DesignerAssessments")
+  assessmentsAsLead    Assessment[]       @relation("LeadAssessments")
+  auditEntries         AuditLog[]
+
+  @@map("users")
+}
+
+model DesignerNote {
+  id         Int      @id @default(autoincrement())
+  designerId Int
+  designer   User     @relation("NoteDesigner", fields: [designerId], references: [id], onDelete: Cascade)
+  authorId   Int
+  author     User     @relation("NoteAuthor", fields: [authorId], references: [id])
+  text       String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([designerId])
+  @@map("designer_notes")
+}
+
+// ============================================================
+// ASSESSMENTS
+// ============================================================
+
+model Assessment {
+  id              Int       @id @default(autoincrement())
+  designerId      Int
+  designer        User      @relation("DesignerAssessments", fields: [designerId], references: [id])
+  leadId          Int
+  lead            User      @relation("LeadAssessments", fields: [leadId], references: [id])
+  matrixVersionId Int
+  matrixVersion   MatrixVersion @relation(fields: [matrixVersionId], references: [id])
+
+  cycle           String    // "2026-04" | "2026-10"
+  status          String    // "draft" | "published" | "archived"
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  publishedAt     DateTime?
+
+  // Кэш расчёта (для быстрых выборок)
+  totalXp         Float?
+  calculatedGrade String?
+  effectiveGrade  String?
+  // Полный snapshot — гарантия, что портрет не "съедет" при правке матрицы
+  snapshot        Json?
+
+  scores  AssessmentScore[]
+  history AssessmentHistory[]
+
+  @@index([designerId, cycle])
+  @@index([leadId, status])
+  @@map("assessments")
+}
+
+model AssessmentScore {
+  id           Int      @id @default(autoincrement())
+  assessmentId Int
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  skillId      Int
+  skill        Skill      @relation(fields: [skillId], references: [id])
+  masteryLevel Int        // 0..N (0 = не оценено)
+  comment      String?    @db.Text
+  evidenceUrl  String?
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([assessmentId, skillId])
+  @@map("assessment_scores")
+}
+
+model AssessmentHistory {
+  id           Int      @id @default(autoincrement())
+  assessmentId Int
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  changedById  Int
+  changedAt    DateTime @default(now())
+  action       String   // "create" | "update_score" | "publish" | "edit"
+  diff         Json
+
+  @@index([assessmentId, changedAt])
+  @@map("assessment_history")
+}
+
+// ============================================================
+// AUDIT LOG (общий — для чувствительных действий)
+// ============================================================
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  actorId    Int
+  actor      User     @relation(fields: [actorId], references: [id])
+  action     String   // "matrix_version_created" | "grade_floor_changed" | "skill_deactivated" | "skill_deleted" | "grade_floor_lowered" | ...
+  targetType String   // "user" | "skill" | "matrix" | "assessment"
+  targetId   Int?
+  details    Json     // { before: ..., after: ..., reason: "..." }
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@map("audit_log")
+}

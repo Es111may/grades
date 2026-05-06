@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background: #faf9f7;
+    color: #000000;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: 0.005em;
+  }
+}
