@@ -13,6 +13,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "import:excel": "tsx scripts/import-excel.ts",
+    "db:init": "tsx scripts/railway-init.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
