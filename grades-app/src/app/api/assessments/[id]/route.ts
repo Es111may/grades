@@ -103,8 +103,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ ok: true, result });
 }
 
-/** DELETE /api/assessments/[id] — discard draft */
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+/**
+ * DELETE /api/assessments/[id]
+ *
+ * - draft → hard-delete (с каскадом удаляются scores)
+ * - published → soft-delete (status='archived'). Так оценка пропадает
+ *   из истории/дашборда, но FK от снапшотов и матрицы остаются целыми.
+ * - archived → 404 (уже удалена)
+ */
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
   if (!me || (me.role !== 'lead' && me.role !== 'admin')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -113,10 +120,26 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const assessmentId = parseInt(params.id, 10);
   const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId } });
 
-  if (!assessment || assessment.status === 'published') {
-    return NextResponse.json({ error: 'Cannot delete published assessment' }, { status: 400 });
+  if (!assessment || assessment.status === 'archived') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  await prisma.assessment.delete({ where: { id: assessmentId } });
+  // Permission: lead of the designer or admin
+  if (me.role !== 'admin') {
+    const designer = await prisma.user.findUnique({ where: { id: assessment.designerId } });
+    if (!designer || designer.leadId !== me.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
+  if (assessment.status === 'published') {
+    await prisma.assessment.update({
+      where: { id: assessmentId },
+      data: { status: 'archived' },
+    });
+  } else {
+    await prisma.assessment.delete({ where: { id: assessmentId } });
+  }
+
   return NextResponse.json({ ok: true });
 }

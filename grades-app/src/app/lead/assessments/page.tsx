@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
+import DeleteButton from './DeleteButton';
 
 export default async function LeadAssessmentsPage() {
   const me = await getCurrentUser();
@@ -34,33 +35,40 @@ export default async function LeadAssessmentsPage() {
       ) : (
         <div className="space-y-2">
           {assessments.map((a) => (
-            <Link
+            <div
               key={a.id}
-              href={`/lead/portrait?id=${a.designerId}`}
-              className="flex items-center justify-between bg-white border border-cloud rounded-card px-6 py-4 shadow-soft hover:shadow-soft-lg transition-shadow"
+              className="flex items-center bg-white border border-cloud rounded-card shadow-soft hover:shadow-soft-lg transition-shadow"
             >
-              <div className="flex-1">
-                <div className="font-display text-lg">{a.designer.fullName}</div>
-                <div className="text-xs text-stone mt-0.5">
-                  {a.publishedAt &&
-                    new Date(a.publishedAt).toLocaleDateString('ru-RU', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  {me.role === 'admin' && a.lead && <> · лид: {a.lead.fullName}</>}
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <div className="font-display text-xl">
-                    {GRADE_NAMES[(a.effectiveGrade ?? 'intern') as GradeCode]}
+              <Link
+                href={`/lead/portrait?id=${a.designerId}`}
+                className="flex-1 flex items-center justify-between px-6 py-4"
+              >
+                <div className="flex-1">
+                  <div className="font-display text-lg">{a.designer.fullName}</div>
+                  <div className="text-xs text-stone mt-0.5">
+                    {a.publishedAt &&
+                      new Date(a.publishedAt).toLocaleDateString('ru-RU', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    {me.role === 'admin' && a.lead && <> · лид: {a.lead.fullName}</>}
                   </div>
-                  <div className="text-xs text-stone">{a.totalXp ?? 0} XP</div>
                 </div>
-                <span className="text-stone">→</span>
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <div className="font-display text-xl">
+                      {GRADE_NAMES[(a.effectiveGrade ?? 'intern') as GradeCode]}
+                    </div>
+                    <div className="text-xs text-stone">{a.totalXp ?? 0} XP</div>
+                  </div>
+                  <span className="text-stone">→</span>
+                </div>
+              </Link>
+              <div className="pr-4">
+                <DeleteButton assessmentId={a.id} designerName={a.designer.fullName} />
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}
