@@ -225,9 +225,8 @@ export default function AssessmentForm({
     router.push('/lead');
   }
 
-  const cycleName = cycle.endsWith('-04')
-    ? `апрель ${cycle.split('-')[0]}`
-    : `октябрь ${cycle.split('-')[0]}`;
+  // cycle хранится в БД как YYYY-MM, но в UI больше не показываем —
+  // оценки теперь ad-hoc, ориентир — дата публикации.
 
   return (
     <div className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
@@ -241,7 +240,7 @@ export default function AssessmentForm({
       <div className="flex items-end justify-between gap-8 mb-8">
         <div>
           <div className="text-xs uppercase tracking-widest text-stone mb-2">
-            Цикл {cycleName} · {published ? 'опубликовано' : 'черновик оценки'}
+            {published ? 'Опубликовано' : 'Черновик оценки'}
           </div>
           <h1 className="font-display text-5xl font-light tracking-tight mb-4">
             {designer.fullName}

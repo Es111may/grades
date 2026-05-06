@@ -6,11 +6,6 @@ import { getCurrentUser } from '@/lib/session';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
 
-function cycleName(cycle: string) {
-  const [y, m] = cycle.split('-');
-  return m === '04' ? `апрель ${y}` : `октябрь ${y}`;
-}
-
 export default async function LeadAssessmentsPage() {
   const me = await getCurrentUser();
   if (!me?.id) return null;
@@ -47,10 +42,12 @@ export default async function LeadAssessmentsPage() {
               <div className="flex-1">
                 <div className="font-display text-lg">{a.designer.fullName}</div>
                 <div className="text-xs text-stone mt-0.5">
-                  {cycleName(a.cycle)}
-                  {a.publishedAt && (
-                    <> · {new Date(a.publishedAt).toLocaleDateString('ru-RU')}</>
-                  )}
+                  {a.publishedAt &&
+                    new Date(a.publishedAt).toLocaleDateString('ru-RU', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
                   {me.role === 'admin' && a.lead && <> · лид: {a.lead.fullName}</>}
                 </div>
               </div>

@@ -10,7 +10,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Radar } from 'react-chartjs-2';
-import { GRADE_NAMES, BUILD_NAMES } from '@/lib/types';
+import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
@@ -64,11 +64,6 @@ export type PortraitData = {
     levelTitle: string | null;
   }[];
 };
-
-function cycleName(cycle: string) {
-  const [y, m] = cycle.split('-');
-  return m === '04' ? `апрель ${y}` : `октябрь ${y}`;
-}
 
 export default function Portrait({ data }: { data: PortraitData }) {
   const labels = TAXONOMY_ORDER.map((c) => TAXONOMY_LABELS[c] ?? c);
@@ -129,10 +124,9 @@ export default function Portrait({ data }: { data: PortraitData }) {
       {/* Hero */}
       <div className="mb-10">
         <div className="text-xs uppercase tracking-widest text-stone mb-2">
-          Цикл {cycleName(data.cycle)}
-          {data.publishedAt && (
-            <> · опубликовано {new Date(data.publishedAt).toLocaleDateString('ru-RU')}</>
-          )}
+          {data.publishedAt
+            ? `Опубликовано ${new Date(data.publishedAt).toLocaleDateString('ru-RU')}`
+            : 'Оценка'}
         </div>
         <h1 className="font-display text-5xl font-light tracking-tight mb-3">
           {data.designer.fullName}

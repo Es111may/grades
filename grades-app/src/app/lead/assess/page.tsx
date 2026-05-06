@@ -5,20 +5,13 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
+import { currentCycle } from '@/lib/cycle';
 import AssessmentForm from './AssessmentForm';
-
-function currentCycle() {
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  return month <= 6
-    ? `${now.getFullYear()}-04`
-    : `${now.getFullYear()}-10`;
-}
 
 export default async function AssessPage({
   searchParams,
 }: {
-  searchParams: { id?: string };
+  searchParams: { id?: string; new?: string };
 }) {
   const user = await getCurrentUser();
   if (!user?.id) redirect('/auth/signin');
@@ -26,7 +19,6 @@ export default async function AssessPage({
   const designerId = parseInt(searchParams.id ?? '', 10);
   if (isNaN(designerId)) redirect('/lead');
 
-  // Load designer with build
   const designer = await prisma.user.findUnique({
     where: { id: designerId },
     include: { build: true },
@@ -35,18 +27,23 @@ export default async function AssessPage({
   if (!designer || !designer.build) redirect('/lead');
 
   const buildCode = designer.build.code as BuildCode;
-  const cycle = currentCycle();
 
-  // Get current matrix version
   const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
   if (!matrix) redirect('/lead');
 
-  // Get or create draft assessment
-  let assessment = await prisma.assessment.findFirst({
-    where: { designerId, cycle, status: { not: 'archived' } },
-    orderBy: { createdAt: 'desc' },
-    include: { scores: true },
-  });
+  // Логика выбора оценки:
+  // 1. Если есть незавершённый draft — открываем его (продолжаем).
+  // 2. Если ?new=1 — принудительно создаём новый draft (для «новой оценки» поверх опубликованной).
+  // 3. Иначе — новый draft, если совсем ничего не было.
+  const forceNew = searchParams.new === '1';
+
+  let assessment = forceNew
+    ? null
+    : await prisma.assessment.findFirst({
+        where: { designerId, status: 'draft' },
+        orderBy: { createdAt: 'desc' },
+        include: { scores: true },
+      });
 
   if (!assessment) {
     assessment = await prisma.assessment.create({
@@ -54,7 +51,7 @@ export default async function AssessPage({
         designerId,
         leadId: user.id,
         matrixVersionId: matrix.id,
-        cycle,
+        cycle: currentCycle(),
         status: 'draft',
       },
       include: { scores: true },
@@ -136,7 +133,7 @@ export default async function AssessPage({
         gradeFloor: designer.gradeFloor as GradeCode | null,
         hiredAt: designer.hiredAt?.toISOString() ?? null,
       }}
-      cycle={cycle}
+      cycle={assessment.cycle}
       skills={skillsData}
       grades={gradesData}
       existingScores={existingScores}

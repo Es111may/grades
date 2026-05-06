@@ -5,11 +5,6 @@ import { getCurrentUser } from '@/lib/session';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
 
-function cycleName(cycle: string) {
-  const [y, m] = cycle.split('-');
-  return m === '04' ? `апрель ${y}` : `октябрь ${y}`;
-}
-
 export default async function DesignerHistoryPage() {
   const user = await getCurrentUser();
   if (!user?.id) return null;
@@ -24,9 +19,7 @@ export default async function DesignerHistoryPage() {
     <main className="max-w-[1100px] mx-auto px-8 pt-12 pb-16">
       <div className="mb-10">
         <div className="text-xs uppercase tracking-widest text-stone mb-2">История оценок</div>
-        <h1 className="font-display text-5xl font-light tracking-tight">
-          Циклы
-        </h1>
+        <h1 className="font-display text-5xl font-light tracking-tight">Все оценки</h1>
       </div>
 
       {assessments.length === 0 ? (
@@ -46,18 +39,19 @@ export default async function DesignerHistoryPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-xs uppercase tracking-widest text-stone mb-1">
-                      {cycleName(a.cycle)}
+                      {a.publishedAt
+                        ? new Date(a.publishedAt).toLocaleDateString('ru-RU', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })
+                        : '—'}
                     </div>
                     <div className="font-display text-2xl tracking-tight mb-1">
                       {GRADE_NAMES[(a.effectiveGrade ?? 'intern') as GradeCode]}
                     </div>
                     <div className="text-xs text-stone">
                       Оценил: {a.lead?.fullName ?? '—'}
-                      {a.publishedAt && (
-                        <>
-                          {' '}· {new Date(a.publishedAt).toLocaleDateString('ru-RU')}
-                        </>
-                      )}
                     </div>
                   </div>
                   <div className="text-right">

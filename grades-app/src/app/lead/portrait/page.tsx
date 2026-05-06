@@ -71,11 +71,17 @@ export default async function LeadPortraitPage({
     );
   }
 
+  const draft = await prisma.assessment.findFirst({
+    where: { designerId, status: 'draft' },
+    orderBy: { createdAt: 'desc' },
+  });
+
   return (
     <>
       <PortraitActions
         designerId={designerId}
         publishedAssessmentId={result.data.assessmentId}
+        hasDraft={!!draft}
       />
       <Portrait data={result.data} />
     </>
