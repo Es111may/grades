@@ -120,7 +120,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
 
   const xpProgress = data.maxXp > 0 ? Math.round((data.totalXp / data.maxXp) * 100) : 0;
   const isFloorActive =
-    data.gradeFloor &&
+    !!data.designer.gradeFloor &&
     data.calculatedGrade !== data.effectiveGrade;
 
   return (
