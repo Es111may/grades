@@ -71,7 +71,7 @@ export default async function AssessPage({
     orderBy: [
       { group: { taxonomy: { sortOrder: 'asc' } } },
       { group: { sortOrder: 'asc' } },
-      { sortOrder: 'asc' },
+      { name: 'asc' },
     ],
   });
 
