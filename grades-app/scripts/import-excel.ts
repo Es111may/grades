@@ -437,7 +437,20 @@ async function importMatrix() {
   });
 
   if (matrixVersion) {
-    console.log(`  ⚠ MatrixVersion #1 уже существует. Удаляю и пересоздаю.`);
+    // Идемпотентность: если матрица уже есть, проверяем, есть ли на неё ссылки от Assessment.
+    // Если есть — пропускаем переимпорт целиком (нельзя удалить из-за FK RESTRICT).
+    // Если нет — пересоздаём (для devev-цикла, когда Excel поменялся, а оценок ещё нет).
+    const refCount = await prisma.assessment.count({
+      where: { matrixVersionId: matrixVersion.id },
+    });
+    if (refCount > 0) {
+      console.log(
+        `  ⚠ MatrixVersion #1 уже существует и используется ${refCount} оценками. Пропускаю переимпорт.`,
+      );
+      console.log('✅ Импорт пропущен (матрица уже зафиксирована).');
+      return;
+    }
+    console.log(`  ⚠ MatrixVersion #1 уже существует, оценок нет. Пересоздаю.`);
     await prisma.matrixVersion.delete({ where: { id: matrixVersion.id } });
   }
 
