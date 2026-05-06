@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { requireRole } from '@/lib/session';
 import AppHeader from '@/components/AppHeader';
 
