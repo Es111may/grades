@@ -213,7 +213,10 @@ export default function AssessmentForm({
     const res = await fetch(`/api/assessments/${assessmentId}`, { method: 'POST' });
     if (res.ok) {
       setPublished(true);
+      // Сразу ведём на портрет — там лид видит свежий грейд и кнопку «Новая оценка».
+      router.push(`/lead/portrait?id=${designer.id}`);
       router.refresh();
+      return;
     }
     setPublishing(false);
   }
