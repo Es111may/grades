@@ -45,6 +45,14 @@ export async function POST(
     return NextResponse.json({ ok: true, newAssessmentId: existingDraft.id });
   }
 
+  // Берём scores из последней опубликованной оценки этого дизайнера —
+  // новая оценка обычно инкрементальная, начинать с нуля неудобно.
+  const lastPublished = await prisma.assessment.findFirst({
+    where: { designerId: ref.designerId, status: 'published' },
+    orderBy: { publishedAt: 'desc' },
+    include: { scores: true },
+  });
+
   const newDraft = await prisma.assessment.create({
     data: {
       designerId: ref.designerId,
@@ -52,6 +60,14 @@ export async function POST(
       matrixVersionId: ref.matrixVersionId,
       cycle: currentCycle(),
       status: 'draft',
+      scores: lastPublished
+        ? {
+            create: lastPublished.scores.map((s) => ({
+              skillId: s.skillId,
+              masteryLevel: s.masteryLevel,
+            })),
+          }
+        : undefined,
     },
   });
 

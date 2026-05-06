@@ -46,6 +46,13 @@ export default async function AssessPage({
       });
 
   if (!assessment) {
+    // Если есть последняя опубликованная — копируем scores как стартовую точку.
+    const lastPublished = await prisma.assessment.findFirst({
+      where: { designerId, status: 'published' },
+      orderBy: { publishedAt: 'desc' },
+      include: { scores: true },
+    });
+
     assessment = await prisma.assessment.create({
       data: {
         designerId,
@@ -53,6 +60,14 @@ export default async function AssessPage({
         matrixVersionId: matrix.id,
         cycle: currentCycle(),
         status: 'draft',
+        scores: lastPublished
+          ? {
+              create: lastPublished.scores.map((s) => ({
+                skillId: s.skillId,
+                masteryLevel: s.masteryLevel,
+              })),
+            }
+          : undefined,
       },
       include: { scores: true },
     });
