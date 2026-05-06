@@ -17,6 +17,6 @@ run('npx prisma db push --skip-generate');
 run('npx tsx scripts/import-excel.ts');
 run('npx tsx prisma/seed.ts');
 
-console.log('\n▶ Starting Next.js...\n');
-const next = spawn('npm', ['start'], { cwd: root, stdio: 'inherit' });
+console.log('\n▶ Starting Next.js (standalone)...\n');
+const next = spawn('node', ['.next/standalone/server.js'], { cwd: root, stdio: 'inherit' });
 next.on('exit', (code) => process.exit(code ?? 0));
