@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { calcGrade, type SkillSnapshot, type ScoreInput, type GradeThreshold } from '@/lib/grade';
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       totalXp: result.totalXp,
       calculatedGrade: result.calculatedGrade,
       effectiveGrade: result.effectiveGrade,
-      snapshot,
+      snapshot: snapshot as unknown as Prisma.InputJsonValue,
     },
   });
 
