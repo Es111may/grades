@@ -10,7 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <AppHeader
         user={{ fullName: user.name ?? user.email ?? '—', role: user.role }}
         navItems={[
-          { href: '/admin', label: 'Пользователи' },
+          { href: '/admin/users', label: 'Пользователи' },
           { href: '/admin/matrix', label: 'Матрица' },
           { href: '/admin/assessments', label: 'Оценки' },
           { href: '/admin/audit', label: 'Аудит-лог' },
