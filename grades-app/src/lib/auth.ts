@@ -16,8 +16,8 @@ import KeycloakProvider from 'next-auth/providers/keycloak';
 import { prisma } from './db';
 import type { BuildCode, GradeCode, UserRole } from './types';
 
-const isDevAuth =
-  (process.env.AUTH_MODE ?? (process.env.NODE_ENV === 'production' ? 'keycloak' : 'dev')) === 'dev';
+const authMode = process.env.AUTH_MODE || 'dev';
+const isDevAuth = authMode === 'dev';
 
 const providers = [];
 
