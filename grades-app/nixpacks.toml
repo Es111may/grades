@@ -1,0 +1,12 @@
+[phases.build]
+cmds = [
+  "npm install",
+  "npx prisma generate",
+  "npx next build"
+]
+
+[phases.setup]
+nixPkgs = ["nodejs_18"]
+
+[start]
+cmd = "npx tsx scripts/start.ts"
