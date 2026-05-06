@@ -21,7 +21,7 @@ import type { BuildCode, GradeCode, SkillType } from '../src/lib/types';
 const prisma = new PrismaClient();
 
 const EXCEL_PATH =
-  process.env.EXCEL_TEMPLATE_PATH || path.resolve(process.cwd(), '..', 'Шаблон Скиллсет 2.0.xlsx');
+  process.env.EXCEL_TEMPLATE_PATH || path.resolve(__dirname, '..', 'data', 'Шаблон Скиллсет 2.0.xlsx');
 
 // ============================================================
 // Парсинг
