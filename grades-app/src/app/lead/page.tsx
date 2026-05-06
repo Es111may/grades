@@ -106,7 +106,11 @@ export default async function LeadDashboard() {
           {cards.map((d) => (
             <Link
               key={d.id}
-              href={`/lead/assess?id=${d.id}`}
+              href={
+                d.status === 'published'
+                  ? `/lead/portrait?id=${d.id}`
+                  : `/lead/assess?id=${d.id}`
+              }
               className={`block bg-white border rounded-card p-7 shadow-soft hover:shadow-soft-lg transition-shadow ${
                 d.status === 'not_started'
                   ? 'border-dashed border-ash'
