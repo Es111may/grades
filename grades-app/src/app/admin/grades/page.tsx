@@ -25,11 +25,11 @@ const TARGET_SORT: Record<string, number> = {
 };
 
 const TAXONOMY_NAMES: Record<string, string> = {
-  UI: 'Визуал',
-  UX: 'Система',
-  PRD: 'Продукт',
-  IND: 'Самостоятельность',
-  RES: 'Ответственность',
+  UI: 'UI · Визуал',
+  UX: 'UX · Система',
+  PRD: 'PRD · Продукт',
+  IND: 'IND · Самостоятельность',
+  RES: 'RES · Ответственность',
 };
 
 /** Обновить русские названия таксономий (UI/UX/PRD/IND/RES) до текущих. */

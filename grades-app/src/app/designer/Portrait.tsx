@@ -16,11 +16,11 @@ import type { BuildCode, GradeCode } from '@/lib/types';
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
 const TAXONOMY_LABELS: Record<string, string> = {
-  UI: 'Визуал',
-  UX: 'Система',
-  PRD: 'Продукт',
-  IND: 'Самостоятельность',
-  RES: 'Ответственность',
+  UI: 'UI · Визуал',
+  UX: 'UX · Система',
+  PRD: 'PRD · Продукт',
+  IND: 'IND · Самостоятельность',
+  RES: 'RES · Ответственность',
 };
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
 
