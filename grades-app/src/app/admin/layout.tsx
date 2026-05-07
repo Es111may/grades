@@ -12,6 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         navItems={[
           { href: '/admin/users', label: 'Пользователи' },
           { href: '/admin/matrix', label: 'Матрица' },
+          { href: '/admin/grades', label: 'Грейды' },
           { href: '/admin/assessments', label: 'Оценки' },
           { href: '/admin/audit', label: 'Аудит-лог' },
         ]}
