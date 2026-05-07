@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import MigrateButton from './MigrateButton';
 
 type Build = { id: number; code: string; name: string };
 type Gate = {
@@ -46,6 +47,8 @@ export default function GradesClient({
           к будущим оценкам — уже опубликованные используют свой снапшот.
         </p>
       </div>
+
+      <MigrateButton />
 
       <div className="space-y-3">
         {grades.map((g) => (
