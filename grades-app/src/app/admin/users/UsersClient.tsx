@@ -30,9 +30,9 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const GRADE_LABELS: Record<string, string> = {
-  intern: 'Intern',
   junior: 'Джун',
   junior_plus: 'Джун+',
+  premiddle: 'Пре-мидл',
   middle: 'Мидл',
   middle_plus: 'Мидл+',
   senior: 'Синьор',

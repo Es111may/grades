@@ -160,25 +160,21 @@ function parseSkillsSheet(workbook: XLSX.WorkBook): ParsedSkill[] {
 }
 
 interface XpThresholds {
-  intern: number;
   junior: number;
   junior_plus: number;
+  premiddle: number;
   middle: number;
   middle_plus: number;
   senior: number;
 }
 
 function parseXpGatesSheet(workbook: XLSX.WorkBook): Record<BuildCode, XpThresholds> {
-  // По PRD пороги едины для всех билдов: 0/0/70/120/180/230.
-  // Лист «Гейты (XP)» содержит конкретные значения; Excel показывает их как
-  // "70 / 120 / 180 / 230 / 231+" — это пороги ENTRY.
-  // Для Intern принимаем 0 (любой положительный XP даёт Junior, Intern = "оценка не начата").
-
+  // Пороги XP едины для всех билдов.
   const fixed: XpThresholds = {
-    intern: -1, // условный — фактически intern когда total <= 0
     junior: 0,
-    junior_plus: 70,
-    middle: 120,
+    junior_plus: 75,
+    premiddle: 105,
+    middle: 135,
     middle_plus: 180,
     senior: 230,
   };
@@ -505,11 +501,11 @@ async function importMatrix() {
 
   // GradeLevels с XP-порогами
   console.log('  • grade levels');
-  const gradeOrder: GradeCode[] = ['intern', 'junior', 'junior_plus', 'middle', 'middle_plus', 'senior'];
+  const gradeOrder: GradeCode[] = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
   const gradeNames: Record<GradeCode, string> = {
-    intern: 'Intern',
     junior: 'Джун',
     junior_plus: 'Джун+',
+    premiddle: 'Пре-мидл',
     middle: 'Мидл',
     middle_plus: 'Мидл+',
     senior: 'Синьор',
