@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -15,14 +16,14 @@ import type { BuildCode, GradeCode } from '@/lib/types';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
-const TAXONOMY_LABELS: Record<string, string> = {
-  UI: 'UI · Визуал',
-  UX: 'UX · Система',
-  PRD: 'PRD · Продукт',
-  IND: 'IND · Самостоятельность',
-  RES: 'RES · Ответственность',
-};
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
+const TAXONOMY_COLOR: Record<string, string> = {
+  UI: '#34c759',   // green
+  UX: '#0ea5e9',   // sky blue
+  PRD: '#ef4444',  // red
+  IND: '#7c3aed',  // violet
+  RES: '#f59e0b',  // amber
+};
 
 export type PortraitData = {
   assessmentId: number;
@@ -42,6 +43,7 @@ export type PortraitData = {
   maxXp: number;
   xpByTaxonomy: Record<string, number>;
   maxXpByTaxonomy: Record<string, number>;
+  xpByGroup: Record<string, Record<string, { current: number; max: number }>>;
   nextGrade: {
     code: GradeCode;
     xpNeeded: number;
@@ -55,6 +57,7 @@ export type PortraitData = {
   skills: {
     id: number;
     name: string;
+    description: string;
     taxonomyCode: string;
     taxonomyName: string;
     groupName: string;
@@ -62,29 +65,44 @@ export type PortraitData = {
     masteryLevel: number;
     maxMasteryLevel: number;
     levelTitle: string | null;
+    levels: { level: number; title: string; criteria: string }[];
   }[];
 };
 
 export default function Portrait({ data }: { data: PortraitData }) {
-  const labels = TAXONOMY_ORDER.map((c) => TAXONOMY_LABELS[c] ?? c);
-  // Normalized to percentage of max XP per taxonomy for fair comparison
-  const dataValues = TAXONOMY_ORDER.map((code) => {
-    const got = data.xpByTaxonomy[code] ?? 0;
-    const max = data.maxXpByTaxonomy[code] ?? 0;
-    return max > 0 ? Math.round((got / max) * 100) : 0;
-  });
+  const [hoveredTax, setHoveredTax] = useState<string | null>(null);
+
+  const xpProgress = data.maxXp > 0 ? Math.round((data.totalXp / data.maxXp) * 100) : 0;
+  const isFloorActive =
+    !!data.designer.gradeFloor && data.calculatedGrade !== data.effectiveGrade;
+
+  // Main radar — absolute XP per taxonomy, current + max overlay
+  const labels = TAXONOMY_ORDER;
+  const currentValues = TAXONOMY_ORDER.map((c) => data.xpByTaxonomy[c] ?? 0);
+  const maxValues = TAXONOMY_ORDER.map((c) => data.maxXpByTaxonomy[c] ?? 0);
 
   const chartData = {
     labels,
     datasets: [
       {
-        label: 'Освоено, %',
-        data: dataValues,
-        backgroundColor: 'rgba(173, 233, 0, 0.2)',
-        borderColor: '#ade900',
+        label: 'Максимум',
+        data: maxValues,
+        backgroundColor: 'transparent',
+        borderColor: '#c8c5bb',
+        borderWidth: 1.5,
+        borderDash: [4, 4],
+        pointBackgroundColor: '#c8c5bb',
+        pointBorderColor: '#c8c5bb',
+        pointRadius: 2,
+      },
+      {
+        label: `Текущий (${data.designer.fullName.split(' ')[0]})`,
+        data: currentValues,
+        backgroundColor: 'rgba(52, 199, 89, 0.18)',
+        borderColor: '#34c759',
         borderWidth: 2,
-        pointBackgroundColor: '#ade900',
-        pointBorderColor: '#ade900',
+        pointBackgroundColor: '#34c759',
+        pointBorderColor: '#34c759',
         pointRadius: 4,
       },
     ],
@@ -94,11 +112,13 @@ export default function Portrait({ data }: { data: PortraitData }) {
     scales: {
       r: {
         suggestedMin: 0,
-        suggestedMax: 100,
-        ticks: { stepSize: 20, color: '#86857f', backdropColor: 'transparent' },
+        ticks: { color: '#86857f', backdropColor: 'transparent', font: { size: 10 } },
         grid: { color: '#e5e3dc' },
         angleLines: { color: '#e5e3dc' },
-        pointLabels: { font: { size: 13, family: 'Manrope' }, color: '#1a1a1a' },
+        pointLabels: {
+          font: { size: 14, family: 'Manrope', weight: 600 as const },
+          color: '#1a1a1a',
+        },
       },
     },
     plugins: { legend: { display: false } },
@@ -113,11 +133,6 @@ export default function Portrait({ data }: { data: PortraitData }) {
     if (!taxMap.has(s.groupName)) taxMap.set(s.groupName, []);
     taxMap.get(s.groupName)!.push(s);
   }
-
-  const xpProgress = data.maxXp > 0 ? Math.round((data.totalXp / data.maxXp) * 100) : 0;
-  const isFloorActive =
-    !!data.designer.gradeFloor &&
-    data.calculatedGrade !== data.effectiveGrade;
 
   return (
     <main className="max-w-[1300px] mx-auto px-8 pt-12 pb-16">
@@ -161,23 +176,23 @@ export default function Portrait({ data }: { data: PortraitData }) {
         </div>
       </div>
 
-      {/* Top row: grade + radar */}
-      <div className="grid grid-cols-[1fr_1.2fr] gap-6 mb-10">
-        {/* Grade card */}
-        <div className="bg-white border border-cloud rounded-card p-8 shadow-soft">
-          <div className="text-xs uppercase tracking-widest text-stone mb-3">
-            {isFloorActive ? 'Эффективный грейд' : 'Грейд'}
-          </div>
-          <div className="font-display text-7xl font-light tracking-tight mb-2">
-            {GRADE_NAMES[data.effectiveGrade]}
-          </div>
-          {isFloorActive && (
-            <div className="text-sm text-sunset mb-4">
-              Зафиксирован (расчёт дал {GRADE_NAMES[data.calculatedGrade]})
+      {/* Grade card */}
+      <div className="bg-white border border-cloud rounded-card p-8 shadow-soft mb-6">
+        <div className="grid grid-cols-[auto_1fr] gap-8 items-end">
+          <div>
+            <div className="text-xs uppercase tracking-widest text-stone mb-3">
+              {isFloorActive ? 'Эффективный грейд' : 'Грейд'}
             </div>
-          )}
-
-          <div className="mt-6 pt-6 border-t border-cloud">
+            <div className="font-display text-7xl font-light tracking-tight">
+              {GRADE_NAMES[data.effectiveGrade]}
+            </div>
+            {isFloorActive && (
+              <div className="text-sm text-sunset mt-1">
+                Зафиксирован (расчёт дал {GRADE_NAMES[data.calculatedGrade]})
+              </div>
+            )}
+          </div>
+          <div>
             <div className="flex items-baseline justify-between mb-2">
               <span className="text-xs uppercase tracking-widest text-stone">XP</span>
               <span className="font-display text-3xl">
@@ -194,15 +209,79 @@ export default function Portrait({ data }: { data: PortraitData }) {
             <div className="text-xs text-stone mt-1">{xpProgress}% от максимума</div>
           </div>
         </div>
+      </div>
 
-        {/* Radar */}
-        <div className="bg-white border border-cloud rounded-card p-8 shadow-soft">
-          <div className="text-xs uppercase tracking-widest text-stone mb-3">
-            Профиль по таксономиям
+      {/* Taxonomy progress cards */}
+      <div className="grid grid-cols-5 gap-3 mb-3">
+        {TAXONOMY_ORDER.map((code) => {
+          const got = data.xpByTaxonomy[code] ?? 0;
+          const max = data.maxXpByTaxonomy[code] ?? 0;
+          const pct = max > 0 ? Math.round((got / max) * 100) : 0;
+          const color = TAXONOMY_COLOR[code];
+          return (
+            <div
+              key={code}
+              onMouseEnter={() => setHoveredTax(code)}
+              onMouseLeave={() => setHoveredTax(null)}
+              className={`bg-white border rounded-card px-5 py-4 shadow-soft cursor-default transition-all ${
+                hoveredTax === code ? 'border-stone shadow-soft-lg' : 'border-cloud'
+              }`}
+            >
+              <div className="text-xs uppercase tracking-widest text-stone mb-1.5">
+                {code}
+              </div>
+              <div className="font-display text-3xl mb-2">
+                {got}
+                <span className="text-base text-stone"> / {max}</span>
+              </div>
+              <div className="h-1.5 bg-canvas rounded-full overflow-hidden mb-1">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.min(pct, 100)}%`,
+                    background: color,
+                  }}
+                />
+              </div>
+              <div className="text-xs text-stone">{pct}%</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Hover strip — group breakdown for hovered taxonomy */}
+      <div
+        className={`overflow-hidden transition-all ${
+          hoveredTax ? 'max-h-[300px] mb-6' : 'max-h-0 mb-0'
+        }`}
+      >
+        {hoveredTax && data.xpByGroup[hoveredTax] && (
+          <div className="bg-white border border-cloud rounded-card p-5 shadow-soft">
+            <div className="text-xs uppercase tracking-widest text-stone mb-4">
+              Группы внутри «{hoveredTax}» — % от максимума
+            </div>
+            <GroupBreakdown
+              groups={data.xpByGroup[hoveredTax]}
+              color={TAXONOMY_COLOR[hoveredTax]}
+            />
           </div>
-          <div style={{ height: 320 }}>
-            <Radar data={chartData} options={chartOptions} />
-          </div>
+        )}
+      </div>
+
+      {/* Main radar */}
+      <div className="bg-white border border-cloud rounded-card p-8 shadow-soft mb-10">
+        <div className="flex items-center gap-5 mb-3 text-xs">
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm bg-[#34c759]" />
+            <span>Текущий ({data.designer.fullName.split(' ')[0]})</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm border border-dashed border-ash" />
+            <span className="text-stone">Максимум ({data.designer.buildName})</span>
+          </span>
+        </div>
+        <div style={{ height: 360 }}>
+          <Radar data={chartData} options={chartOptions} />
         </div>
       </div>
 
@@ -245,7 +324,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
         </div>
       )}
 
-      {/* Skills grouped */}
+      {/* Skills grouped — accordions */}
       <div className="space-y-8">
         <h2 className="font-display text-3xl tracking-tight">Навыки</h2>
         {TAXONOMY_ORDER.filter((code) => grouped.has(code)).map((code) => {
@@ -268,34 +347,9 @@ export default function Portrait({ data }: { data: PortraitData }) {
                     <div className="text-xs uppercase tracking-widest text-stone mb-3">
                       {groupName}
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {skills.map((s) => (
-                        <div
-                          key={s.id}
-                          className="flex items-center justify-between py-2 border-b border-cloud last:border-0"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm">{s.name}</div>
-                            {s.levelTitle && s.masteryLevel > 0 && (
-                              <div className="text-xs text-stone mt-0.5">{s.levelTitle}</div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 ml-4">
-                            <div className="flex gap-1">
-                              {Array.from({ length: s.maxMasteryLevel }).map((_, i) => (
-                                <div
-                                  key={i}
-                                  className={`w-2 h-2 rounded-full ${
-                                    i < s.masteryLevel ? 'bg-lime' : 'bg-cloud'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                            <span className="text-xs text-stone w-12 text-right">
-                              {s.masteryLevel * s.weight} XP
-                            </span>
-                          </div>
-                        </div>
+                        <SkillAccordion key={s.id} skill={s} />
                       ))}
                     </div>
                   </div>
@@ -306,5 +360,188 @@ export default function Portrait({ data }: { data: PortraitData }) {
         })}
       </div>
     </main>
+  );
+}
+
+function GroupBreakdown({
+  groups,
+  color,
+}: {
+  groups: Record<string, { current: number; max: number }>;
+  color: string;
+}) {
+  const entries = Object.entries(groups);
+  if (entries.length < 3) {
+    // Не радар — горизонтальные бары
+    return (
+      <div className="space-y-2">
+        {entries.map(([name, { current, max }]) => {
+          const pct = max > 0 ? Math.round((current / max) * 100) : 0;
+          return (
+            <div key={name} className="flex items-center gap-3 text-sm">
+              <span className="w-32 text-stone truncate">{name}</span>
+              <div className="flex-1 h-1.5 bg-canvas rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${Math.min(pct, 100)}%`, background: color }}
+                />
+              </div>
+              <span className="text-xs text-stone w-12 text-right">{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Радар по группам в этой таксономии
+  const labels = entries.map(([name]) => name);
+  const values = entries.map(([, { current, max }]) =>
+    max > 0 ? Math.round((current / max) * 100) : 0,
+  );
+
+  // RGBA from hex for fill
+  const hexToRgba = (hex: string, a: number) => {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  };
+
+  const chartData = {
+    labels,
+    datasets: [
+      {
+        data: values,
+        backgroundColor: hexToRgba(color, 0.2),
+        borderColor: color,
+        borderWidth: 2,
+        pointBackgroundColor: color,
+        pointBorderColor: color,
+        pointRadius: 3,
+      },
+    ],
+  };
+
+  const opts = {
+    scales: {
+      r: {
+        suggestedMin: 0,
+        suggestedMax: 100,
+        ticks: { display: false },
+        grid: { color: '#e5e3dc' },
+        angleLines: { color: '#e5e3dc' },
+        pointLabels: { font: { size: 11, family: 'Manrope' }, color: '#1a1a1a' },
+      },
+    },
+    plugins: { legend: { display: false } },
+    maintainAspectRatio: false,
+  };
+
+  return (
+    <div className="flex justify-center">
+      <div style={{ width: 360, height: 240 }}>
+        <Radar data={chartData} options={opts} />
+      </div>
+    </div>
+  );
+}
+
+function SkillAccordion({
+  skill,
+}: {
+  skill: {
+    id: number;
+    name: string;
+    description: string;
+    weight: number;
+    masteryLevel: number;
+    maxMasteryLevel: number;
+    levelTitle: string | null;
+    levels: { level: number; title: string; criteria: string }[];
+  };
+}) {
+  const [open, setOpen] = useState(false);
+  const hasContent = skill.description || skill.levels.length > 0;
+
+  return (
+    <div className="border-b border-cloud last:border-0">
+      <button
+        onClick={() => hasContent && setOpen((v) => !v)}
+        disabled={!hasContent}
+        className="w-full flex items-center justify-between py-2.5 text-left hover:bg-canvas/50 rounded -mx-2 px-2 transition-colors disabled:cursor-default disabled:hover:bg-transparent"
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {hasContent && (
+            <span
+              className={`text-stone text-xs transition-transform ${open ? 'rotate-90' : ''}`}
+            >
+              ▶
+            </span>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="text-sm">{skill.name}</div>
+            {skill.levelTitle && skill.masteryLevel > 0 && (
+              <div className="text-xs text-stone mt-0.5">{skill.levelTitle}</div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3 ml-4">
+          <div className="flex gap-1">
+            {Array.from({ length: skill.maxMasteryLevel }).map((_, i) => (
+              <div
+                key={i}
+                className={`w-2 h-2 rounded-full ${
+                  i < skill.masteryLevel ? 'bg-lime' : 'bg-cloud'
+                }`}
+              />
+            ))}
+          </div>
+          <span className="text-xs text-stone w-16 text-right">
+            {skill.masteryLevel * skill.weight} XP
+          </span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="pb-4 pt-1 px-6 space-y-3">
+          {skill.description && (
+            <p className="text-sm text-stone italic leading-relaxed">{skill.description}</p>
+          )}
+          {skill.levels.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs uppercase tracking-widest text-stone">
+                Уровни мастерства
+              </div>
+              {skill.levels.map((lvl) => (
+                <div
+                  key={lvl.level}
+                  className={`pl-3 border-l-2 ${
+                    lvl.level === skill.masteryLevel ? 'border-lime' : 'border-cloud'
+                  }`}
+                >
+                  <div className="text-sm">
+                    <span className="text-stone mr-2">{lvl.level}.</span>
+                    <span
+                      className={
+                        lvl.level === skill.masteryLevel ? 'font-medium' : ''
+                      }
+                    >
+                      {lvl.title}
+                    </span>
+                  </div>
+                  {lvl.criteria && (
+                    <p className="text-xs text-stone mt-1 whitespace-pre-line leading-relaxed">
+                      {lvl.criteria}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

@@ -99,6 +99,7 @@ export async function loadPortraitData(designerId: number): Promise<
     return {
       id: s.id,
       name: s.name,
+      description: s.description ?? '',
       taxonomyCode: s.group.taxonomy.code,
       taxonomyName: s.group.taxonomy.name,
       groupName: s.group.name,
@@ -106,16 +107,30 @@ export async function loadPortraitData(designerId: number): Promise<
       masteryLevel,
       maxMasteryLevel: s.maxMasteryLevel,
       levelTitle,
+      levels: s.masteries.map((ml) => ({
+        level: ml.level,
+        title: ml.title,
+        criteria: ml.criteria ?? '',
+      })),
     };
   });
 
-  // Max XP per taxonomy + total
+  // Max XP per taxonomy + total + groups breakdown
   const maxXpByTaxonomy: Record<string, number> = {};
+  const xpByGroup: Record<string, Record<string, { current: number; max: number }>> = {};
   let maxXp = 0;
   for (const s of skillsForDisplay) {
     const m = s.weight * s.maxMasteryLevel;
+    const c = s.weight * s.masteryLevel;
     maxXp += m;
     maxXpByTaxonomy[s.taxonomyCode] = (maxXpByTaxonomy[s.taxonomyCode] ?? 0) + m;
+
+    if (!xpByGroup[s.taxonomyCode]) xpByGroup[s.taxonomyCode] = {};
+    if (!xpByGroup[s.taxonomyCode][s.groupName]) {
+      xpByGroup[s.taxonomyCode][s.groupName] = { current: 0, max: 0 };
+    }
+    xpByGroup[s.taxonomyCode][s.groupName].current += c;
+    xpByGroup[s.taxonomyCode][s.groupName].max += m;
   }
 
   // Resolve gate skill names for failedGates
@@ -153,6 +168,7 @@ export async function loadPortraitData(designerId: number): Promise<
     maxXp,
     xpByTaxonomy: result.xpByTaxonomy,
     maxXpByTaxonomy,
+    xpByGroup,
     nextGrade,
     skills: skillsForDisplay,
   };
