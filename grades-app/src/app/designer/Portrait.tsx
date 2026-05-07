@@ -70,7 +70,7 @@ export type PortraitData = {
 };
 
 export default function Portrait({ data }: { data: PortraitData }) {
-  const [hoveredTax, setHoveredTax] = useState<string | null>(null);
+  const [rowHovered, setRowHovered] = useState(false);
 
   const xpProgress = data.maxXp > 0 ? Math.round((data.totalXp / data.maxXp) * 100) : 0;
   const isFloorActive =
@@ -211,61 +211,83 @@ export default function Portrait({ data }: { data: PortraitData }) {
         </div>
       </div>
 
-      {/* Taxonomy progress cards */}
-      <div className="grid grid-cols-5 gap-3 mb-3">
-        {TAXONOMY_ORDER.map((code) => {
-          const got = data.xpByTaxonomy[code] ?? 0;
-          const max = data.maxXpByTaxonomy[code] ?? 0;
-          const pct = max > 0 ? Math.round((got / max) * 100) : 0;
-          const color = TAXONOMY_COLOR[code];
-          return (
-            <div
-              key={code}
-              onMouseEnter={() => setHoveredTax(code)}
-              onMouseLeave={() => setHoveredTax(null)}
-              className={`bg-white border rounded-card px-5 py-4 shadow-soft cursor-default transition-all ${
-                hoveredTax === code ? 'border-stone shadow-soft-lg' : 'border-cloud'
-              }`}
-            >
-              <div className="text-xs uppercase tracking-widest text-stone mb-1.5">
-                {code}
-              </div>
-              <div className="font-display text-3xl mb-2">
-                {got}
-                <span className="text-base text-stone"> / {max}</span>
-              </div>
-              <div className="h-1.5 bg-canvas rounded-full overflow-hidden mb-1">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${Math.min(pct, 100)}%`,
-                    background: color,
-                  }}
-                />
-              </div>
-              <div className="text-xs text-stone">{pct}%</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Hover strip — group breakdown for hovered taxonomy */}
+      {/* Taxonomy progress cards (hovering anywhere reveals the full group breakdown row) */}
       <div
-        className={`overflow-hidden transition-all ${
-          hoveredTax ? 'max-h-[300px] mb-6' : 'max-h-0 mb-0'
-        }`}
+        onMouseEnter={() => setRowHovered(true)}
+        onMouseLeave={() => setRowHovered(false)}
+        className="mb-3"
       >
-        {hoveredTax && data.xpByGroup[hoveredTax] && (
+        <div className="grid grid-cols-5 gap-3">
+          {TAXONOMY_ORDER.map((code) => {
+            const got = data.xpByTaxonomy[code] ?? 0;
+            const max = data.maxXpByTaxonomy[code] ?? 0;
+            const pct = max > 0 ? Math.round((got / max) * 100) : 0;
+            const color = TAXONOMY_COLOR[code];
+            return (
+              <div
+                key={code}
+                className={`bg-white border rounded-card px-5 py-4 shadow-soft transition-all ${
+                  rowHovered ? 'border-stone shadow-soft-lg' : 'border-cloud'
+                }`}
+              >
+                <div className="text-xs uppercase tracking-widest text-stone mb-1.5">
+                  {code}
+                </div>
+                <div className="font-display text-3xl mb-2">
+                  {got}
+                  <span className="text-base text-stone"> / {max}</span>
+                </div>
+                <div className="h-1.5 bg-canvas rounded-full overflow-hidden mb-1">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.min(pct, 100)}%`,
+                      background: color,
+                    }}
+                  />
+                </div>
+                <div className="text-xs text-stone">{pct}%</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Hover strip — group breakdown for ALL taxonomies */}
+        <div
+          className={`overflow-hidden transition-all ${
+            rowHovered ? 'max-h-[400px] mt-3' : 'max-h-0 mt-0'
+          }`}
+        >
           <div className="bg-white border border-cloud rounded-card p-5 shadow-soft">
             <div className="text-xs uppercase tracking-widest text-stone mb-4">
-              Группы внутри «{hoveredTax}» — % от максимума
+              Группы внутри — % от максимума
             </div>
-            <GroupBreakdown
-              groups={data.xpByGroup[hoveredTax]}
-              color={TAXONOMY_COLOR[hoveredTax]}
-            />
+            <div className="grid grid-cols-5 gap-4">
+              {TAXONOMY_ORDER.map((code) => (
+                <div key={code}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ background: TAXONOMY_COLOR[code] }}
+                    />
+                    <span className="text-xs uppercase tracking-widest text-stone">
+                      {code}
+                    </span>
+                  </div>
+                  {data.xpByGroup[code] ? (
+                    <GroupBreakdown
+                      groups={data.xpByGroup[code]}
+                      color={TAXONOMY_COLOR[code]}
+                      compact
+                    />
+                  ) : (
+                    <div className="text-xs text-ash italic">нет данных</div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Main radar */}
@@ -366,27 +388,31 @@ export default function Portrait({ data }: { data: PortraitData }) {
 function GroupBreakdown({
   groups,
   color,
+  compact = false,
 }: {
   groups: Record<string, { current: number; max: number }>;
   color: string;
+  compact?: boolean;
 }) {
   const entries = Object.entries(groups);
   if (entries.length < 3) {
     // Не радар — горизонтальные бары
     return (
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {entries.map(([name, { current, max }]) => {
           const pct = max > 0 ? Math.round((current / max) * 100) : 0;
           return (
-            <div key={name} className="flex items-center gap-3 text-sm">
-              <span className="w-32 text-stone truncate">{name}</span>
-              <div className="flex-1 h-1.5 bg-canvas rounded-full overflow-hidden">
+            <div key={name} className="text-xs">
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-stone truncate">{name}</span>
+                <span className="text-ash ml-1">{pct}%</span>
+              </div>
+              <div className="h-1.5 bg-canvas rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full"
                   style={{ width: `${Math.min(pct, 100)}%`, background: color }}
                 />
               </div>
-              <span className="text-xs text-stone w-12 text-right">{pct}%</span>
             </div>
           );
         })}
@@ -432,7 +458,10 @@ function GroupBreakdown({
         ticks: { display: false },
         grid: { color: '#e5e3dc' },
         angleLines: { color: '#e5e3dc' },
-        pointLabels: { font: { size: 11, family: 'Manrope' }, color: '#1a1a1a' },
+        pointLabels: {
+          font: { size: compact ? 9 : 11, family: 'Manrope' },
+          color: '#1a1a1a',
+        },
       },
     },
     plugins: { legend: { display: false } },
@@ -441,7 +470,12 @@ function GroupBreakdown({
 
   return (
     <div className="flex justify-center">
-      <div style={{ width: 360, height: 240 }}>
+      <div
+        style={{
+          width: compact ? '100%' : 360,
+          height: compact ? 180 : 240,
+        }}
+      >
         <Radar data={chartData} options={opts} />
       </div>
     </div>
