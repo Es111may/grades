@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NewSkillModal from './NewSkillModal';
+import MasteryEditorModal from './MasteryEditorModal';
 
 type Group = {
   id: number;
@@ -24,6 +25,7 @@ type Skill = {
   taxonomyName: string;
   groupName: string;
   weights: Record<number, number>;
+  masteries: { level: number; title: string; criteria: string }[];
 };
 
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
@@ -50,6 +52,7 @@ export default function MatrixClient({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [editingMasteries, setEditingMasteries] = useState<Skill | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -177,6 +180,14 @@ export default function MatrixClient({
           onClose={() => setShowNewModal(false)}
         />
       )}
+      {editingMasteries && (
+        <MasteryEditorModal
+          skillId={editingMasteries.id}
+          skillName={editingMasteries.name}
+          initialLevels={editingMasteries.masteries}
+          onClose={() => setEditingMasteries(null)}
+        />
+      )}
 
       {/* Table */}
       {filtered.length === 0 ? (
@@ -240,6 +251,7 @@ export default function MatrixClient({
                               onToggleActive={() =>
                                 saveRow(s.id, { active: !s.active })
                               }
+                              onEditMasteries={() => setEditingMasteries(s)}
                             />
                           ))}
                         </tbody>
@@ -265,12 +277,14 @@ function SkillRow({
   onCancel,
   onSave,
   onToggleActive,
+  onEditMasteries,
 }: {
   skill: Skill;
   builds: Build[];
   isEditing: boolean;
   isSaving: boolean;
   onEdit: () => void;
+  onEditMasteries: () => void;
   onCancel: () => void;
   onSave: (payload: any) => void;
   onToggleActive: () => void;
@@ -327,6 +341,12 @@ function SkillRow({
         <td className="text-right px-6 py-3">
           <button onClick={onEdit} className="text-xs text-stone hover:text-ink mr-3">
             Изменить
+          </button>
+          <button
+            onClick={onEditMasteries}
+            className="text-xs text-stone hover:text-ink mr-3"
+          >
+            Уровни
           </button>
           <button
             onClick={onToggleActive}

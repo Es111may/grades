@@ -52,6 +52,7 @@ export default async function AdminMatrixPage() {
     include: {
       weights: true,
       group: { include: { taxonomy: true } },
+      masteries: { orderBy: { level: 'asc' } },
     },
     orderBy: [
       { group: { taxonomy: { sortOrder: 'asc' } } },
@@ -74,6 +75,11 @@ export default async function AdminMatrixPage() {
       taxonomyName: s.group.taxonomy.name,
       groupName: s.group.name,
       weights: weightMap,
+      masteries: s.masteries.map((m) => ({
+        level: m.level,
+        title: m.title,
+        criteria: m.criteria ?? '',
+      })),
     };
   });
 
