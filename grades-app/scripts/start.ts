@@ -19,5 +19,6 @@ run('npx tsx prisma/seed.ts');
 run('npx tsx scripts/migrate-grades.ts');
 
 console.log('\n▶ Starting Next.js...\n');
-const next = spawn('npm', ['start'], { cwd: root, stdio: 'inherit' });
+// npm start теперь указывает на этот скрипт, поэтому запускаем next напрямую (start:next)
+const next = spawn('npm', ['run', 'start:next'], { cwd: root, stdio: 'inherit' });
 next.on('exit', (code) => process.exit(code ?? 0));
