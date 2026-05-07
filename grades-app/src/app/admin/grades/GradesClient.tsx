@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import MigrateButton from './MigrateButton';
+import SkillCombobox from './SkillCombobox';
 
 type Build = { id: number; code: string; name: string };
 type Gate = {
@@ -212,14 +213,14 @@ function GatesColumn({
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
-  const [newSkillId, setNewSkillId] = useState<string>('');
+  const [newSkillId, setNewSkillId] = useState<number | null>(null);
   const [newMastery, setNewMastery] = useState('1');
 
   const usedSkillIds = new Set(gates.map((g) => g.skillId));
   const availableSkills = skills.filter((s) => !usedSkillIds.has(s.id));
 
   async function addGate() {
-    const skillId = parseInt(newSkillId, 10);
+    const skillId = newSkillId;
     const requiredMastery = parseInt(newMastery, 10);
     if (!skillId || !requiredMastery) {
       alert('Выбери навык и уровень');
@@ -237,7 +238,7 @@ function GatesColumn({
         alert(`Ошибка: ${j.error ?? 'не добавилось'}`);
         return;
       }
-      setNewSkillId('');
+      setNewSkillId(null);
       setNewMastery('1');
       router.refresh();
     } finally {
@@ -314,18 +315,11 @@ function GatesColumn({
       )}
 
       <div className="flex items-center gap-1.5">
-        <select
+        <SkillCombobox
+          skills={availableSkills}
           value={newSkillId}
-          onChange={(e) => setNewSkillId(e.target.value)}
-          className="flex-1 text-xs bg-canvas border border-cloud rounded px-2 py-1"
-        >
-          <option value="">+ навык…</option>
-          {availableSkills.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.taxonomyCode} · {s.name}
-            </option>
-          ))}
-        </select>
+          onChange={setNewSkillId}
+        />
         <select
           value={newMastery}
           onChange={(e) => setNewMastery(e.target.value)}
