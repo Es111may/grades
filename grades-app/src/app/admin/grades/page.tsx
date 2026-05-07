@@ -1,9 +1,104 @@
 export const dynamic = 'force-dynamic';
 
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import GradesClient from './GradesClient';
 
+const TARGET_THRESHOLDS = {
+  junior: 0,
+  junior_plus: 75,
+  premiddle: 105,
+  middle: 135,
+  middle_plus: 180,
+  senior: 230,
+} as const;
+const TARGET_NAMES: Record<string, string> = {
+  junior: 'Джун',
+  junior_plus: 'Джун+',
+  premiddle: 'Пре-мидл',
+  middle: 'Мидл',
+  middle_plus: 'Мидл+',
+  senior: 'Синьор',
+};
+const TARGET_SORT: Record<string, number> = {
+  junior: 0, junior_plus: 1, premiddle: 2, middle: 3, middle_plus: 4, senior: 5,
+};
+
+/** Идемпотентная миграция: убрать intern, добавить premiddle, выставить пороги. */
+async function ensureGradesMigrated() {
+  const matrices = await prisma.matrixVersion.findMany();
+  const builds = await prisma.build.findMany();
+  const buildCodes = builds.map((b) => b.code);
+  for (const matrix of matrices) {
+    const grades = await prisma.gradeLevel.findMany({
+      where: { matrixVersionId: matrix.id },
+    });
+    const byCode = new Map(grades.map((g) => [g.code, g]));
+    const intern = byCode.get('intern');
+    const hasPremiddle = byCode.has('premiddle');
+
+    if (intern) {
+      await prisma.assessment.updateMany({
+        where: { calculatedGrade: 'intern' }, data: { calculatedGrade: 'junior' },
+      });
+      await prisma.assessment.updateMany({
+        where: { effectiveGrade: 'intern' }, data: { effectiveGrade: 'junior' },
+      });
+      await prisma.user.updateMany({
+        where: { gradeFloor: 'intern' }, data: { gradeFloor: null },
+      });
+      await prisma.skillGate.deleteMany({ where: { gradeLevelId: intern.id } });
+      await prisma.gradeLevel.delete({ where: { id: intern.id } });
+    }
+
+    if (!hasPremiddle) {
+      const xp: Record<string, number> = {};
+      for (const bc of buildCodes) xp[bc] = TARGET_THRESHOLDS.premiddle;
+      await prisma.gradeLevel.create({
+        data: {
+          matrixVersionId: matrix.id,
+          code: 'premiddle',
+          name: TARGET_NAMES.premiddle,
+          sortOrder: TARGET_SORT.premiddle,
+          xpThresholds: xp as unknown as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    for (const code of Object.keys(TARGET_THRESHOLDS)) {
+      const g = await prisma.gradeLevel.findFirst({
+        where: { matrixVersionId: matrix.id, code },
+      });
+      if (!g) continue;
+      const xp: Record<string, number> = {};
+      for (const bc of buildCodes) {
+        xp[bc] = TARGET_THRESHOLDS[code as keyof typeof TARGET_THRESHOLDS];
+      }
+      const t = g.xpThresholds as Record<string, number>;
+      const target = TARGET_THRESHOLDS[code as keyof typeof TARGET_THRESHOLDS];
+      const needsUpdate =
+        g.name !== TARGET_NAMES[code] ||
+        g.sortOrder !== TARGET_SORT[code] ||
+        !buildCodes.every((bc) => t?.[bc] === target);
+      if (needsUpdate) {
+        await prisma.gradeLevel.update({
+          where: { id: g.id },
+          data: {
+            xpThresholds: xp as unknown as Prisma.InputJsonValue,
+            name: TARGET_NAMES[code],
+            sortOrder: TARGET_SORT[code],
+          },
+        });
+      }
+    }
+  }
+}
+
 export default async function AdminGradesPage() {
+  // Прогоняем миграцию при каждом открытии страницы — идемпотентно.
+  // Это гарантирует фикс даже если автозапуск из start.ts не отработал.
+  await ensureGradesMigrated();
+
   const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
   if (!matrix) {
     return (

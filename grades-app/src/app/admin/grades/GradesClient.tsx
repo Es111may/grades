@@ -39,7 +39,7 @@ export default function GradesClient({
     <main className="max-w-[1200px] mx-auto px-8 pt-12 pb-16">
       <div className="mb-8">
         <div className="text-xs uppercase tracking-widest text-stone mb-2">
-          Грейды · матрица {matrixNumber}
+          Грейды · матрица {matrixNumber} <span className="text-red-500">[v3]</span>
         </div>
         <h1 className="font-display text-5xl font-light tracking-tight mb-3">Грейды</h1>
         <p className="text-stone leading-relaxed max-w-2xl">
