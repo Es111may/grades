@@ -142,18 +142,16 @@ export function calcGrade(input: GradeCalcInput): GradeCalcResult {
   const scoreMap = new Map<number, number>();
   for (const s of scores) scoreMap.set(s.skillId, s.masteryLevel);
 
-  // Идём от Senior к Intern, ищем первый грейд, который человек проходит по обоим условиям
-  let calculatedGrade: GradeCode = 'intern';
+  // Идём от Senior к Junior, ищем первый грейд, который человек проходит по обоим условиям.
+  // Junior — fallback (минимальный грейд, его порог = 0).
+  let calculatedGrade: GradeCode = 'junior';
   for (const g of sortedDesc) {
-    if (g.code === 'intern') continue; // Intern — fallback
+    if (g.code === 'junior') continue;
     if (total < g.threshold) continue;
     if (!isGatesPassed(scoreMap, g.gates)) continue;
     calculatedGrade = g.code;
     break;
   }
-
-  // Intern когда total <= 0 ИЛИ ничего не подошло
-  if (total <= 0) calculatedGrade = 'intern';
 
   // Effective grade = max(calculated, floor) по сортировке грейдов
   let effectiveGrade = calculatedGrade;

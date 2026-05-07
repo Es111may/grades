@@ -2,9 +2,9 @@
 
 export type BuildCode = 'creator' | 'visioner' | 'navigator';
 export type GradeCode =
-  | 'intern'
   | 'junior'
   | 'junior_plus'
+  | 'premiddle'
   | 'middle'
   | 'middle_plus'
   | 'senior';
@@ -13,18 +13,18 @@ export type AssessmentStatus = 'draft' | 'published' | 'archived';
 export type UserRole = 'admin' | 'lead' | 'designer';
 
 export const GRADE_ORDER: Record<GradeCode, number> = {
-  intern: 0,
-  junior: 1,
-  junior_plus: 2,
+  junior: 0,
+  junior_plus: 1,
+  premiddle: 2,
   middle: 3,
   middle_plus: 4,
   senior: 5,
 };
 
 export const GRADE_NAMES: Record<GradeCode, string> = {
-  intern: 'Intern',
   junior: 'Джун',
   junior_plus: 'Джун+',
+  premiddle: 'Пре-мидл',
   middle: 'Мидл',
   middle_plus: 'Мидл+',
   senior: 'Синьор',

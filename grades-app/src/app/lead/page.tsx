@@ -162,7 +162,7 @@ export default async function LeadDashboard() {
                         {d.gradeFloor ? 'Эфф. грейд' : 'Грейд'}
                       </div>
                       <div className="font-display text-2xl">
-                        {GRADE_NAMES[(d.published.effectiveGrade ?? 'intern') as GradeCode]}
+                        {GRADE_NAMES[(d.published.effectiveGrade ?? 'junior') as GradeCode]}
                       </div>
                       {d.gradeFloor && (
                         <div className="text-xs text-sunset mt-0.5">зафиксирован</div>

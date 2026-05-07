@@ -15,10 +15,10 @@ import type { GradeThreshold, ScoreInput, SkillSnapshot } from '../grade';
 // ============================================================
 
 const STD_THRESHOLDS: Omit<GradeThreshold, 'gates'>[] = [
-  { code: 'intern', threshold: -1 },
   { code: 'junior', threshold: 0 },
-  { code: 'junior_plus', threshold: 70 },
-  { code: 'middle', threshold: 120 },
+  { code: 'junior_plus', threshold: 75 },
+  { code: 'premiddle', threshold: 105 },
+  { code: 'middle', threshold: 135 },
   { code: 'middle_plus', threshold: 180 },
   { code: 'senior', threshold: 230 },
 ];
@@ -91,12 +91,14 @@ describe('calcGrade — пороги XP', () => {
   const skill1: SkillSnapshot = { skillId: 1, taxonomyCode: 'UI', weight: 5, active: true };
 
   const cases: Array<[number, string]> = [
-    [0, 'intern'],
+    [0, 'junior'],
     [1, 'junior'],
-    [69, 'junior'],
-    [70, 'junior_plus'],
-    [119, 'junior_plus'],
-    [120, 'middle'],
+    [74, 'junior'],
+    [75, 'junior_plus'],
+    [104, 'junior_plus'],
+    [105, 'premiddle'],
+    [134, 'premiddle'],
+    [135, 'middle'],
     [179, 'middle'],
     [180, 'middle_plus'],
     [229, 'middle_plus'],
@@ -274,7 +276,7 @@ describe('эталонный профиль из Excel «Портрет»', () =
     expect(r.nextGrade?.xpNeeded).toBe(18); // 180 - 162
   });
 
-  it('162 XP с непройденным гейтом «Мидл» → Джун+', () => {
+  it('162 XP с непройденным гейтом «Мидл» → Пре-мидл', () => {
     // Если для «Мидл» обязателен какой-то навык, а у нас mastery=0
     const grades: GradeThreshold[] = STD_THRESHOLDS.map((g) => ({
       ...g,
@@ -282,8 +284,7 @@ describe('эталонный профиль из Excel «Портрет»', () =
         g.code === 'middle' ? [{ skillId: 999, requiredMastery: 1 }] : [],
     }));
     const r = calcGrade({ build: 'creator', skills, scores, grades });
-    // 162 ≥ 120, но гейт middle не пройден → ищем ниже: middle_plus тоже выше calculations
-    // Wait: переход по убыванию: senior(230) — нет; mid+(180) — нет; mid(120, gate fail) — нет; jun+(70, no gates) — да
-    expect(r.calculatedGrade).toBe('junior_plus');
+    // 162 ≥ 135, но гейт middle не пройден → ниже: premiddle (105, no gates) → да
+    expect(r.calculatedGrade).toBe('premiddle');
   });
 });

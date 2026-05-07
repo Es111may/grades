@@ -124,7 +124,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   return NextResponse.json({ ok: true });
 }
 
-const GRADE_ORDER = ['intern', 'junior', 'junior_plus', 'middle', 'middle_plus', 'senior'];
+const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
 
 function isFloorLowered(before: string | null, after: string | null | undefined): boolean {
   if (!before || !after) return false;

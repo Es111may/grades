@@ -125,9 +125,9 @@ export default function AssessmentForm({
       (a, b) => GRADE_ORDER[a.code] - GRADE_ORDER[b.code],
     );
 
-    let calculatedGrade: GradeCode = 'intern';
+    let calculatedGrade: GradeCode = 'junior';
     for (const g of sortedDesc) {
-      if (g.code === 'intern') continue;
+      if (g.code === 'junior') continue;
       if (total < g.threshold) continue;
       const gatesPassed = g.gates.every(
         (gate) => (scoreMap.get(gate.skillId) ?? 0) >= gate.requiredMastery,
@@ -136,7 +136,6 @@ export default function AssessmentForm({
       calculatedGrade = g.code;
       break;
     }
-    if (total <= 0) calculatedGrade = 'intern';
 
     let effectiveGrade = calculatedGrade;
     if (

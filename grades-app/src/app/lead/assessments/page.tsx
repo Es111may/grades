@@ -58,7 +58,7 @@ export default async function LeadAssessmentsPage() {
                 <div className="flex items-center gap-6">
                   <div className="text-right">
                     <div className="font-display text-xl">
-                      {GRADE_NAMES[(a.effectiveGrade ?? 'intern') as GradeCode]}
+                      {GRADE_NAMES[(a.effectiveGrade ?? 'junior') as GradeCode]}
                     </div>
                     <div className="text-xs text-stone">{a.totalXp ?? 0} XP</div>
                   </div>

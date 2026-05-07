@@ -29,15 +29,15 @@ type UserData = {
 
 const GRADE_OPTIONS = [
   { value: '', label: 'Не задан' },
-  { value: 'intern', label: 'Intern' },
   { value: 'junior', label: 'Джун' },
   { value: 'junior_plus', label: 'Джун+' },
+  { value: 'premiddle', label: 'Пре-мидл' },
   { value: 'middle', label: 'Мидл' },
   { value: 'middle_plus', label: 'Мидл+' },
   { value: 'senior', label: 'Синьор' },
 ];
 
-const GRADE_ORDER = ['intern', 'junior', 'junior_plus', 'middle', 'middle_plus', 'senior'];
+const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
 
 const DEPARTMENTS = ['Inhouse', 'Create', 'Improve'];
 

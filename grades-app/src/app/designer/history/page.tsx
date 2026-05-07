@@ -48,7 +48,7 @@ export default async function DesignerHistoryPage() {
                         : '—'}
                     </div>
                     <div className="font-display text-2xl tracking-tight mb-1">
-                      {GRADE_NAMES[(a.effectiveGrade ?? 'intern') as GradeCode]}
+                      {GRADE_NAMES[(a.effectiveGrade ?? 'junior') as GradeCode]}
                     </div>
                     <div className="text-xs text-stone">
                       Оценил: {a.lead?.fullName ?? '—'}
