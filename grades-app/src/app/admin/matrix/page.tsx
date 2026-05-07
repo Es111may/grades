@@ -20,8 +20,22 @@ async function ensureTaxonomyNames() {
   }
 }
 
+const GROUP_RENAMES: Array<{ from: string; to: string }> = [
+  { from: 'Контент-дизайн', to: 'Контент' },
+];
+
+async function ensureGroupNames() {
+  for (const { from, to } of GROUP_RENAMES) {
+    const groups = await prisma.skillGroup.findMany({ where: { name: from } });
+    for (const g of groups) {
+      await prisma.skillGroup.update({ where: { id: g.id }, data: { name: to } });
+    }
+  }
+}
+
 export default async function AdminMatrixPage() {
   await ensureTaxonomyNames();
+  await ensureGroupNames();
 
   const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
   if (!matrix) {
