@@ -24,6 +24,10 @@ export default async function AdminMatrixPage() {
     ],
   });
 
+  const taxonomies = await prisma.skillTaxonomy.findMany({
+    orderBy: { sortOrder: 'asc' },
+  });
+
   const skills = await prisma.skill.findMany({
     where: { matrixVersionId: matrix.id },
     include: {
@@ -65,6 +69,7 @@ export default async function AdminMatrixPage() {
         taxonomyCode: g.taxonomy.code,
         taxonomyName: g.taxonomy.name,
       }))}
+      taxonomies={taxonomies.map((t) => ({ id: t.id, code: t.code, name: t.name }))}
     />
   );
 }

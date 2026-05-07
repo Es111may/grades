@@ -10,6 +10,7 @@ type Group = {
   taxonomyCode: string;
   taxonomyName: string;
 };
+type Taxonomy = { id: number; code: string; name: string };
 
 type Build = { id: number; code: string; name: string };
 type Skill = {
@@ -35,11 +36,13 @@ export default function MatrixClient({
   skills,
   matrixNumber,
   groups,
+  taxonomies,
 }: {
   builds: Build[];
   skills: Skill[];
   matrixNumber: number;
   groups: Group[];
+  taxonomies: Taxonomy[];
 }) {
   const router = useRouter();
   const [showArchived, setShowArchived] = useState(false);
@@ -170,6 +173,7 @@ export default function MatrixClient({
         <NewSkillModal
           builds={builds}
           groups={groups}
+          taxonomies={taxonomies}
           onClose={() => setShowNewModal(false)}
         />
       )}

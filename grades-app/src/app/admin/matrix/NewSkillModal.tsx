@@ -10,6 +10,9 @@ type Group = {
   taxonomyCode: string;
   taxonomyName: string;
 };
+type Taxonomy = { id: number; code: string; name: string };
+
+const NEW_GROUP_VALUE = '__new__';
 
 const buildColor = (code: string) =>
   code === 'creator' ? '#ade900' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
@@ -17,10 +20,12 @@ const buildColor = (code: string) =>
 export default function NewSkillModal({
   builds,
   groups,
+  taxonomies,
   onClose,
 }: {
   builds: Build[];
   groups: Group[];
+  taxonomies: Taxonomy[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -29,6 +34,9 @@ export default function NewSkillModal({
   const [type, setType] = useState<'CORE' | 'SEC'>('CORE');
   const [maxMastery, setMaxMastery] = useState('3');
   const [groupId, setGroupId] = useState<string>('');
+  const [newGroupTaxId, setNewGroupTaxId] = useState<string>('');
+  const [newGroupName, setNewGroupName] = useState('');
+  const isNewGroup = groupId === NEW_GROUP_VALUE;
   const [weights, setWeights] = useState<Record<number, string>>(() => {
     const m: Record<number, string> = {};
     for (const b of builds) m[b.id] = '0';
@@ -56,6 +64,22 @@ export default function NewSkillModal({
       return;
     }
 
+    let groupPayload: { groupId?: number; newGroup?: { taxonomyId: number; name: string } };
+    if (isNewGroup) {
+      if (!newGroupTaxId || !newGroupName.trim()) {
+        alert('Для новой группы укажи таксономию и название');
+        return;
+      }
+      groupPayload = {
+        newGroup: {
+          taxonomyId: parseInt(newGroupTaxId, 10),
+          name: newGroupName.trim(),
+        },
+      };
+    } else {
+      groupPayload = { groupId: parseInt(groupId, 10) };
+    }
+
     const weightsPayload: Record<string, number> = {};
     for (const [bidStr, val] of Object.entries(weights)) {
       const w = Number(val);
@@ -76,7 +100,7 @@ export default function NewSkillModal({
           description: description.trim(),
           type,
           maxMasteryLevel: max,
-          groupId: parseInt(groupId, 10),
+          ...groupPayload,
           weights: weightsPayload,
           masteryTitles,
         }),
@@ -161,6 +185,7 @@ export default function NewSkillModal({
                 className="w-full bg-canvas border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
               >
                 <option value="">Выбери группу…</option>
+                <option value={NEW_GROUP_VALUE}>+ Новая группа…</option>
                 {Array.from(groupsByTax.entries()).map(([taxCode, list]) => (
                   <optgroup key={taxCode} label={taxCode}>
                     {list.map((g) => (
@@ -199,6 +224,41 @@ export default function NewSkillModal({
               />
             </div>
           </div>
+
+          {/* New group inputs */}
+          {isNewGroup && (
+            <div className="bg-canvas border border-lime/50 rounded p-4 grid grid-cols-[140px_1fr] gap-3">
+              <div>
+                <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
+                  Таксономия
+                </label>
+                <select
+                  value={newGroupTaxId}
+                  onChange={(e) => setNewGroupTaxId(e.target.value)}
+                  className="w-full bg-white border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+                >
+                  <option value="">…</option>
+                  {taxonomies.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.code} — {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
+                  Имя новой группы
+                </label>
+                <input
+                  type="text"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="например: Анимация"
+                  className="w-full bg-white border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Weights */}
           <div>
