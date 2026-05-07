@@ -3,7 +3,26 @@ export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/db';
 import MatrixClient from './MatrixClient';
 
+const TAXONOMY_NAMES: Record<string, string> = {
+  UI: 'Визуал',
+  UX: 'Система',
+  PRD: 'Продукт',
+  IND: 'Самостоятельность',
+  RES: 'Ответственность',
+};
+
+async function ensureTaxonomyNames() {
+  for (const [code, name] of Object.entries(TAXONOMY_NAMES)) {
+    const t = await prisma.skillTaxonomy.findUnique({ where: { code } });
+    if (t && t.name !== name) {
+      await prisma.skillTaxonomy.update({ where: { code }, data: { name } });
+    }
+  }
+}
+
 export default async function AdminMatrixPage() {
+  await ensureTaxonomyNames();
+
   const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
   if (!matrix) {
     return (

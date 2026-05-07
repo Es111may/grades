@@ -24,6 +24,24 @@ const TARGET_SORT: Record<string, number> = {
   junior: 0, junior_plus: 1, premiddle: 2, middle: 3, middle_plus: 4, senior: 5,
 };
 
+const TAXONOMY_NAMES: Record<string, string> = {
+  UI: 'Визуал',
+  UX: 'Система',
+  PRD: 'Продукт',
+  IND: 'Самостоятельность',
+  RES: 'Ответственность',
+};
+
+/** Обновить русские названия таксономий (UI/UX/PRD/IND/RES) до текущих. */
+async function ensureTaxonomyNames() {
+  for (const [code, name] of Object.entries(TAXONOMY_NAMES)) {
+    const t = await prisma.skillTaxonomy.findUnique({ where: { code } });
+    if (t && t.name !== name) {
+      await prisma.skillTaxonomy.update({ where: { code }, data: { name } });
+    }
+  }
+}
+
 /** Идемпотентная миграция: убрать intern, добавить premiddle, выставить пороги. */
 async function ensureGradesMigrated() {
   const matrices = await prisma.matrixVersion.findMany();
@@ -95,9 +113,10 @@ async function ensureGradesMigrated() {
 }
 
 export default async function AdminGradesPage() {
-  // Прогоняем миграцию при каждом открытии страницы — идемпотентно.
+  // Прогоняем миграции при каждом открытии страницы — идемпотентно.
   // Это гарантирует фикс даже если автозапуск из start.ts не отработал.
   await ensureGradesMigrated();
+  await ensureTaxonomyNames();
 
   const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
   if (!matrix) {
