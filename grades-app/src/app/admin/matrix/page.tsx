@@ -15,6 +15,15 @@ export default async function AdminMatrixPage() {
 
   const builds = await prisma.build.findMany({ orderBy: { id: 'asc' } });
 
+  const groups = await prisma.skillGroup.findMany({
+    include: { taxonomy: true },
+    orderBy: [
+      { taxonomy: { sortOrder: 'asc' } },
+      { sortOrder: 'asc' },
+      { name: 'asc' },
+    ],
+  });
+
   const skills = await prisma.skill.findMany({
     where: { matrixVersionId: matrix.id },
     include: {
@@ -50,6 +59,12 @@ export default async function AdminMatrixPage() {
       builds={builds.map((b) => ({ id: b.id, code: b.code, name: b.name }))}
       skills={data}
       matrixNumber={matrix.number}
+      groups={groups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        taxonomyCode: g.taxonomy.code,
+        taxonomyName: g.taxonomy.name,
+      }))}
     />
   );
 }

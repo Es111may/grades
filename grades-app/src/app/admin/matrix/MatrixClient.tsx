@@ -2,6 +2,14 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import NewSkillModal from './NewSkillModal';
+
+type Group = {
+  id: number;
+  name: string;
+  taxonomyCode: string;
+  taxonomyName: string;
+};
 
 type Build = { id: number; code: string; name: string };
 type Skill = {
@@ -26,16 +34,19 @@ export default function MatrixClient({
   builds,
   skills,
   matrixNumber,
+  groups,
 }: {
   builds: Build[];
   skills: Skill[];
   matrixNumber: number;
+  groups: Group[];
 }) {
   const router = useRouter();
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [showNewModal, setShowNewModal] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -147,7 +158,21 @@ export default function MatrixClient({
         >
           {showArchived ? 'Архивные' : 'Активные'}
         </button>
+        <button
+          onClick={() => setShowNewModal(true)}
+          className="text-xs px-4 py-2.5 rounded-pill bg-lime border border-lime font-medium hover:brightness-95"
+        >
+          + Новый навык
+        </button>
       </div>
+
+      {showNewModal && (
+        <NewSkillModal
+          builds={builds}
+          groups={groups}
+          onClose={() => setShowNewModal(false)}
+        />
+      )}
 
       {/* Table */}
       {filtered.length === 0 ? (
