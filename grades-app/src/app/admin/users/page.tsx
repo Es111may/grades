@@ -10,7 +10,7 @@ export default async function AdminUsersPage() {
   const me = await getCurrentUser();
   if (!me || !canManageUsers(me.role)) redirect('/auth/signin');
 
-  const [usersRaw, builds, leadsRaw, stardizesRaw] = await Promise.all([
+  const [usersRaw, builds, leadsRaw, stardizesRaw, latestPublished] = await Promise.all([
     prisma.user.findMany({
       include: {
         build: true,
@@ -30,7 +30,21 @@ export default async function AdminUsersPage() {
       select: { id: true, fullName: true },
       orderBy: { fullName: 'asc' },
     }),
+    // Последняя опубликованная оценка каждого дизайнера — для канбана «Уровни»
+    prisma.assessment.findMany({
+      where: { status: 'published' },
+      orderBy: { publishedAt: 'desc' },
+      select: { designerId: true, effectiveGrade: true, publishedAt: true },
+    }),
   ]);
+
+  // Сворачиваем в map: designerId → effectiveGrade (берём первую = последнюю опубл.)
+  const gradeByDesignerId = new Map<number, string>();
+  for (const a of latestPublished) {
+    if (!gradeByDesignerId.has(a.designerId) && a.effectiveGrade) {
+      gradeByDesignerId.set(a.designerId, a.effectiveGrade);
+    }
+  }
 
   const users = usersRaw.map((u) => ({
     id: u.id,
@@ -48,6 +62,7 @@ export default async function AdminUsersPage() {
     active: u.active,
     gradeFloor: u.gradeFloor,
     gradeFloorReason: u.gradeFloorReason,
+    effectiveGrade: gradeByDesignerId.get(u.id) ?? null,
   }));
 
   return (

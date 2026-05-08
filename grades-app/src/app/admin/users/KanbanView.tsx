@@ -1,0 +1,265 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+type Build = { id: number; code: string; name: string };
+type Lead = { id: number; fullName: string };
+type UserRow = {
+  id: number;
+  email: string;
+  fullName: string;
+  role: string;
+  build: Build | null;
+  department: string | null;
+  leadId: number | null;
+  lead: Lead | null;
+  active: boolean;
+  effectiveGrade: string | null;
+  gradeFloor: string | null;
+};
+
+type GroupBy = 'department' | 'lead' | 'grade';
+
+const GRADE_LABELS: Record<string, string> = {
+  junior: 'Джун',
+  junior_plus: 'Джун+',
+  premiddle: 'Пре-мидл',
+  middle: 'Мидл',
+  middle_plus: 'Мидл+',
+  senior: 'Синьор',
+};
+const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
+
+const ROLE_TONE: Record<string, string> = {
+  admin: 'bg-[#fff7e6] text-sunset border border-sunset/25',
+  lead: 'bg-lime-light text-graphite border border-lime/30',
+  stardiz: 'bg-[#ede9fe] text-[#6d28d9] border border-[#a78bfa]/30',
+  designer: 'bg-canvas text-stone border border-cloud',
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Админ',
+  lead: 'Лид',
+  stardiz: 'Стардиз',
+  designer: 'Дизайнер',
+};
+
+function initials(name: string) {
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+const buildColor = (code: string) =>
+  code === 'creator' ? '#ade900' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
+
+export default function KanbanView({
+  users,
+  leads,
+  groupBy,
+  onCardClick,
+}: {
+  users: UserRow[];
+  leads: Lead[];
+  groupBy: GroupBy;
+  onCardClick: (user: UserRow) => void;
+}) {
+  const router = useRouter();
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
+
+  const columns = useMemo(() => {
+    if (groupBy === 'department') {
+      const cols: Array<{ key: string; label: string; users: UserRow[] }> = [
+        { key: 'Inhouse', label: 'Инхаус', users: [] },
+        { key: 'Create', label: 'Криэйт', users: [] },
+        { key: 'Improve', label: 'Импрув', users: [] },
+        { key: '__none', label: 'Без отдела', users: [] },
+      ];
+      const byKey = new Map(cols.map((c) => [c.key, c]));
+      for (const u of users) {
+        const k = u.department && byKey.has(u.department) ? u.department : '__none';
+        byKey.get(k)!.users.push(u);
+      }
+      return cols;
+    }
+
+    if (groupBy === 'lead') {
+      const cols: Array<{ key: string; label: string; users: UserRow[] }> = leads.map(
+        (l) => ({ key: String(l.id), label: l.fullName, users: [] }),
+      );
+      cols.push({ key: '__none', label: 'Без лида', users: [] });
+      const byKey = new Map(cols.map((c) => [c.key, c]));
+      for (const u of users) {
+        // Канбан-«Лиды» показываем только дизайнеров (у других нет лида)
+        if (u.role !== 'designer') continue;
+        const k = u.leadId && byKey.has(String(u.leadId)) ? String(u.leadId) : '__none';
+        byKey.get(k)!.users.push(u);
+      }
+      return cols;
+    }
+
+    // grade
+    const cols: Array<{ key: string; label: string; users: UserRow[] }> = GRADE_ORDER.map(
+      (code) => ({ key: code, label: GRADE_LABELS[code], users: [] }),
+    );
+    cols.push({ key: '__none', label: 'Без оценки', users: [] });
+    const byKey = new Map(cols.map((c) => [c.key, c]));
+    for (const u of users) {
+      if (u.role !== 'designer') continue;
+      const grade = u.effectiveGrade ?? u.gradeFloor;
+      const k = grade && byKey.has(grade) ? grade : '__none';
+      byKey.get(k)!.users.push(u);
+    }
+    return cols;
+  }, [users, leads, groupBy]);
+
+  const canDrop = groupBy === 'department' || groupBy === 'lead';
+
+  async function handleDrop(columnKey: string) {
+    if (!canDrop || dragId === null) return;
+    const user = users.find((u) => u.id === dragId);
+    if (!user) {
+      setDragId(null);
+      setDropTarget(null);
+      return;
+    }
+
+    let payload: Record<string, unknown> | null = null;
+    if (groupBy === 'department') {
+      const newDept = columnKey === '__none' ? null : columnKey;
+      if (user.department === newDept) {
+        setDragId(null);
+        setDropTarget(null);
+        return;
+      }
+      payload = { department: newDept };
+    } else if (groupBy === 'lead') {
+      if (user.role !== 'designer') {
+        setDragId(null);
+        setDropTarget(null);
+        return;
+      }
+      const newLeadId =
+        columnKey === '__none' ? null : Number.isFinite(Number(columnKey)) ? Number(columnKey) : null;
+      if (user.leadId === newLeadId) {
+        setDragId(null);
+        setDropTarget(null);
+        return;
+      }
+      payload = { leadId: newLeadId };
+    }
+
+    if (!payload) return;
+    setMoving(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        alert(`Ошибка: ${j.error ?? 'не сохранилось'}`);
+        return;
+      }
+      router.refresh();
+    } finally {
+      setMoving(false);
+      setDragId(null);
+      setDropTarget(null);
+    }
+  }
+
+  return (
+    <div className="overflow-x-auto pb-4 -mx-2 px-2">
+      <div className="flex gap-3 min-w-max">
+        {columns.map((col) => (
+          <div
+            key={col.key}
+            onDragOver={(e) => {
+              if (!canDrop) return;
+              e.preventDefault();
+              setDropTarget(col.key);
+            }}
+            onDragLeave={() => {
+              if (dropTarget === col.key) setDropTarget(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              handleDrop(col.key);
+            }}
+            className={`w-[260px] shrink-0 rounded-card transition-colors ${
+              canDrop && dropTarget === col.key
+                ? 'bg-lime/10 ring-1 ring-lime'
+                : 'bg-canvas/60'
+            }`}
+          >
+            <div className="px-3 pt-3 pb-2 flex items-baseline justify-between">
+              <span className="text-xs uppercase tracking-widest text-stone">
+                {col.label}
+              </span>
+              <span className="text-xs text-stone">{col.users.length}</span>
+            </div>
+            <div className="px-2 pb-2 space-y-1.5 min-h-[60px]">
+              {col.users.map((u) => (
+                <div
+                  key={u.id}
+                  draggable={canDrop && !moving}
+                  onDragStart={() => setDragId(u.id)}
+                  onDragEnd={() => {
+                    setDragId(null);
+                    setDropTarget(null);
+                  }}
+                  onClick={() => onCardClick(u)}
+                  className={`bg-white border border-cloud rounded-card px-3 py-2 shadow-soft cursor-pointer hover:shadow-soft-lg transition-shadow ${
+                    !u.active ? 'opacity-50' : ''
+                  } ${dragId === u.id ? 'opacity-40' : ''}`}
+                  style={{ cursor: canDrop ? 'grab' : 'pointer' }}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-pill bg-canvas flex items-center justify-center text-[10px] font-medium shrink-0">
+                      {initials(u.fullName)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm truncate">{u.fullName}</div>
+                      <div className="flex items-center gap-1.5 text-[10px] mt-0.5 flex-wrap">
+                        <span
+                          className={`px-1.5 py-0.5 rounded-pill ${ROLE_TONE[u.role] ?? ROLE_TONE.designer}`}
+                        >
+                          {ROLE_LABEL[u.role] ?? u.role}
+                        </span>
+                        {u.build && (
+                          <span className="flex items-center gap-1 text-stone">
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ background: buildColor(u.build.code) }}
+                            />
+                            {u.build.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {col.users.length === 0 && (
+                <div className="text-xs text-ash italic px-2 py-3 text-center">пусто</div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {!canDrop && (
+        <div className="text-xs text-ash italic mt-3 px-2">
+          В этом виде drag-and-drop отключён — грейды не меняются вручную.
+        </div>
+      )}
+    </div>
+  );
+}

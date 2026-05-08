@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import UserModal from './UserModal';
+import KanbanView from './KanbanView';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -21,7 +22,10 @@ type UserRow = {
   active: boolean;
   gradeFloor: string | null;
   gradeFloorReason: string | null;
+  effectiveGrade: string | null;
 };
+
+type ViewMode = 'table' | 'kanban-dept' | 'kanban-lead' | 'kanban-grade';
 
 type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
 
@@ -78,6 +82,7 @@ export default function UsersClient({
   const [modalUser, setModalUser] = useState<UserRow | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [isNew, setIsNew] = useState(false);
+  const [view, setView] = useState<ViewMode>('table');
 
   const filtered = useMemo(() => {
     let list = users;
@@ -205,7 +210,32 @@ export default function UsersClient({
         </span>
       </div>
 
-      {/* Table */}
+      {/* View tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-cloud">
+        {(
+          [
+            ['table', 'Таблица'],
+            ['kanban-dept', 'Канбан · Отделы'],
+            ['kanban-lead', 'Канбан · Лиды'],
+            ['kanban-grade', 'Канбан · Уровни'],
+          ] as Array<[ViewMode, string]>
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            className={`px-4 py-2 text-sm transition border-b-2 -mb-px ${
+              view === key
+                ? 'border-ink text-ink font-medium'
+                : 'border-transparent text-stone hover:text-ink'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'table' ? (
+      /* Table */
       <div className="bg-white border border-cloud rounded-card overflow-hidden shadow-soft">
         <table className="w-full text-sm">
           <thead>
@@ -321,9 +351,25 @@ export default function UsersClient({
           </tbody>
         </table>
       </div>
-      <div className="mt-3 text-xs text-stone">
-        Серая строка — деактивированный пользователь.
-      </div>
+      ) : (
+        <KanbanView
+          users={filtered}
+          leads={leads}
+          groupBy={
+            view === 'kanban-dept'
+              ? 'department'
+              : view === 'kanban-lead'
+                ? 'lead'
+                : 'grade'
+          }
+          onCardClick={(u) => openEdit(u as UserRow)}
+        />
+      )}
+      {view === 'table' && (
+        <div className="mt-3 text-xs text-stone">
+          Серая строка — деактивированный пользователь.
+        </div>
+      )}
 
       {modalOpen && (
         <UserModal
