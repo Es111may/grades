@@ -26,9 +26,25 @@ const GROUP_RENAMES: Array<{ from: string; to: string }> = [
 
 async function ensureGroupNames() {
   for (const { from, to } of GROUP_RENAMES) {
-    const groups = await prisma.skillGroup.findMany({ where: { name: from } });
-    for (const g of groups) {
-      await prisma.skillGroup.update({ where: { id: g.id }, data: { name: to } });
+    const oldGroups = await prisma.skillGroup.findMany({ where: { name: from } });
+    for (const old of oldGroups) {
+      // Если в той же таксономии уже есть группа с целевым именем —
+      // переносим скиллы в неё и удаляем старую (иначе unique-constraint).
+      const existing = await prisma.skillGroup.findFirst({
+        where: { taxonomyId: old.taxonomyId, name: to },
+      });
+      if (existing) {
+        await prisma.skill.updateMany({
+          where: { groupId: old.id },
+          data: { groupId: existing.id },
+        });
+        await prisma.skillGroup.delete({ where: { id: old.id } });
+      } else {
+        await prisma.skillGroup.update({
+          where: { id: old.id },
+          data: { name: to },
+        });
+      }
     }
   }
 }
