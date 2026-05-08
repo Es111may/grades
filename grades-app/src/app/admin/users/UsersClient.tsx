@@ -95,9 +95,10 @@ export default function UsersClient({
   }, [users, roleFilter, search]);
 
   const counts = useMemo(() => {
-    const c = { all: users.length, designer: 0, lead: 0, admin: 0 };
+    const c = { all: users.length, designer: 0, stardiz: 0, lead: 0, admin: 0 };
     users.forEach((u) => {
       if (u.role === 'designer') c.designer++;
+      else if (u.role === 'stardiz') c.stardiz++;
       else if (u.role === 'lead') c.lead++;
       else if (u.role === 'admin') c.admin++;
     });
@@ -181,7 +182,15 @@ export default function UsersClient({
                 : 'bg-white text-stone border-cloud hover:border-ash'
             }`}
           >
-            {f === 'all' ? 'Все' : f === 'designer' ? 'Дизайнеры' : f === 'lead' ? 'Лиды' : 'Админы'}{' '}
+            {f === 'all'
+              ? 'Все'
+              : f === 'designer'
+                ? 'Дизайнеры'
+                : f === 'stardiz'
+                  ? 'Стардизы'
+                  : f === 'lead'
+                    ? 'Лиды'
+                    : 'Админы'}{' '}
             · {counts[f]}
           </button>
         ))}
