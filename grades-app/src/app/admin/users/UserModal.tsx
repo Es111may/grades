@@ -169,8 +169,7 @@ export default function UserModal({
       buildId: form.role === 'designer' ? form.buildId : null,
       department: form.department || null,
       leadId: form.role === 'designer' ? form.leadId : null,
-      stardizId:
-        form.role === 'designer' || form.role === 'stardiz' ? form.stardizId : null,
+      stardizId: form.role === 'designer' ? form.stardizId : null,
       hiredAt: form.hiredAt || null,
       active: form.active,
       gradeFloor: floorEnabled && form.gradeFloor ? form.gradeFloor : null,
@@ -353,7 +352,7 @@ export default function UserModal({
                   </select>
                 </div>
               )}
-              {(form.role === 'designer' || form.role === 'stardiz') && (
+              {form.role === 'designer' && (
                 <div>
                   <label className="block text-xs text-stone mb-1.5">
                     Стардиз{' '}

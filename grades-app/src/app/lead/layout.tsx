@@ -19,7 +19,6 @@ export default async function LeadLayout({ children }: { children: React.ReactNo
     : [
         { href: '/lead', label: 'Мои дизайнеры' },
         { href: '/lead/assessments', label: 'Все оценки' },
-        { href: '/designer', label: 'Мой портрет' },
       ];
   return (
     <>
