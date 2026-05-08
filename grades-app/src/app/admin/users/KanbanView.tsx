@@ -15,7 +15,7 @@ type UserRow = {
   leadId: number | null;
   lead: Lead | null;
   active: boolean;
-  effectiveGrade: string | null;
+  effectiveGrade?: string | null;
   gradeFloor: string | null;
 };
 

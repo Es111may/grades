@@ -22,7 +22,7 @@ type UserRow = {
   active: boolean;
   gradeFloor: string | null;
   gradeFloorReason: string | null;
-  effectiveGrade: string | null;
+  effectiveGrade?: string | null;
 };
 
 type ViewMode = 'table' | 'kanban-dept' | 'kanban-lead' | 'kanban-grade';
