@@ -45,6 +45,8 @@ export function getDashboardForRole(role: UserRole | undefined): string {
       return '/admin';
     case 'lead':
       return '/lead';
+    case 'stardiz':
+      return '/lead';
     case 'designer':
       return '/designer';
     default:

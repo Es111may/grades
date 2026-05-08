@@ -15,9 +15,20 @@ export default async function LeadDashboard() {
   if (!user?.id) return null;
 
   // Загружаем дизайнеров + до 1 черновика + последнюю опубликованную оценку.
-  // Циклы больше не привязаны к датам — просто история всех публикаций + текущий draft.
+  // Фильтр зависит от роли:
+  //  - admin → все активные дизайнеры (можно грейдировать кого угодно)
+  //  - lead  → дизайнеры с leadId === me.id
+  //  - stardiz → дизайнеры с stardizId === me.id ИЛИ leadId === me.id
+  const where: Record<string, unknown> = { role: 'designer', active: true };
+  if (user.role === 'lead') {
+    where.leadId = user.id;
+  } else if (user.role === 'stardiz') {
+    where.OR = [{ stardizId: user.id }, { leadId: user.id }];
+  }
+  // admin → без фильтра по lead/stardiz
+
   const myDesigners = await prisma.user.findMany({
-    where: { leadId: user.id, role: 'designer', active: true },
+    where,
     include: {
       build: true,
       assessmentsAsDesigner: {
@@ -68,10 +79,13 @@ export default async function LeadDashboard() {
     <main className="max-w-[1300px] mx-auto px-8 pt-12 pb-16">
       <div className="mb-10">
         <h1 className="font-display text-5xl font-light tracking-tight mb-3">
-          Мои дизайнеры
+          {user.role === 'admin' ? 'Все дизайнеры' : 'Мои дизайнеры'}
         </h1>
         <p className="text-stone leading-relaxed max-w-xl">
-          {stats.total} дизайнеров под твоим лидерством.{' '}
+          {stats.total}{' '}
+          {user.role === 'admin'
+            ? 'активных дизайнеров. '
+            : 'дизайнеров под твоим наставничеством. '}
           {stats.published > 0 && `${stats.published} оценено`}
           {stats.draft > 0 && `, ${stats.draft} в черновике`}
           {stats.notStarted > 0 && `, ${stats.notStarted} ещё не оценено`}.

@@ -3,20 +3,30 @@ export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { redirect } from 'next/navigation';
+import { canManageUsers } from '@/lib/permissions';
 import UsersClient from './UsersClient';
 
 export default async function AdminUsersPage() {
   const me = await getCurrentUser();
-  if (!me || me.role !== 'admin') redirect('/auth/signin');
+  if (!me || !canManageUsers(me.role)) redirect('/auth/signin');
 
-  const [usersRaw, builds, leadsRaw] = await Promise.all([
+  const [usersRaw, builds, leadsRaw, stardizesRaw] = await Promise.all([
     prisma.user.findMany({
-      include: { build: true, lead: { select: { id: true, fullName: true } } },
+      include: {
+        build: true,
+        lead: { select: { id: true, fullName: true } },
+        stardiz: { select: { id: true, fullName: true } },
+      },
       orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
     }),
     prisma.build.findMany({ orderBy: { sortOrder: 'asc' } }),
     prisma.user.findMany({
       where: { role: { in: ['lead', 'admin'] }, active: true },
+      select: { id: true, fullName: true },
+      orderBy: { fullName: 'asc' },
+    }),
+    prisma.user.findMany({
+      where: { role: { in: ['stardiz', 'lead', 'admin'] }, active: true },
       select: { id: true, fullName: true },
       orderBy: { fullName: 'asc' },
     }),
@@ -32,11 +42,21 @@ export default async function AdminUsersPage() {
     department: u.department,
     leadId: u.leadId,
     lead: u.lead,
+    stardizId: u.stardizId,
+    stardiz: u.stardiz,
     hiredAt: u.hiredAt?.toISOString() ?? null,
     active: u.active,
     gradeFloor: u.gradeFloor,
     gradeFloorReason: u.gradeFloorReason,
   }));
 
-  return <UsersClient initialUsers={users} builds={builds} leads={leadsRaw} />;
+  return (
+    <UsersClient
+      initialUsers={users}
+      builds={builds}
+      leads={leadsRaw}
+      stardizes={stardizesRaw}
+      meRole={me.role ?? ''}
+    />
+  );
 }

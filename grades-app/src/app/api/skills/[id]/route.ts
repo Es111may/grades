@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { canEditMatrix } from '@/lib/permissions';
 
 const PatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -20,7 +21,7 @@ const PatchSchema = z.object({
 /** PATCH /api/skills/[id] — admin edit */
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
-  if (!me || me.role !== 'admin') {
+  if (!me || !canEditMatrix(me.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

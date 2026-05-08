@@ -21,10 +21,14 @@ export default async function LeadPortraitPage({
   const designerId = parseInt(searchParams.id ?? '', 10);
   if (isNaN(designerId)) redirect('/lead');
 
-  // Permission: only the designer's lead or admin
+  // Permission: admin / designer's lead / designer's stardiz
   const designer = await prisma.user.findUnique({ where: { id: designerId } });
   if (!designer) redirect('/lead');
-  if (user.role !== 'admin' && designer.leadId !== user.id) redirect('/lead');
+  const canView =
+    user.role === 'admin' ||
+    designer.leadId === user.id ||
+    designer.stardizId === user.id;
+  if (!canView) redirect('/lead');
 
   const result = await loadPortraitData(designerId);
 

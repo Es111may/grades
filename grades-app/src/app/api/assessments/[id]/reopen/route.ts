@@ -28,10 +28,12 @@ export async function POST(
   const ref = await prisma.assessment.findUnique({ where: { id: refId } });
   if (!ref) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  // Permission: lead of the designer or admin
+  // Permission: admin / lead / stardiz of the designer
   if (me.role !== 'admin') {
     const designer = await prisma.user.findUnique({ where: { id: ref.designerId } });
-    if (!designer || designer.leadId !== me.id) {
+    const allowed =
+      designer && (designer.leadId === me.id || designer.stardizId === me.id);
+    if (!allowed) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   }

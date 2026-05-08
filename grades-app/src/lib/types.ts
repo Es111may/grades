@@ -10,7 +10,7 @@ export type GradeCode =
   | 'senior';
 export type SkillType = 'CORE' | 'SEC';
 export type AssessmentStatus = 'draft' | 'published' | 'archived';
-export type UserRole = 'admin' | 'lead' | 'designer';
+export type UserRole = 'admin' | 'lead' | 'stardiz' | 'designer';
 
 export const GRADE_ORDER: Record<GradeCode, number> = {
   junior: 0,

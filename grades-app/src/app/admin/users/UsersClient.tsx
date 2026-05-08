@@ -15,17 +15,20 @@ type UserRow = {
   department: string | null;
   leadId: number | null;
   lead: Lead | null;
+  stardizId: number | null;
+  stardiz: Lead | null;
   hiredAt: string | null;
   active: boolean;
   gradeFloor: string | null;
   gradeFloorReason: string | null;
 };
 
-type RoleFilter = 'all' | 'designer' | 'lead' | 'admin';
+type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Админ',
   lead: 'Лид',
+  stardiz: 'Стардиз',
   designer: 'Дизайнер',
 };
 
@@ -60,10 +63,14 @@ export default function UsersClient({
   initialUsers,
   builds,
   leads,
+  stardizes,
+  meRole,
 }: {
   initialUsers: UserRow[];
   builds: Build[];
   leads: Lead[];
+  stardizes: Lead[];
+  meRole: string;
 }) {
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
@@ -164,7 +171,7 @@ export default function UsersClient({
       {/* Filters */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         <span className="text-xs text-stone mr-1">Роль:</span>
-        {(['all', 'designer', 'lead', 'admin'] as RoleFilter[]).map((f) => (
+        {(['all', 'designer', 'stardiz', 'lead', 'admin'] as RoleFilter[]).map((f) => (
           <button
             key={f}
             onClick={() => setRoleFilter(f)}
@@ -315,6 +322,8 @@ export default function UsersClient({
           isNew={isNew}
           builds={builds}
           leads={leads}
+          stardizes={stardizes}
+          meRole={meRole}
           onClose={() => setModalOpen(false)}
           onSaved={handleSaved}
           onDeleted={handleDeleted}

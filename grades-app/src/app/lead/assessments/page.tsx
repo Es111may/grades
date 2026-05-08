@@ -11,7 +11,17 @@ export default async function LeadAssessmentsPage() {
   const me = await getCurrentUser();
   if (!me?.id) return null;
 
-  const where = me.role === 'admin' ? {} : { lead: { id: me.id } };
+  let where: Record<string, unknown> = {};
+  if (me.role === 'lead') {
+    where = { lead: { id: me.id } };
+  } else if (me.role === 'stardiz') {
+    where = {
+      designer: {
+        OR: [{ stardizId: me.id }, { leadId: me.id }],
+      },
+    };
+  }
+  // admin → все
 
   const assessments = await prisma.assessment.findMany({
     where: { ...where, status: 'published' },

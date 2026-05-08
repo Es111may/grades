@@ -187,7 +187,7 @@ model User {
   fullName     String
   ssoId        String? @unique
   passwordHash String? // bcrypt hash; null = пароль ещё не задан админом
-  role         String  // "admin" | "lead" | "designer"
+  role         String  // "admin" | "lead" | "stardiz" | "designer"
 
   buildId    Int?
   build      Build?    @relation(fields: [buildId], references: [id])
@@ -195,6 +195,10 @@ model User {
   leadId     Int?
   lead       User?     @relation("LeadDesigners", fields: [leadId], references: [id])
   designers  User[]    @relation("LeadDesigners")
+  // Опциональный второй наставник: stardiz = senior-дизайнер с правами лида, но он сам грейдируется
+  stardizId          Int?
+  stardiz            User?  @relation("StardizDesigners", fields: [stardizId], references: [id])
+  designersAsStardiz User[] @relation("StardizDesigners")
   hiredAt    DateTime?
   active     Boolean   @default(true)
 

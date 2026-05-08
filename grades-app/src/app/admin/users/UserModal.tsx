@@ -21,6 +21,8 @@ type UserData = {
   department: string | null;
   leadId: number | null;
   lead: Lead | null;
+  stardizId: number | null;
+  stardiz: Lead | null;
   hiredAt: string | null;
   active: boolean;
   gradeFloor: string | null;
@@ -46,6 +48,8 @@ export default function UserModal({
   isNew,
   builds,
   leads,
+  stardizes,
+  meRole,
   onClose,
   onSaved,
   onDeleted,
@@ -54,10 +58,13 @@ export default function UserModal({
   isNew: boolean;
   builds: Build[];
   leads: Lead[];
+  stardizes: Lead[];
+  meRole: string;
   onClose: () => void;
   onSaved: (u: UserData) => void;
   onDeleted: (id: number) => void;
 }) {
+  const isAdmin = meRole === 'admin';
   const [form, setForm] = useState({
     fullName: user?.fullName ?? '',
     email: user?.email ?? '',
@@ -65,6 +72,7 @@ export default function UserModal({
     buildId: user?.buildId ?? null as number | null,
     department: user?.department ?? '',
     leadId: user?.leadId ?? null as number | null,
+    stardizId: user?.stardizId ?? null as number | null,
     hiredAt: user?.hiredAt ? user.hiredAt.split('T')[0] : '',
     active: user?.active ?? true,
     gradeFloor: user?.gradeFloor ?? '',
@@ -161,6 +169,8 @@ export default function UserModal({
       buildId: form.role === 'designer' ? form.buildId : null,
       department: form.department || null,
       leadId: form.role === 'designer' ? form.leadId : null,
+      stardizId:
+        form.role === 'designer' || form.role === 'stardiz' ? form.stardizId : null,
       hiredAt: form.hiredAt || null,
       active: form.active,
       gradeFloor: floorEnabled && form.gradeFloor ? form.gradeFloor : null,
@@ -280,8 +290,14 @@ export default function UserModal({
                   onChange={(e) => set('role', e.target.value)}
                 >
                   <option value="designer">Дизайнер</option>
+                  <option value="stardiz">Стардиз</option>
                   <option value="lead">Лид</option>
-                  <option value="admin">Админ</option>
+                  {/* Только админ может назначать админов */}
+                  {(isAdmin || form.role === 'admin') && (
+                    <option value="admin" disabled={!isAdmin}>
+                      Админ {!isAdmin && '(только админ может назначить)'}
+                    </option>
+                  )}
                 </select>
               </div>
               {form.role === 'designer' && (
@@ -334,6 +350,30 @@ export default function UserModal({
                         {l.fullName}
                       </option>
                     ))}
+                  </select>
+                </div>
+              )}
+              {(form.role === 'designer' || form.role === 'stardiz') && (
+                <div>
+                  <label className="block text-xs text-stone mb-1.5">
+                    Стардиз{' '}
+                    <span className="text-ash">(дополнительный наставник)</span>
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+                    value={form.stardizId ?? ''}
+                    onChange={(e) =>
+                      set('stardizId', e.target.value ? Number(e.target.value) : null)
+                    }
+                  >
+                    <option value="">Не назначен</option>
+                    {stardizes
+                      .filter((s) => s.id !== user?.id)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.fullName}
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}
@@ -524,8 +564,8 @@ export default function UserModal({
             </section>
           )}
 
-          {/* Password */}
-          {!isNew && (
+          {/* Password — admin only */}
+          {!isNew && isAdmin && (
             <section>
               <div className="text-xs uppercase tracking-widest text-stone mb-3">
                 Пароль для входа

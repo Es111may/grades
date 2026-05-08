@@ -4,14 +4,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { z } from 'zod';
+import { canAssignAdminRole, canManageUsers } from '@/lib/permissions';
 
 const updateUserSchema = z.object({
   fullName: z.string().min(1).optional(),
   email: z.string().email().optional(),
-  role: z.enum(['admin', 'lead', 'designer']).optional(),
+  role: z.enum(['admin', 'lead', 'stardiz', 'designer']).optional(),
   buildId: z.number().nullable().optional(),
   department: z.string().nullable().optional(),
   leadId: z.number().nullable().optional(),
+  stardizId: z.number().nullable().optional(),
   hiredAt: z.string().nullable().optional(),
   active: z.boolean().optional(),
   gradeFloor: z.string().nullable().optional(),
@@ -20,7 +22,7 @@ const updateUserSchema = z.object({
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
-  if (!me || me.role !== 'admin') {
+  if (!me || !canManageUsers(me.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -39,6 +41,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const existing = await prisma.user.findUnique({ where: { id: userId } });
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  // Только admin может назначать или снимать роль admin
+  const settingAdmin = data.role === 'admin' && existing.role !== 'admin';
+  const removingAdmin =
+    data.role !== undefined && data.role !== 'admin' && existing.role === 'admin';
+  if ((settingAdmin || removingAdmin) && !canAssignAdminRole(me.role)) {
+    return NextResponse.json(
+      { error: 'Только админ может менять роль admin' },
+      { status: 403 },
+    );
   }
 
   // Audit grade_floor changes
@@ -86,6 +99,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(data.buildId !== undefined && { buildId: data.buildId }),
       ...(data.department !== undefined && { department: data.department }),
       ...(data.leadId !== undefined && { leadId: data.leadId }),
+      ...(data.stardizId !== undefined && { stardizId: data.stardizId }),
       ...(data.hiredAt !== undefined && {
         hiredAt: data.hiredAt ? new Date(data.hiredAt) : null,
       }),
@@ -95,7 +109,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         gradeFloorReason: data.gradeFloorReason,
       }),
     },
-    include: { build: true, lead: { select: { id: true, fullName: true } } },
+    include: {
+      build: true,
+      lead: { select: { id: true, fullName: true } },
+      stardiz: { select: { id: true, fullName: true } },
+    },
   });
 
   return NextResponse.json(user);
@@ -103,7 +121,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
-  if (!me || me.role !== 'admin') {
+  if (!me || !canManageUsers(me.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
