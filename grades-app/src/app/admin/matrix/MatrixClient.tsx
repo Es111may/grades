@@ -290,6 +290,7 @@ function SkillRow({
   onToggleActive: () => void;
 }) {
   const [name, setName] = useState(skill.name);
+  const [description, setDescription] = useState(skill.description);
   const [type, setType] = useState(skill.type);
   const [weights, setWeights] = useState<Record<number, string>>(() => {
     const w: Record<number, string> = {};
@@ -299,6 +300,7 @@ function SkillRow({
 
   function reset() {
     setName(skill.name);
+    setDescription(skill.description);
     setType(skill.type);
     const w: Record<number, string> = {};
     for (const b of builds) w[b.id] = String(skill.weights[b.id] ?? 0);
@@ -312,7 +314,12 @@ function SkillRow({
       const n = parseFloat(v);
       numericWeights[k] = isNaN(n) ? 0 : n;
     }
-    onSave({ name: name.trim(), type, weights: numericWeights });
+    onSave({
+      name: name.trim(),
+      description: description.trim(),
+      type,
+      weights: numericWeights,
+    });
   }
 
   if (!isEditing) {
@@ -320,6 +327,11 @@ function SkillRow({
       <tr className={`border-b border-cloud last:border-0 ${!skill.active ? 'opacity-50' : ''}`}>
         <td className="px-6 py-3">
           <div className="text-sm">{skill.name}</div>
+          {skill.description && (
+            <div className="text-xs text-stone italic mt-0.5 line-clamp-2">
+              {skill.description}
+            </div>
+          )}
         </td>
         <td className="text-center px-3 py-3">
           <span
@@ -367,7 +379,15 @@ function SkillRow({
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
+          placeholder="Название"
           className="w-full bg-white border border-cloud rounded px-3 py-1.5 text-sm focus:outline-none focus:border-stone"
+        />
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Описание (курсивная подсказка к скиллу)"
+          rows={2}
+          className="w-full bg-white border border-cloud rounded px-3 py-1.5 text-xs italic mt-1.5 focus:outline-none focus:border-stone resize-y"
         />
       </td>
       <td className="text-center px-3 py-3">
