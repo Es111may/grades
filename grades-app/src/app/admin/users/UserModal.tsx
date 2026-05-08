@@ -78,6 +78,45 @@ export default function UserModal({
   const [newNote, setNewNote] = useState('');
   const [confirmLower, setConfirmLower] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pwdMode, setPwdMode] = useState<'idle' | 'manual' | 'shown'>('idle');
+  const [pwdManual, setPwdManual] = useState('');
+  const [pwdResult, setPwdResult] = useState<string | null>(null);
+  const [pwdSaving, setPwdSaving] = useState(false);
+
+  async function handleSetPassword(useManual: boolean) {
+    if (!user?.id) return;
+    if (useManual && pwdManual.length < 8) {
+      alert('Минимум 8 символов');
+      return;
+    }
+    setPwdSaving(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}/password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(useManual ? { password: pwdManual } : {}),
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        alert(`Ошибка: ${j.error ?? 'не получилось'}`);
+        return;
+      }
+      setPwdResult(j.password);
+      setPwdMode('shown');
+      setPwdManual('');
+    } finally {
+      setPwdSaving(false);
+    }
+  }
+
+  async function copyPwd() {
+    if (!pwdResult) return;
+    try {
+      await navigator.clipboard.writeText(pwdResult);
+    } catch {
+      // ignore
+    }
+  }
 
   const loadNotes = useCallback(async () => {
     if (!user?.id) return;
@@ -482,6 +521,103 @@ export default function UserModal({
                   ))}
                 </div>
               )}
+            </section>
+          )}
+
+          {/* Password */}
+          {!isNew && (
+            <section>
+              <div className="text-xs uppercase tracking-widest text-stone mb-3">
+                Пароль для входа
+              </div>
+              <div className="bg-white border border-cloud rounded-card p-5">
+                {pwdMode === 'shown' && pwdResult ? (
+                  <div className="space-y-3">
+                    <div className="text-sm">
+                      Новый пароль для <strong>{user?.email}</strong>:
+                    </div>
+                    <div className="bg-canvas border border-lime rounded p-3 flex items-center justify-between gap-3">
+                      <code className="font-mono text-base select-all">{pwdResult}</code>
+                      <button
+                        onClick={copyPwd}
+                        className="text-xs text-stone hover:text-ink whitespace-nowrap"
+                      >
+                        Скопировать
+                      </button>
+                    </div>
+                    <p className="text-xs text-sunset leading-relaxed">
+                      Пароль показан один раз. Скопируй и отправь пользователю —
+                      после закрытия окна снова посмотреть его не сможешь.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setPwdMode('idle');
+                        setPwdResult(null);
+                      }}
+                      className="text-xs text-stone hover:text-ink"
+                    >
+                      Скрыть
+                    </button>
+                  </div>
+                ) : pwdMode === 'manual' ? (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={pwdManual}
+                      onChange={(e) => setPwdManual(e.target.value)}
+                      placeholder="Минимум 8 символов"
+                      className="w-full bg-canvas border border-cloud rounded px-3 py-2 text-sm font-mono"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSetPassword(true)}
+                        disabled={pwdSaving || pwdManual.length < 8}
+                        className="px-4 py-2 text-xs rounded-pill bg-lime border border-lime disabled:opacity-50"
+                      >
+                        {pwdSaving ? 'Сохраняю…' : 'Сохранить'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setPwdMode('idle');
+                          setPwdManual('');
+                        }}
+                        disabled={pwdSaving}
+                        className="px-3 py-1.5 text-xs text-stone hover:text-ink"
+                      >
+                        Отмена
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-sm">
+                        {user?.email
+                          ? 'Сгенерировать пароль или задать вручную'
+                          : '—'}
+                      </div>
+                      <div className="text-xs text-stone mt-1">
+                        Пароль покажется один раз — отправишь пользователю любым удобным каналом.
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setPwdMode('manual')}
+                        className="px-3 py-1.5 text-xs rounded-pill border border-cloud hover:bg-canvas"
+                      >
+                        Задать вручную
+                      </button>
+                      <button
+                        onClick={() => handleSetPassword(false)}
+                        disabled={pwdSaving}
+                        className="px-4 py-2 text-xs rounded-pill bg-lime border border-lime hover:brightness-95 disabled:opacity-50"
+                      >
+                        {pwdSaving ? 'Генерирую…' : 'Сгенерировать'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </section>
           )}
 

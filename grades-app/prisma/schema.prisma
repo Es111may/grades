@@ -182,11 +182,12 @@ model SkillGate {
 // ============================================================
 
 model User {
-  id        Int     @id @default(autoincrement())
-  email     String  @unique
-  fullName  String
-  ssoId     String? @unique
-  role      String  // "admin" | "lead" | "designer"
+  id           Int     @id @default(autoincrement())
+  email        String  @unique
+  fullName     String
+  ssoId        String? @unique
+  passwordHash String? // bcrypt hash; null = пароль ещё не задан админом
+  role         String  // "admin" | "lead" | "designer"
 
   buildId    Int?
   build      Build?    @relation(fields: [buildId], references: [id])

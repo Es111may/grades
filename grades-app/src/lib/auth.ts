@@ -2,27 +2,25 @@
  * NextAuth конфигурация.
  *
  * Два режима:
- *   1) DEV  — Credentials provider без пароля. Логинимся как любой
- *      пользователь из БД по email. Нужен только для локальной разработки.
- *   2) PROD — Keycloak OIDC. Маппинг пользователя по `ssoId` (Keycloak `sub`).
- *
- * Режим выбирается через AUTH_MODE: 'dev' | 'keycloak'.
- * По умолчанию: 'dev' если NODE_ENV !== 'production', иначе 'keycloak'.
+ *   1) PROD — provider 'password': email + bcrypt-hash в БД. Админ задаёт
+ *      пароли вручную (см. /admin/users → «Сбросить пароль»).
+ *   2) DEV  — provider 'dev': без пароля, выбор пользователя из списка.
+ *      Используется только для локальной разработки. Включается через AUTH_MODE=dev.
  */
 
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import KeycloakProvider from 'next-auth/providers/keycloak';
+import bcrypt from 'bcryptjs';
 import { prisma } from './db';
 import type { BuildCode, GradeCode, UserRole } from './types';
 
-const authMode = process.env.AUTH_MODE || 'dev';
+const authMode = process.env.AUTH_MODE || 'password';
 const isDevAuth = authMode === 'dev';
 
 const providers = [];
 
 if (isDevAuth) {
-  // DEV provider — без пароля. Только для localhost.
+  // DEV — без пароля, для локальной разработки.
   providers.push(
     CredentialsProvider({
       id: 'dev',
@@ -32,43 +30,64 @@ if (isDevAuth) {
       },
       async authorize(credentials) {
         if (!credentials?.email) return null;
-
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase() },
           include: { build: true },
         });
-
         if (!user || !user.active) return null;
-
-        return {
-          id: String(user.id),
-          numericId: user.id,
-          email: user.email,
-          name: user.fullName,
-          role: user.role as UserRole,
-          buildId: user.buildId,
-          buildCode: (user.build?.code as BuildCode) ?? null,
-          leadId: user.leadId,
-          gradeFloor: (user.gradeFloor as GradeCode) ?? null,
-          department: user.department,
-        };
+        return userToAuthPayload(user);
       },
     }),
   );
-} else {
-  // PROD provider — Keycloak OIDC.
-  if (!process.env.KEYCLOAK_ISSUER || !process.env.KEYCLOAK_CLIENT_ID || !process.env.KEYCLOAK_CLIENT_SECRET) {
-    throw new Error(
-      'KEYCLOAK_ISSUER / KEYCLOAK_CLIENT_ID / KEYCLOAK_CLIENT_SECRET обязательны в проде',
-    );
-  }
-  providers.push(
-    KeycloakProvider({
-      issuer: process.env.KEYCLOAK_ISSUER,
-      clientId: process.env.KEYCLOAK_CLIENT_ID,
-      clientSecret: process.env.KEYCLOAK_CLIENT_SECRET,
-    }),
-  );
+}
+
+// Password-провайдер активен всегда (даже в dev — на случай если админ хочет
+// проверить email+password на локалке).
+providers.push(
+  CredentialsProvider({
+    id: 'password',
+    name: 'Email и пароль',
+    credentials: {
+      email: { label: 'Email', type: 'email' },
+      password: { label: 'Пароль', type: 'password' },
+    },
+    async authorize(credentials) {
+      if (!credentials?.email || !credentials?.password) return null;
+      const user = await prisma.user.findUnique({
+        where: { email: credentials.email.toLowerCase().trim() },
+        include: { build: true },
+      });
+      if (!user || !user.active || !user.passwordHash) return null;
+      const ok = await bcrypt.compare(credentials.password, user.passwordHash);
+      if (!ok) return null;
+      return userToAuthPayload(user);
+    },
+  }),
+);
+
+function userToAuthPayload(user: {
+  id: number;
+  email: string;
+  fullName: string;
+  role: string;
+  buildId: number | null;
+  build: { code: string } | null;
+  leadId: number | null;
+  gradeFloor: string | null;
+  department: string | null;
+}) {
+  return {
+    id: String(user.id),
+    numericId: user.id,
+    email: user.email,
+    name: user.fullName,
+    role: user.role as UserRole,
+    buildId: user.buildId,
+    buildCode: (user.build?.code as BuildCode) ?? null,
+    leadId: user.leadId,
+    gradeFloor: (user.gradeFloor as GradeCode) ?? null,
+    department: user.department,
+  };
 }
 
 export const authOptions: NextAuthOptions = {
@@ -82,14 +101,8 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   callbacks: {
-    /**
-     * При первом входе или после логина обогащаем токен данными из БД.
-     * Для dev-провайдера user уже содержит всё нужное (см. authorize).
-     * Для Keycloak — поднимаем User по ssoId (account.providerAccountId).
-     */
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
-        // Логин через dev — все данные в user
         token.numericId = (user as any).numericId;
         token.role = (user as any).role;
         token.buildId = (user as any).buildId;
@@ -97,29 +110,6 @@ export const authOptions: NextAuthOptions = {
         token.leadId = (user as any).leadId;
         token.gradeFloor = (user as any).gradeFloor;
         token.department = (user as any).department;
-        return token;
-      }
-
-      // Keycloak login: подтягиваем по ssoId
-      if (account?.provider === 'keycloak' && account.providerAccountId) {
-        const dbUser = await prisma.user.findUnique({
-          where: { ssoId: account.providerAccountId },
-          include: { build: true },
-        });
-        if (!dbUser || !dbUser.active) {
-          // Пользователь не заведён в системе. Возвращаем токен без role —
-          // middleware/layout-проверки развернут обратно на /auth/signin.
-          return token;
-        }
-        token.numericId = dbUser.id;
-        token.role = dbUser.role as UserRole;
-        token.buildId = dbUser.buildId;
-        token.buildCode = (dbUser.build?.code as BuildCode) ?? null;
-        token.leadId = dbUser.leadId;
-        token.gradeFloor = (dbUser.gradeFloor as GradeCode) ?? null;
-        token.department = dbUser.department;
-        token.email = dbUser.email;
-        token.name = dbUser.fullName;
       }
       return token;
     },
