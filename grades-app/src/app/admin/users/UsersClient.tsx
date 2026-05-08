@@ -211,7 +211,7 @@ export default function UsersClient({
       </div>
 
       {/* View tabs */}
-      <div className="flex items-center gap-1 mb-4 border-b border-cloud">
+      <div className="flex items-center gap-1 mb-4 border-b border-cloud" data-build="0.3.0">
         {(
           [
             ['table', 'Таблица'],
