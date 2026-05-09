@@ -29,33 +29,37 @@ export default async function DesignerPortraitPage() {
       include: { build: true, lead: true },
     });
     return (
-      <main className="max-w-[1000px] mx-auto px-8 pt-12 pb-16">
-        <div className="mb-10">
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">
+      <main className="max-w-[1000px] mx-auto px-8 pt-8 pb-16">
+        <div className="mb-8">
+          <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
             {me?.fullName}
           </h1>
-          <p className="text-stone">
+          <p className="text-stone text-sm">
             {me?.build?.name ?? '— билд не назначен'} · {me?.department ?? '—'}
           </p>
         </div>
 
-        <div className="bg-white border border-cloud rounded-card p-10 shadow-soft text-center mb-6">
-          <div className="font-display text-3xl mb-3">Оценка ещё не проводилась</div>
+        <div className="card p-10 text-center mb-5">
+          <div className="font-display text-2xl font-semibold tracking-tight mb-2">
+            Оценка ещё не проводилась
+          </div>
           <p className="text-stone leading-relaxed max-w-md mx-auto">
-            Когда лид опубликует первую оценку — здесь появится твой грейд, XP, радар-диаграмма
-            и список навыков.
+            Когда лид опубликует первую оценку — здесь появится твой грейд, XP,
+            радар-диаграмма и список навыков.
           </p>
         </div>
 
         {me?.gradeFloor && (
-          <div className="bg-lime-light border border-lime rounded-card p-6">
-            <div className="text-xs uppercase tracking-widest text-graphite mb-2">
+          <div className="bg-lime-light/60 border border-lime/30 rounded-card p-5">
+            <div className="text-[11px] uppercase tracking-widest text-graphite mb-1.5">
               Зафиксированный грейд
             </div>
             <p className="text-sm text-graphite leading-relaxed">
               При переходе с прежней системы за тобой закреплён грейд{' '}
-              <strong>{GRADE_NAMES[me.gradeFloor as GradeCode] ?? me.gradeFloor}</strong>.
-              Если расчёт по новой матрице даст ниже — всё равно показывается этот.
+              <strong>
+                {GRADE_NAMES[me.gradeFloor as GradeCode] ?? me.gradeFloor}
+              </strong>
+              . Если расчёт по новой матрице даст ниже — всё равно показывается этот.
             </p>
           </div>
         )}

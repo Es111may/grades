@@ -36,36 +36,39 @@ export default async function LeadPortraitPage({
 
   if (result.kind === 'no_assessment') {
     return (
-      <main className="max-w-[1000px] mx-auto px-8 pt-12 pb-16">
-        <Link href="/lead" className="text-sm text-stone hover:text-ink mb-4 inline-block">
+      <main className="max-w-[1000px] mx-auto px-8 pt-8 pb-16">
+        <Link
+          href="/lead"
+          className="text-sm text-stone hover:text-ink mb-5 inline-block transition-colors"
+        >
           ← к списку
         </Link>
-        <div className="mb-10">
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">
+        <div className="mb-8">
+          <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
             {result.designer.fullName}
           </h1>
         </div>
-        <div className="bg-white border border-cloud rounded-card p-10 shadow-soft text-center">
-          <div className="font-display text-3xl mb-3">Оценка не опубликована</div>
+        <div className="card p-10 text-center">
+          <div className="font-display text-2xl font-semibold tracking-tight mb-2">
+            Оценка не опубликована
+          </div>
           <p className="text-stone mb-6">
             Чтобы увидеть портрет — заполни и опубликуй первую оценку.
           </p>
-          <Link
-            href={`/lead/assess?id=${designerId}`}
-            className="inline-block bg-lime border border-lime rounded-pill px-6 py-2.5 text-sm font-medium hover:opacity-90"
-          >
-            К форме оценки →
+          <Link href={`/lead/assess?id=${designerId}`} className="btn-accent">
+            К форме оценки
           </Link>
         </div>
         {result.designer.gradeFloor && (
-          <div className="bg-lime-light border border-lime rounded-card p-6 mt-6">
-            <div className="text-xs uppercase tracking-widest text-graphite mb-2">
+          <div className="bg-lime-light/60 border border-lime/30 rounded-card p-5 mt-5">
+            <div className="text-[11px] uppercase tracking-widest text-graphite mb-1.5">
               Зафиксированный грейд
             </div>
             <p className="text-sm text-graphite leading-relaxed">
               За дизайнером закреплён грейд{' '}
               <strong>
-                {GRADE_NAMES[result.designer.gradeFloor as GradeCode] ?? result.designer.gradeFloor}
+                {GRADE_NAMES[result.designer.gradeFloor as GradeCode] ??
+                  result.designer.gradeFloor}
               </strong>
               .
             </p>

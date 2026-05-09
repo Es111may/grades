@@ -36,16 +36,12 @@ export default function PortraitActions({
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 max-w-[1300px] mx-auto px-8 pt-6">
-      <Link href="/lead" className="text-sm text-stone hover:text-ink">
+    <div className="flex items-center justify-between gap-4 max-w-[1300px] mx-auto px-8 pt-5">
+      <Link href="/lead" className="text-sm text-stone hover:text-ink transition-colors">
         ← к списку
       </Link>
-      <button
-        onClick={reopen}
-        disabled={reopening}
-        className="bg-lime border border-lime rounded-pill px-5 py-2 text-xs font-medium hover:brightness-95 disabled:opacity-50"
-      >
-        {reopening ? 'Создаю…' : hasDraft ? 'Продолжить черновик →' : 'Новая оценка →'}
+      <button onClick={reopen} disabled={reopening} className="btn-accent btn-sm">
+        {reopening ? 'Создаю…' : hasDraft ? 'Продолжить черновик' : 'Новая оценка'}
       </button>
     </div>
   );

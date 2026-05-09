@@ -30,31 +30,32 @@ export default async function LeadAssessmentsPage() {
   });
 
   return (
-    <main className="max-w-[1200px] mx-auto px-8 pt-12 pb-16">
-      <div className="mb-10">
-        <div className="text-xs uppercase tracking-widest text-stone mb-2">
-          {me.role === 'admin' ? 'Все опубликованные оценки' : 'Опубликованные оценки моих дизайнеров'}
+    <main className="max-w-[1200px] mx-auto px-8 pt-8 pb-16">
+      <div className="mb-8">
+        <div className="text-[11px] uppercase tracking-widest text-stone mb-2">
+          {me.role === 'admin'
+            ? 'Все опубликованные'
+            : 'Опубликованные оценки моих дизайнеров'}
         </div>
         <h1 className="font-display text-4xl font-semibold tracking-tight">Оценки</h1>
       </div>
 
       {assessments.length === 0 ? (
-        <div className="bg-white border border-cloud rounded-card p-10 shadow-soft text-center">
+        <div className="card p-10 text-center">
           <p className="text-stone">Опубликованных оценок пока нет.</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {assessments.map((a) => (
-            <div
-              key={a.id}
-              className="flex items-center bg-white border border-cloud rounded-card shadow-soft hover:shadow-soft-lg transition-shadow"
-            >
+            <div key={a.id} className="card-hover flex items-center">
               <Link
                 href={`/lead/portrait?id=${a.designerId}`}
-                className="flex-1 flex items-center justify-between px-6 py-4"
+                className="flex-1 flex items-center justify-between px-5 py-4 min-w-0"
               >
-                <div className="flex-1">
-                  <div className="font-display text-lg">{a.designer.fullName}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">
+                    {a.designer.fullName}
+                  </div>
                   <div className="text-xs text-stone mt-0.5">
                     {a.publishedAt &&
                       new Date(a.publishedAt).toLocaleDateString('ru-RU', {
@@ -65,17 +66,19 @@ export default async function LeadAssessmentsPage() {
                     {me.role === 'admin' && a.lead && <> · лид: {a.lead.fullName}</>}
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-5 shrink-0">
                   <div className="text-right">
-                    <div className="font-display text-xl">
+                    <div className="font-display text-base font-semibold tracking-tight">
                       {GRADE_NAMES[(a.effectiveGrade ?? 'junior') as GradeCode]}
                     </div>
-                    <div className="text-xs text-stone">{a.totalXp ?? 0} XP</div>
+                    <div className="text-[11px] text-stone tabular-nums">
+                      {a.totalXp ?? 0} XP
+                    </div>
                   </div>
-                  <span className="text-stone">→</span>
+                  <span className="text-ash">→</span>
                 </div>
               </Link>
-              <div className="pr-4">
+              <div className="pr-3">
                 <DeleteButton assessmentId={a.id} designerName={a.designer.fullName} />
               </div>
             </div>
