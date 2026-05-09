@@ -143,7 +143,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
             ? `Опубликовано ${new Date(data.publishedAt).toLocaleDateString('ru-RU')}`
             : 'Оценка'}
         </div>
-        <h1 className="font-display text-5xl font-light tracking-tight mb-3">
+        <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">
           {data.designer.fullName}
         </h1>
         <div className="flex items-center gap-3 text-sm">

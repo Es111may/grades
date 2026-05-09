@@ -67,44 +67,36 @@ export default function SignInForm({
       {/* Password form (always visible) */}
       <form
         onSubmit={handlePasswordLogin}
-        className="bg-white border border-cloud rounded-card p-6 shadow-soft space-y-4"
+        className="card p-6 space-y-4"
       >
         <div>
-          <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
-            Email
-          </label>
+          <label className="text-xs font-medium text-stone block mb-1.5">Email</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="ivan@idaproject.com"
             autoComplete="email"
-            className="w-full bg-canvas border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+            className="input"
             required
           />
         </div>
         <div>
-          <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
-            Пароль
-          </label>
+          <label className="text-xs font-medium text-stone block mb-1.5">Пароль</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
-            className="w-full bg-canvas border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+            className="input"
             required
           />
         </div>
-        {error && <div className="text-xs text-sunset">{error}</div>}
-        <button
-          type="submit"
-          disabled={loading !== null}
-          className="w-full bg-lime border border-lime text-ink rounded-pill py-2.5 text-sm font-medium hover:brightness-95 transition disabled:opacity-50"
-        >
+        {error && <div className="text-xs text-blaze">{error}</div>}
+        <button type="submit" disabled={loading !== null} className="btn-accent w-full">
           {loading === 'password' ? 'Вхожу…' : 'Войти'}
         </button>
-        <p className="text-xs text-stone text-center leading-relaxed">
+        <p className="text-xs text-stone text-center">
           Если ещё нет доступа — попроси админа создать аккаунт.
         </p>
       </form>

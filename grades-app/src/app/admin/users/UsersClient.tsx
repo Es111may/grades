@@ -153,38 +153,35 @@ export default function UsersClient({
   }
 
   return (
-    <main className="max-w-[1400px] mx-auto px-8 pt-12 pb-16">
-      <div className="flex items-end justify-between mb-8">
+    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
+      <div className="flex items-end justify-between mb-8 gap-4">
         <div>
           <div className="text-xs uppercase tracking-widest text-stone mb-2">
             Пользователи системы
           </div>
-          <h1 className="font-display text-5xl font-light tracking-tight mb-2">
+          <h1 className="font-display text-4xl font-semibold tracking-tight mb-1.5">
             Команда
           </h1>
           <div className="text-sm text-stone">
-            {counts.designer} дизайнеров · {counts.lead} лидов · {counts.admin} админов
+            {counts.designer} дизайнеров · {counts.stardiz} стардизов · {counts.lead} лидов · {counts.admin} админов
           </div>
         </div>
-        <button
-          onClick={openNew}
-          className="bg-lime border border-lime rounded-pill px-5 py-2.5 text-sm font-medium hover:brightness-95 transition"
-        >
-          + Добавить пользователя
+        <button onClick={openNew} className="btn-accent">
+          Добавить пользователя
         </button>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-2 mb-6 flex-wrap">
-        <span className="text-xs text-stone mr-1">Роль:</span>
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        <span className="text-xs text-stone mr-1">Роль</span>
         {(['all', 'designer', 'stardiz', 'lead', 'admin'] as RoleFilter[]).map((f) => (
           <button
             key={f}
             onClick={() => setRoleFilter(f)}
-            className={`px-3.5 py-1.5 rounded-pill text-xs font-medium border transition ${
+            className={`px-3 py-1.5 rounded-pill text-xs font-medium transition-colors duration-150 ${
               roleFilter === f
-                ? 'bg-ink text-white border-ink'
-                : 'bg-white text-stone border-cloud hover:border-ash'
+                ? 'bg-ink text-snow'
+                : 'bg-snow text-stone border border-cloud hover:border-ash hover:text-ink'
             }`}
           >
             {f === 'all'
@@ -195,43 +192,43 @@ export default function UsersClient({
                   ? 'Стардизы'
                   : f === 'lead'
                     ? 'Лиды'
-                    : 'Админы'}{' '}
-            · {counts[f]}
+                    : 'Админы'}
+            <span className={`ml-1.5 ${roleFilter === f ? 'text-snow/70' : 'text-ash'}`}>
+              {counts[f]}
+            </span>
           </button>
         ))}
-        <span className="ml-auto">
+        <span className="ml-auto w-[280px]">
           <input
             type="text"
-            placeholder="Поиск по имени/email…"
+            placeholder="Поиск по имени или email"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-[280px] px-4 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+            className="input"
           />
         </span>
       </div>
 
-      {/* View tabs */}
-      <div className="flex items-center gap-1 mb-4 border-b border-cloud" data-build="0.3.0">
-        {(
-          [
-            ['table', 'Таблица'],
-            ['kanban-dept', 'Канбан · Отделы'],
-            ['kanban-lead', 'Канбан · Лиды'],
-            ['kanban-grade', 'Канбан · Уровни'],
-          ] as Array<[ViewMode, string]>
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setView(key)}
-            className={`px-4 py-2 text-sm transition border-b-2 -mb-px ${
-              view === key
-                ? 'border-ink text-ink font-medium'
-                : 'border-transparent text-stone hover:text-ink'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      {/* View tabs — segmented control */}
+      <div className="mb-5">
+        <div className="segmented">
+          {(
+            [
+              ['table', 'Таблица'],
+              ['kanban-dept', 'Отделы'],
+              ['kanban-lead', 'Лиды'],
+              ['kanban-grade', 'Уровни'],
+            ] as Array<[ViewMode, string]>
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setView(key)}
+              className={`segmented-item ${view === key ? 'segmented-item-active' : ''}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {view === 'table' ? (

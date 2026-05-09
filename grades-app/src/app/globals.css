@@ -3,10 +3,122 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: light;
+  }
   body {
-    background: #faf9f7;
-    color: #000000;
+    background: #f5f5f7;
+    color: #1d1d1f;
     -webkit-font-smoothing: antialiased;
-    letter-spacing: 0.005em;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.005em;
+  }
+  /* Чуть более компактная типографика — ближе к Apple */
+  h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
+  }
+  /* Базовый focus-стиль для всех интерактивных элементов */
+  :focus-visible {
+    outline: 2px solid #007aff;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  /* Стандартный selection */
+  ::selection {
+    background: #c9e6ff;
+  }
+}
+
+@layer components {
+  /* === Кнопки === */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap
+           font-medium text-sm leading-none px-4 py-2.5 rounded-pill
+           transition-all duration-150 ease-apple-out select-none
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-ink text-snow hover:bg-graphite active:scale-[0.98];
+  }
+  .btn-accent {
+    @apply btn bg-lime text-ink border border-lime hover:brightness-95 active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply btn bg-snow text-ink border border-cloud hover:border-ash hover:bg-canvas active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-stone hover:text-ink hover:bg-cloud/40;
+  }
+  .btn-danger {
+    @apply btn bg-blaze text-snow hover:brightness-95 active:scale-[0.98];
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  /* === Поля ввода === */
+  .input {
+    @apply w-full bg-snow border border-cloud rounded-card px-3.5 py-2.5
+           text-sm text-ink placeholder:text-stone
+           transition-colors duration-150
+           focus:outline-none focus:border-sky focus:ring-4 focus:ring-sky/15;
+  }
+  .input-sm {
+    @apply px-3 py-1.5 text-xs rounded-[8px];
+  }
+  textarea.input {
+    @apply leading-relaxed py-2.5;
+  }
+  select.input {
+    @apply pr-8 cursor-pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%236e6e73' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  /* === Карточки === */
+  .card {
+    @apply bg-snow border border-cloud rounded-card shadow-soft;
+  }
+  .card-hover {
+    @apply card transition-all duration-200 ease-apple-out hover:shadow-soft-md hover:border-ash;
+  }
+
+  /* === Чипы (бэйджи статусов / ролей) === */
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill
+           text-[11px] font-medium tracking-tight;
+  }
+  .chip-neutral {
+    @apply chip bg-cloud/60 text-stone;
+  }
+  .chip-accent {
+    @apply chip bg-lime-light text-graphite border border-lime/30;
+  }
+  .chip-danger {
+    @apply chip bg-blaze/10 text-blaze;
+  }
+  .chip-warn {
+    @apply chip bg-sunset/10 text-sunset;
+  }
+  .chip-info {
+    @apply chip bg-sky/10 text-sky;
+  }
+
+  /* === Сегментированный контрол (iOS-style тaбы) === */
+  .segmented {
+    @apply inline-flex items-center bg-cloud/70 rounded-pill p-1 gap-1;
+  }
+  .segmented-item {
+    @apply px-3.5 py-1.5 text-xs font-medium text-stone rounded-pill cursor-pointer
+           transition-colors duration-150 hover:text-ink;
+  }
+  .segmented-item-active {
+    @apply bg-snow text-ink shadow-soft;
   }
 }

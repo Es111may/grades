@@ -116,7 +116,7 @@ export default function MatrixClient({
         <div className="text-xs uppercase tracking-widest text-stone mb-2">
           Матрица скиллов · версия {matrixNumber}
         </div>
-        <h1 className="font-display text-5xl font-light tracking-tight mb-3">Скиллы</h1>
+        <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">Скиллы</h1>
         <p className="text-stone leading-relaxed max-w-2xl">
           {skills.filter((s) => s.active).length} активных навыков · {skills.length} всего.
           Редактируй имя и веса для каждого билда. Изменения применяются к будущим оценкам;

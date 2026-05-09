@@ -35,7 +35,7 @@ export default async function LeadAssessmentsPage() {
         <div className="text-xs uppercase tracking-widest text-stone mb-2">
           {me.role === 'admin' ? 'Все опубликованные оценки' : 'Опубликованные оценки моих дизайнеров'}
         </div>
-        <h1 className="font-display text-5xl font-light tracking-tight">Оценки</h1>
+        <h1 className="font-display text-4xl font-semibold tracking-tight">Оценки</h1>
       </div>
 
       {assessments.length === 0 ? (

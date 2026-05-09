@@ -35,11 +35,13 @@ export default async function SignInPage({
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="mb-8">
-          <div className="text-xs uppercase tracking-widest text-stone mb-3">Грейды</div>
-          <h1 className="font-display text-5xl font-light tracking-tight">Вход</h1>
+    <main className="min-h-screen flex items-center justify-center px-4 py-12 bg-canvas">
+      <div className="w-full max-w-[400px]">
+        <div className="mb-8 text-center">
+          <div className="font-display font-semibold text-2xl tracking-tight mb-1">
+            Грейды
+          </div>
+          <p className="text-sm text-stone">Войди с рабочей почтой и паролем</p>
         </div>
         <SignInForm
           isDev={isUsingDevAuth}

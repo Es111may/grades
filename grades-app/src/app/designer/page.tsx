@@ -31,7 +31,7 @@ export default async function DesignerPortraitPage() {
     return (
       <main className="max-w-[1000px] mx-auto px-8 pt-12 pb-16">
         <div className="mb-10">
-          <h1 className="font-display text-5xl font-light tracking-tight mb-3">
+          <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">
             {me?.fullName}
           </h1>
           <p className="text-stone">

@@ -41,7 +41,7 @@ export default async function LeadPortraitPage({
           ← к списку
         </Link>
         <div className="mb-10">
-          <h1 className="font-display text-5xl font-light tracking-tight mb-3">
+          <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">
             {result.designer.fullName}
           </h1>
         </div>

@@ -45,7 +45,7 @@ export default function GradesClient({
         <div className="text-xs uppercase tracking-widest text-stone mb-2">
           Грейды · матрица {matrixNumber}
         </div>
-        <h1 className="font-display text-5xl font-light tracking-tight mb-3">Грейды</h1>
+        <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">Грейды</h1>
         <p className="text-stone leading-relaxed max-w-2xl">
           Пороги XP по билдам и обязательные навыки для каждого грейда. Изменения применяются
           к будущим оценкам — уже опубликованные используют свой снапшот.

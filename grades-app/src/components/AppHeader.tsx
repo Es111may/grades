@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import UserMenu from './UserMenu';
+import HeaderNav from './HeaderNav';
 
 type NavItem = { href: string; label: string };
 
@@ -18,21 +19,16 @@ export default function AppHeader({
     .toUpperCase();
 
   return (
-    <header className="border-b border-cloud bg-canvas">
-      <div className="max-w-[1400px] mx-auto px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-10">
-          <Link href="/" className="font-display text-2xl tracking-tight">
+    <header className="sticky top-0 z-30 border-b border-cloud/80 bg-snow/85 backdrop-blur-md">
+      <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between gap-6">
+        <div className="flex items-center gap-8 min-w-0">
+          <Link
+            href="/"
+            className="font-display font-semibold text-base tracking-tight text-ink hover:text-graphite transition-colors"
+          >
             Грейды
           </Link>
-          {navItems.length > 0 && (
-            <nav className="flex items-center gap-7">
-              {navItems.map((n) => (
-                <Link key={n.href} href={n.href} className="text-stone hover:text-ink text-sm">
-                  {n.label}
-                </Link>
-              ))}
-            </nav>
-          )}
+          {navItems.length > 0 && <HeaderNav items={navItems} />}
         </div>
         <UserMenu fullName={user.fullName} role={user.role} initials={initials} />
       </div>

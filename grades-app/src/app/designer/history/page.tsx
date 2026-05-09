@@ -19,7 +19,7 @@ export default async function DesignerHistoryPage() {
     <main className="max-w-[1100px] mx-auto px-8 pt-12 pb-16">
       <div className="mb-10">
         <div className="text-xs uppercase tracking-widest text-stone mb-2">История оценок</div>
-        <h1 className="font-display text-5xl font-light tracking-tight">Все оценки</h1>
+        <h1 className="font-display text-4xl font-semibold tracking-tight">Все оценки</h1>
       </div>
 
       {assessments.length === 0 ? (
