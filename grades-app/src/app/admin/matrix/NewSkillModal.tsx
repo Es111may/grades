@@ -126,18 +126,20 @@ export default function NewSkillModal({
 
   return (
     <div
-      className="fixed inset-0 bg-graphite/40 z-50 flex items-start justify-center pt-12 pb-12 overflow-y-auto"
+      className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-50 flex items-start justify-center pt-12 pb-12 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white border border-cloud rounded-card shadow-soft-lg w-[680px] max-w-full mx-6"
+        className="bg-snow rounded-modal shadow-soft-lg w-[680px] max-w-full mx-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-8 pt-7 pb-3 flex items-baseline justify-between">
-          <h2 className="font-display text-2xl tracking-tight">Новый навык</h2>
+        <div className="px-7 pt-6 pb-3 flex items-baseline justify-between border-b border-cloud">
+          <h2 className="font-display text-xl font-semibold tracking-tight">
+            Новый навык
+          </h2>
           <button
             onClick={onClose}
-            className="text-stone hover:text-ink text-xl"
+            className="text-stone hover:text-ink text-lg w-8 h-8 flex items-center justify-center rounded-pill hover:bg-cloud/50 transition-colors"
             aria-label="Закрыть"
           >
             ✕
@@ -155,7 +157,7 @@ export default function NewSkillModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="например: Анимация интерфейсов"
-              className="w-full bg-canvas border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+              className="input"
             />
           </div>
 
@@ -169,7 +171,7 @@ export default function NewSkillModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="курсивная подсказка к скиллу"
               rows={2}
-              className="w-full bg-canvas border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+              className="input"
             />
           </div>
 
@@ -182,7 +184,7 @@ export default function NewSkillModal({
               <select
                 value={groupId}
                 onChange={(e) => setGroupId(e.target.value)}
-                className="w-full bg-canvas border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+                className="input"
               >
                 <option value="">Выбери группу…</option>
                 <option value={NEW_GROUP_VALUE}>+ Новая группа…</option>
@@ -204,7 +206,7 @@ export default function NewSkillModal({
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as 'CORE' | 'SEC')}
-                className="w-full bg-canvas border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+                className="input"
               >
                 <option value="CORE">CORE</option>
                 <option value="SEC">SEC</option>
@@ -220,24 +222,24 @@ export default function NewSkillModal({
                 max={5}
                 value={maxMastery}
                 onChange={(e) => setMax(e.target.value)}
-                className="w-full bg-canvas border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+                className="input"
               />
             </div>
           </div>
 
           {/* New group inputs */}
           {isNewGroup && (
-            <div className="bg-canvas border border-lime/50 rounded p-4 grid grid-cols-[140px_1fr] gap-3">
+            <div className="bg-canvas border border-lime/40 rounded-card p-4 grid grid-cols-[160px_1fr] gap-3">
               <div>
-                <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
+                <label className="text-xs font-medium text-stone block mb-1.5">
                   Таксономия
                 </label>
                 <select
                   value={newGroupTaxId}
                   onChange={(e) => setNewGroupTaxId(e.target.value)}
-                  className="w-full bg-white border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+                  className="input"
                 >
-                  <option value="">…</option>
+                  <option value="">Выбери</option>
                   {taxonomies.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.code} — {t.name}
@@ -246,7 +248,7 @@ export default function NewSkillModal({
                 </select>
               </div>
               <div>
-                <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
+                <label className="text-xs font-medium text-stone block mb-1.5">
                   Имя новой группы
                 </label>
                 <input
@@ -254,7 +256,7 @@ export default function NewSkillModal({
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
                   placeholder="например: Анимация"
-                  className="w-full bg-white border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+                  className="input"
                 />
               </div>
             </div>
@@ -262,21 +264,20 @@ export default function NewSkillModal({
 
           {/* Weights */}
           <div>
-            <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
+            <label className="text-xs font-medium text-stone block mb-2">
               Вес для каждого билда
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               {builds.map((b) => (
-                <div
-                  key={b.id}
-                  className="bg-canvas border border-cloud rounded p-3 flex items-center gap-3"
-                >
+                <div key={b.id} className="card px-3.5 py-3 flex items-center gap-3">
                   <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    className="w-2 h-2 rounded-full shrink-0"
                     style={{ background: buildColor(b.code) }}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-stone">{b.name}</div>
+                    <div className="text-[11px] uppercase tracking-widest text-stone">
+                      {b.name}
+                    </div>
                     <input
                       type="number"
                       min={0}
@@ -285,7 +286,9 @@ export default function NewSkillModal({
                       onChange={(e) =>
                         setWeights((w) => ({ ...w, [b.id]: e.target.value }))
                       }
-                      className="font-display text-xl bg-transparent border-b border-cloud focus:border-lime focus:outline-none w-full"
+                      className="font-display text-xl font-semibold bg-transparent w-full
+                                 border-b border-transparent hover:border-cloud
+                                 focus:border-sky focus:outline-none transition-colors"
                     />
                   </div>
                 </div>
@@ -295,17 +298,17 @@ export default function NewSkillModal({
 
           {/* Mastery titles */}
           <div>
-            <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
-              Названия уровней мастерства (опционально)
+            <label className="text-xs font-medium text-stone block mb-1">
+              Названия уровней мастерства
+              <span className="text-ash font-normal"> · опционально</span>
             </label>
-            <p className="text-xs text-ash mb-2">
-              Можешь оставить пустыми — заполнить тексты критериев потом, в редакторе
-              скилла.
+            <p className="text-xs text-stone mb-3 leading-relaxed">
+              Можно оставить пустыми — заполнишь тексты критериев потом, в редакторе скилла.
             </p>
             <div className="space-y-1.5">
               {masteryTitles.map((title, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs text-stone w-16 shrink-0">
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-xs uppercase tracking-widest text-stone w-20 shrink-0">
                     Уровень {i + 1}
                   </span>
                   <input
@@ -320,7 +323,7 @@ export default function NewSkillModal({
                       });
                     }}
                     placeholder="например: Базовое освоение"
-                    className="flex-1 bg-canvas border border-cloud rounded px-2 py-1 text-sm focus:outline-none focus:border-lime"
+                    className="input input-sm flex-1"
                   />
                 </div>
               ))}
@@ -328,19 +331,11 @@ export default function NewSkillModal({
           </div>
         </div>
 
-        <div className="px-8 py-5 border-t border-cloud flex items-center justify-end gap-3">
-          <button
-            onClick={onClose}
-            disabled={saving}
-            className="text-sm text-stone hover:text-ink"
-          >
+        <div className="px-7 py-4 border-t border-cloud flex items-center justify-end gap-2 bg-canvas/40 rounded-b-modal">
+          <button onClick={onClose} disabled={saving} className="btn-ghost btn-sm">
             Отмена
           </button>
-          <button
-            onClick={submit}
-            disabled={saving}
-            className="bg-lime border border-lime rounded-pill px-5 py-2 text-sm font-medium hover:brightness-95 disabled:opacity-50"
-          >
+          <button onClick={submit} disabled={saving} className="btn-accent btn-sm">
             {saving ? 'Создаю…' : 'Создать навык'}
           </button>
         </div>

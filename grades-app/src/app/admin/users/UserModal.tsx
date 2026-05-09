@@ -224,37 +224,45 @@ export default function UserModal({
     }
   }
 
+  const roleLabel =
+    form.role === 'designer'
+      ? 'Дизайнер'
+      : form.role === 'stardiz'
+        ? 'Стардиз'
+        : form.role === 'lead'
+          ? 'Лид'
+          : 'Админ';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-2xl mt-10 mb-10 overflow-y-auto max-h-[calc(100vh-80px)] bg-canvas rounded-modal shadow-[0_24px_60px_rgba(35,37,41,0.18)]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-10 pb-10">
+      <div
+        className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-2xl overflow-y-auto max-h-[calc(100vh-80px)] bg-snow rounded-modal shadow-soft-lg">
         {/* Header */}
-        <div className="sticky top-0 px-7 py-4 flex items-center justify-between rounded-t-modal border-b border-cloud z-10 bg-canvas">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-stone">
-              {isNew ? 'Новый пользователь' : `Команда / ${form.role === 'designer' ? 'Дизайнер' : form.role === 'lead' ? 'Лид' : 'Админ'}`}
+        <div className="sticky top-0 px-7 py-4 flex items-center justify-between rounded-t-modal border-b border-cloud z-10 bg-snow/95 backdrop-blur-md">
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-widest text-stone mb-0.5">
+              {isNew ? 'Новый пользователь' : roleLabel}
             </div>
-            <h2 className="font-display text-2xl tracking-tight mt-0.5">
+            <h2 className="font-display text-xl font-semibold tracking-tight truncate">
               {isNew ? 'Новый пользователь' : form.fullName || '—'}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-stone hover:text-ink transition">
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={onClose} className="btn-ghost btn-sm">
               Отмена
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-lime border border-lime rounded-pill px-5 py-2 text-sm font-medium hover:brightness-95 transition disabled:opacity-50"
-            >
+            <button onClick={handleSave} disabled={saving} className="btn-accent btn-sm">
               {saving ? 'Сохраняю…' : 'Сохранить'}
             </button>
           </div>
         </div>
 
-        <div className="p-7 space-y-7 bg-white">
+        <div className="p-7 space-y-7">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-card px-4 py-3 text-sm text-red-700">
+            <div className="bg-blaze/8 border border-blaze/25 rounded-card px-4 py-3 text-sm text-blaze">
               {typeof error === 'string' ? error : JSON.stringify(error)}
             </div>
           )}
@@ -268,7 +276,7 @@ export default function UserModal({
               <div>
                 <label className="block text-xs text-stone mb-1.5">ФИО</label>
                 <input
-                  className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+                  className="input"
                   value={form.fullName}
                   onChange={(e) => set('fullName', e.target.value)}
                 />
@@ -276,7 +284,7 @@ export default function UserModal({
               <div>
                 <label className="block text-xs text-stone mb-1.5">Email</label>
                 <input
-                  className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+                  className="input"
                   value={form.email}
                   onChange={(e) => set('email', e.target.value)}
                 />
@@ -284,7 +292,7 @@ export default function UserModal({
               <div>
                 <label className="block text-xs text-stone mb-1.5">Роль</label>
                 <select
-                  className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+                  className="input"
                   value={form.role}
                   onChange={(e) => set('role', e.target.value)}
                 >
@@ -303,7 +311,7 @@ export default function UserModal({
                 <div>
                   <label className="block text-xs text-stone mb-1.5">Билд</label>
                   <select
-                    className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+                    className="input"
                     value={form.buildId ?? ''}
                     onChange={(e) =>
                       set('buildId', e.target.value ? Number(e.target.value) : null)
@@ -321,7 +329,7 @@ export default function UserModal({
               <div>
                 <label className="block text-xs text-stone mb-1.5">Отдел</label>
                 <select
-                  className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+                  className="input"
                   value={form.department ?? ''}
                   onChange={(e) => set('department', e.target.value)}
                 >
@@ -337,7 +345,7 @@ export default function UserModal({
                 <div>
                   <label className="block text-xs text-stone mb-1.5">Лид</label>
                   <select
-                    className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+                    className="input"
                     value={form.leadId ?? ''}
                     onChange={(e) =>
                       set('leadId', e.target.value ? Number(e.target.value) : null)
@@ -359,7 +367,7 @@ export default function UserModal({
                     <span className="text-ash">(дополнительный наставник)</span>
                   </label>
                   <select
-                    className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+                    className="input"
                     value={form.stardizId ?? ''}
                     onChange={(e) =>
                       set('stardizId', e.target.value ? Number(e.target.value) : null)
@@ -380,7 +388,7 @@ export default function UserModal({
                 <label className="block text-xs text-stone mb-1.5">Дата найма</label>
                 <input
                   type="date"
-                  className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+                  className="input"
                   value={form.hiredAt}
                   onChange={(e) => set('hiredAt', e.target.value)}
                 />
@@ -392,7 +400,7 @@ export default function UserModal({
                     type="button"
                     onClick={() => set('active', !form.active)}
                     className={`relative w-9 h-5 rounded-full transition-colors ${
-                      form.active ? 'bg-lime' : 'bg-cloud'
+                      form.active ? 'bg-emerald' : 'bg-cloud'
                     }`}
                   >
                     <span
@@ -431,7 +439,7 @@ export default function UserModal({
                   }
                 }}
                 className={`relative w-9 h-5 rounded-full transition-colors ${
-                  floorEnabled ? 'bg-lime' : 'bg-cloud'
+                  floorEnabled ? 'bg-emerald' : 'bg-cloud'
                 }`}
               >
                 <span
@@ -447,7 +455,7 @@ export default function UserModal({
                   Минимальный грейд
                 </label>
                 <select
-                  className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash disabled:opacity-50"
+                  className="input disabled:opacity-50"
                   disabled={!floorEnabled}
                   value={form.gradeFloor}
                   onChange={(e) => set('gradeFloor', e.target.value)}
@@ -464,7 +472,7 @@ export default function UserModal({
                   Обоснование
                 </label>
                 <input
-                  className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash disabled:opacity-50"
+                  className="input disabled:opacity-50"
                   disabled={!floorEnabled}
                   placeholder="Например: переход со старой системы"
                   value={form.gradeFloorReason}
@@ -520,7 +528,7 @@ export default function UserModal({
               </div>
               <textarea
                 rows={3}
-                className="w-full px-3 py-2 text-sm border border-cloud rounded-card bg-white focus:outline-none focus:border-ash"
+                className="input"
                 placeholder="Контекст, договорённости, особенности — приватно для лидов и админов"
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
@@ -569,31 +577,27 @@ export default function UserModal({
               <div className="text-xs uppercase tracking-widest text-stone mb-3">
                 Пароль для входа
               </div>
-              <div className="bg-white border border-cloud rounded-card p-5">
+              <div className="card p-5">
                 {pwdMode === 'shown' && pwdResult ? (
                   <div className="space-y-3">
                     <div className="text-sm">
-                      Новый пароль для <strong>{user?.email}</strong>:
+                      Новый пароль для <strong>{user?.email}</strong>
                     </div>
-                    <div className="bg-canvas border border-lime rounded p-3 flex items-center justify-between gap-3">
+                    <div className="bg-canvas border border-lime/40 rounded-card p-3 flex items-center justify-between gap-3">
                       <code className="font-mono text-base select-all">{pwdResult}</code>
-                      <button
-                        onClick={copyPwd}
-                        className="text-xs text-stone hover:text-ink whitespace-nowrap"
-                      >
+                      <button onClick={copyPwd} className="btn-ghost btn-sm">
                         Скопировать
                       </button>
                     </div>
-                    <p className="text-xs text-sunset leading-relaxed">
-                      Пароль показан один раз. Скопируй и отправь пользователю —
-                      после закрытия окна снова посмотреть его не сможешь.
+                    <p className="text-xs text-sunset">
+                      Пароль показан один раз — скопируй и отправь пользователю.
                     </p>
                     <button
                       onClick={() => {
                         setPwdMode('idle');
                         setPwdResult(null);
                       }}
-                      className="text-xs text-stone hover:text-ink"
+                      className="btn-ghost btn-sm"
                     >
                       Скрыть
                     </button>
@@ -605,13 +609,13 @@ export default function UserModal({
                       value={pwdManual}
                       onChange={(e) => setPwdManual(e.target.value)}
                       placeholder="Минимум 8 символов"
-                      className="w-full bg-canvas border border-cloud rounded px-3 py-2 text-sm font-mono"
+                      className="input font-mono"
                     />
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleSetPassword(true)}
                         disabled={pwdSaving || pwdManual.length < 8}
-                        className="px-4 py-2 text-xs rounded-pill bg-lime border border-lime disabled:opacity-50"
+                        className="btn-accent btn-sm"
                       >
                         {pwdSaving ? 'Сохраняю…' : 'Сохранить'}
                       </button>
@@ -621,35 +625,33 @@ export default function UserModal({
                           setPwdManual('');
                         }}
                         disabled={pwdSaving}
-                        className="px-3 py-1.5 text-xs text-stone hover:text-ink"
+                        className="btn-ghost btn-sm"
                       >
                         Отмена
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="font-medium text-sm">
-                        {user?.email
-                          ? 'Сгенерировать пароль или задать вручную'
-                          : '—'}
+                        Сгенерировать пароль или задать вручную
                       </div>
-                      <div className="text-xs text-stone mt-1">
-                        Пароль покажется один раз — отправишь пользователю любым удобным каналом.
+                      <div className="text-xs text-stone mt-1 leading-relaxed">
+                        Покажем один раз — отправь пользователю любым удобным каналом.
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <button
                         onClick={() => setPwdMode('manual')}
-                        className="px-3 py-1.5 text-xs rounded-pill border border-cloud hover:bg-canvas"
+                        className="btn-secondary btn-sm"
                       >
                         Задать вручную
                       </button>
                       <button
                         onClick={() => handleSetPassword(false)}
                         disabled={pwdSaving}
-                        className="px-4 py-2 text-xs rounded-pill bg-lime border border-lime hover:brightness-95 disabled:opacity-50"
+                        className="btn-accent btn-sm"
                       >
                         {pwdSaving ? 'Генерирую…' : 'Сгенерировать'}
                       </button>
@@ -666,33 +668,27 @@ export default function UserModal({
               <div className="text-xs uppercase tracking-widest text-stone mb-3">
                 Опасная зона
               </div>
-              <div className="bg-white border border-cloud rounded-card p-5 flex items-center justify-between">
+              <div className="card p-5 flex items-center justify-between gap-4">
                 <div>
                   <div className="font-medium text-sm">Деактивировать пользователя</div>
-                  <div className="text-xs text-stone mt-1">
+                  <div className="text-xs text-stone mt-1 leading-relaxed">
                     История оценок сохранится в архиве.
                   </div>
                 </div>
                 {confirmDelete ? (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     <button
                       onClick={() => setConfirmDelete(false)}
-                      className="px-3 py-1.5 text-xs rounded-pill border border-cloud"
+                      className="btn-ghost btn-sm"
                     >
                       Отмена
                     </button>
-                    <button
-                      onClick={handleDelete}
-                      className="px-3 py-1.5 text-xs rounded-pill bg-blaze text-white"
-                    >
+                    <button onClick={handleDelete} className="btn-danger btn-sm">
                       Да, деактивировать
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={handleDelete}
-                    className="px-4 py-2 text-xs rounded-pill bg-blaze/10 text-blaze border border-blaze/30 hover:bg-blaze/20 transition"
-                  >
+                  <button onClick={handleDelete} className="btn-secondary btn-sm hover:!text-blaze hover:!border-blaze/30">
                     Деактивировать
                   </button>
                 )}

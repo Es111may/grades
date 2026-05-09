@@ -79,40 +79,44 @@ export default function MasteryEditorModal({
 
   return (
     <div
-      className="fixed inset-0 bg-graphite/40 z-50 flex items-start justify-center pt-12 pb-12 overflow-y-auto"
+      className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-50 flex items-start justify-center pt-12 pb-12 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white border border-cloud rounded-card shadow-soft-lg w-[760px] max-w-full mx-6"
+        className="bg-snow rounded-modal shadow-soft-lg w-[760px] max-w-full mx-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-8 pt-7 pb-3 flex items-baseline justify-between">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-stone mb-1">
+        <div className="px-7 pt-6 pb-4 flex items-baseline justify-between border-b border-cloud">
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-widest text-stone mb-0.5">
               Уровни мастерства
             </div>
-            <h2 className="font-display text-2xl tracking-tight">{skillName}</h2>
+            <h2 className="font-display text-xl font-semibold tracking-tight truncate">
+              {skillName}
+            </h2>
           </div>
-          <button onClick={onClose} className="text-stone hover:text-ink text-xl">
+          <button
+            onClick={onClose}
+            className="text-stone hover:text-ink text-lg w-8 h-8 flex items-center justify-center rounded-pill hover:bg-cloud/50 transition-colors shrink-0"
+          >
             ✕
           </button>
         </div>
 
-        <div className="px-8 py-5 space-y-4">
+        <div className="px-7 py-5 space-y-3">
           {levels.map((l, idx) => (
-            <div
-              key={l.level}
-              className="bg-canvas border border-cloud rounded-card p-4"
-            >
+            <div key={l.level} className="bg-canvas border border-cloud rounded-card p-4">
               <div className="flex items-center justify-between mb-3">
-                <div className="font-display text-lg">Уровень {l.level}</div>
+                <div className="font-display text-sm font-semibold tracking-tight">
+                  Уровень {l.level}
+                </div>
                 {levels.length > 1 && (
                   <button
                     onClick={() => removeLevel(idx)}
-                    className="text-xs text-stone hover:text-sunset"
+                    className="text-xs text-stone hover:text-blaze transition-colors"
                     title="Удалить уровень"
                   >
-                    ✕ удалить
+                    Удалить
                   </button>
                 )}
               </div>
@@ -123,42 +127,31 @@ export default function MasteryEditorModal({
                   value={l.title}
                   onChange={(e) => updateLevel(idx, { title: e.target.value })}
                   placeholder="Короткое название уровня"
-                  className="w-full bg-white border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime"
+                  className="input input-sm"
                 />
                 <textarea
                   value={l.criteria}
                   onChange={(e) => updateLevel(idx, { criteria: e.target.value })}
-                  placeholder="Критерии: что дизайнер умеет делать на этом уровне. Можно несколькими строками."
+                  placeholder="Критерии: что дизайнер умеет на этом уровне"
                   rows={4}
-                  className="w-full bg-white border border-cloud rounded px-3 py-2 text-sm focus:outline-none focus:border-lime resize-y"
+                  className="input input-sm"
                 />
               </div>
             </div>
           ))}
 
           {levels.length < 5 && (
-            <button
-              onClick={addLevel}
-              className="text-xs text-stone hover:text-ink underline-offset-4 hover:underline"
-            >
+            <button onClick={addLevel} className="btn-ghost btn-sm">
               + Добавить уровень
             </button>
           )}
         </div>
 
-        <div className="px-8 py-5 border-t border-cloud flex items-center justify-end gap-3">
-          <button
-            onClick={onClose}
-            disabled={saving}
-            className="text-sm text-stone hover:text-ink"
-          >
+        <div className="px-7 py-4 border-t border-cloud flex items-center justify-end gap-2 bg-canvas/40 rounded-b-modal">
+          <button onClick={onClose} disabled={saving} className="btn-ghost btn-sm">
             Отмена
           </button>
-          <button
-            onClick={save}
-            disabled={saving}
-            className="bg-lime border border-lime rounded-pill px-5 py-2 text-sm font-medium hover:brightness-95 disabled:opacity-50"
-          >
+          <button onClick={save} disabled={saving} className="btn-accent btn-sm">
             {saving ? 'Сохраняю…' : 'Сохранить'}
           </button>
         </div>

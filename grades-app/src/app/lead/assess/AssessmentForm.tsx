@@ -231,26 +231,27 @@ export default function AssessmentForm({
   // оценки теперь ad-hoc, ориентир — дата публикации.
 
   return (
-    <div className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
+    <div className="max-w-[1400px] mx-auto px-8 pt-8 pb-16">
       {/* Breadcrumb + header */}
       <div className="text-xs text-stone mb-3">
-        <a href="/lead" className="hover:underline">
+        <a href="/lead" className="hover:text-ink transition-colors">
           Мои дизайнеры
-        </a>{' '}
-        <span className="text-ash mx-1.5">/</span> {designer.fullName}
+        </a>
+        <span className="text-ash mx-1.5">/</span>
+        <span>{designer.fullName}</span>
       </div>
       <div className="flex items-end justify-between gap-8 mb-8">
         <div>
-          <div className="text-xs uppercase tracking-widest text-stone mb-2">
+          <div className="text-[11px] uppercase tracking-widest text-stone mb-2">
             {published ? 'Опубликовано' : 'Черновик оценки'}
           </div>
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-4">
+          <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">
             {designer.fullName}
           </h1>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-2 text-sm text-stone">
             <span className="flex items-center gap-1.5">
               <span
-                className="w-2 h-2 rounded-full"
+                className="w-1.5 h-1.5 rounded-full"
                 style={{
                   background:
                     designer.buildCode === 'creator'
@@ -263,7 +264,7 @@ export default function AssessmentForm({
               {designer.buildName}
             </span>
             <span className="text-ash">·</span>
-            <span className="text-stone">{designer.department ?? '—'}</span>
+            <span>{designer.department ?? '—'}</span>
           </div>
         </div>
         {!published && (
@@ -275,36 +276,29 @@ export default function AssessmentForm({
             >
               сохранено
             </span>
-            <button
-              onClick={handleDiscard}
-              className="px-4 py-2 text-sm text-stone hover:text-ink border border-cloud rounded-pill transition"
-            >
+            <button onClick={handleDiscard} className="btn-secondary btn-sm">
               Отменить черновик
             </button>
             <button
               onClick={handlePublish}
               disabled={publishing || calc.filled === 0}
-              className="bg-lime border border-lime rounded-pill px-5 py-2 text-sm font-medium hover:brightness-95 transition disabled:opacity-50"
+              className="btn-accent"
             >
               {publishing ? 'Публикую…' : 'Опубликовать'}
             </button>
           </div>
         )}
-        {published && (
-          <span className="px-4 py-2 rounded-pill text-sm font-medium bg-lime-light text-graphite border border-lime/30">
-            ✓ Опубликовано
-          </span>
-        )}
+        {published && <span className="chip-accent">Опубликовано</span>}
       </div>
 
       <div className="grid grid-cols-12 gap-8">
         {/* LEFT NAV */}
         <aside className="col-span-3">
-          <div className="sticky top-6 bg-white border border-cloud rounded-card p-6 shadow-soft">
-            <div className="text-xs uppercase tracking-widest text-stone mb-4">
+          <div className="sticky top-20 card p-5">
+            <div className="text-[11px] uppercase tracking-widest text-stone mb-4">
               Скиллы
             </div>
-            <div className="space-y-3.5">
+            <div className="space-y-3">
               {grouped.map((tax) => {
                 const taxSkills = tax.groups.flatMap((g) => g.skills);
                 const taxFilled = taxSkills.filter(
@@ -314,16 +308,22 @@ export default function AssessmentForm({
                   (taxFilled / Math.max(1, taxSkills.length)) * 100,
                 );
                 return (
-                  <a key={tax.taxCode} href={`#group-${tax.taxCode}`} className="block">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm">{tax.taxName}</span>
-                      <span className="text-xs text-stone font-mono">
+                  <a
+                    key={tax.taxCode}
+                    href={`#group-${tax.taxCode}`}
+                    className="block group"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm group-hover:text-ink transition-colors">
+                        {tax.taxName}
+                      </span>
+                      <span className="text-[11px] text-ash font-medium tabular-nums">
                         {taxFilled}/{taxSkills.length}
                       </span>
                     </div>
                     <div className="h-1 bg-cloud rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-lime rounded-full transition-all"
+                        className="h-full bg-emerald rounded-full transition-all"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -332,16 +332,19 @@ export default function AssessmentForm({
               })}
             </div>
             <hr className="border-cloud my-5" />
-            <div className="text-xs uppercase tracking-widest text-stone mb-2">
+            <hr className="border-cloud my-4" />
+            <div className="text-[11px] uppercase tracking-widest text-stone mb-2">
               Заполнено
             </div>
             <div className="flex items-baseline gap-1.5 mb-2">
-              <span className="font-display text-3xl">{calc.filled}</span>
-              <span className="text-sm text-stone">/ {skills.length}</span>
+              <span className="font-display text-3xl font-semibold tabular-nums">
+                {calc.filled}
+              </span>
+              <span className="text-sm text-stone">из {skills.length}</span>
             </div>
             <div className="h-1 bg-cloud rounded-full overflow-hidden">
               <div
-                className="h-full bg-lime rounded-full transition-all"
+                className="h-full bg-emerald rounded-full transition-all"
                 style={{
                   width: `${Math.round((calc.filled / Math.max(1, skills.length)) * 100)}%`,
                 }}
@@ -352,21 +355,21 @@ export default function AssessmentForm({
 
         {/* CENTER: skill cards */}
         <main className="col-span-6">
-          <div className="space-y-6">
+          <div className="space-y-5">
             {grouped.map((tax) => (
               <section
                 key={tax.taxCode}
                 id={`group-${tax.taxCode}`}
-                className="bg-white border border-cloud rounded-card overflow-hidden shadow-soft"
+                className="card overflow-hidden"
               >
-                <div className="px-7 py-4 border-b border-cloud">
-                  <div className="text-xs uppercase tracking-widest text-stone">
+                <div className="px-6 py-3.5 border-b border-cloud bg-canvas/60">
+                  <div className="text-[11px] uppercase tracking-widest text-stone font-medium">
                     {tax.taxName}
                   </div>
                 </div>
                 {tax.groups.map((group) => (
                   <div key={group.name}>
-                    <div className="px-7 pt-4 pb-2 text-xs font-medium text-stone bg-canvas">
+                    <div className="px-6 pt-4 pb-2 text-[11px] uppercase tracking-widest text-stone">
                       {group.name}
                     </div>
                     {group.skills.map((skill) => (
@@ -387,20 +390,20 @@ export default function AssessmentForm({
 
         {/* RIGHT: live calc */}
         <aside className="col-span-3">
-          <div className="sticky top-6 space-y-5">
-            <div className="bg-white border border-cloud rounded-card p-6 shadow-soft">
-              <div className="text-xs uppercase tracking-widest text-stone mb-2">
+          <div className="sticky top-20 space-y-3">
+            <div className="card p-6">
+              <div className="text-[11px] uppercase tracking-widest text-stone mb-1.5">
                 Прогноз грейда
               </div>
-              <div className="font-display text-5xl tracking-tight mb-2">
+              <div className="font-display text-4xl font-semibold tracking-tight mb-2">
                 {GRADE_NAMES[calc.effectiveGrade]}
               </div>
               {calc.nextGrade && (
                 <div className="text-xs text-stone mb-5 leading-relaxed">
-                  До «{GRADE_NAMES[calc.nextGrade.code]}» нужно ещё{' '}
-                  {calc.nextGrade.xpNeeded} XP
+                  До «{GRADE_NAMES[calc.nextGrade.code]}» — ещё{' '}
+                  <strong className="text-ink">{calc.nextGrade.xpNeeded} XP</strong>
                   {calc.nextGrade.failedGates.length > 0 &&
-                    ` и ${calc.nextGrade.failedGates.length} гейтов`}
+                    ` и ${calc.nextGrade.failedGates.length} гейт${calc.nextGrade.failedGates.length === 1 ? '' : 'ов'}`}
                 </div>
               )}
               {!calc.nextGrade && calc.calculatedGrade === 'senior' && (
@@ -410,22 +413,26 @@ export default function AssessmentForm({
               )}
               <hr className="border-cloud mb-4" />
               <div className="flex items-baseline gap-1.5 mb-2">
-                <span className="font-display text-4xl">{calc.total}</span>
-                <span className="text-sm text-stone">/ {maxXp} XP</span>
+                <span className="font-display text-3xl font-semibold tabular-nums">
+                  {calc.total}
+                </span>
+                <span className="text-sm text-stone">из {maxXp} XP</span>
               </div>
               <div className="h-1 bg-cloud rounded-full overflow-hidden mb-5">
                 <div
-                  className="h-full bg-lime rounded-full transition-all"
+                  className="h-full bg-emerald rounded-full transition-all"
                   style={{
                     width: `${Math.min(100, (calc.total / Math.max(1, maxXp)) * 100)}%`,
                   }}
                 />
               </div>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-1.5 text-sm">
                 {TAXONOMY_ORDER.map((t) => (
                   <div key={t} className="flex justify-between">
                     <span className="text-stone">{t}</span>
-                    <span className="font-mono text-xs">{calc.byTax[t] ?? 0}</span>
+                    <span className="font-medium tabular-nums">
+                      {calc.byTax[t] ?? 0}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -433,33 +440,36 @@ export default function AssessmentForm({
 
             {/* Gates for next grade */}
             {calc.nextGrade && calc.nextGrade.failedGates.length > 0 && (
-              <div className="bg-white border border-cloud rounded-card p-6 shadow-soft">
-                <div className="text-xs uppercase tracking-widest text-stone mb-3">
+              <div className="card p-5">
+                <div className="text-[11px] uppercase tracking-widest text-stone mb-3">
                   Гейты на «{GRADE_NAMES[calc.nextGrade.code]}»
                 </div>
-                <div className="space-y-2.5 text-sm">
+                <ul className="space-y-1.5 text-sm">
                   {calc.nextGrade.failedGates.map((g) => (
-                    <div key={g.skillId} className="flex items-start gap-2">
-                      <span className="text-stone mt-0.5 text-xs">○</span>
-                      <span className="text-stone">
-                        {skillNameMap.get(g.skillId) ?? `#${g.skillId}`}: уровень{' '}
-                        {g.requiredMastery}
+                    <li
+                      key={g.skillId}
+                      className="flex items-start justify-between gap-3"
+                    >
+                      <span className="text-stone leading-snug truncate">
+                        {skillNameMap.get(g.skillId) ?? `#${g.skillId}`}
                       </span>
-                    </div>
+                      <span className="text-xs text-ash font-medium shrink-0">
+                        ≥{g.requiredMastery}
+                      </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
             )}
 
             {designer.gradeFloor && (
-              <div className="bg-canvas border border-cloud rounded-card p-5">
-                <div className="text-xs uppercase tracking-widest text-ink mb-2">
+              <div className="bg-lime-light/60 border border-lime/30 rounded-card p-4">
+                <div className="text-[11px] uppercase tracking-widest text-graphite mb-1.5">
                   Зафиксированный грейд
                 </div>
                 <div className="text-xs text-graphite leading-relaxed">
-                  Грейд не может опуститься ниже{' '}
-                  <strong>{GRADE_NAMES[designer.gradeFloor]}</strong>. Если расчёт по XP
-                  даст более низкий грейд, в портрете будет показан этот.
+                  Не опускается ниже{' '}
+                  <strong>{GRADE_NAMES[designer.gradeFloor]}</strong>.
                 </div>
               </div>
             )}
@@ -485,87 +495,92 @@ function SkillCard({
   const xp = currentLevel * skill.weight;
 
   return (
-    <article className="px-7 py-5 border-b border-cloud last:border-b-0">
+    <article className="px-6 py-4 border-b border-cloud last:border-b-0">
       <div className="flex items-start justify-between gap-6 mb-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="font-medium text-base">{skill.name}</span>
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="font-medium text-sm">{skill.name}</span>
             <span
-              className={`text-[10px] px-2 py-0.5 rounded-pill tracking-wide ${
+              className={`text-[10px] px-1.5 py-0.5 rounded-pill tracking-wide font-medium ${
                 skill.type === 'CORE'
-                  ? 'bg-ink text-white'
-                  : 'bg-canvas text-stone border border-cloud'
+                  ? 'bg-ink text-snow'
+                  : 'bg-cloud/60 text-stone'
               }`}
             >
               {skill.type}
             </span>
-            <span className="text-xs text-stone">· вес {skill.weight}</span>
-            <span className="text-xs text-stone">· max ур. {skill.maxMasteryLevel}</span>
+            <span className="text-xs text-stone">вес {skill.weight}</span>
           </div>
-          <div className="text-xs text-stone italic leading-relaxed">
-            {skill.description}
-          </div>
+          {skill.description && (
+            <div className="text-xs text-stone italic leading-relaxed">
+              {skill.description}
+            </div>
+          )}
         </div>
         <div className="text-right shrink-0">
-          <div className="text-xs uppercase tracking-widest text-stone mb-0.5">XP</div>
-          <div className="font-display text-3xl leading-none">{xp}</div>
+          <div className="text-[11px] uppercase tracking-widest text-stone mb-0.5">XP</div>
+          <div className="font-display text-2xl font-semibold leading-none tabular-nums">
+            {xp}
+          </div>
         </div>
       </div>
 
       {/* Mastery buttons */}
-      <div className="flex items-center gap-1.5 mt-4 flex-wrap">
-        <span className="text-xs text-stone mr-2">Мастерство:</span>
+      <div className="flex items-center gap-1.5 mt-3 flex-wrap">
         <button
           onClick={() => !disabled && onSetLevel(0)}
-          className={`px-2.5 py-1 rounded-pill text-xs border transition ${
+          disabled={disabled}
+          className={`px-2.5 py-1 rounded-pill text-xs border transition-colors ${
             currentLevel === 0
-              ? 'bg-ink text-white border-ink'
-              : 'bg-white text-stone border-cloud hover:border-ash'
-          } ${disabled ? 'cursor-default' : 'cursor-pointer'}`}
+              ? 'bg-ink text-snow border-ink'
+              : 'bg-snow text-stone border-cloud hover:border-ash'
+          } ${disabled ? 'cursor-default' : ''}`}
         >
-          0 — не оценено
+          Не оценено
         </button>
         {skill.levels.map((lvl) => (
           <button
             key={lvl.level}
             onClick={() => !disabled && onSetLevel(lvl.level)}
             title={lvl.title}
-            className={`px-2.5 py-1 rounded-pill text-xs border transition ${
+            disabled={disabled}
+            className={`px-2.5 py-1 rounded-pill text-xs border transition-colors ${
               currentLevel === lvl.level
-                ? 'bg-ink text-white border-ink'
-                : 'bg-white text-stone border-cloud hover:border-ash'
-            } ${disabled ? 'cursor-default' : 'cursor-pointer'}`}
+                ? 'bg-ink text-snow border-ink'
+                : 'bg-snow text-stone border-cloud hover:border-ash hover:text-ink'
+            } ${disabled ? 'cursor-default' : ''}`}
           >
-            {lvl.level} — {lvl.title.length > 20 ? lvl.title.slice(0, 20) + '…' : lvl.title}
+            <span className="font-semibold mr-1">{lvl.level}</span>
+            {lvl.title.length > 18 ? lvl.title.slice(0, 18) + '…' : lvl.title}
           </button>
         ))}
       </div>
 
       {/* Criteria details */}
       <details
-        className="mt-4"
+        className="mt-3"
         open={expanded}
         onToggle={(e) => setExpanded((e.target as HTMLDetailsElement).open)}
       >
-        <summary className="text-xs text-stone hover:text-ink inline-flex items-center gap-1.5 cursor-pointer">
-          <span className="text-[10px]">›</span>
-          Критерии подтверждения по уровням
+        <summary className="text-xs text-stone hover:text-ink inline-flex items-center gap-1 cursor-pointer select-none">
+          <span className="text-[10px] transition-transform group-open:rotate-90">▸</span>
+          Критерии по уровням
         </summary>
-        <div className="mt-3 space-y-2.5">
+        <div className="mt-3 space-y-2">
           {skill.levels.map((lvl) => (
             <div
               key={lvl.level}
-              className={`p-3 rounded-card ${
+              className={`p-3 rounded-card border transition-colors ${
                 currentLevel === lvl.level
-                  ? 'bg-lime-light border border-lime/30'
-                  : 'bg-canvas'
+                  ? 'bg-lime-light border-lime/40'
+                  : 'bg-canvas border-transparent'
               }`}
             >
-              <div className="font-medium text-sm mb-1.5 flex items-center gap-2.5">
+              <div className="font-medium text-sm mb-1 flex items-center gap-2">
                 <span
-                  className={`font-display text-lg leading-none ${
+                  className={`font-display text-base leading-none ${
                     currentLevel === lvl.level ? 'text-ink' : 'text-ash'
-                  }`}
+                  } font-semibold`}
                 >
                   {lvl.level}
                 </span>
