@@ -194,17 +194,17 @@ export default function KanbanView({
               e.preventDefault();
               handleDrop(col.key);
             }}
-            className={`w-[260px] shrink-0 rounded-card transition-colors ${
+            className={`w-[280px] shrink-0 rounded-card transition-all duration-150 ${
               canDrop && dropTarget === col.key
-                ? 'bg-lime/10 ring-1 ring-lime'
-                : 'bg-canvas/60'
+                ? 'bg-sky/10 ring-2 ring-sky'
+                : 'bg-cloud/40'
             }`}
           >
-            <div className="px-3 pt-3 pb-2 flex items-baseline justify-between">
-              <span className="text-xs uppercase tracking-widest text-stone">
+            <div className="px-3.5 pt-3 pb-2 flex items-baseline justify-between">
+              <span className="text-[11px] uppercase tracking-widest font-medium text-stone">
                 {col.label}
               </span>
-              <span className="text-xs text-stone">{col.users.length}</span>
+              <span className="text-xs text-ash font-medium">{col.users.length}</span>
             </div>
             <div className="px-2 pb-2 space-y-1.5 min-h-[60px]">
               {col.users.map((u) => (
@@ -217,20 +217,22 @@ export default function KanbanView({
                     setDropTarget(null);
                   }}
                   onClick={() => onCardClick(u)}
-                  className={`bg-white border border-cloud rounded-card px-3 py-2 shadow-soft cursor-pointer hover:shadow-soft-lg transition-shadow ${
+                  className={`bg-snow border border-cloud rounded-[10px] px-3 py-2.5 shadow-soft hover:shadow-soft-md transition-all duration-150 ${
                     !u.active ? 'opacity-50' : ''
                   } ${dragId === u.id ? 'opacity-40' : ''}`}
                   style={{ cursor: canDrop ? 'grab' : 'pointer' }}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-pill bg-canvas flex items-center justify-center text-[10px] font-medium shrink-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-pill bg-cloud flex items-center justify-center text-[10px] font-semibold tracking-tight shrink-0">
                       {initials(u.fullName)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm truncate">{u.fullName}</div>
-                      <div className="flex items-center gap-1.5 text-[10px] mt-0.5 flex-wrap">
+                      <div className="text-sm font-medium truncate leading-tight">
+                        {u.fullName}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[10px] mt-1 flex-wrap">
                         <span
-                          className={`px-1.5 py-0.5 rounded-pill ${ROLE_TONE[u.role] ?? ROLE_TONE.designer}`}
+                          className={`px-1.5 py-0.5 rounded-pill font-medium ${ROLE_TONE[u.role] ?? ROLE_TONE.designer}`}
                         >
                           {ROLE_LABEL[u.role] ?? u.role}
                         </span>

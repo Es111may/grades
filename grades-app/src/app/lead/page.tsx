@@ -93,51 +93,40 @@ export default async function LeadDashboard() {
       </div>
 
       {cards.length === 0 ? (
-        <div className="bg-white border border-cloud rounded-card p-8 text-center shadow-soft">
+        <div className="card p-10 text-center">
           <p className="text-stone">К тебе ещё не привязали дизайнеров. Попроси админа.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-2 gap-4">
           {cards.map((d) => {
             const primaryHref = d.draft
               ? `/lead/assess?id=${d.id}`
               : d.published
                 ? `/lead/portrait?id=${d.id}`
                 : `/lead/assess?id=${d.id}`;
-            const statusLabel = d.draft
-              ? 'Черновик'
+            const statusChip = d.draft
+              ? 'chip-warn'
               : d.published
-                ? 'Оценено'
-                : 'Не оценено';
-            const statusClass = d.draft
-              ? 'bg-[#fff7e6] text-sunset border border-sunset/25'
-              : d.published
-                ? 'bg-lime-light text-graphite border border-lime/30'
-                : 'bg-canvas text-stone border border-cloud';
-            const borderClass = d.draft
-              ? 'border-lime/25'
-              : d.published
-                ? 'border-cloud'
-                : 'border-dashed border-ash';
+                ? 'chip-accent'
+                : 'chip-neutral';
+            const statusLabel = d.draft ? 'Черновик' : d.published ? 'Оценено' : 'Не оценено';
             return (
-              <Link
-                key={d.id}
-                href={primaryHref}
-                className={`block bg-white border rounded-card p-7 shadow-soft hover:shadow-soft-lg transition-shadow ${borderClass}`}
-              >
-                <div className="flex items-start justify-between mb-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-pill bg-canvas flex items-center justify-center text-base font-medium">
+              <Link key={d.id} href={primaryHref} className="card-hover p-6 block">
+                <div className="flex items-start justify-between mb-5 gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-pill bg-cloud flex items-center justify-center text-sm font-semibold tracking-tight shrink-0">
                       {d.initials}
                     </div>
-                    <div>
-                      <div className="font-display text-xl tracking-tight">{d.fullName}</div>
-                      <div className="flex items-center gap-2 text-xs mt-1">
+                    <div className="min-w-0">
+                      <div className="font-display text-lg font-semibold tracking-tight truncate">
+                        {d.fullName}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-stone mt-0.5 flex-wrap">
                         {d.buildCode && (
                           <>
                             <span className="flex items-center gap-1">
                               <span
-                                className="w-2 h-2 rounded-full"
+                                className="w-1.5 h-1.5 rounded-full"
                                 style={{
                                   background:
                                     d.buildCode === 'creator'
@@ -152,67 +141,67 @@ export default async function LeadDashboard() {
                             <span className="text-ash">·</span>
                           </>
                         )}
-                        <span className="text-stone">{d.department ?? '—'}</span>
+                        <span>{d.department ?? '—'}</span>
                         {d.gradeFloor && (
                           <>
                             <span className="text-ash">·</span>
-                            <span className="text-sunset font-medium">
-                              floor: {GRADE_NAMES[d.gradeFloor] ?? d.gradeFloor}
+                            <span className="text-sunset">
+                              floor {GRADE_NAMES[d.gradeFloor] ?? d.gradeFloor}
                             </span>
                           </>
                         )}
                       </div>
                     </div>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-pill text-xs font-medium ${statusClass}`}>
-                    {statusLabel}
-                  </span>
+                  <span className={statusChip}>{statusLabel}</span>
                 </div>
 
                 {d.published && (
                   <div className="grid grid-cols-3 gap-4 pt-4 border-t border-cloud">
                     <div>
-                      <div className="text-xs uppercase tracking-widest text-stone mb-1">
+                      <div className="text-[11px] uppercase tracking-widest text-stone mb-1">
                         {d.gradeFloor ? 'Эфф. грейд' : 'Грейд'}
                       </div>
-                      <div className="font-display text-2xl">
+                      <div className="font-display text-2xl font-semibold tracking-tight">
                         {GRADE_NAMES[(d.published.effectiveGrade ?? 'junior') as GradeCode]}
                       </div>
-                      {d.gradeFloor && (
-                        <div className="text-xs text-sunset mt-0.5">зафиксирован</div>
-                      )}
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-widest text-stone mb-1">XP</div>
-                      <div className="font-display text-2xl">{d.published.totalXp ?? 0}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs text-stone mt-1">
-                        {d.published.publishedAt &&
-                          new Date(d.published.publishedAt).toLocaleDateString('ru-RU')}
+                      <div className="text-[11px] uppercase tracking-widest text-stone mb-1">
+                        XP
                       </div>
-                      {d.draft && (
-                        <div className="text-xs text-sunset mt-1">+ черновик</div>
-                      )}
+                      <div className="font-display text-2xl font-semibold tracking-tight">
+                        {d.published.totalXp ?? 0}
+                      </div>
+                    </div>
+                    <div className="text-right text-xs text-stone self-end">
+                      {d.published.publishedAt &&
+                        new Date(d.published.publishedAt).toLocaleDateString('ru-RU', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: '2-digit',
+                        })}
+                      {d.draft && <div className="text-sunset mt-0.5">+ черновик</div>}
                     </div>
                   </div>
                 )}
 
                 {!d.published && d.draft && (
-                  <div className="pt-4 border-t border-cloud flex items-center justify-between">
-                    <span className="text-xs text-stone">
-                      Черновик создан{' '}
-                      {new Date(d.draft.createdAt).toLocaleDateString('ru-RU')}
+                  <div className="pt-4 border-t border-cloud flex items-center justify-between text-xs text-stone">
+                    <span>
+                      Черновик от{' '}
+                      {new Date(d.draft.createdAt).toLocaleDateString('ru-RU', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
                     </span>
-                    <span className="text-xs text-stone hover:text-ink">Продолжить →</span>
+                    <span className="text-ink">Продолжить →</span>
                   </div>
                 )}
 
                 {!d.published && !d.draft && (
-                  <div className="pt-4 flex items-center justify-end">
-                    <span className="bg-lime border border-lime rounded-pill px-4 py-1.5 text-xs font-medium">
-                      Начать оценку
-                    </span>
+                  <div className="pt-4 border-t border-cloud flex items-center justify-end">
+                    <span className="btn-accent btn-sm">Начать оценку</span>
                   </div>
                 )}
               </Link>

@@ -40,15 +40,17 @@ export default function GradesClient({
   skills: Skill[];
 }) {
   return (
-    <main className="max-w-[1200px] mx-auto px-8 pt-12 pb-16">
+    <main className="max-w-[1200px] mx-auto px-8 pt-10 pb-16">
       <div className="mb-8">
         <div className="text-xs uppercase tracking-widest text-stone mb-2">
           Грейды · матрица {matrixNumber}
         </div>
-        <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">Грейды</h1>
-        <p className="text-stone leading-relaxed max-w-2xl">
+        <h1 className="font-display text-4xl font-semibold tracking-tight mb-1.5">
+          Грейды
+        </h1>
+        <p className="text-stone max-w-2xl">
           Пороги XP по билдам и обязательные навыки для каждого грейда. Изменения применяются
-          к будущим оценкам — уже опубликованные используют свой снапшот.
+          к будущим оценкам — опубликованные используют свой снапшот.
         </p>
       </div>
 
@@ -125,7 +127,7 @@ function GradeRow({
   }
 
   return (
-    <div className="bg-white border border-cloud rounded-card p-6 shadow-soft">
+    <div className="card p-6">
       <div className="grid grid-cols-[200px_1fr_auto] gap-6 items-center">
         {/* Name */}
         <div>
@@ -136,18 +138,20 @@ function GradeRow({
               setName(e.target.value);
               setEdited(true);
             }}
-            className="font-display text-xl tracking-tight bg-transparent border-b border-transparent hover:border-cloud focus:border-lime focus:outline-none w-full"
+            className="font-display text-xl font-semibold tracking-tight bg-transparent w-full
+                       border-b border-transparent hover:border-cloud focus:border-sky
+                       focus:outline-none transition-colors"
           />
-          <div className="text-xs text-stone mt-1">code: {grade.code}</div>
+          <div className="text-[11px] text-stone mt-1 font-mono">{grade.code}</div>
         </div>
 
         {/* Thresholds per build */}
         <div className="grid grid-cols-3 gap-4">
           {builds.map((b) => (
             <div key={b.id}>
-              <div className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-stone mb-1">
+              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-stone mb-1">
                 <span
-                  className="w-2 h-2 rounded-full"
+                  className="w-1.5 h-1.5 rounded-full"
                   style={{ background: buildColor(b.code) }}
                 />
                 {b.name}
@@ -158,9 +162,11 @@ function GradeRow({
                   min={0}
                   value={thresholds[b.code] ?? ''}
                   onChange={(e) => setThreshold(b.code, e.target.value)}
-                  className="font-display text-2xl bg-transparent border-b border-cloud focus:border-lime focus:outline-none w-20"
+                  className="font-display text-2xl font-semibold bg-transparent w-20
+                             border-b border-cloud focus:border-sky focus:outline-none
+                             transition-colors"
                 />
-                <span className="text-xs text-stone">XP</span>
+                <span className="text-[11px] uppercase tracking-widest text-stone">XP</span>
               </div>
             </div>
           ))}
@@ -170,7 +176,7 @@ function GradeRow({
         <button
           onClick={save}
           disabled={!edited || saving}
-          className="bg-lime border border-lime rounded-pill px-4 py-1.5 text-xs font-medium hover:brightness-95 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="btn-accent btn-sm"
         >
           {saving ? 'Сохраняю…' : 'Сохранить'}
         </button>
@@ -271,30 +277,33 @@ function GatesColumn({
 
   return (
     <div>
-      <div className="flex items-center gap-1.5 text-xs text-stone mb-3">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-stone mb-3">
         <span
-          className="w-2 h-2 rounded-full"
+          className="w-1.5 h-1.5 rounded-full"
           style={{ background: buildColor(build.code) }}
         />
         {build.name}
         <span className="text-ash">·</span>
-        <span>{gates.length}</span>
+        <span className="font-medium text-ink normal-case tracking-normal">
+          {gates.length}
+        </span>
       </div>
 
       {gates.length === 0 ? (
         <div className="text-xs text-ash italic mb-3">нет гейтов</div>
       ) : (
-        <ul className="space-y-1.5 mb-3">
+        <ul className="space-y-0.5 mb-3">
           {gates.map((gate) => (
             <li
               key={gate.id}
-              className="text-xs text-stone flex items-center justify-between gap-2 py-1 border-b border-cloud last:border-0"
+              className="text-xs flex items-center gap-2 py-1.5 px-2 -mx-2 rounded
+                         hover:bg-canvas transition-colors group"
             >
-              <span className="truncate flex-1">{gate.skillName}</span>
+              <span className="truncate flex-1 text-ink">{gate.skillName}</span>
               <select
                 value={gate.requiredMastery}
                 onChange={(e) => changeMastery(gate.id, parseInt(e.target.value, 10))}
-                className="bg-transparent text-xs border border-cloud rounded px-1.5 py-0.5"
+                className="input input-sm w-auto text-[11px] py-0.5"
               >
                 {[1, 2, 3, 4, 5].map((n) => (
                   <option key={n} value={n}>
@@ -304,7 +313,7 @@ function GatesColumn({
               </select>
               <button
                 onClick={() => deleteGate(gate.id)}
-                className="text-stone hover:text-sunset"
+                className="text-ash hover:text-blaze opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Удалить"
               >
                 ✕
@@ -323,7 +332,7 @@ function GatesColumn({
         <select
           value={newMastery}
           onChange={(e) => setNewMastery(e.target.value)}
-          className="text-xs bg-canvas border border-cloud rounded px-1.5 py-1"
+          className="input input-sm w-auto text-[11px]"
         >
           {[1, 2, 3, 4, 5].map((n) => (
             <option key={n} value={n}>
@@ -334,7 +343,8 @@ function GatesColumn({
         <button
           onClick={addGate}
           disabled={adding || !newSkillId}
-          className="text-xs bg-lime border border-lime rounded px-2 py-1 hover:brightness-95 disabled:opacity-30"
+          className="btn-accent btn-sm w-8 h-8 p-0 text-base"
+          title="Добавить гейт"
         >
           {adding ? '…' : '+'}
         </button>

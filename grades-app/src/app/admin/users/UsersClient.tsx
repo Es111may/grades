@@ -233,60 +233,54 @@ export default function UsersClient({
 
       {view === 'table' ? (
       /* Table */
-      <div className="bg-white border border-cloud rounded-card overflow-hidden shadow-soft">
+      <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-cloud">
-              <th className="text-left py-3.5 px-6 font-normal text-xs uppercase tracking-widest text-stone">
-                Имя
-              </th>
-              <th className="text-left py-3.5 px-4 font-normal text-xs uppercase tracking-widest text-stone">
-                Роль
-              </th>
-              <th className="text-left py-3.5 px-4 font-normal text-xs uppercase tracking-widest text-stone">
-                Билд
-              </th>
-              <th className="text-left py-3.5 px-4 font-normal text-xs uppercase tracking-widest text-stone">
-                Отдел
-              </th>
-              <th className="text-left py-3.5 px-4 font-normal text-xs uppercase tracking-widest text-stone">
-                Лид
-              </th>
-              <th className="text-left py-3.5 px-4 font-normal text-xs uppercase tracking-widest text-stone">
-                Найм
-              </th>
-              <th className="text-center py-3.5 px-4 font-normal text-xs uppercase tracking-widest text-stone">
+            <tr className="bg-canvas border-b border-cloud">
+              {['Имя', 'Роль', 'Билд', 'Отдел', 'Лид', 'Найм'].map((h) => (
+                <th
+                  key={h}
+                  className="text-left py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone"
+                >
+                  {h}
+                </th>
+              ))}
+              <th className="text-center py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
                 Floor
               </th>
-              <th className="text-center py-3.5 px-4 font-normal text-xs uppercase tracking-widest text-stone">
+              <th className="text-center py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
                 Активен
               </th>
-              <th className="w-20" />
+              <th className="w-24" />
             </tr>
           </thead>
           <tbody className="divide-y divide-cloud">
             {filtered.map((u) => (
               <tr
                 key={u.id}
-                className={`hover:bg-canvas ${!u.active ? 'opacity-50' : ''}`}
+                className={`hover:bg-canvas/60 transition-colors ${
+                  !u.active ? 'opacity-50' : ''
+                }`}
               >
-                <td className="py-3 px-6">
+                <td className="py-3 px-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-pill bg-cloud flex items-center justify-center text-xs font-medium shrink-0">
+                    <div className="w-8 h-8 rounded-pill bg-cloud flex items-center justify-center text-[11px] font-semibold tracking-tight shrink-0">
                       {initials(u.fullName)}
                     </div>
-                    <div>
-                      <div className="font-medium">{u.fullName}</div>
-                      <div className="text-xs text-stone">{u.email}</div>
+                    <div className="min-w-0">
+                      <div className="font-medium leading-tight">{u.fullName}</div>
+                      <div className="text-xs text-stone leading-tight mt-0.5">
+                        {u.email}
+                      </div>
                     </div>
                   </div>
                 </td>
-                <td className="py-3 px-4">{ROLE_LABELS[u.role] ?? u.role}</td>
+                <td className="py-3 px-4 text-stone">{ROLE_LABELS[u.role] ?? u.role}</td>
                 <td className="py-3 px-4">
                   {u.build ? (
                     <span className="flex items-center gap-1.5">
                       <span
-                        className="w-2 h-2 rounded-full"
+                        className="w-1.5 h-1.5 rounded-full"
                         style={{
                           background:
                             u.build.code === 'creator'
@@ -299,27 +293,28 @@ export default function UsersClient({
                       {u.build.name}
                     </span>
                   ) : (
-                    <span className="text-stone">—</span>
+                    <span className="text-ash">—</span>
                   )}
                 </td>
-                <td className="py-3 px-4">{u.department ?? '—'}</td>
-                <td className="py-3 px-4">{u.lead?.fullName ?? '—'}</td>
+                <td className="py-3 px-4 text-stone">{u.department ?? '—'}</td>
+                <td className="py-3 px-4 text-stone">{u.lead?.fullName ?? '—'}</td>
                 <td className="py-3 px-4 text-stone">{formatDate(u.hiredAt)}</td>
                 <td className="py-3 px-4 text-center">
                   {u.gradeFloor ? (
-                    <span className="inline-block px-2.5 py-0.5 rounded-pill text-xs font-medium bg-[#fff7e6] text-sunset border border-sunset/25">
+                    <span className="chip-warn">
                       {GRADE_LABELS[u.gradeFloor] ?? u.gradeFloor}
                     </span>
                   ) : (
-                    <span className="text-stone">—</span>
+                    <span className="text-ash">—</span>
                   )}
                 </td>
                 <td className="py-3 px-4 text-center">
                   <button
                     onClick={() => handleToggleActive(u)}
                     className={`relative w-9 h-5 rounded-full transition-colors ${
-                      u.active ? 'bg-lime' : 'bg-cloud'
+                      u.active ? 'bg-emerald' : 'bg-cloud'
                     }`}
+                    aria-label={u.active ? 'Деактивировать' : 'Активировать'}
                   >
                     <span
                       className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
@@ -328,11 +323,8 @@ export default function UsersClient({
                     />
                   </button>
                 </td>
-                <td className="py-3 px-4 text-center">
-                  <button
-                    onClick={() => openEdit(u)}
-                    className="px-3 py-1 rounded-pill text-xs border border-cloud hover:border-ash transition"
-                  >
+                <td className="py-3 px-4 text-right">
+                  <button onClick={() => openEdit(u)} className="btn-ghost btn-sm">
                     Открыть
                   </button>
                 </td>

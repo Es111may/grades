@@ -111,64 +111,56 @@ export default function MatrixClient({
   }
 
   return (
-    <main className="max-w-[1400px] mx-auto px-8 pt-12 pb-16">
+    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="mb-8">
         <div className="text-xs uppercase tracking-widest text-stone mb-2">
           Матрица скиллов · версия {matrixNumber}
         </div>
-        <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">Скиллы</h1>
-        <p className="text-stone leading-relaxed max-w-2xl">
-          {skills.filter((s) => s.active).length} активных навыков · {skills.length} всего.
-          Редактируй имя и веса для каждого билда. Изменения применяются к будущим оценкам;
-          уже опубликованные используют свой снапшот.
+        <h1 className="font-display text-4xl font-semibold tracking-tight mb-1.5">
+          Скиллы
+        </h1>
+        <p className="text-stone max-w-2xl">
+          {skills.filter((s) => s.active).length} активных · {skills.length} всего.
+          Изменения применяются к будущим оценкам; опубликованные используют свой снапшот.
         </p>
       </div>
 
       {/* Build totals */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-6">
         {builds.map((b) => (
-          <div
-            key={b.id}
-            className="bg-white border border-cloud rounded-card px-5 py-4 shadow-soft"
-          >
-            <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-stone mb-1">
+          <div key={b.id} className="card px-5 py-4">
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-stone mb-1">
               <span
-                className="w-2 h-2 rounded-full"
+                className="w-1.5 h-1.5 rounded-full"
                 style={{ background: buildColor(b.code) }}
               />
               {b.name}
             </div>
-            <div className="font-display text-2xl">
-              {buildTotals[b.id]?.toFixed(0) ?? 0} <span className="text-sm text-stone">сумма весов</span>
+            <div className="font-display text-2xl font-semibold tracking-tight">
+              {buildTotals[b.id]?.toFixed(0) ?? 0}
+              <span className="text-sm text-stone font-normal ml-1.5">сумма весов</span>
             </div>
           </div>
         ))}
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex items-center gap-2 mb-5">
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск по названию / группе…"
-          className="flex-1 bg-white border border-cloud rounded-pill px-5 py-2.5 text-sm focus:outline-none focus:border-stone"
+          placeholder="Поиск по названию или группе"
+          className="input flex-1"
         />
         <button
           onClick={() => setShowArchived(!showArchived)}
-          className={`text-xs px-4 py-2.5 rounded-pill border ${
-            showArchived
-              ? 'bg-canvas border-ash text-ink'
-              : 'bg-white border-cloud text-stone'
-          }`}
+          className={showArchived ? 'btn-secondary' : 'btn-ghost'}
         >
           {showArchived ? 'Архивные' : 'Активные'}
         </button>
-        <button
-          onClick={() => setShowNewModal(true)}
-          className="text-xs px-4 py-2.5 rounded-pill bg-lime border border-lime font-medium hover:brightness-95"
-        >
-          + Новый навык
+        <button onClick={() => setShowNewModal(true)} className="btn-accent">
+          Новый навык
         </button>
       </div>
 
@@ -350,23 +342,20 @@ function SkillRow({
             {skill.weights[b.id] ?? 0}
           </td>
         ))}
-        <td className="text-right px-6 py-3">
-          <button onClick={onEdit} className="text-xs text-stone hover:text-ink mr-3">
+        <td className="text-right px-6 py-3 whitespace-nowrap">
+          <button onClick={onEdit} className="btn-ghost btn-sm">
             Изменить
           </button>
-          <button
-            onClick={onEditMasteries}
-            className="text-xs text-stone hover:text-ink mr-3"
-          >
+          <button onClick={onEditMasteries} className="btn-ghost btn-sm ml-1">
             Уровни
           </button>
           <button
             onClick={onToggleActive}
             disabled={isSaving}
-            className="text-xs text-stone hover:text-sunset disabled:opacity-50"
+            className="btn-ghost btn-sm ml-1 hover:!text-blaze"
             title={skill.active ? 'Архивировать' : 'Восстановить'}
           >
-            {skill.active ? 'Архив' : 'Восст.'}
+            {skill.active ? 'В архив' : 'Вернуть'}
           </button>
         </td>
       </tr>
@@ -380,21 +369,21 @@ function SkillRow({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Название"
-          className="w-full bg-white border border-cloud rounded px-3 py-1.5 text-sm focus:outline-none focus:border-stone"
+          className="input input-sm"
         />
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Описание (курсивная подсказка к скиллу)"
+          placeholder="Описание — курсивная подсказка"
           rows={2}
-          className="w-full bg-white border border-cloud rounded px-3 py-1.5 text-xs italic mt-1.5 focus:outline-none focus:border-stone resize-y"
+          className="input input-sm italic mt-1.5"
         />
       </td>
       <td className="text-center px-3 py-3">
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="bg-white border border-cloud rounded px-2 py-1 text-xs"
+          className="input input-sm w-auto"
         >
           <option value="CORE">CORE</option>
           <option value="SEC">SEC</option>
@@ -409,23 +398,15 @@ function SkillRow({
             min="0"
             value={weights[b.id] ?? ''}
             onChange={(e) => setWeights((w) => ({ ...w, [b.id]: e.target.value }))}
-            className="w-16 bg-white border border-cloud rounded px-2 py-1 text-sm text-center focus:outline-none focus:border-stone"
+            className="input input-sm w-20 text-center"
           />
         </td>
       ))}
-      <td className="text-right px-6 py-3">
-        <button
-          onClick={submit}
-          disabled={isSaving}
-          className="text-xs bg-lime border border-lime rounded-pill px-3 py-1 mr-2 hover:brightness-95 disabled:opacity-50"
-        >
-          {isSaving ? '…' : 'Сохранить'}
+      <td className="text-right px-6 py-3 whitespace-nowrap">
+        <button onClick={submit} disabled={isSaving} className="btn-accent btn-sm">
+          {isSaving ? 'Сохраняю…' : 'Сохранить'}
         </button>
-        <button
-          onClick={reset}
-          disabled={isSaving}
-          className="text-xs text-stone hover:text-ink"
-        >
+        <button onClick={reset} disabled={isSaving} className="btn-ghost btn-sm ml-1">
           Отмена
         </button>
       </td>
