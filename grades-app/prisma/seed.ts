@@ -115,11 +115,21 @@ async function main() {
     process.exit(1);
   }
 
-  // Pass 1: создаём всех без leadId (нужно сначала создать лидов)
+  // Pass 1: создаём только тех, кого ещё нет в БД. Существующих не трогаем —
+  // иначе при каждом деплое перетирались бы правки админа (имя, роль, билд,
+  // отдел, аватар, gradeFloor, active и т.д.).
+  let created = 0;
+  let skipped = 0;
   for (const u of USERS) {
-    await prisma.user.upsert({
+    const existing = await prisma.user.findUnique({
       where: { email: u.email.toLowerCase() },
-      create: {
+    });
+    if (existing) {
+      skipped++;
+      continue;
+    }
+    await prisma.user.create({
+      data: {
         email: u.email.toLowerCase(),
         fullName: u.fullName,
         role: u.role,
@@ -130,35 +140,38 @@ async function main() {
         gradeFloorReason: u.gradeFloorReason,
         active: true,
       },
-      update: {
-        fullName: u.fullName,
-        role: u.role,
-        buildId: u.buildCode ? buildByCode.get(u.buildCode) ?? null : null,
-        department: u.department,
-        gradeFloor: u.gradeFloor,
-        gradeFloorReason: u.gradeFloorReason,
-        active: true,
-      },
     });
-    console.log(`  ✓ ${u.role.padEnd(8)} ${u.fullName} (${u.email})`);
+    created++;
+    console.log(`  ✓ создан ${u.role.padEnd(8)} ${u.fullName} (${u.email})`);
+  }
+  if (skipped > 0) {
+    console.log(`  ↷ ${skipped} существующих пользователей пропущено (правки админа сохранены)`);
   }
 
-  // Pass 2: проставляем leadId
-  console.log('\n  Привязка лидов:');
-  for (const u of USERS) {
-    if (!u.leadEmail) continue;
-    const lead = await prisma.user.findUnique({
-      where: { email: u.leadEmail.toLowerCase() },
-    });
-    if (!lead) {
-      console.warn(`    ⚠ Лид не найден: ${u.leadEmail}`);
-      continue;
+  // Pass 2: leadId только если ещё не задан. Если админ переназначил лида
+  // через UI — наше seed-значение не должно его перезаписать.
+  if (created > 0) {
+    console.log('\n  Привязка лидов (только для новосозданных):');
+    for (const u of USERS) {
+      if (!u.leadEmail) continue;
+      const target = await prisma.user.findUnique({
+        where: { email: u.email.toLowerCase() },
+        select: { id: true, leadId: true },
+      });
+      if (!target || target.leadId !== null) continue;
+      const lead = await prisma.user.findUnique({
+        where: { email: u.leadEmail.toLowerCase() },
+      });
+      if (!lead) {
+        console.warn(`    ⚠ Лид не найден: ${u.leadEmail}`);
+        continue;
+      }
+      await prisma.user.update({
+        where: { id: target.id },
+        data: { leadId: lead.id },
+      });
+      console.log(`    ${u.fullName} → ${lead.fullName}`);
     }
-    await prisma.user.update({
-      where: { email: u.email.toLowerCase() },
-      data: { leadId: lead.id },
-    });
-    console.log(`    ${u.fullName} → ${lead.fullName}`);
   }
 
   console.log('\n✓ Seed выполнен');
