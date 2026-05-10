@@ -115,15 +115,27 @@ async function main() {
     process.exit(1);
   }
 
-  // Pass 1: создаём только тех, кого ещё нет в БД. Существующих не трогаем —
-  // иначе при каждом деплое перетирались бы правки админа (имя, роль, билд,
-  // отдел, аватар, gradeFloor, active и т.д.).
+  // Чёрный список email'ов — те, кого админ удалил через UI навсегда.
+  // Не воссоздаём из seed, иначе на каждом deploy они «воскресают».
+  const excluded = new Set(
+    (await prisma.excludedEmail.findMany({ select: { email: true } })).map(
+      (e) => e.email,
+    ),
+  );
+
+  // Pass 1: создаём только тех, кого ещё нет в БД и кого админ не удалял.
+  // Существующих не трогаем — иначе при каждом деплое перетирались бы
+  // правки админа (имя, роль, билд, отдел, аватар, gradeFloor, active и т.д.).
   let created = 0;
   let skipped = 0;
+  let blocked = 0;
   for (const u of USERS) {
-    const existing = await prisma.user.findUnique({
-      where: { email: u.email.toLowerCase() },
-    });
+    const email = u.email.toLowerCase();
+    if (excluded.has(email)) {
+      blocked++;
+      continue;
+    }
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       skipped++;
       continue;
@@ -146,6 +158,9 @@ async function main() {
   }
   if (skipped > 0) {
     console.log(`  ↷ ${skipped} существующих пользователей пропущено (правки админа сохранены)`);
+  }
+  if (blocked > 0) {
+    console.log(`  ⊘ ${blocked} в чёрном списке (удалены админом) — не воссозданы`);
   }
 
   // Pass 2: leadId только если ещё не задан. Если админ переназначил лида
