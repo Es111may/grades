@@ -16,6 +16,7 @@ function run(cmd: string) {
 run('npx prisma db push --skip-generate');
 run('npx tsx scripts/import-excel.ts');
 run('npx tsx prisma/seed.ts');
+run('npx tsx scripts/import-team.ts');
 run('npx tsx scripts/migrate-grades.ts');
 
 console.log('\n▶ Starting Next.js...\n');
