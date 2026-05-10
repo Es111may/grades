@@ -165,6 +165,11 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     try {
       await prisma.$transaction(async (tx) => {
+        // Сохраняем email перед удалением, чтобы внести его в ExcludedEmail
+        // — иначе scripts/import-team.ts пересоздаст пользователя на
+        // следующем деплое из CSV.
+        const emailToBlock = target.email;
+
         if (isDesigner) {
           // Дизайнер: каскадно убираем всё, что на него завязано.
           // DesignerNote и TeamMatrixCell.userId уже Cascade в схеме —
@@ -216,6 +221,12 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
           });
         }
         await tx.user.delete({ where: { id: userId } });
+        // Заносим email в чёрный список, чтобы автоимпорт его не вернул.
+        await tx.excludedEmail.upsert({
+          where: { email: emailToBlock },
+          update: {},
+          create: { email: emailToBlock, reason: 'hard_delete_by_admin' },
+        });
       });
     } catch (e) {
       const msg = (e as Error).message;

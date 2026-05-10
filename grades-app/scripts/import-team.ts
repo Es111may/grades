@@ -135,13 +135,25 @@ async function main() {
   const builds = await prisma.build.findMany();
   const buildIdByCode = new Map(builds.map((b) => [b.code, b.id]));
 
+  // Чёрный список email'ов — кого админ удалял навсегда, не воссоздаём.
+  const excluded = new Set(
+    (await prisma.excludedEmail.findMany({ select: { email: true } })).map(
+      (e) => e.email,
+    ),
+  );
+
   // Pass 1: создание пользователей (только тех, кого ещё нет).
   // Для существующих опционально подгрузим только avatarUrl, если он
   // ещё null — не перетирая других правок админа.
   let created = 0;
   let skipped = 0;
+  let blocked = 0;
   let avatarsAdded = 0;
   for (const r of rows) {
+    if (excluded.has(r.email)) {
+      blocked++;
+      continue;
+    }
     const existing = await prisma.user.findUnique({
       where: { email: r.email },
       select: { id: true, avatarUrl: true },
@@ -176,6 +188,9 @@ async function main() {
   }
   if (skipped > 0) {
     console.log(`  ↷ ${skipped} существующих пропущено (правки админа сохранены)`);
+  }
+  if (blocked > 0) {
+    console.log(`  ⊘ ${blocked} в чёрном списке (удалены админом) — не воссозданы`);
   }
   if (avatarsAdded > 0) {
     console.log(`  + ${avatarsAdded} аватарок подгружено для существующих без фото`);

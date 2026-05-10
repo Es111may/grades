@@ -32,25 +32,84 @@ const DEPT_RENAME: Record<string, string> = {
 async function main() {
   console.log('🧹 Cleanup team...');
 
-  // 1. Удалить неактивных.
+  // 1. Удалить неактивных навсегда. Для каждого делаем cascade — точно как
+  // в API DELETE ?hard=true. Лидов/стардизов переадресовываем на админа,
+  // дизайнерам каскадно вычищаем оценки и заметки-автора.
+  // Email удалённых заносим в ExcludedEmail, чтобы import-team их не вернул.
   const inactive = await prisma.user.findMany({
     where: { active: false },
-    select: { id: true, email: true, fullName: true },
+    select: { id: true, email: true, fullName: true, role: true },
   });
+
   if (inactive.length === 0) {
     console.log('  ↷ Неактивных пользователей нет');
   } else {
+    // Найдём admin'а, на которого переадресовываем лидов/стардизов.
+    const admin = await prisma.user.findFirst({ where: { role: 'admin' } });
+    if (!admin) {
+      console.warn('  ⚠ Нет админа — лидов/стардизов переадресовать не на кого. Пропускаю их.');
+    }
+
     let deleted = 0;
     let blocked = 0;
     for (const u of inactive) {
+      // Admin'а не трогаем — единственный, на кого переадресуем.
+      if (u.role === 'admin') {
+        blocked++;
+        console.warn(`  ⚠ ${u.fullName} <${u.email}> — admin, пропускаю`);
+        continue;
+      }
       try {
-        await prisma.user.delete({ where: { id: u.id } });
+        await prisma.$transaction(async (tx) => {
+          if (u.role === 'lead' || u.role === 'stardiz') {
+            if (!admin) throw new Error('NO_ADMIN');
+            await tx.assessment.deleteMany({ where: { designerId: u.id } });
+            await tx.user.updateMany({
+              where: { leadId: u.id },
+              data: { leadId: admin.id },
+            });
+            await tx.user.updateMany({
+              where: { stardizId: u.id },
+              data: { stardizId: admin.id },
+            });
+            await tx.assessment.updateMany({
+              where: { leadId: u.id },
+              data: { leadId: admin.id },
+            });
+            await tx.designerNote.updateMany({
+              where: { authorId: u.id },
+              data: { authorId: admin.id },
+            });
+            await tx.auditLog.updateMany({
+              where: { actorId: u.id },
+              data: { actorId: admin.id },
+            });
+            await tx.teamMatrixCell.updateMany({
+              where: { updatedById: u.id },
+              data: { updatedById: admin.id },
+            });
+            await tx.matrixVersion.updateMany({
+              where: { createdBy: u.id },
+              data: { createdBy: admin.id },
+            });
+          } else {
+            // designer
+            await tx.assessment.deleteMany({ where: { designerId: u.id } });
+            await tx.designerNote.deleteMany({ where: { authorId: u.id } });
+          }
+          await tx.user.delete({ where: { id: u.id } });
+          await tx.excludedEmail.upsert({
+            where: { email: u.email },
+            update: {},
+            create: { email: u.email, reason: 'cleanup_inactive' },
+          });
+        });
         deleted++;
-        console.log(`  ✕ удалён ${u.fullName} <${u.email}>`);
+        console.log(`  ✕ удалён ${u.fullName} <${u.email}> (${u.role})`);
       } catch (e) {
         blocked++;
         console.warn(
-          `  ⚠ не могу удалить ${u.fullName} <${u.email}> — есть зависимые записи (${(e as Error).message.split('\n')[0]})`,
+          `  ⚠ не могу удалить ${u.fullName} <${u.email}> — ${(e as Error).message.split('\n')[0]}`,
         );
       }
     }
