@@ -16,18 +16,17 @@ export default function AuthErrorPage({
   const message = ERROR_MESSAGES[code] || ERROR_MESSAGES.Default;
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md text-center">
-        <div className="text-xs uppercase tracking-widest text-stone mb-3">Грейды</div>
-        <h1 className="font-display text-4xl font-light mb-6">Не получилось войти</h1>
-        <div className="bg-white border border-cloud rounded-card p-6 shadow-soft mb-6">
-          <p className="text-sm text-graphite leading-relaxed">{message}</p>
-          <p className="text-xs text-stone mt-3 font-mono">code: {code}</p>
+    <main className="min-h-screen flex items-center justify-center px-4 py-12 bg-canvas">
+      <div className="w-full max-w-[400px] text-center">
+        <div className="font-display font-semibold text-2xl tracking-tight mb-1">
+          Грейды
         </div>
-        <Link
-          href="/auth/signin"
-          className="inline-block bg-lime-light border border-lime rounded-pill px-6 py-2.5 font-medium hover:brightness-95 transition"
-        >
+        <p className="text-sm text-stone mb-6">Не получилось войти</p>
+        <div className="card p-6 mb-5">
+          <p className="text-sm text-ink leading-relaxed">{message}</p>
+          <p className="text-[11px] text-stone mt-3 font-mono">code: {code}</p>
+        </div>
+        <Link href="/auth/signin" className="btn-accent">
           Попробовать снова
         </Link>
       </div>

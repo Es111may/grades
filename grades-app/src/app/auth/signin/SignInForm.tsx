@@ -103,19 +103,21 @@ export default function SignInForm({
 
       {/* Dev mode helper */}
       {isDev && devUsers.length > 0 && (
-        <details className="bg-white border border-cloud rounded-card shadow-soft">
-          <summary className="cursor-pointer px-6 py-4 text-xs uppercase tracking-widest text-stone hover:bg-canvas">
-            Dev mode — быстрый вход без пароля
+        <details className="card group">
+          <summary className="cursor-pointer px-5 py-3.5 text-[11px] uppercase tracking-widest text-stone hover:bg-canvas/60 rounded-card transition-colors flex items-center justify-between">
+            <span>Dev mode · быстрый вход</span>
+            <span className="text-ash text-[10px] transition-transform group-open:rotate-180">
+              ▾
+            </span>
           </summary>
-          <div className="px-6 pb-4">
+          <div className="px-5 pb-4 -mt-1">
             <p className="text-xs text-stone mb-3">
               Доступно только при <code className="font-mono">AUTH_MODE=dev</code>.
-              Выбери пользователя:
             </p>
-            <div className="space-y-1 max-h-80 overflow-y-auto">
+            <div className="space-y-1 max-h-80 overflow-y-auto -mx-1">
               {Object.entries(grouped).map(([role, users]) => (
                 <div key={role}>
-                  <div className="text-xs uppercase tracking-widest text-stone py-2 px-1">
+                  <div className="text-[11px] uppercase tracking-widest text-stone py-1.5 px-2">
                     {ROLE_LABEL[role] ?? role}
                   </div>
                   {users.map((u) => (
@@ -124,18 +126,20 @@ export default function SignInForm({
                       type="button"
                       onClick={() => handleDevLogin(u.email)}
                       disabled={loading !== null}
-                      className="w-full text-left flex items-center justify-between p-2.5 rounded-card hover:bg-canvas border border-transparent hover:border-cloud transition disabled:opacity-50"
+                      className="w-full text-left flex items-center justify-between px-2 py-2 rounded-card hover:bg-canvas/80 transition-colors disabled:opacity-50"
                     >
                       <div>
-                        <div className="font-medium text-sm">{u.fullName}</div>
-                        <div className="text-xs text-stone">
+                        <div className="font-medium text-sm leading-tight">
+                          {u.fullName}
+                        </div>
+                        <div className="text-xs text-stone leading-tight mt-0.5">
                           {u.email}
                           {u.buildName && <> · {u.buildName}</>}
                         </div>
                       </div>
-                      <div className="text-xs text-stone font-mono">
+                      <span className="text-ash">
                         {loading === u.email ? '…' : '→'}
-                      </div>
+                      </span>
                     </button>
                   ))}
                 </div>

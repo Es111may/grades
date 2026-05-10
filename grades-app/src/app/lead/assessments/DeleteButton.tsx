@@ -38,7 +38,7 @@ export default function DeleteButton({
       onClick={handleDelete}
       disabled={busy}
       title="Удалить оценку"
-      className="text-stone hover:text-sunset transition-colors disabled:opacity-30 text-sm px-2"
+      className="w-8 h-8 rounded-pill text-ash hover:text-blaze hover:bg-blaze/8 transition-colors disabled:opacity-30 flex items-center justify-center text-sm"
     >
       {busy ? '…' : '✕'}
     </button>

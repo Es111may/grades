@@ -26,16 +26,16 @@ export default function MigrateButton() {
   }
 
   return (
-    <div className="mb-6">
+    <div className="mb-5">
       <button
         onClick={run}
         disabled={busy}
-        className="text-xs text-stone hover:text-ink underline"
+        className="text-xs text-stone hover:text-ink transition-colors underline-offset-4 hover:underline"
       >
         {busy ? 'Запускаю миграцию…' : 'Принудительно прогнать миграцию грейдов'}
       </button>
       {log && (
-        <pre className="mt-3 bg-canvas border border-cloud rounded-md p-3 text-xs text-stone whitespace-pre-wrap">
+        <pre className="mt-3 bg-canvas border border-cloud rounded-card p-3 text-xs text-stone font-mono whitespace-pre-wrap leading-relaxed">
           {log.join('\n')}
         </pre>
       )}
