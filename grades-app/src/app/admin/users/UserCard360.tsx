@@ -198,25 +198,28 @@ export default function UserCard360({
           <Field label="Стардиз" value={user.stardiz?.fullName ?? null} />
         </div>
 
-        {/* Кнопки */}
-        <div className="px-7 py-4 border-t border-cloud flex items-center justify-end gap-2 flex-wrap">
+        {/* Кнопки — равной ширины по всей ширине поп-апа */}
+        <div className="px-7 py-4 border-t border-cloud flex items-stretch gap-2">
           {canDeactivate && (
-            <button onClick={handleDeactivate} className="btn-ghost text-blaze">
+            <button onClick={handleDeactivate} className="btn-ghost text-blaze flex-1">
               Деактивировать
             </button>
           )}
           {canOpenPortrait && (
-            <a href={`/lead/portrait?id=${user.id}`} className="btn-secondary">
+            <a
+              href={`/lead/portrait?id=${user.id}`}
+              className="btn-secondary flex-1"
+            >
               Открыть портрет
             </a>
           )}
           {canAssess && (
-            <a href={`/lead/assess?id=${user.id}`} className="btn-secondary">
+            <a href={`/lead/assess?id=${user.id}`} className="btn-secondary flex-1">
               Оценить
             </a>
           )}
           {canEdit && (
-            <button onClick={() => onEdit(user)} className="btn-accent">
+            <button onClick={() => onEdit(user)} className="btn-accent flex-1">
               Изменить
             </button>
           )}

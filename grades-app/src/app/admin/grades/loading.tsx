@@ -2,7 +2,7 @@ import { HeaderSkeleton } from '@/components/PageSkeleton';
 
 export default function Loading() {
   return (
-    <main className="max-w-[1200px] mx-auto px-8 pt-10 pb-16">
+    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <HeaderSkeleton />
       <div className="space-y-3">
         {Array.from({ length: 6 }).map((_, i) => (

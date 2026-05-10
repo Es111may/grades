@@ -24,9 +24,11 @@ export default function AppHeader({
         <div className="flex items-center gap-8 min-w-0">
           <Link
             href="/"
-            className="font-display font-semibold text-base tracking-tight text-ink hover:text-graphite transition-colors"
+            className="block hover:opacity-80 transition-opacity"
+            aria-label="Грейды"
           >
-            Грейды
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/grades-logo.svg" alt="Грейды" width={108} height={20} />
           </Link>
           {navItems.length > 0 && <HeaderNav items={navItems} />}
         </div>

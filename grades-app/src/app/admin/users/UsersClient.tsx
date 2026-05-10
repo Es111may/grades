@@ -294,14 +294,14 @@ export default function UsersClient({
               <th className="text-center py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
                 Активен
               </th>
-              <th className="w-24" />
             </tr>
           </thead>
           <tbody className="divide-y divide-cloud">
             {filtered.map((u) => (
               <tr
                 key={u.id}
-                className={`hover:bg-canvas/60 transition-colors ${
+                onClick={() => open360(u)}
+                className={`hover:bg-canvas/60 transition-colors cursor-pointer ${
                   !u.active ? 'opacity-50' : ''
                 }`}
               >
@@ -353,7 +353,10 @@ export default function UsersClient({
                 </td>
                 <td className="py-3 px-4 text-center">
                   <button
-                    onClick={() => handleToggleActive(u)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleActive(u);
+                    }}
                     className={`relative w-9 h-5 rounded-full transition-colors ${
                       u.active ? 'bg-emerald' : 'bg-cloud'
                     }`}
@@ -366,16 +369,11 @@ export default function UsersClient({
                     />
                   </button>
                 </td>
-                <td className="py-3 px-4 text-right">
-                  <button onClick={() => open360(u)} className="btn-ghost btn-sm">
-                    Открыть
-                  </button>
-                </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-stone">
+                <td colSpan={8} className="py-12 text-center text-stone">
                   Нет пользователей
                 </td>
               </tr>

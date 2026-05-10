@@ -30,7 +30,7 @@ export default async function LeadAssessmentsPage() {
   });
 
   return (
-    <main className="max-w-[1200px] mx-auto px-8 pt-8 pb-16">
+    <main className="max-w-[1400px] mx-auto px-8 pt-8 pb-16">
       <div className="mb-6">
         <h1 className="font-display text-4xl font-semibold tracking-tight">Оценки</h1>
       </div>
