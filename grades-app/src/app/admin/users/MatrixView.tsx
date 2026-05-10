@@ -174,6 +174,96 @@ function UnassignedZone({
   );
 }
 
+function AboutAccordion() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="card mb-5 overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-canvas/60 transition-colors"
+      >
+        <span className="text-sm font-semibold text-ink">О матрице 9-Box</span>
+        <span
+          className={`text-stone text-xs transition-transform duration-200 ${
+            open ? 'rotate-180' : ''
+          }`}
+        >
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div className="px-5 pb-5 pt-1 text-sm text-graphite leading-relaxed space-y-4 border-t border-cloud">
+          <p>
+            <strong>Матрица потенциала 9-Box</strong> — инструмент для оценки сотрудников
+            по двум осям: текущим достижениям и будущему потенциалу. Помогает увидеть,
+            на каких уровнях развития находятся люди и какие направления роста для них
+            наиболее перспективны.
+          </p>
+
+          <div>
+            <div className="font-semibold text-ink mb-2">Структура</div>
+            <p className="mb-2">9 клеток образованы двумя осями:</p>
+            <div className="space-y-2 pl-1">
+              <div>
+                <div className="font-medium">Ось «Потенциал» — способность расти и развиваться</div>
+                <ul className="list-disc list-inside text-stone mt-1 space-y-0.5">
+                  <li>Низкий — не проявляет значительного потенциала для роста</li>
+                  <li>Средний — потенциал есть, но требует обучения или опыта</li>
+                  <li>Высокий — значительный потенциал для роста и продвижения</li>
+                </ul>
+              </div>
+              <div>
+                <div className="font-medium">Ось «Производительность» — результаты работы здесь и сейчас</div>
+                <ul className="list-disc list-inside text-stone mt-1 space-y-0.5">
+                  <li>Низкий — результаты ниже ожидаемых</li>
+                  <li>Средний — результаты соответствуют ожиданиям</li>
+                  <li>Высокий — результаты превышают ожидания</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="font-semibold text-ink mb-2">Как использовать</div>
+            <ul className="space-y-1.5">
+              <li>
+                <span className="font-medium">Звёзды</span> (высокий потенциал + высокая
+                производительность): на них ставка для лидерства и карьерного роста.
+              </li>
+              <li>
+                <span className="font-medium">Ошибка подбора</span> (низкие оба): требуется
+                пересмотр должности или плана обучения.
+              </li>
+              <li>
+                <span className="font-medium">Основа команды</span> (средние оба): уровень
+                удовлетворительного выполнения с возможностью дальнейшего роста.
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <div className="font-semibold text-ink mb-2">Зачем это нужно</div>
+            <ul className="space-y-1.5">
+              <li>
+                <span className="font-medium">Ясность в оценке.</span> Чёткое разделение
+                по группам — кто требует внимания, а кто готов к новым вызовам.
+              </li>
+              <li>
+                <span className="font-medium">Планирование развития.</span> Помогает
+                выстраивать карьерный рост, обучение и наставничество.
+              </li>
+              <li>
+                <span className="font-medium">Управление талантами.</span> Помогает
+                выделить ключевых людей для важных задач.
+              </li>
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MatrixView({ users }: { users: UserRow[] }) {
   const eligible = useMemo(
     () => users.filter((u) => (u.role === 'designer' || u.role === 'stardiz') && u.active),
@@ -321,19 +411,23 @@ export default function MatrixView({ users }: { users: UserRow[] }) {
 
   if (loading) {
     return (
-      <div className="flex gap-5 items-start">
-        <div className="w-[240px] h-[400px] rounded-[14px] bg-cloud/40 animate-pulse shrink-0" />
-        <div className="flex-1 grid grid-cols-3 gap-3">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <div key={i} className="h-[180px] rounded-[14px] bg-cloud/40 animate-pulse" />
-          ))}
+      <>
+        <AboutAccordion />
+        <div className="flex gap-5 items-start">
+          <div className="w-[240px] h-[400px] rounded-[14px] bg-cloud/40 animate-pulse shrink-0" />
+          <div className="flex-1 grid grid-cols-3 gap-3">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <div key={i} className="h-[180px] rounded-[14px] bg-cloud/40 animate-pulse" />
+            ))}
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <AboutAccordion />
       <div className="flex gap-5 items-stretch">
         <UnassignedZone users={usersByCell.unassigned} saving={saving} />
 

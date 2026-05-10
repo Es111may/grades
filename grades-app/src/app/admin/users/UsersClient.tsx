@@ -164,36 +164,34 @@ export default function UsersClient({
 
       {/* Объединённый тулбар: роль (segmented) + view (segmented) + поиск + add */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        {view !== 'matrix' && (
-          <div className="segmented">
-            {(['all', 'designer', 'stardiz', 'lead', 'admin'] as RoleFilter[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setRoleFilter(f)}
-                className={`segmented-item ${
-                  roleFilter === f ? 'segmented-item-active' : ''
+        <div className="segmented">
+          {(['all', 'designer', 'stardiz', 'lead', 'admin'] as RoleFilter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setRoleFilter(f)}
+              className={`segmented-item ${
+                roleFilter === f ? 'segmented-item-active' : ''
+              }`}
+            >
+              {f === 'all'
+                ? 'Все'
+                : f === 'designer'
+                  ? 'Дизайнеры'
+                  : f === 'stardiz'
+                    ? 'Стардизы'
+                    : f === 'lead'
+                      ? 'Лиды'
+                      : 'Админы'}
+              <span
+                className={`ml-1.5 ${
+                  roleFilter === f ? 'text-stone' : 'text-ash'
                 }`}
               >
-                {f === 'all'
-                  ? 'Все'
-                  : f === 'designer'
-                    ? 'Дизайнеры'
-                    : f === 'stardiz'
-                      ? 'Стардизы'
-                      : f === 'lead'
-                        ? 'Лиды'
-                        : 'Админы'}
-                <span
-                  className={`ml-1.5 ${
-                    roleFilter === f ? 'text-stone' : 'text-ash'
-                  }`}
-                >
-                  {counts[f]}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+                {counts[f]}
+              </span>
+            </button>
+          ))}
+        </div>
 
         <div className="segmented">
           {(
@@ -215,21 +213,19 @@ export default function UsersClient({
           ))}
         </div>
 
-        {view !== 'matrix' && (
-          <span className="ml-auto w-[280px]">
-            <input
-              type="text"
-              placeholder="Поиск по имени или email"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input"
-            />
-          </span>
-        )}
+        <span className="ml-auto w-[280px]">
+          <input
+            type="text"
+            placeholder="Поиск по имени или email"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input"
+          />
+        </span>
       </div>
 
       {view === 'matrix' ? (
-        <MatrixView users={users} />
+        <MatrixView users={filtered} />
       ) : view === 'table' ? (
       /* Table */
       <div className="card overflow-hidden">
