@@ -10,7 +10,7 @@ export default async function AdminUsersPage() {
   const me = await getCurrentUser();
   if (!me || !canManageUsers(me.role)) redirect('/auth/signin');
 
-  const [usersRaw, builds, leadsRaw, stardizesRaw, latestPublished] = await Promise.all([
+  const [usersRaw, builds, leadsRaw, stardizesRaw, latestGrades] = await Promise.all([
     prisma.user.findMany({
       include: {
         build: true,
@@ -30,20 +30,19 @@ export default async function AdminUsersPage() {
       select: { id: true, fullName: true },
       orderBy: { fullName: 'asc' },
     }),
-    // Последняя опубликованная оценка каждого дизайнера — для канбана «Уровни»
-    prisma.assessment.findMany({
-      where: { status: 'published' },
-      orderBy: { publishedAt: 'desc' },
-      select: { designerId: true, effectiveGrade: true, publishedAt: true },
-    }),
+    // Последний effectiveGrade каждого дизайнера — одним SQL-запросом через DISTINCT ON.
+    // Это значительно быстрее чем тащить ВСЕ опубликованные оценки и сворачивать в map.
+    prisma.$queryRaw<Array<{ designerId: number; effectiveGrade: string | null }>>`
+      SELECT DISTINCT ON ("designerId") "designerId", "effectiveGrade"
+      FROM assessments
+      WHERE status = 'published' AND "effectiveGrade" IS NOT NULL
+      ORDER BY "designerId", "publishedAt" DESC
+    `,
   ]);
 
-  // Сворачиваем в map: designerId → effectiveGrade (берём первую = последнюю опубл.)
   const gradeByDesignerId = new Map<number, string>();
-  for (const a of latestPublished) {
-    if (!gradeByDesignerId.has(a.designerId) && a.effectiveGrade) {
-      gradeByDesignerId.set(a.designerId, a.effectiveGrade);
-    }
+  for (const a of latestGrades) {
+    if (a.effectiveGrade) gradeByDesignerId.set(a.designerId, a.effectiveGrade);
   }
 
   const users = usersRaw.map((u) => ({

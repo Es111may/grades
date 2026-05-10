@@ -73,27 +73,27 @@ export default async function AssessPage({
     });
   }
 
-  // Load skills with weights for this build + mastery levels
-  const skills = await prisma.skill.findMany({
-    where: { matrixVersionId: matrix.id, active: true },
-    include: {
-      weights: { where: { buildId: designer.buildId! } },
-      group: { include: { taxonomy: true } },
-      masteries: { orderBy: { level: 'asc' } },
-    },
-    orderBy: [
-      { group: { taxonomy: { sortOrder: 'asc' } } },
-      { group: { sortOrder: 'asc' } },
-      { name: 'asc' },
-    ],
-  });
-
-  // Load grade levels with gates for this build
-  const gradeLevels = await prisma.gradeLevel.findMany({
-    where: { matrixVersionId: matrix.id },
-    include: { gates: { where: { buildId: designer.buildId! } } },
-    orderBy: { sortOrder: 'asc' },
-  });
+  // Skills + grade levels параллельно
+  const [skills, gradeLevels] = await Promise.all([
+    prisma.skill.findMany({
+      where: { matrixVersionId: matrix.id, active: true },
+      include: {
+        weights: { where: { buildId: designer.buildId! } },
+        group: { include: { taxonomy: true } },
+        masteries: { orderBy: { level: 'asc' } },
+      },
+      orderBy: [
+        { group: { taxonomy: { sortOrder: 'asc' } } },
+        { group: { sortOrder: 'asc' } },
+        { name: 'asc' },
+      ],
+    }),
+    prisma.gradeLevel.findMany({
+      where: { matrixVersionId: matrix.id },
+      include: { gates: { where: { buildId: designer.buildId! } } },
+      orderBy: { sortOrder: 'asc' },
+    }),
+  ]);
 
   // Serialize for client
   const skillsData = skills.map((s) => ({

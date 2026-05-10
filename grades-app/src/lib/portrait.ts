@@ -39,21 +39,22 @@ export async function loadPortraitData(designerId: number): Promise<
     };
   }
 
-  // Load skills, weights, grades for live recompute (so we have nextGrade + failedGates)
-  const skills = await prisma.skill.findMany({
-    where: { matrixVersionId: assessment.matrixVersionId, active: true },
-    include: {
-      weights: { where: { buildId: designer.buildId! } },
-      group: { include: { taxonomy: true } },
-      masteries: { orderBy: { level: 'asc' } },
-    },
-  });
-
-  const gradeLevels = await prisma.gradeLevel.findMany({
-    where: { matrixVersionId: assessment.matrixVersionId },
-    include: { gates: { where: { buildId: designer.buildId! } } },
-    orderBy: { sortOrder: 'asc' },
-  });
+  // Load skills + grade levels параллельно — обе зависят только от matrixVersionId/buildId
+  const [skills, gradeLevels] = await Promise.all([
+    prisma.skill.findMany({
+      where: { matrixVersionId: assessment.matrixVersionId, active: true },
+      include: {
+        weights: { where: { buildId: designer.buildId! } },
+        group: { include: { taxonomy: true } },
+        masteries: { orderBy: { level: 'asc' } },
+      },
+    }),
+    prisma.gradeLevel.findMany({
+      where: { matrixVersionId: assessment.matrixVersionId },
+      include: { gates: { where: { buildId: designer.buildId! } } },
+      orderBy: { sortOrder: 'asc' },
+    }),
+  ]);
 
   const buildCode = (designer.build?.code as BuildCode) ?? 'creator';
 
