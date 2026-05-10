@@ -143,7 +143,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
         </h1>
         <div className="flex items-center gap-2 text-sm text-stone flex-wrap">
           {data.designer.buildCode && (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-snow text-xs">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-canvas text-xs">
               <span
                 className="w-1.5 h-1.5 rounded-full"
                 style={{

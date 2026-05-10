@@ -269,7 +269,7 @@ export default function UsersClient({
                 <td className="py-3 px-4 text-stone">{ROLE_LABELS[u.role] ?? u.role}</td>
                 <td className="py-3 px-4">
                   {u.build ? (
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-snow text-xs">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-canvas text-xs">
                       <span
                         className="w-1.5 h-1.5 rounded-full"
                         style={{

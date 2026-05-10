@@ -243,7 +243,7 @@ export default function KanbanView({
                           {ROLE_LABEL[u.role] ?? u.role}
                         </span>
                         {u.build && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-pill border border-cloud bg-snow text-stone">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-pill border border-cloud bg-canvas text-stone">
                             <span
                               className="w-1.5 h-1.5 rounded-full"
                               style={{ background: buildColor(u.build.code) }}
