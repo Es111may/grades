@@ -20,10 +20,34 @@
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 
 const prisma = new PrismaClient();
 
 const CSV_PATH = path.resolve(__dirname, '..', 'data', 'team.csv');
+const AVATARS_DIR = path.resolve(__dirname, '..', 'data', 'user-avatar');
+
+/**
+ * Читает картинку по fullName из data/user-avatar/, обрезает по центру до
+ * квадрата, ресайзит до 256×256 JPEG (quality 85) и возвращает data URL.
+ * Возвращает null, если файла нет или не удалось прочитать.
+ */
+async function readAvatarDataUrl(fullName: string): Promise<string | null> {
+  if (!fs.existsSync(AVATARS_DIR)) return null;
+  const fileName = `${fullName}.png`;
+  const filePath = path.join(AVATARS_DIR, fileName);
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    const buf = await sharp(filePath)
+      .resize(256, 256, { fit: 'cover', position: 'centre' })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${buf.toString('base64')}`;
+  } catch (e) {
+    console.warn(`  ⚠ Не удалось обработать аватар ${fileName}: ${(e as Error).message}`);
+    return null;
+  }
+}
 
 const ROLE_MAP: Record<string, 'lead' | 'stardiz' | 'designer'> = {
   Лид: 'lead',
@@ -112,14 +136,28 @@ async function main() {
   const buildIdByCode = new Map(builds.map((b) => [b.code, b.id]));
 
   // Pass 1: создание пользователей (только тех, кого ещё нет).
+  // Для существующих опционально подгрузим только avatarUrl, если он
+  // ещё null — не перетирая других правок админа.
   let created = 0;
   let skipped = 0;
+  let avatarsAdded = 0;
   for (const r of rows) {
-    const existing = await prisma.user.findUnique({ where: { email: r.email } });
+    const existing = await prisma.user.findUnique({
+      where: { email: r.email },
+      select: { id: true, avatarUrl: true },
+    });
     if (existing) {
       skipped++;
+      if (existing.avatarUrl === null) {
+        const avatarUrl = await readAvatarDataUrl(r.fullName);
+        if (avatarUrl) {
+          await prisma.user.update({ where: { id: existing.id }, data: { avatarUrl } });
+          avatarsAdded++;
+        }
+      }
       continue;
     }
+    const avatarUrl = await readAvatarDataUrl(r.fullName);
     await prisma.user.create({
       data: {
         email: r.email,
@@ -128,13 +166,19 @@ async function main() {
         buildId: r.buildCode ? buildIdByCode.get(r.buildCode) ?? null : null,
         hiredAt: r.hiredAt,
         active: true,
+        avatarUrl,
       },
     });
     created++;
-    console.log(`  ✓ создан ${r.role.padEnd(8)} ${r.fullName} <${r.email}>`);
+    console.log(
+      `  ✓ создан ${r.role.padEnd(8)} ${r.fullName} <${r.email}>${avatarUrl ? ' [+аватар]' : ''}`,
+    );
   }
   if (skipped > 0) {
     console.log(`  ↷ ${skipped} существующих пропущено (правки админа сохранены)`);
+  }
+  if (avatarsAdded > 0) {
+    console.log(`  + ${avatarsAdded} аватарок подгружено для существующих без фото`);
   }
 
   // Pass 2: проставляем leadId / stardizId — только для новосозданных

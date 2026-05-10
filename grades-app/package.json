@@ -1,6 +1,6 @@
 {
   "name": "grades-app",
-  "version": "0.11.3",
+  "version": "0.11.4",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -32,6 +32,7 @@
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
+    "sharp": "^0.33.5",
     "xlsx": "^0.18.5",
     "zod": "^3.22.4"
   },
