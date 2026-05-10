@@ -349,7 +349,7 @@ export default function UserModal({
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] uppercase tracking-widest text-stone mb-0.5">
+            <div className="text-[11px]  text-stone mb-0.5">
               {isNew ? 'Новый пользователь' : roleLabel}
             </div>
             <h2 className="font-display text-xl font-semibold tracking-tight truncate">
@@ -375,7 +375,7 @@ export default function UserModal({
 
           {/* Basic fields */}
           <section>
-            <div className="text-xs uppercase tracking-widest text-stone mb-3">
+            <div className="text-xs  text-stone mb-3">
               Основное
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -629,7 +629,7 @@ export default function UserModal({
           {/* Notes */}
           {!isNew && (
             <section>
-              <div className="text-xs uppercase tracking-widest text-stone mb-3">
+              <div className="text-xs  text-stone mb-3">
                 Заметка по дизайнеру
               </div>
               <textarea
@@ -680,7 +680,7 @@ export default function UserModal({
           {/* Password — admin only */}
           {!isNew && isAdmin && (
             <section>
-              <div className="text-xs uppercase tracking-widest text-stone mb-3">
+              <div className="text-xs  text-stone mb-3">
                 Пароль для входа
               </div>
               <div className="card p-5">
@@ -771,7 +771,7 @@ export default function UserModal({
           {/* Danger zone */}
           {!isNew && (
             <section>
-              <div className="text-xs uppercase tracking-widest text-stone mb-3">
+              <div className="text-xs  text-stone mb-3">
                 Опасная зона
               </div>
               <div className="card p-5 flex items-center justify-between gap-4">

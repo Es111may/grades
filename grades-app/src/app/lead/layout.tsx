@@ -23,7 +23,7 @@ export default async function LeadLayout({ children }: { children: React.ReactNo
   return (
     <>
       <AppHeader
-        user={{ fullName: user.name ?? user.email ?? '—', role: user.role }}
+        user={{ id: user.id, fullName: user.name ?? user.email ?? '—', role: user.role }}
         navItems={navItems}
       />
       {children}

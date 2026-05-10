@@ -1,22 +1,36 @@
 import Link from 'next/link';
+import { prisma } from '@/lib/db';
 import UserMenu from './UserMenu';
 import HeaderNav from './HeaderNav';
 
 type NavItem = { href: string; label: string };
 
-export default function AppHeader({
+/**
+ * Шапка приложения. user.fullName/role приходят из JWT-сессии и могут
+ * быть устаревшими (правки админа не отражаются в сессии до релогина),
+ * поэтому актуальные fullName + avatarUrl подтягиваем из БД при каждом
+ * SSR-рендере страницы.
+ */
+export default async function AppHeader({
   user,
   navItems = [],
 }: {
-  user: { fullName: string; role: string };
+  user: { id?: number; fullName: string; role: string };
   navItems?: NavItem[];
 }) {
-  const initials = user.fullName
-    .split(' ')
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  let fullName = user.fullName;
+  let avatarUrl: string | null = null;
+
+  if (user.id) {
+    const fresh = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { fullName: true, avatarUrl: true },
+    });
+    if (fresh) {
+      fullName = fresh.fullName;
+      avatarUrl = fresh.avatarUrl;
+    }
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-cloud/80 bg-snow/85 backdrop-blur-md">
@@ -32,7 +46,7 @@ export default function AppHeader({
           </Link>
           {navItems.length > 0 && <HeaderNav items={navItems} />}
         </div>
-        <UserMenu fullName={user.fullName} role={user.role} initials={initials} />
+        <UserMenu fullName={fullName} role={user.role} avatarUrl={avatarUrl} />
       </div>
     </header>
   );

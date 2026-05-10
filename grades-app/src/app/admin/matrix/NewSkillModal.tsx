@@ -149,7 +149,7 @@ export default function NewSkillModal({
         <div className="px-8 py-5 space-y-5">
           {/* Name */}
           <div>
-            <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
+            <label className="text-xs  text-stone block mb-1.5">
               Название
             </label>
             <input
@@ -163,7 +163,7 @@ export default function NewSkillModal({
 
           {/* Description */}
           <div>
-            <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
+            <label className="text-xs  text-stone block mb-1.5">
               Описание
             </label>
             <textarea
@@ -178,7 +178,7 @@ export default function NewSkillModal({
           {/* Group + Type + maxMastery */}
           <div className="grid grid-cols-[1fr_140px_140px] gap-3">
             <div>
-              <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
+              <label className="text-xs  text-stone block mb-1.5">
                 Группа
               </label>
               <select
@@ -200,7 +200,7 @@ export default function NewSkillModal({
               </select>
             </div>
             <div>
-              <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
+              <label className="text-xs  text-stone block mb-1.5">
                 Тип
               </label>
               <select
@@ -213,7 +213,7 @@ export default function NewSkillModal({
               </select>
             </div>
             <div>
-              <label className="text-xs uppercase tracking-widest text-stone block mb-1.5">
+              <label className="text-xs  text-stone block mb-1.5">
                 Уровней
               </label>
               <input
@@ -275,7 +275,7 @@ export default function NewSkillModal({
                     style={{ background: buildColor(b.code) }}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-[11px] uppercase tracking-widest text-stone">
+                    <div className="text-[11px]  text-stone">
                       {b.name}
                     </div>
                     <input
@@ -308,7 +308,7 @@ export default function NewSkillModal({
             <div className="space-y-1.5">
               {masteryTitles.map((title, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <span className="text-xs uppercase tracking-widest text-stone w-20 shrink-0">
+                  <span className="text-xs  text-stone w-20 shrink-0">
                     Уровень {i + 1}
                   </span>
                   <input

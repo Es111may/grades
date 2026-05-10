@@ -106,6 +106,13 @@
     @apply card transition-all duration-200 ease-apple-out hover:shadow-soft-md hover:border-ash;
   }
 
+  /* Чип билда: точка + название. Заливка чуть серее обычного фона,
+     без бордера. Используется в шапках, карточках, таблицах. */
+  .chip-build {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill
+           bg-cloud/60 text-xs font-medium text-stone;
+  }
+
   /* === Чипы (бэйджи статусов / ролей) === */
   .chip {
     @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -13,6 +14,7 @@ import {
 import { Radar } from 'react-chartjs-2';
 import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
+import Avatar from '@/components/Avatar';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -29,6 +31,7 @@ export type PortraitData = {
   assessmentId: number;
   designer: {
     fullName: string;
+    avatarUrl: string | null;
     buildCode: BuildCode | null;
     buildName: string;
     department: string | null;
@@ -69,7 +72,13 @@ export type PortraitData = {
   }[];
 };
 
-export default function Portrait({ data }: { data: PortraitData }) {
+export default function Portrait({
+  data,
+  breadcrumb,
+}: {
+  data: PortraitData;
+  breadcrumb?: { href: string; label: string };
+}) {
   const [rowHovered, setRowHovered] = useState(false);
 
   const xpProgress = data.maxXp > 0 ? Math.round((data.totalXp / data.maxXp) * 100) : 0;
@@ -135,48 +144,64 @@ export default function Portrait({ data }: { data: PortraitData }) {
   }
 
   return (
-    <main className="max-w-[1300px] mx-auto px-8 pt-8 pb-16">
-      {/* Hero */}
-      <div className="mb-6">
-        <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
-          {data.designer.fullName}
-        </h1>
-        <div className="flex items-center gap-2 text-sm text-stone flex-wrap">
-          {data.designer.buildCode && (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-canvas text-xs">
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{
-                  background:
-                    data.designer.buildCode === 'creator'
-                      ? '#00ca48'
-                      : data.designer.buildCode === 'visioner'
-                        ? '#7c3aed'
-                        : '#0ea5e9',
-                }}
-              />
-              {data.designer.buildName}
-            </span>
-          )}
-          <span>{data.designer.department ?? '—'}</span>
-          {data.designer.leadName && (
-            <>
-              <span className="text-ash">·</span>
-              <span>Лид: {data.designer.leadName}</span>
-            </>
-          )}
-          {data.publishedAt && (
-            <>
-              <span className="text-ash">·</span>
-              <span>
-                {new Date(data.publishedAt).toLocaleDateString('ru-RU', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
+    <main className="max-w-[1400px] mx-auto px-8 pt-8 pb-16">
+      {breadcrumb && (
+        <div className="text-xs text-stone mb-3">
+          <Link href={breadcrumb.href} className="hover:text-ink transition-colors">
+            {breadcrumb.label}
+          </Link>
+          <span className="text-ash mx-1.5">/</span>
+          <span>{data.designer.fullName}</span>
+        </div>
+      )}
+      {/* Hero: аватар слева от имени и мета-инфо */}
+      <div className="mb-6 flex items-center gap-4">
+        <Avatar
+          name={data.designer.fullName}
+          avatarUrl={data.designer.avatarUrl}
+          size={64}
+        />
+        <div className="min-w-0">
+          <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
+            {data.designer.fullName}
+          </h1>
+          <div className="flex items-center gap-2 text-sm text-stone flex-wrap">
+            {data.designer.buildCode && (
+              <span className="chip-build">
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{
+                    background:
+                      data.designer.buildCode === 'creator'
+                        ? '#00ca48'
+                        : data.designer.buildCode === 'visioner'
+                          ? '#7c3aed'
+                          : '#0ea5e9',
+                  }}
+                />
+                {data.designer.buildName}
               </span>
-            </>
-          )}
+            )}
+            <span>{data.designer.department ?? '—'}</span>
+            {data.designer.leadName && (
+              <>
+                <span className="text-ash">·</span>
+                <span>Лид: {data.designer.leadName}</span>
+              </>
+            )}
+            {data.publishedAt && (
+              <>
+                <span className="text-ash">·</span>
+                <span>
+                  {new Date(data.publishedAt).toLocaleDateString('ru-RU', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -184,7 +209,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
       <div className="card p-7 mb-6">
         <div className="grid grid-cols-[auto_1fr] gap-10 items-end">
           <div>
-            <div className="text-[11px] uppercase tracking-widest text-stone mb-2">
+            <div className="text-[11px]  text-stone mb-2">
               {isFloorActive ? 'Эффективный грейд' : 'Грейд'}
             </div>
             <div className="font-display text-6xl font-semibold tracking-tight leading-none">
@@ -198,7 +223,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
           </div>
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <span className="text-[11px] uppercase tracking-widest text-stone">
+              <span className="text-[11px]  text-stone">
                 Общий XP
               </span>
               <span className="font-display text-3xl font-semibold tabular-nums">
@@ -240,7 +265,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
                     : 'border-cloud shadow-soft'
                 }`}
               >
-                <div className="text-[11px] uppercase tracking-widest text-stone mb-1.5">
+                <div className="text-[11px]  text-stone mb-1.5">
                   {code}
                 </div>
                 <div className="font-display text-2xl font-semibold tabular-nums mb-2">
@@ -269,7 +294,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
           }`}
         >
           <div className="card p-5">
-            <div className="text-[11px] uppercase tracking-widest text-stone mb-4">
+            <div className="text-[11px]  text-stone mb-4">
               Группы внутри — % от максимума
             </div>
             <div className="grid grid-cols-5 gap-4">
@@ -280,7 +305,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
                       className="w-1.5 h-1.5 rounded-full"
                       style={{ background: TAXONOMY_COLOR[code] }}
                     />
-                    <span className="text-[11px] uppercase tracking-widest text-stone">
+                    <span className="text-[11px]  text-stone">
                       {code}
                     </span>
                   </div>
@@ -344,7 +369,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
             <p className="text-sm text-stone">Гейты пройдены, нужно добрать XP.</p>
           ) : (
             <div className="space-y-2">
-              <div className="text-[11px] uppercase tracking-widest text-stone mb-2">
+              <div className="text-[11px]  text-stone mb-2">
                 Непройденные обязательные навыки
               </div>
               {data.nextGrade.failedGates.map((g) => (
@@ -376,14 +401,14 @@ export default function Portrait({ data }: { data: PortraitData }) {
                 <h3 className="font-display text-lg font-semibold tracking-tight">
                   {taxName}
                 </h3>
-                <span className="text-[11px] uppercase tracking-widest text-stone">
+                <span className="text-[11px]  text-stone">
                   {data.xpByTaxonomy[code] ?? 0} XP
                 </span>
               </div>
               <div className="space-y-3">
                 {Array.from(taxMap.entries()).map(([groupName, skills]) => (
                   <div key={groupName} className="card p-5">
-                    <div className="text-[11px] uppercase tracking-widest text-stone mb-2">
+                    <div className="text-[11px]  text-stone mb-2">
                       {groupName}
                     </div>
                     <div className="space-y-0.5">
@@ -564,7 +589,7 @@ function SkillAccordion({
           )}
           {skill.levels.length > 0 && (
             <div className="space-y-1.5">
-              <div className="text-[11px] uppercase tracking-widest text-stone mb-1">
+              <div className="text-[11px]  text-stone mb-1">
                 Уровни мастерства
               </div>
               {skill.levels.map((lvl) => (

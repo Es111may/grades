@@ -23,7 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <>
       <AppHeader
-        user={{ fullName: user.name ?? user.email ?? '—', role: user.role }}
+        user={{ id: user.id, fullName: user.name ?? user.email ?? '—', role: user.role }}
         navItems={navItems}
       />
       {children}

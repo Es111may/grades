@@ -88,7 +88,7 @@ export default function MasteryEditorModal({
       >
         <div className="px-7 pt-6 pb-4 flex items-baseline justify-between border-b border-cloud">
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-widest text-stone mb-0.5">
+            <div className="text-[11px]  text-stone mb-0.5">
               Уровни мастерства
             </div>
             <h2 className="font-display text-xl font-semibold tracking-tight truncate">

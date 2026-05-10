@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { GRADE_NAMES, GRADE_ORDER, BUILD_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
+import Avatar from '@/components/Avatar';
 
 type SkillData = {
   id: number;
@@ -43,6 +44,7 @@ export default function AssessmentForm({
   designer: {
     id: number;
     fullName: string;
+    avatarUrl: string | null;
     buildCode: BuildCode;
     buildName: string;
     department: string | null;
@@ -241,34 +243,41 @@ export default function AssessmentForm({
         <span>{designer.fullName}</span>
       </div>
       <div className="flex items-end justify-between gap-8 mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <h1 className="font-display text-4xl font-semibold tracking-tight">
-              {designer.fullName}
-            </h1>
-            {published ? (
-              <span className="chip-accent">Опубликовано</span>
-            ) : (
-              <span className="chip-warn">Черновик</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2 text-sm text-stone">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-canvas text-xs">
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{
-                  background:
-                    designer.buildCode === 'creator'
-                      ? '#00ca48'
-                      : designer.buildCode === 'visioner'
-                        ? '#7c3aed'
-                        : '#0ea5e9',
-                }}
-              />
-              {designer.buildName}
-            </span>
-            <span className="text-ash">·</span>
-            <span>{designer.department ?? '—'}</span>
+        <div className="flex items-center gap-4 min-w-0">
+          <Avatar
+            name={designer.fullName}
+            avatarUrl={designer.avatarUrl}
+            size={64}
+          />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="font-display text-4xl font-semibold tracking-tight">
+                {designer.fullName}
+              </h1>
+              {published ? (
+                <span className="chip-accent">Опубликовано</span>
+              ) : (
+                <span className="chip-warn">Черновик</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-sm text-stone">
+              <span className="chip-build">
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{
+                    background:
+                      designer.buildCode === 'creator'
+                        ? '#00ca48'
+                        : designer.buildCode === 'visioner'
+                          ? '#7c3aed'
+                          : '#0ea5e9',
+                  }}
+                />
+                {designer.buildName}
+              </span>
+              <span className="text-ash">·</span>
+              <span>{designer.department ?? '—'}</span>
+            </div>
           </div>
         </div>
         {!published && (
@@ -298,7 +307,7 @@ export default function AssessmentForm({
         {/* LEFT NAV */}
         <aside className="col-span-3">
           <div className="sticky top-20 card p-5">
-            <div className="text-[11px] uppercase tracking-widest text-stone mb-4">
+            <div className="text-[11px]  text-stone mb-4">
               Скиллы
             </div>
             <div className="space-y-3">
@@ -336,7 +345,7 @@ export default function AssessmentForm({
             </div>
             <hr className="border-cloud my-5" />
             <hr className="border-cloud my-4" />
-            <div className="text-[11px] uppercase tracking-widest text-stone mb-2">
+            <div className="text-[11px]  text-stone mb-2">
               Заполнено
             </div>
             <div className="flex items-baseline gap-1.5 mb-2">
@@ -366,13 +375,13 @@ export default function AssessmentForm({
                 className="card overflow-hidden"
               >
                 <div className="px-6 py-3.5 border-b border-cloud bg-canvas/60">
-                  <div className="text-[11px] uppercase tracking-widest text-stone font-medium">
+                  <div className="text-[11px]  text-stone font-medium">
                     {tax.taxName}
                   </div>
                 </div>
                 {tax.groups.map((group) => (
                   <div key={group.name}>
-                    <div className="px-6 pt-4 pb-2 text-[11px] uppercase tracking-widest text-stone">
+                    <div className="px-6 pt-4 pb-2 text-[11px]  text-stone">
                       {group.name}
                     </div>
                     {group.skills.map((skill) => (
@@ -395,7 +404,7 @@ export default function AssessmentForm({
         <aside className="col-span-3">
           <div className="sticky top-20 space-y-3">
             <div className="card p-6">
-              <div className="text-[11px] uppercase tracking-widest text-stone mb-1.5">
+              <div className="text-[11px]  text-stone mb-1.5">
                 Прогноз грейда
               </div>
               <div className="font-display text-4xl font-semibold tracking-tight mb-2">
@@ -444,7 +453,7 @@ export default function AssessmentForm({
             {/* Gates for next grade */}
             {calc.nextGrade && calc.nextGrade.failedGates.length > 0 && (
               <div className="card p-5">
-                <div className="text-[11px] uppercase tracking-widest text-stone mb-3">
+                <div className="text-[11px]  text-stone mb-3">
                   Гейты на «{GRADE_NAMES[calc.nextGrade.code]}»
                 </div>
                 <ul className="space-y-1.5 text-sm">
@@ -467,7 +476,7 @@ export default function AssessmentForm({
 
             {designer.gradeFloor && (
               <div className="bg-lime-light/60 border border-lime/30 rounded-card p-4">
-                <div className="text-[11px] uppercase tracking-widest text-graphite mb-1.5">
+                <div className="text-[11px]  text-graphite mb-1.5">
                   Зафиксированный грейд
                 </div>
                 <div className="text-xs text-graphite leading-relaxed">
@@ -521,7 +530,7 @@ function SkillCard({
           )}
         </div>
         <div className="text-right shrink-0">
-          <div className="text-[11px] uppercase tracking-widest text-stone mb-0.5">XP</div>
+          <div className="text-[11px]  text-stone mb-0.5">XP</div>
           <div className="font-display text-2xl font-semibold leading-none tabular-nums">
             {xp}
           </div>

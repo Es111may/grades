@@ -155,6 +155,7 @@ export async function loadPortraitData(designerId: number): Promise<
     assessmentId: assessment.id,
     designer: {
       fullName: designer.fullName,
+      avatarUrl: designer.avatarUrl,
       buildCode: (designer.build?.code as BuildCode) ?? null,
       buildName: designer.build?.name ?? '—',
       department: designer.department,

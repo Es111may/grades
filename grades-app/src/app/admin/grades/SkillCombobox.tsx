@@ -102,7 +102,7 @@ export default function SkillCombobox({
                 i === highlight ? 'bg-cloud/60' : ''
               }`}
             >
-              <span className="text-ash uppercase tracking-widest text-[10px] w-8 shrink-0 font-medium">
+              <span className="text-ash  text-[10px] w-8 shrink-0 font-medium">
                 {s.taxonomyCode}
               </span>
               <span className="truncate text-ink">{s.name}</span>

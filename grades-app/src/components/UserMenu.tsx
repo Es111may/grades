@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import { ChevronDownIcon } from './icons';
+import Avatar from './Avatar';
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Админ',
@@ -14,11 +15,11 @@ const ROLE_LABEL: Record<string, string> = {
 export default function UserMenu({
   fullName,
   role,
-  initials,
+  avatarUrl,
 }: {
   fullName: string;
   role: string;
-  initials: string;
+  avatarUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -39,9 +40,7 @@ export default function UserMenu({
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-pill hover:bg-cloud/50 transition-colors"
       >
-        <span className="w-8 h-8 rounded-pill bg-cloud flex items-center justify-center text-[11px] font-semibold tracking-tight">
-          {initials}
-        </span>
+        <Avatar name={fullName} avatarUrl={avatarUrl} size={32} />
         <span className="text-sm leading-tight text-left">
           <span className="block font-medium text-ink">{fullName}</span>
           <span className="block text-[11px] text-stone">{ROLE_LABEL[role] ?? role}</span>

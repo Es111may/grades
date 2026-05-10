@@ -121,7 +121,7 @@ function MatrixCell({
             : 'border-cloud bg-snow'
       }`}
     >
-      <div className="text-[10px] uppercase tracking-widest font-semibold text-stone mb-2 leading-tight">
+      <div className="text-[10px]  font-semibold text-stone mb-2 leading-tight">
         {meta.title}
       </div>
       <div className="flex flex-col gap-1.5 flex-1">
@@ -149,7 +149,7 @@ function UnassignedZone({
       }`}
     >
       <div className="flex items-baseline justify-between mb-2.5">
-        <span className="text-[11px] uppercase tracking-widest font-semibold text-stone">
+        <span className="text-[11px]  font-semibold text-stone">
           Не размещены
         </span>
         <span className="text-xs text-ash font-medium tabular-nums">{users.length}</span>
@@ -425,7 +425,7 @@ export default function MatrixView({ users }: { users: UserRow[] }) {
         <div className="flex-1 flex gap-2.5">
           {/* Y-ось: Потенциал */}
           <div className="flex flex-col items-center justify-center w-7 shrink-0">
-            <div className="text-[10px] uppercase tracking-widest text-stone font-semibold whitespace-nowrap"
+            <div className="text-[10px]  text-stone font-semibold whitespace-nowrap"
                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
               Потенциал ↑
             </div>
@@ -444,7 +444,7 @@ export default function MatrixView({ users }: { users: UserRow[] }) {
               ))}
             </div>
             {/* X-ось: Производительность */}
-            <div className="text-center text-[10px] uppercase tracking-widest text-stone font-semibold pt-1">
+            <div className="text-center text-[10px]  text-stone font-semibold pt-1">
               Производительность →
             </div>
           </div>

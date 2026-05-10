@@ -65,22 +65,22 @@ export default function AssessmentsClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-canvas border-b border-cloud">
-                <th className="text-left py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                <th className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone">
                   Имя
                 </th>
-                <th className="text-left py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                <th className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone">
                   Опубликовано
                 </th>
-                <th className="text-left py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                <th className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone">
                   Билд
                 </th>
-                <th className="text-left py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                <th className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone">
                   {showLead ? 'Лид' : 'Отдел'}
                 </th>
-                <th className="text-right py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                <th className="text-right py-2.5 px-4 font-medium text-[11px]  text-stone">
                   Грейд
                 </th>
-                <th className="text-right py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                <th className="text-right py-2.5 px-4 font-medium text-[11px]  text-stone">
                   XP
                 </th>
                 <th className="w-28" />
@@ -115,7 +115,7 @@ export default function AssessmentsClient({
                   </td>
                   <td className="py-3 px-4">
                     {r.buildCode && r.buildName ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-canvas text-xs font-medium text-stone">
+                      <span className="chip-build">
                         <span
                           className="w-1.5 h-1.5 rounded-full"
                           style={{ background: buildColor(r.buildCode) }}

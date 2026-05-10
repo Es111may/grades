@@ -8,7 +8,7 @@ export default async function DesignerLayout({ children }: { children: React.Rea
   return (
     <>
       <AppHeader
-        user={{ fullName: user.name ?? user.email ?? '—', role: user.role }}
+        user={{ id: user.id, fullName: user.name ?? user.email ?? '—', role: user.role }}
         navItems={[
           { href: '/designer', label: 'Мой портрет' },
           { href: '/designer/history', label: 'История' },

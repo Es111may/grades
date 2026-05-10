@@ -36,7 +36,7 @@ export default async function DesignerHistoryPage() {
               <div key={a.id} className="card-hover p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-[11px] uppercase tracking-widest text-stone mb-1">
+                    <div className="text-[11px]  text-stone mb-1">
                       {a.publishedAt
                         ? new Date(a.publishedAt).toLocaleDateString('ru-RU', {
                             day: 'numeric',
@@ -56,7 +56,7 @@ export default async function DesignerHistoryPage() {
                     <div className="font-display text-2xl font-semibold tabular-nums">
                       {a.totalXp ?? 0}
                     </div>
-                    <div className="text-[11px] uppercase tracking-widest text-stone">
+                    <div className="text-[11px]  text-stone">
                       XP
                     </div>
                     {xpDelta !== null && xpDelta !== 0 && (

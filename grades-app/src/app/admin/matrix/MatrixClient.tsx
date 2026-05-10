@@ -123,7 +123,7 @@ export default function MatrixClient({
       <div className="grid grid-cols-3 gap-3 mb-5">
         {builds.map((b) => (
           <div key={b.id} className="card px-5 py-4">
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-stone mb-1">
+            <div className="flex items-center gap-2 text-[11px]  text-stone mb-1">
               <span
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ background: buildColor(b.code) }}
@@ -201,13 +201,13 @@ export default function MatrixClient({
                       className="bg-white border border-cloud rounded-card shadow-soft overflow-hidden"
                     >
                       <div className="px-6 py-3 border-b border-cloud bg-canvas">
-                        <div className="text-xs uppercase tracking-widest text-stone">
+                        <div className="text-xs  text-stone">
                           {groupName}
                         </div>
                       </div>
                       <table className="w-full">
                         <thead>
-                          <tr className="text-xs uppercase tracking-widest text-stone border-b border-cloud">
+                          <tr className="text-xs  text-stone border-b border-cloud">
                             <th className="text-left px-6 py-2 font-medium w-[40%]">Навык</th>
                             <th className="text-center px-3 py-2 font-medium w-16">Тип</th>
                             <th className="text-center px-3 py-2 font-medium w-12">Max</th>

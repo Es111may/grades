@@ -209,7 +209,7 @@ export default function KanbanView({
             }`}
           >
             <div className="px-3.5 pt-3 pb-2 flex items-baseline justify-between">
-              <span className="text-[11px] uppercase tracking-widest font-medium text-stone">
+              <span className="text-[11px]  font-medium text-stone">
                 {col.label}
               </span>
               <span className="text-xs text-ash font-medium">{col.users.length}</span>
@@ -243,7 +243,7 @@ export default function KanbanView({
                           {ROLE_LABEL[u.role] ?? u.role}
                         </span>
                         {u.build && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-pill border border-cloud bg-canvas text-stone font-medium">
+                          <span className="chip-build">
                             <span
                               className="w-1.5 h-1.5 rounded-full"
                               style={{ background: buildColor(u.build.code) }}

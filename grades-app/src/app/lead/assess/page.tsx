@@ -142,6 +142,7 @@ export default async function AssessPage({
       designer={{
         id: designer.id,
         fullName: designer.fullName,
+        avatarUrl: designer.avatarUrl,
         buildCode,
         buildName: designer.build.name,
         department: designer.department,

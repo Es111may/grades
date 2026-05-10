@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function PortraitActions({
@@ -36,10 +35,7 @@ export default function PortraitActions({
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 max-w-[1300px] mx-auto px-8 pt-5">
-      <Link href="/admin/users" className="text-sm text-stone hover:text-ink transition-colors">
-        ← к списку
-      </Link>
+    <div className="flex items-center justify-end gap-4 max-w-[1400px] mx-auto px-8 pt-5">
       <button onClick={reopen} disabled={reopening} className="btn-accent btn-sm">
         {reopening ? 'Создаю…' : hasDraft ? 'Продолжить черновик' : 'Новая оценка'}
       </button>

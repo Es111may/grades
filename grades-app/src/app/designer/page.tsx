@@ -51,7 +51,7 @@ export default async function DesignerPortraitPage() {
 
         {me?.gradeFloor && (
           <div className="bg-lime-light/60 border border-lime/30 rounded-card p-5">
-            <div className="text-[11px] uppercase tracking-widest text-graphite mb-1.5">
+            <div className="text-[11px]  text-graphite mb-1.5">
               Зафиксированный грейд
             </div>
             <p className="text-sm text-graphite leading-relaxed">

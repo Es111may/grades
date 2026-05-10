@@ -119,7 +119,7 @@ export default function UserCard360({
                   {ROLE_LABEL[user.role] ?? user.role}
                 </span>
                 {user.build && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill border border-cloud bg-canvas text-[11px] font-medium text-stone">
+                  <span className="chip-build">
                     <span
                       className="w-1.5 h-1.5 rounded-full"
                       style={{ background: buildColor(user.build.code) }}
@@ -149,7 +149,7 @@ export default function UserCard360({
           <div className="px-7 py-5 bg-canvas/60 border-b border-cloud">
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <div className="text-[10px] uppercase tracking-widest text-stone mb-1">
+                <div className="text-[10px]  text-stone mb-1">
                   {user.gradeFloor ? 'Эфф. грейд' : 'Грейд'}
                 </div>
                 <div className="font-display text-2xl font-semibold tracking-tight">
@@ -160,7 +160,7 @@ export default function UserCard360({
               </div>
               {user.gradeFloor && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-widest text-stone mb-1">
+                  <div className="text-[10px]  text-stone mb-1">
                     Floor
                   </div>
                   <div className="font-display text-2xl font-semibold tracking-tight text-sunset">
@@ -169,7 +169,7 @@ export default function UserCard360({
                 </div>
               )}
               <div className={user.gradeFloor ? '' : 'col-span-2'}>
-                <div className="text-[10px] uppercase tracking-widest text-stone mb-1">
+                <div className="text-[10px]  text-stone mb-1">
                   Последняя оценка
                 </div>
                 <div className="text-sm text-graphite font-medium">
@@ -222,7 +222,7 @@ export default function UserCard360({
 function Field({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-widest text-stone mb-1">{label}</div>
+      <div className="text-[10px]  text-stone mb-1">{label}</div>
       <div className={value ? 'text-graphite' : 'text-ash italic'}>{value ?? '—'}</div>
     </div>
   );

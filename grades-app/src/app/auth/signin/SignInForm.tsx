@@ -105,7 +105,7 @@ export default function SignInForm({
       {/* Dev mode helper */}
       {isDev && devUsers.length > 0 && (
         <details className="card group">
-          <summary className="cursor-pointer px-5 py-3.5 text-[11px] uppercase tracking-widest text-stone hover:bg-canvas/60 rounded-card transition-colors flex items-center justify-between">
+          <summary className="cursor-pointer px-5 py-3.5 text-[11px]  text-stone hover:bg-canvas/60 rounded-card transition-colors flex items-center justify-between">
             <span>Dev mode · быстрый вход</span>
             <ChevronDownIcon className="w-3.5 h-3.5 text-ash transition-transform group-open:rotate-180" />
           </summary>
@@ -116,7 +116,7 @@ export default function SignInForm({
             <div className="space-y-1 max-h-80 overflow-y-auto -mx-1">
               {Object.entries(grouped).map(([role, users]) => (
                 <div key={role}>
-                  <div className="text-[11px] uppercase tracking-widest text-stone py-1.5 px-2">
+                  <div className="text-[11px]  text-stone py-1.5 px-2">
                     {ROLE_LABEL[role] ?? role}
                   </div>
                   {users.map((u) => (

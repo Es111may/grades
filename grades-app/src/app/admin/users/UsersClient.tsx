@@ -285,15 +285,15 @@ export default function UsersClient({
               {['Имя', 'Роль', 'Билд', 'Отдел', 'Лид', 'Найм'].map((h) => (
                 <th
                   key={h}
-                  className="text-left py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone"
+                  className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone"
                 >
                   {h}
                 </th>
               ))}
-              <th className="text-center py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+              <th className="text-center py-2.5 px-4 font-medium text-[11px]  text-stone">
                 Floor
               </th>
-              <th className="text-center py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+              <th className="text-center py-2.5 px-4 font-medium text-[11px]  text-stone">
                 Активен
               </th>
             </tr>
@@ -321,7 +321,7 @@ export default function UsersClient({
                 <td className="py-3 px-4 text-stone">{ROLE_LABELS[u.role] ?? u.role}</td>
                 <td className="py-3 px-4">
                   {u.build ? (
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-canvas text-xs">
+                    <span className="chip-build">
                       <span
                         className="w-1.5 h-1.5 rounded-full"
                         style={{

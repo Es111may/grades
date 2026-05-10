@@ -144,7 +144,7 @@ function GradeRow({
         <div className="grid grid-cols-3 gap-4">
           {builds.map((b) => (
             <div key={b.id}>
-              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-stone mb-1">
+              <div className="flex items-center gap-1.5 text-[11px]  text-stone mb-1">
                 <span
                   className="w-1.5 h-1.5 rounded-full"
                   style={{ background: buildColor(b.code) }}
@@ -161,7 +161,7 @@ function GradeRow({
                              border-b border-cloud focus:border-sky focus:outline-none
                              transition-colors"
                 />
-                <span className="text-[11px] uppercase tracking-widest text-stone">XP</span>
+                <span className="text-[11px]  text-stone">XP</span>
               </div>
             </div>
           ))}
@@ -179,7 +179,7 @@ function GradeRow({
 
       {/* Gates editor */}
       <div className="mt-5 pt-5 border-t border-cloud">
-        <div className="text-xs uppercase tracking-widest text-stone mb-3">
+        <div className="text-xs  text-stone mb-3">
           Обязательные навыки (гейты)
         </div>
         <div className="grid grid-cols-3 gap-6">
@@ -272,7 +272,7 @@ function GatesColumn({
 
   return (
     <div>
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-stone mb-3">
+      <div className="flex items-center gap-1.5 text-[11px]  text-stone mb-3">
         <span
           className="w-1.5 h-1.5 rounded-full"
           style={{ background: buildColor(build.code) }}

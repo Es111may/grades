@@ -36,13 +36,14 @@ export default async function LeadPortraitPage({
 
   if (result.kind === 'no_assessment') {
     return (
-      <main className="max-w-[1000px] mx-auto px-8 pt-8 pb-16">
-        <Link
-          href="/admin/users"
-          className="text-sm text-stone hover:text-ink mb-5 inline-block transition-colors"
-        >
-          ← к списку
-        </Link>
+      <main className="max-w-[1400px] mx-auto px-8 pt-8 pb-16">
+        <div className="text-xs text-stone mb-3">
+          <Link href="/admin/users" className="hover:text-ink transition-colors">
+            Команда
+          </Link>
+          <span className="text-ash mx-1.5">/</span>
+          <span>{result.designer.fullName}</span>
+        </div>
         <div className="mb-8">
           <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
             {result.designer.fullName}
@@ -61,7 +62,7 @@ export default async function LeadPortraitPage({
         </div>
         {result.designer.gradeFloor && (
           <div className="bg-lime-light/60 border border-lime/30 rounded-card p-5 mt-5">
-            <div className="text-[11px] uppercase tracking-widest text-graphite mb-1.5">
+            <div className="text-[11px]  text-graphite mb-1.5">
               Зафиксированный грейд
             </div>
             <p className="text-sm text-graphite leading-relaxed">
@@ -90,7 +91,10 @@ export default async function LeadPortraitPage({
         publishedAssessmentId={result.data.assessmentId}
         hasDraft={!!draft}
       />
-      <Portrait data={result.data} />
+      <Portrait
+        data={result.data}
+        breadcrumb={{ href: '/admin/users', label: 'Команда' }}
+      />
     </>
   );
 }
