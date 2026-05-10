@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import Avatar from '@/components/Avatar';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -27,7 +28,40 @@ type UserData = {
   active: boolean;
   gradeFloor: string | null;
   gradeFloorReason: string | null;
+  avatarUrl?: string | null;
 };
+
+/**
+ * Читает файл, обрезает до квадрата (центр), масштабирует до 256×256
+ * и возвращает data URL JPEG. Это держит размер в БД ~10–25 KB.
+ */
+async function fileToResizedDataUrl(file: File, max = 256): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const minSide = Math.min(img.width, img.height);
+        const sx = (img.width - minSide) / 2;
+        const sy = (img.height - minSide) / 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = max;
+        canvas.height = max;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas не поддерживается'));
+          return;
+        }
+        ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, max, max);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => reject(new Error('Не удалось прочитать изображение'));
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 const GRADE_OPTIONS = [
   { value: '', label: 'Не задан' },
@@ -82,6 +116,36 @@ export default function UserModal({
   const [floorEnabled, setFloorEnabled] = useState(!!user?.gradeFloor);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Можно загружать только изображения');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Слишком большой файл (>10 MB)');
+      return;
+    }
+    setAvatarBusy(true);
+    try {
+      const dataUrl = await fileToResizedDataUrl(file);
+      setAvatarUrl(dataUrl);
+    } catch (err) {
+      alert(`Не удалось обработать: ${(err as Error).message}`);
+    } finally {
+      setAvatarBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  function handleAvatarRemove() {
+    setAvatarUrl(null);
+  }
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState('');
   const [confirmLower, setConfirmLower] = useState(false);
@@ -175,6 +239,7 @@ export default function UserModal({
       gradeFloor: floorEnabled && form.gradeFloor ? form.gradeFloor : null,
       gradeFloorReason:
         floorEnabled && form.gradeFloor ? form.gradeFloorReason || null : null,
+      avatarUrl,
     };
 
     const url = isNew ? '/api/users' : `/api/users/${user!.id}`;
@@ -266,6 +331,47 @@ export default function UserModal({
               {typeof error === 'string' ? error : JSON.stringify(error)}
             </div>
           )}
+
+          {/* Аватар */}
+          <section>
+            <div className="text-xs uppercase tracking-widest text-stone mb-3">
+              Аватар
+            </div>
+            <div className="flex items-center gap-4">
+              <Avatar name={form.fullName || '?'} avatarUrl={avatarUrl} size={64} />
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={avatarBusy}
+                    className="btn-secondary btn-sm"
+                  >
+                    {avatarBusy ? 'Обработка…' : avatarUrl ? 'Заменить' : 'Загрузить'}
+                  </button>
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={handleAvatarRemove}
+                      className="btn-ghost-danger btn-sm"
+                    >
+                      Удалить
+                    </button>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarPick}
+                    className="hidden"
+                  />
+                </div>
+                <div className="text-xs text-stone leading-relaxed">
+                  Изображение обрезается по центру до квадрата и сжимается до 256×256.
+                </div>
+              </div>
+            </div>
+          </section>
 
           {/* Basic fields */}
           <section>
@@ -688,7 +794,7 @@ export default function UserModal({
                     </button>
                   </div>
                 ) : (
-                  <button onClick={handleDelete} className="btn-secondary btn-sm hover:!text-blaze hover:!border-blaze/30">
+                  <button onClick={handleDelete} className="btn-ghost-danger btn-sm">
                     Деактивировать
                   </button>
                 )}

@@ -5,6 +5,7 @@ import UserModal from './UserModal';
 import KanbanView from './KanbanView';
 import MatrixView from './MatrixView';
 import UserCard360 from './UserCard360';
+import Avatar from '@/components/Avatar';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -24,6 +25,7 @@ export type UserRow = {
   active: boolean;
   gradeFloor: string | null;
   gradeFloorReason: string | null;
+  avatarUrl?: string | null;
   effectiveGrade?: string | null;
   lastAssessedAt?: string | null;
 };
@@ -307,9 +309,7 @@ export default function UsersClient({
               >
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-pill bg-cloud flex items-center justify-center text-[11px] font-semibold tracking-tight shrink-0">
-                      {initials(u.fullName)}
-                    </div>
+                    <Avatar name={u.fullName} avatarUrl={u.avatarUrl} size={32} />
                     <div className="min-w-0">
                       <div className="font-medium leading-tight">{u.fullName}</div>
                       <div className="text-xs text-stone leading-tight mt-0.5">

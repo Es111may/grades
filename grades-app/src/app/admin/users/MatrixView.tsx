@@ -13,6 +13,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import Avatar from '@/components/Avatar';
 
 type Build = { id: number; code: string; name: string };
 type UserRow = {
@@ -21,6 +22,7 @@ type UserRow = {
   role: string;
   build: Build | null;
   active: boolean;
+  avatarUrl?: string | null;
 };
 
 type Level = 'low' | 'mid' | 'high';
@@ -57,15 +59,6 @@ const parseCellId = (id: string): { potential: Level; performance: Level } | nul
   return { potential: m[1] as Level, performance: m[2] as Level };
 };
 
-function initials(name: string) {
-  return name
-    .split(' ')
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
@@ -76,9 +69,7 @@ function UserCard({ user, ghosting = false }: { user: UserRow; ghosting?: boolea
         ghosting ? 'opacity-30' : ''
       }`}
     >
-      <div className="w-6 h-6 rounded-pill bg-cloud flex items-center justify-center text-[10px] font-semibold tracking-tight shrink-0">
-        {initials(user.fullName)}
-      </div>
+      <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={24} />
       <span className="text-xs font-medium leading-tight truncate flex-1">{user.fullName}</span>
       {user.build && (
         <span

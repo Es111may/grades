@@ -44,13 +44,18 @@
     @apply btn bg-lime text-ink border border-lime hover:brightness-95 active:scale-[0.98];
   }
   .btn-secondary {
-    @apply btn bg-snow text-ink border border-cloud hover:border-ash hover:bg-canvas active:scale-[0.98];
+    @apply btn bg-snow text-ink border border-transparent hover:border-ash hover:bg-canvas active:scale-[0.98];
   }
   .btn-ghost {
     @apply btn bg-transparent text-stone hover:text-ink hover:bg-cloud/40;
   }
   .btn-danger {
     @apply btn bg-blaze text-snow hover:brightness-95 active:scale-[0.98];
+  }
+  /* Ghost для деструктивных действий (удалить, деактивировать). Текст красный
+     всегда (включая hover), фон при hover — светло-красный, не серый. */
+  .btn-ghost-danger {
+    @apply btn bg-transparent text-blaze hover:bg-blaze/10 active:scale-[0.98];
   }
   .btn-sm {
     @apply px-3 py-1.5 text-xs;

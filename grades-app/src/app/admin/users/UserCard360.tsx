@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Avatar from '@/components/Avatar';
 import type { UserRow } from './UsersClient';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -25,15 +26,6 @@ const GRADE_NAMES: Record<string, string> = {
   middle_plus: 'Мидл+',
   senior: 'Синьор',
 };
-
-function initials(name: string) {
-  return name
-    .split(' ')
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
@@ -112,9 +104,7 @@ export default function UserCard360({
         {/* Header */}
         <div className="px-7 pt-6 pb-5 border-b border-cloud">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-pill bg-cloud flex items-center justify-center text-base font-semibold tracking-tight shrink-0">
-              {initials(user.fullName)}
-            </div>
+            <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={56} />
             <div className="flex-1 min-w-0">
               <h2 className="font-display text-2xl font-semibold tracking-tight leading-tight truncate">
                 {user.fullName}
@@ -201,7 +191,7 @@ export default function UserCard360({
         {/* Кнопки — равной ширины по всей ширине поп-апа */}
         <div className="px-7 py-4 border-t border-cloud flex items-stretch gap-2">
           {canDeactivate && (
-            <button onClick={handleDeactivate} className="btn-ghost text-blaze flex-1">
+            <button onClick={handleDeactivate} className="btn-ghost-danger flex-1">
               Деактивировать
             </button>
           )}

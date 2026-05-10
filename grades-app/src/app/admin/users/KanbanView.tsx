@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Avatar from '@/components/Avatar';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -17,6 +18,7 @@ type UserRow = {
   active: boolean;
   effectiveGrade?: string | null;
   gradeFloor: string | null;
+  avatarUrl?: string | null;
 };
 
 type GroupBy = 'department' | 'lead' | 'grade';
@@ -229,9 +231,7 @@ export default function KanbanView({
                   style={{ cursor: canDrop ? 'grab' : 'pointer' }}
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-pill bg-cloud flex items-center justify-center text-[10px] font-semibold tracking-tight shrink-0">
-                      {initials(u.fullName)}
-                    </div>
+                    <Avatar name={u.fullName} avatarUrl={u.avatarUrl} size={28} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate leading-tight">
                         {u.fullName}

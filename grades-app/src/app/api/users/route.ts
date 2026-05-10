@@ -21,6 +21,8 @@ const createUserSchema = z.object({
   active: z.boolean().optional(),
   gradeFloor: z.string().nullable().optional(),
   gradeFloorReason: z.string().nullable().optional(),
+  // Аватар как data URL — ресайзим на клиенте до 256×256, ограничение ~200KB.
+  avatarUrl: z.string().max(300_000).nullable().optional(),
 });
 
 export async function GET() {
@@ -83,6 +85,7 @@ export async function POST(req: NextRequest) {
       active: data.active ?? true,
       gradeFloor: data.gradeFloor ?? null,
       gradeFloorReason: data.gradeFloorReason ?? null,
+      avatarUrl: data.avatarUrl ?? null,
     },
     include: {
       build: true,

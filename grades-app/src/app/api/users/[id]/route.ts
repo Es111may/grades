@@ -18,6 +18,7 @@ const updateUserSchema = z.object({
   active: z.boolean().optional(),
   gradeFloor: z.string().nullable().optional(),
   gradeFloorReason: z.string().nullable().optional(),
+  avatarUrl: z.string().max(300_000).nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -108,6 +109,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(data.gradeFloorReason !== undefined && {
         gradeFloorReason: data.gradeFloorReason,
       }),
+      ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
     },
     include: {
       build: true,

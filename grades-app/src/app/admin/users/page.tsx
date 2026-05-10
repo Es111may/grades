@@ -82,6 +82,7 @@ export default async function AdminUsersPage() {
       active: u.active,
       gradeFloor: u.gradeFloor,
       gradeFloorReason: u.gradeFloorReason,
+      avatarUrl: u.avatarUrl,
       effectiveGrade: last?.grade ?? null,
       lastAssessedAt: last?.publishedAt ?? null,
     };

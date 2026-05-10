@@ -188,6 +188,8 @@ model User {
   ssoId        String? @unique
   passwordHash String? // bcrypt hash; null = пароль ещё не задан админом
   role         String  // "admin" | "lead" | "stardiz" | "designer"
+  // Аватар — data URL (data:image/jpeg;base64,...). Ресайзим на клиенте до 256×256.
+  avatarUrl    String? @db.Text
 
   buildId    Int?
   build      Build?    @relation(fields: [buildId], references: [id])
