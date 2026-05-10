@@ -181,6 +181,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
           if (reassignTo === userId) {
             throw new Error('REASSIGN_SELF');
           }
+          // Стардиз сам грейдируется как дизайнер — удаляем его собственные
+          // оценки (assessmentsAsDesigner). Для лида тоже — мало ли он
+          // когда-то был дизайнером и имеет старые оценки на себя.
+          await tx.assessment.deleteMany({ where: { designerId: userId } });
           // Переносим всё, что у лида/стардиза «как у автора».
           await tx.user.updateMany({
             where: { leadId: userId },
