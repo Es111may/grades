@@ -6,6 +6,7 @@ import KanbanView from './KanbanView';
 import MatrixView from './MatrixView';
 import UserCard360 from './UserCard360';
 import LeaderboardView from './LeaderboardView';
+import PasswordResetModal, { type ResetEntry } from './PasswordResetModal';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -76,6 +77,8 @@ export default function UsersClient({
   const [isNew, setIsNew] = useState(false);
   const [view, setView] = useState<ViewMode>('leaderboard');
   const [card360User, setCard360User] = useState<UserRow | null>(null);
+  const [resetEntries, setResetEntries] = useState<ResetEntry[] | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   // Свитчер «Все/Мои» виден только админу и лиду. Стардиз и так видит
   // только своих (фильтр на сервере), дизайнеры сюда не попадают.
@@ -139,6 +142,28 @@ export default function UsersClient({
     openEdit(user);
   }
 
+  async function handleResetTeamPasswords() {
+    if (
+      !confirm(
+        'Сгенерировать новые пароли для всей команды (кроме админа)? Текущие пароли перестанут работать.',
+      )
+    )
+      return;
+    setResetting(true);
+    try {
+      const res = await fetch('/api/admin/reset-team-passwords', { method: 'POST' });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        alert(`Ошибка: ${j.error ?? 'не удалось'}`);
+        return;
+      }
+      const data = await res.json();
+      setResetEntries(data.users);
+    } finally {
+      setResetting(false);
+    }
+  }
+
   async function handleToggleActive(user: UserRow) {
     const res = await fetch(`/api/users/${user.id}`, {
       method: 'PATCH',
@@ -173,11 +198,22 @@ export default function UsersClient({
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="flex items-end justify-between mb-6 gap-4">
         <h1 className="font-display text-4xl font-semibold tracking-tight">Команда</h1>
-        {(meRole === 'admin' || meRole === 'lead') && (
-          <button onClick={openNew} className="btn-accent">
-            Добавить пользователя
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {meRole === 'admin' && (
+            <button
+              onClick={handleResetTeamPasswords}
+              disabled={resetting}
+              className="btn-secondary"
+            >
+              {resetting ? 'Генерирую…' : 'Сбросить пароли команды'}
+            </button>
+          )}
+          {(meRole === 'admin' || meRole === 'lead') && (
+            <button onClick={openNew} className="btn-accent">
+              Добавить пользователя
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Объединённый тулбар: scope + роль + view + поиск */}
@@ -291,6 +327,13 @@ export default function UsersClient({
           onClose={() => setModalOpen(false)}
           onSaved={handleSaved}
           onDeleted={handleDeleted}
+        />
+      )}
+
+      {resetEntries && (
+        <PasswordResetModal
+          entries={resetEntries}
+          onClose={() => setResetEntries(null)}
         />
       )}
 
