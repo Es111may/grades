@@ -8,7 +8,7 @@ import UserCard360 from './UserCard360';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
-type UserRow = {
+export type UserRow = {
   id: number;
   email: string;
   fullName: string;
@@ -244,15 +244,13 @@ export default function UsersClient({
         </div>
 
         <div className="segmented">
-          {(
-            [
-              ['table', 'Таблица'],
-              ['kanban-dept', 'Отделы'],
-              ['kanban-lead', 'Лиды'],
-              ['kanban-grade', 'Уровни'],
-              ...(showMatrixTab ? ([['matrix', '9-Box']] as Array<[ViewMode, string]>) : []),
-            ] as Array<[ViewMode, string]>
-          ).map(([key, label]) => (
+          {([
+            ['table', 'Таблица'],
+            ['kanban-dept', 'Отделы'],
+            ['kanban-lead', 'Лиды'],
+            ['kanban-grade', 'Уровни'],
+            ...(showMatrixTab ? [['matrix', '9-Box']] : []),
+          ] as Array<[ViewMode, string]>).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setView(key)}

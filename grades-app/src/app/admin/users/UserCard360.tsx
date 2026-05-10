@@ -1,27 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-
-type Build = { id: number; code: string; name: string };
-type Lead = { id: number; fullName: string };
-
-export type UserCardData = {
-  id: number;
-  email: string;
-  fullName: string;
-  role: string;
-  build: Build | null;
-  department: string | null;
-  leadId: number | null;
-  lead: Lead | null;
-  stardizId: number | null;
-  stardiz: Lead | null;
-  hiredAt: string | null;
-  active: boolean;
-  gradeFloor: string | null;
-  effectiveGrade?: string | null;
-  lastAssessedAt?: string | null;
-};
+import type { UserRow } from './UsersClient';
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Админ',
@@ -75,11 +55,11 @@ export default function UserCard360({
   onEdit,
   onDeactivated,
 }: {
-  user: UserCardData;
+  user: UserRow;
   meId: number | null;
   meRole: string;
   onClose: () => void;
-  onEdit: (user: UserCardData) => void;
+  onEdit: (user: UserRow) => void;
   onDeactivated: (id: number) => void;
 }) {
   // Закрытие по Escape
