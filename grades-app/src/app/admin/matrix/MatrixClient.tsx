@@ -351,7 +351,11 @@ function SkillRow({
           <button
             onClick={onToggleActive}
             disabled={isSaving}
-            className="btn-ghost btn-sm ml-1 hover:!text-blaze"
+            className={
+              skill.active
+                ? 'btn-ghost-danger btn-sm ml-1'
+                : 'btn-ghost btn-sm ml-1'
+            }
             title={skill.active ? 'Архивировать' : 'Восстановить'}
           >
             {skill.active ? 'В архив' : 'Вернуть'}

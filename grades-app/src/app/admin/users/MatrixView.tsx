@@ -14,6 +14,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import Avatar from '@/components/Avatar';
+import { ChevronDownIcon } from '@/components/icons';
 
 type Build = { id: number; code: string; name: string };
 type UserRow = {
@@ -174,13 +175,11 @@ function AboutAccordion() {
         className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-canvas/60 transition-colors"
       >
         <span className="text-sm font-semibold text-ink">О матрице 9-Box</span>
-        <span
-          className={`text-stone text-xs transition-transform duration-200 ${
+        <ChevronDownIcon
+          className={`w-4 h-4 text-stone transition-transform duration-200 ${
             open ? 'rotate-180' : ''
           }`}
-        >
-          ▾
-        </span>
+        />
       </button>
       {open && (
         <div className="px-5 pb-5 pt-1 text-sm text-graphite leading-relaxed space-y-4 border-t border-cloud">

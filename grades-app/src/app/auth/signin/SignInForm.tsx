@@ -2,6 +2,7 @@
 
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
+import { ChevronDownIcon } from '@/components/icons';
 
 type DevUser = {
   email: string;
@@ -106,9 +107,7 @@ export default function SignInForm({
         <details className="card group">
           <summary className="cursor-pointer px-5 py-3.5 text-[11px] uppercase tracking-widest text-stone hover:bg-canvas/60 rounded-card transition-colors flex items-center justify-between">
             <span>Dev mode · быстрый вход</span>
-            <span className="text-ash text-[10px] transition-transform group-open:rotate-180">
-              ▾
-            </span>
+            <ChevronDownIcon className="w-3.5 h-3.5 text-ash transition-transform group-open:rotate-180" />
           </summary>
           <div className="px-5 pb-4 -mt-1">
             <p className="text-xs text-stone mb-3">

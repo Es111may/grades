@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Avatar from '@/components/Avatar';
+import { EditIcon } from '@/components/icons';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -318,10 +319,14 @@ export default function UserModal({
             >
               <Avatar name={form.fullName || '?'} avatarUrl={avatarUrl} size={48} />
               <span
-                className="absolute inset-0 rounded-pill bg-ink/60 text-snow text-[9px] font-medium uppercase tracking-widest flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute inset-0 rounded-pill bg-ink/60 text-snow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 aria-hidden
               >
-                {avatarBusy ? '…' : avatarUrl ? 'Заменить' : 'Загрузить'}
+                {avatarBusy ? (
+                  <span className="text-xs">…</span>
+                ) : (
+                  <EditIcon className="w-4 h-4" />
+                )}
               </span>
             </button>
             {avatarUrl && (

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SkillCombobox from './SkillCombobox';
+import { PlusIcon } from '@/components/icons';
 
 type Build = { id: number; code: string; name: string };
 type Gate = {
@@ -337,10 +338,10 @@ function GatesColumn({
         <button
           onClick={addGate}
           disabled={adding || !newSkillId}
-          className="btn-accent btn-sm w-8 h-8 p-0 text-base"
+          className="btn-accent btn-sm w-8 h-8 p-0 flex items-center justify-center"
           title="Добавить гейт"
         >
-          {adding ? '…' : '+'}
+          {adding ? '…' : <PlusIcon className="w-4 h-4" />}
         </button>
       </div>
     </div>

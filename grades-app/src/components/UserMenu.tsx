@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { signOut } from 'next-auth/react';
+import { ChevronDownIcon } from './icons';
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Админ',
@@ -45,21 +46,11 @@ export default function UserMenu({
           <span className="block font-medium text-ink">{fullName}</span>
           <span className="block text-[11px] text-stone">{ROLE_LABEL[role] ?? role}</span>
         </span>
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 12 12"
-          className={`text-stone transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
-          fill="none"
-        >
-          <path
-            d="M3 4.5L6 7.5L9 4.5"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <ChevronDownIcon
+          className={`w-3.5 h-3.5 text-stone transition-transform duration-150 ${
+            open ? 'rotate-180' : ''
+          }`}
+        />
       </button>
 
       {open && (
