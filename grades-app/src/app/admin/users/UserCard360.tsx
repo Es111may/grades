@@ -103,7 +103,7 @@ export default function UserCard360({
       <div className="relative w-full max-w-xl bg-snow rounded-modal shadow-soft-lg overflow-hidden">
         {/* Header */}
         <div className="px-7 pt-6 pb-5 border-b border-cloud">
-          <div className="flex items-start gap-4">
+          <div className="flex items-center gap-4">
             <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={56} />
             <div className="flex-1 min-w-0">
               <h2 className="font-display text-2xl font-semibold tracking-tight leading-tight truncate">

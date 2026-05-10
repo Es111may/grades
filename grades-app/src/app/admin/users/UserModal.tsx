@@ -306,8 +306,44 @@ export default function UserModal({
       />
       <div className="relative w-full max-w-2xl overflow-y-auto max-h-[calc(100vh-80px)] bg-snow rounded-modal shadow-soft-lg">
         {/* Header */}
-        <div className="sticky top-0 px-7 py-4 flex items-center justify-between rounded-t-modal border-b border-cloud z-10 bg-snow/95 backdrop-blur-md">
-          <div className="min-w-0">
+        <div className="sticky top-0 px-7 py-4 flex items-center gap-4 rounded-t-modal border-b border-cloud z-10 bg-snow/95 backdrop-blur-md">
+          {/* Аватар: hover → overlay «Загрузить/Заменить», в углу — X для удаления */}
+          <div className="relative group shrink-0">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarBusy}
+              aria-label={avatarUrl ? 'Заменить аватар' : 'Загрузить аватар'}
+              className="block rounded-pill"
+            >
+              <Avatar name={form.fullName || '?'} avatarUrl={avatarUrl} size={48} />
+              <span
+                className="absolute inset-0 rounded-pill bg-ink/60 text-snow text-[9px] font-medium uppercase tracking-widest flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-hidden
+              >
+                {avatarBusy ? '…' : avatarUrl ? 'Заменить' : 'Загрузить'}
+              </span>
+            </button>
+            {avatarUrl && (
+              <button
+                type="button"
+                onClick={handleAvatarRemove}
+                aria-label="Удалить аватар"
+                className="absolute -top-1 -right-1 w-5 h-5 rounded-pill bg-snow border border-cloud text-stone hover:text-blaze hover:border-blaze/40 shadow-soft flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                ✕
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarPick}
+              className="hidden"
+            />
+          </div>
+
+          <div className="min-w-0 flex-1">
             <div className="text-[11px] uppercase tracking-widest text-stone mb-0.5">
               {isNew ? 'Новый пользователь' : roleLabel}
             </div>
@@ -331,47 +367,6 @@ export default function UserModal({
               {typeof error === 'string' ? error : JSON.stringify(error)}
             </div>
           )}
-
-          {/* Аватар */}
-          <section>
-            <div className="text-xs uppercase tracking-widest text-stone mb-3">
-              Аватар
-            </div>
-            <div className="flex items-center gap-4">
-              <Avatar name={form.fullName || '?'} avatarUrl={avatarUrl} size={64} />
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={avatarBusy}
-                    className="btn-secondary btn-sm"
-                  >
-                    {avatarBusy ? 'Обработка…' : avatarUrl ? 'Заменить' : 'Загрузить'}
-                  </button>
-                  {avatarUrl && (
-                    <button
-                      type="button"
-                      onClick={handleAvatarRemove}
-                      className="btn-ghost-danger btn-sm"
-                    >
-                      Удалить
-                    </button>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarPick}
-                    className="hidden"
-                  />
-                </div>
-                <div className="text-xs text-stone leading-relaxed">
-                  Изображение обрезается по центру до квадрата и сжимается до 256×256.
-                </div>
-              </div>
-            </div>
-          </section>
 
           {/* Basic fields */}
           <section>

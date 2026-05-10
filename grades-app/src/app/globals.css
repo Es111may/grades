@@ -44,7 +44,7 @@
     @apply btn bg-lime text-ink border border-lime hover:brightness-95 active:scale-[0.98];
   }
   .btn-secondary {
-    @apply btn bg-snow text-ink border border-transparent hover:border-ash hover:bg-canvas active:scale-[0.98];
+    @apply btn bg-snow text-ink border border-transparent hover:bg-canvas active:scale-[0.98];
   }
   .btn-ghost {
     @apply btn bg-transparent text-stone hover:text-ink hover:bg-cloud/40;
