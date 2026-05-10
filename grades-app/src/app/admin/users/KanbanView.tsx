@@ -183,25 +183,7 @@ export default function KanbanView({
 
   return (
     <div>
-      {/* Scroll arrows — для Windows-пользователей без trackpad-жестов */}
-      <div className="flex items-center justify-end gap-1.5 mb-2">
-        <button
-          onClick={() => scrollBy(-340)}
-          aria-label="Прокрутить влево"
-          className="w-8 h-8 rounded-pill border border-cloud bg-snow text-stone hover:text-ink hover:border-ash flex items-center justify-center transition-colors"
-        >
-          ‹
-        </button>
-        <button
-          onClick={() => scrollBy(340)}
-          aria-label="Прокрутить вправо"
-          className="w-8 h-8 rounded-pill border border-cloud bg-snow text-stone hover:text-ink hover:border-ash flex items-center justify-center transition-colors"
-        >
-          ›
-        </button>
-      </div>
-
-      <div ref={scrollRef} className="overflow-x-auto pb-4 -mx-2 px-2 scroll-smooth">
+      <div ref={scrollRef} className="overflow-x-auto pb-2 -mx-2 px-2 scroll-smooth">
         <div className="flex gap-3 min-w-max">
         {columns.map((col) => (
           <div
@@ -261,7 +243,7 @@ export default function KanbanView({
                           {ROLE_LABEL[u.role] ?? u.role}
                         </span>
                         {u.build && (
-                          <span className="flex items-center gap-1 text-stone">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-pill border border-cloud bg-snow text-stone">
                             <span
                               className="w-1.5 h-1.5 rounded-full"
                               style={{ background: buildColor(u.build.code) }}
@@ -282,11 +264,33 @@ export default function KanbanView({
         ))}
         </div>
       </div>
-      {!canDrop && (
-        <div className="text-xs text-ash italic mt-3 px-2">
-          В этом виде drag-and-drop отключён — грейды не меняются вручную.
+
+      {/* Scroll arrows под доской — для Windows-пользователей без trackpad-жестов */}
+      <div className="flex items-center justify-between gap-3 mt-3 px-2">
+        {!canDrop ? (
+          <div className="text-xs text-ash italic">
+            В этом виде drag-and-drop отключён — грейды не меняются вручную.
+          </div>
+        ) : (
+          <span />
+        )}
+        <div className="flex items-center gap-1.5 ml-auto">
+          <button
+            onClick={() => scrollBy(-340)}
+            aria-label="Прокрутить влево"
+            className="w-8 h-8 rounded-pill border border-cloud bg-snow text-stone hover:text-ink hover:border-ash flex items-center justify-center transition-colors"
+          >
+            ‹
+          </button>
+          <button
+            onClick={() => scrollBy(340)}
+            aria-label="Прокрутить вправо"
+            className="w-8 h-8 rounded-pill border border-cloud bg-snow text-stone hover:text-ink hover:border-ash flex items-center justify-center transition-colors"
+          >
+            ›
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
