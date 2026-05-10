@@ -4,15 +4,22 @@
  * Используются в layout-ах и server actions/route handlers.
  */
 
+import { cache } from 'react';
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from './auth';
 import type { UserRole } from './types';
 
-export async function getCurrentUser() {
+/**
+ * React.cache() дедуплицирует вызов в рамках одного render-tree:
+ * layout → requireRole → getCurrentUser → getServerSession (один вызов)
+ * + page → getCurrentUser (использует тот же кеш)
+ * — JWT декодируется один раз, а не два.
+ */
+export const getCurrentUser = cache(async () => {
   const session = await getServerSession(authOptions);
   return session?.user ?? null;
-}
+});
 
 /**
  * Гарантирует, что пользователь авторизован. Иначе → редирект на signin.

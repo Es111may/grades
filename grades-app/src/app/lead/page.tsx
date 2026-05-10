@@ -34,6 +34,7 @@ export default async function LeadDashboard() {
       assessmentsAsDesigner: {
         where: { status: { in: ['draft', 'published'] } },
         orderBy: [{ status: 'asc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }],
+        take: 2, // нужны только 1 draft + 1 latest published
       },
     },
     orderBy: { fullName: 'asc' },
