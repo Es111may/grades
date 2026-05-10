@@ -23,6 +23,15 @@ export function canManageUsers(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'lead';
 }
 
+/**
+ * Может ли заходить на /admin/users (просмотр канбана/матрицы/popup-карточек)?
+ * Phase 10: stardiz получает доступ к списку пользователей, но видит только
+ * своих подопечных (фильтр на сервере).
+ */
+export function canAccessUsers(role: UserRole | undefined): boolean {
+  return role === 'admin' || role === 'lead' || role === 'stardiz';
+}
+
 /** Может ли назначать кому-то роль admin? Только сам admin. */
 export function canAssignAdminRole(role: UserRole | undefined): boolean {
   return role === 'admin';

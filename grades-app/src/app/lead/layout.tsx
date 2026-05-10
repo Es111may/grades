@@ -6,18 +6,18 @@ import AppHeader from '@/components/AppHeader';
 export default async function LeadLayout({ children }: { children: React.ReactNode }) {
   const user = await requireRole(['lead', 'admin', 'stardiz']);
   const isAdminish = user.role === 'admin' || user.role === 'lead';
-  // Lead/admin: видят админский набор плюс «Мои дизайнеры».
-  // Stardiz: только свои подопечные + свой портрет.
+  // Phase 10: «Мои дизайнеры» удалены — заменены фильтром «Все/Мои»
+  // внутри /admin/users. Stardiz получил доступ к /admin/users (видит
+  // только своих подопечных по серверному фильтру).
   const navItems = isAdminish
     ? [
-        { href: '/lead', label: 'Мои дизайнеры' },
         { href: '/admin/users', label: 'Пользователи' },
         { href: '/admin/matrix', label: 'Матрица' },
         { href: '/admin/grades', label: 'Грейды' },
         { href: '/lead/assessments', label: 'Оценки' },
       ]
     : [
-        { href: '/lead', label: 'Мои дизайнеры' },
+        { href: '/admin/users', label: 'Пользователи' },
         { href: '/lead/assessments', label: 'Все оценки' },
       ];
   return (

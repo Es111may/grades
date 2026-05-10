@@ -1,10 +1,16 @@
 export const dynamic = 'force-dynamic';
 
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { ensureTaxonomyNames, ensureGroupNames } from '@/lib/oneTimeMigrations';
+import { getCurrentUser } from '@/lib/session';
+import { canEditMatrix } from '@/lib/permissions';
 import MatrixClient from './MatrixClient';
 
 export default async function AdminMatrixPage() {
+  const me = await getCurrentUser();
+  if (!canEditMatrix(me?.role)) redirect('/admin/users');
+
   await ensureTaxonomyNames();
   await ensureGroupNames();
 

@@ -224,7 +224,7 @@ export default function AssessmentForm({
     if (published) return;
     if (!confirm('Удалить черновик? Все оценки будут потеряны.')) return;
     await fetch(`/api/assessments/${assessmentId}`, { method: 'DELETE' });
-    router.push('/lead');
+    router.push('/admin/users');
   }
 
   // cycle хранится в БД как YYYY-MM, но в UI больше не показываем —
@@ -234,8 +234,8 @@ export default function AssessmentForm({
     <div className="max-w-[1400px] mx-auto px-8 pt-8 pb-16">
       {/* Breadcrumb + header */}
       <div className="text-xs text-stone mb-3">
-        <a href="/lead" className="hover:text-ink transition-colors">
-          Мои дизайнеры
+        <a href="/admin/users" className="hover:text-ink transition-colors">
+          Команда
         </a>
         <span className="text-ash mx-1.5">/</span>
         <span>{designer.fullName}</span>

@@ -17,19 +17,19 @@ export default async function AssessPage({
   if (!user?.id) redirect('/auth/signin');
 
   const designerId = parseInt(searchParams.id ?? '', 10);
-  if (isNaN(designerId)) redirect('/lead');
+  if (isNaN(designerId)) redirect('/admin/users');
 
   const designer = await prisma.user.findUnique({
     where: { id: designerId },
     include: { build: true },
   });
 
-  if (!designer || !designer.build) redirect('/lead');
+  if (!designer || !designer.build) redirect('/admin/users');
 
   const buildCode = designer.build.code as BuildCode;
 
   const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
-  if (!matrix) redirect('/lead');
+  if (!matrix) redirect('/admin/users');
 
   // Логика выбора оценки:
   // 1. Если есть незавершённый draft — открываем его (продолжаем).

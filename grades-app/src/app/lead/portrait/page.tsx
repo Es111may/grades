@@ -19,26 +19,26 @@ export default async function LeadPortraitPage({
   if (!user?.id) redirect('/auth/signin');
 
   const designerId = parseInt(searchParams.id ?? '', 10);
-  if (isNaN(designerId)) redirect('/lead');
+  if (isNaN(designerId)) redirect('/admin/users');
 
   // Permission: admin / designer's lead / designer's stardiz
   const designer = await prisma.user.findUnique({ where: { id: designerId } });
-  if (!designer) redirect('/lead');
+  if (!designer) redirect('/admin/users');
   const canView =
     user.role === 'admin' ||
     designer.leadId === user.id ||
     designer.stardizId === user.id;
-  if (!canView) redirect('/lead');
+  if (!canView) redirect('/admin/users');
 
   const result = await loadPortraitData(designerId);
 
-  if (result.kind === 'not_found') redirect('/lead');
+  if (result.kind === 'not_found') redirect('/admin/users');
 
   if (result.kind === 'no_assessment') {
     return (
       <main className="max-w-[1000px] mx-auto px-8 pt-8 pb-16">
         <Link
-          href="/lead"
+          href="/admin/users"
           className="text-sm text-stone hover:text-ink mb-5 inline-block transition-colors"
         >
           ← к списку

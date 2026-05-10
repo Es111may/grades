@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import UserModal from './UserModal';
 import KanbanView from './KanbanView';
 import MatrixView from './MatrixView';
+import UserCard360 from './UserCard360';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -24,11 +25,13 @@ type UserRow = {
   gradeFloor: string | null;
   gradeFloorReason: string | null;
   effectiveGrade?: string | null;
+  lastAssessedAt?: string | null;
 };
 
 type ViewMode = 'table' | 'kanban-dept' | 'kanban-lead' | 'kanban-grade' | 'matrix';
 
 type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
+type ScopeFilter = 'all' | 'mine';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Админ',
@@ -69,24 +72,38 @@ export default function UsersClient({
   builds,
   leads,
   stardizes,
+  meId,
   meRole,
 }: {
   initialUsers: UserRow[];
   builds: Build[];
   leads: Lead[];
   stardizes: Lead[];
+  meId: number | null;
   meRole: string;
 }) {
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+  // Дефолт scope: лиды видят «Мои» (по PRD §11.2), остальные — «Все».
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>(meRole === 'lead' ? 'mine' : 'all');
   const [search, setSearch] = useState('');
   const [modalUser, setModalUser] = useState<UserRow | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [isNew, setIsNew] = useState(false);
   const [view, setView] = useState<ViewMode>('table');
+  const [card360User, setCard360User] = useState<UserRow | null>(null);
+
+  // Свитчер «Все/Мои» виден только админу и лиду. Стардиз и так видит
+  // только своих (фильтр на сервере), дизайнеры сюда не попадают.
+  const showScopeSwitcher = meRole === 'admin' || meRole === 'lead';
+  // 9-Box доступен только admin/lead (нужны права на drag-n-drop в API).
+  const showMatrixTab = meRole === 'admin' || meRole === 'lead';
 
   const filtered = useMemo(() => {
     let list = users;
+    if (showScopeSwitcher && scopeFilter === 'mine' && meId !== null) {
+      list = list.filter((u) => u.leadId === meId || u.stardizId === meId);
+    }
     if (roleFilter !== 'all') {
       list = list.filter((u) => u.role === roleFilter);
     }
@@ -98,18 +115,24 @@ export default function UsersClient({
       );
     }
     return list;
-  }, [users, roleFilter, search]);
+  }, [users, roleFilter, search, scopeFilter, showScopeSwitcher, meId]);
 
+  // Счётчики ролей считаем с учётом scope (но без поиска и роле-фильтра),
+  // чтобы цифры в чипах были согласованы с тем, что увидит пользователь.
   const counts = useMemo(() => {
-    const c = { all: users.length, designer: 0, stardiz: 0, lead: 0, admin: 0 };
-    users.forEach((u) => {
+    const base =
+      showScopeSwitcher && scopeFilter === 'mine' && meId !== null
+        ? users.filter((u) => u.leadId === meId || u.stardizId === meId)
+        : users;
+    const c = { all: base.length, designer: 0, stardiz: 0, lead: 0, admin: 0 };
+    base.forEach((u) => {
       if (u.role === 'designer') c.designer++;
       else if (u.role === 'stardiz') c.stardiz++;
       else if (u.role === 'lead') c.lead++;
       else if (u.role === 'admin') c.admin++;
     });
     return c;
-  }, [users]);
+  }, [users, scopeFilter, showScopeSwitcher, meId]);
 
   function openNew() {
     setModalUser(null);
@@ -121,6 +144,15 @@ export default function UsersClient({
     setModalUser(user);
     setIsNew(false);
     setModalOpen(true);
+  }
+
+  function open360(user: UserRow) {
+    setCard360User(user);
+  }
+
+  function handleEditFrom360(user: UserRow) {
+    setCard360User(null);
+    openEdit(user);
   }
 
   function handleSaved(saved: UserRow) {
@@ -157,13 +189,31 @@ export default function UsersClient({
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="flex items-end justify-between mb-6 gap-4">
         <h1 className="font-display text-4xl font-semibold tracking-tight">Команда</h1>
-        <button onClick={openNew} className="btn-accent">
-          Добавить пользователя
-        </button>
+        {(meRole === 'admin' || meRole === 'lead') && (
+          <button onClick={openNew} className="btn-accent">
+            Добавить пользователя
+          </button>
+        )}
       </div>
 
-      {/* Объединённый тулбар: роль (segmented) + view (segmented) + поиск + add */}
+      {/* Объединённый тулбар: scope + роль + view + поиск */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
+        {showScopeSwitcher && (
+          <div className="segmented">
+            {(['all', 'mine'] as ScopeFilter[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => setScopeFilter(s)}
+                className={`segmented-item ${
+                  scopeFilter === s ? 'segmented-item-active' : ''
+                }`}
+              >
+                {s === 'all' ? 'Все' : 'Мои'}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="segmented">
           {(['all', 'designer', 'stardiz', 'lead', 'admin'] as RoleFilter[]).map((f) => (
             <button
@@ -200,7 +250,7 @@ export default function UsersClient({
               ['kanban-dept', 'Отделы'],
               ['kanban-lead', 'Лиды'],
               ['kanban-grade', 'Уровни'],
-              ['matrix', '9-Box'],
+              ...(showMatrixTab ? ([['matrix', '9-Box']] as Array<[ViewMode, string]>) : []),
             ] as Array<[ViewMode, string]>
           ).map(([key, label]) => (
             <button
@@ -319,7 +369,7 @@ export default function UsersClient({
                   </button>
                 </td>
                 <td className="py-3 px-4 text-right">
-                  <button onClick={() => openEdit(u)} className="btn-ghost btn-sm">
+                  <button onClick={() => open360(u)} className="btn-ghost btn-sm">
                     Открыть
                   </button>
                 </td>
@@ -346,7 +396,7 @@ export default function UsersClient({
                 ? 'lead'
                 : 'grade'
           }
-          onCardClick={(u) => openEdit(u as UserRow)}
+          onCardClick={(u) => open360(u as UserRow)}
         />
       )}
       {view === 'table' && (
@@ -366,6 +416,22 @@ export default function UsersClient({
           onClose={() => setModalOpen(false)}
           onSaved={handleSaved}
           onDeleted={handleDeleted}
+        />
+      )}
+
+      {card360User && (
+        <UserCard360
+          user={card360User}
+          meId={meId}
+          meRole={meRole}
+          onClose={() => setCard360User(null)}
+          onEdit={handleEditFrom360}
+          onDeactivated={(id) => {
+            setUsers((prev) =>
+              prev.map((u) => (u.id === id ? { ...u, active: false } : u)),
+            );
+            setCard360User(null);
+          }}
         />
       )}
     </main>

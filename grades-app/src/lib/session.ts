@@ -49,11 +49,11 @@ export async function requireRole(allowed: UserRole | UserRole[]) {
 export function getDashboardForRole(role: UserRole | undefined): string {
   switch (role) {
     case 'admin':
-      return '/admin';
+      return '/admin/users';
     case 'lead':
-      return '/lead';
+      return '/admin/users';
     case 'stardiz':
-      return '/lead';
+      return '/admin/users';
     case 'designer':
       return '/designer';
     default:

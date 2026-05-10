@@ -1,10 +1,16 @@
 export const dynamic = 'force-dynamic';
 
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { ensureGradesMigrated, ensureTaxonomyNames } from '@/lib/oneTimeMigrations';
+import { getCurrentUser } from '@/lib/session';
+import { canEditMatrix } from '@/lib/permissions';
 import GradesClient from './GradesClient';
 
 export default async function AdminGradesPage() {
+  const me = await getCurrentUser();
+  if (!canEditMatrix(me?.role)) redirect('/admin/users');
+
   // Идемпотентные миграции — кешируются в памяти после первого вызова.
   await ensureGradesMigrated();
   await ensureTaxonomyNames();
