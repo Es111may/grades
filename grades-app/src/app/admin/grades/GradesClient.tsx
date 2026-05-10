@@ -23,7 +23,7 @@ type Grade = {
 };
 
 const buildColor = (code: string) =>
-  code === 'creator' ? '#d5ff0c' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
+  code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 type Skill = { id: number; name: string; taxonomyCode: string };
 

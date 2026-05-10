@@ -130,7 +130,7 @@ export default async function LeadDashboard() {
                                 style={{
                                   background:
                                     d.buildCode === 'creator'
-                                      ? '#d5ff0c'
+                                      ? '#00ca48'
                                       : d.buildCode === 'visioner'
                                         ? '#7c3aed'
                                         : '#0ea5e9',
