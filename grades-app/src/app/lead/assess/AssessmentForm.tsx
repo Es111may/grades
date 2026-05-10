@@ -28,6 +28,13 @@ type GradeData = {
 };
 
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
+const TAXONOMY_COLOR: Record<string, string> = {
+  UI: '#34c759',  // green
+  UX: '#0ea5e9',  // sky blue
+  PRD: '#ef4444', // red
+  IND: '#7c3aed', // violet
+  RES: '#f59e0b', // amber
+};
 
 export default function AssessmentForm({
   assessmentId,
@@ -250,17 +257,10 @@ export default function AssessmentForm({
             size={64}
           />
           <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <h1 className="font-display text-4xl font-semibold tracking-tight">
-                {designer.fullName}
-              </h1>
-              {published ? (
-                <span className="chip-accent">Опубликовано</span>
-              ) : (
-                <span className="chip-warn">Черновик</span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 text-sm text-stone">
+            <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
+              {designer.fullName}
+            </h1>
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="chip-build">
                 <span
                   className="w-1.5 h-1.5 rounded-full"
@@ -275,8 +275,14 @@ export default function AssessmentForm({
                 />
                 {designer.buildName}
               </span>
-              <span className="text-ash">·</span>
-              <span>{designer.department ?? '—'}</span>
+              {designer.department && (
+                <span className="chip-neutral">{designer.department}</span>
+              )}
+              {published ? (
+                <span className="chip-accent">Опубликовано</span>
+              ) : (
+                <span className="chip-warn">Черновик</span>
+              )}
             </div>
           </div>
         </div>
@@ -289,7 +295,7 @@ export default function AssessmentForm({
             >
               сохранено
             </span>
-            <button onClick={handleDiscard} className="btn-secondary btn-sm">
+            <button onClick={handleDiscard} className="btn-secondary">
               Отменить черновик
             </button>
             <button
@@ -335,8 +341,11 @@ export default function AssessmentForm({
                     </div>
                     <div className="h-1 bg-cloud rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-emerald rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          background: TAXONOMY_COLOR[tax.taxCode] ?? '#34c759',
+                        }}
                       />
                     </div>
                   </a>
@@ -344,7 +353,6 @@ export default function AssessmentForm({
               })}
             </div>
             <hr className="border-cloud my-5" />
-            <hr className="border-cloud my-4" />
             <div className="text-[11px]  text-stone mb-2">
               Заполнено
             </div>
