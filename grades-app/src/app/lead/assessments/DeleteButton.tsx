@@ -35,12 +35,14 @@ export default function DeleteButton({
 
   return (
     <button
-      onClick={handleDelete}
+      onClick={(e) => {
+        e.stopPropagation();
+        handleDelete();
+      }}
       disabled={busy}
-      title="Удалить оценку"
-      className="w-8 h-8 rounded-pill text-ash hover:text-blaze hover:bg-blaze/8 transition-colors disabled:opacity-30 flex items-center justify-center text-sm"
+      className="btn-ghost-danger btn-sm"
     >
-      {busy ? '…' : '✕'}
+      {busy ? 'Удаляю…' : 'Удалить'}
     </button>
   );
 }

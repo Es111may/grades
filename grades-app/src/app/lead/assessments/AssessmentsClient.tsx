@@ -1,0 +1,153 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import Avatar from '@/components/Avatar';
+import DeleteButton from './DeleteButton';
+
+export type AssessmentRow = {
+  id: number;
+  designerId: number;
+  designerName: string;
+  designerEmail: string;
+  designerAvatarUrl: string | null;
+  buildCode: string | null;
+  buildName: string | null;
+  department: string | null;
+  leadName: string | null;
+  publishedAt: string | null;
+  effectiveGrade: string | null;
+  totalXp: number | null;
+};
+
+const GRADE_NAMES: Record<string, string> = {
+  junior: 'Джун',
+  junior_plus: 'Джун+',
+  premiddle: 'Пре-мидл',
+  middle: 'Мидл',
+  middle_plus: 'Мидл+',
+  senior: 'Синьор',
+};
+
+const buildColor = (code: string) =>
+  code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
+
+function formatDate(iso: string | null) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+export default function AssessmentsClient({
+  rows,
+  meRole,
+}: {
+  rows: AssessmentRow[];
+  meRole: string;
+}) {
+  const router = useRouter();
+  const showLead = meRole === 'admin';
+
+  return (
+    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
+      <div className="mb-6">
+        <h1 className="font-display text-4xl font-semibold tracking-tight">Оценки</h1>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="card p-10 text-center">
+          <p className="text-stone">Опубликованных оценок пока нет.</p>
+        </div>
+      ) : (
+        <div className="card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-canvas border-b border-cloud">
+                <th className="text-left py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                  Имя
+                </th>
+                <th className="text-left py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                  Опубликовано
+                </th>
+                <th className="text-left py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                  Билд
+                </th>
+                <th className="text-left py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                  {showLead ? 'Лид' : 'Отдел'}
+                </th>
+                <th className="text-right py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                  Грейд
+                </th>
+                <th className="text-right py-2.5 px-4 font-medium text-[11px] uppercase tracking-widest text-stone">
+                  XP
+                </th>
+                <th className="w-28" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cloud">
+              {rows.map((r) => (
+                <tr
+                  key={r.id}
+                  onClick={() => router.push(`/lead/portrait?id=${r.designerId}`)}
+                  className="hover:bg-canvas/60 transition-colors cursor-pointer"
+                >
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar
+                        name={r.designerName}
+                        avatarUrl={r.designerAvatarUrl}
+                        size={32}
+                      />
+                      <div className="min-w-0">
+                        <div className="font-medium leading-tight">
+                          {r.designerName}
+                        </div>
+                        <div className="text-xs text-stone leading-tight mt-0.5 truncate">
+                          {r.designerEmail}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-stone tabular-nums whitespace-nowrap">
+                    {formatDate(r.publishedAt)}
+                  </td>
+                  <td className="py-3 px-4">
+                    {r.buildCode && r.buildName ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-canvas text-xs font-medium text-stone">
+                        <span
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ background: buildColor(r.buildCode) }}
+                        />
+                        {r.buildName}
+                      </span>
+                    ) : (
+                      <span className="text-ash">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-stone">
+                    {showLead ? r.leadName ?? '—' : r.department ?? '—'}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <span className="font-display text-base font-semibold tracking-tight">
+                      {GRADE_NAMES[r.effectiveGrade ?? 'junior'] ??
+                        r.effectiveGrade ??
+                        '—'}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-right text-stone tabular-nums">
+                    {r.totalXp ?? 0}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <DeleteButton assessmentId={r.id} designerName={r.designerName} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </main>
+  );
+}
