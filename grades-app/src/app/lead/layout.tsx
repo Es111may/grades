@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { requireRole } from '@/lib/session';
 import AppHeader from '@/components/AppHeader';
+import AssessmentReminder from '@/components/AssessmentReminder';
 
 export default async function LeadLayout({ children }: { children: React.ReactNode }) {
   const user = await requireRole(['lead', 'admin', 'stardiz']);
@@ -22,6 +23,7 @@ export default async function LeadLayout({ children }: { children: React.ReactNo
       ];
   return (
     <>
+      <AssessmentReminder />
       <AppHeader
         user={{ id: user.id, fullName: user.name ?? user.email ?? '—', role: user.role }}
         navItems={navItems}

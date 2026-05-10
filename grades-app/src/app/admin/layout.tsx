@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { requireRole } from '@/lib/session';
 import AppHeader from '@/components/AppHeader';
+import AssessmentReminder from '@/components/AssessmentReminder';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Phase 10: stardiz получает доступ к /admin/users — пускаем его
@@ -22,6 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ];
   return (
     <>
+      <AssessmentReminder />
       <AppHeader
         user={{ id: user.id, fullName: user.name ?? user.email ?? '—', role: user.role }}
         navItems={navItems}
