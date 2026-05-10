@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import UserModal from './UserModal';
 import KanbanView from './KanbanView';
+import MatrixView from './MatrixView';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -25,7 +26,7 @@ type UserRow = {
   effectiveGrade?: string | null;
 };
 
-type ViewMode = 'table' | 'kanban-dept' | 'kanban-lead' | 'kanban-grade';
+type ViewMode = 'table' | 'kanban-dept' | 'kanban-lead' | 'kanban-grade' | 'matrix';
 
 type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
 
@@ -163,34 +164,36 @@ export default function UsersClient({
 
       {/* Объединённый тулбар: роль (segmented) + view (segmented) + поиск + add */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <div className="segmented">
-          {(['all', 'designer', 'stardiz', 'lead', 'admin'] as RoleFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setRoleFilter(f)}
-              className={`segmented-item ${
-                roleFilter === f ? 'segmented-item-active' : ''
-              }`}
-            >
-              {f === 'all'
-                ? 'Все'
-                : f === 'designer'
-                  ? 'Дизайнеры'
-                  : f === 'stardiz'
-                    ? 'Стардизы'
-                    : f === 'lead'
-                      ? 'Лиды'
-                      : 'Админы'}
-              <span
-                className={`ml-1.5 ${
-                  roleFilter === f ? 'text-stone' : 'text-ash'
+        {view !== 'matrix' && (
+          <div className="segmented">
+            {(['all', 'designer', 'stardiz', 'lead', 'admin'] as RoleFilter[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setRoleFilter(f)}
+                className={`segmented-item ${
+                  roleFilter === f ? 'segmented-item-active' : ''
                 }`}
               >
-                {counts[f]}
-              </span>
-            </button>
-          ))}
-        </div>
+                {f === 'all'
+                  ? 'Все'
+                  : f === 'designer'
+                    ? 'Дизайнеры'
+                    : f === 'stardiz'
+                      ? 'Стардизы'
+                      : f === 'lead'
+                        ? 'Лиды'
+                        : 'Админы'}
+                <span
+                  className={`ml-1.5 ${
+                    roleFilter === f ? 'text-stone' : 'text-ash'
+                  }`}
+                >
+                  {counts[f]}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="segmented">
           {(
@@ -199,6 +202,7 @@ export default function UsersClient({
               ['kanban-dept', 'Отделы'],
               ['kanban-lead', 'Лиды'],
               ['kanban-grade', 'Уровни'],
+              ['matrix', '9-Box'],
             ] as Array<[ViewMode, string]>
           ).map(([key, label]) => (
             <button
@@ -211,18 +215,22 @@ export default function UsersClient({
           ))}
         </div>
 
-        <span className="ml-auto w-[280px]">
-          <input
-            type="text"
-            placeholder="Поиск по имени или email"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input"
-          />
-        </span>
+        {view !== 'matrix' && (
+          <span className="ml-auto w-[280px]">
+            <input
+              type="text"
+              placeholder="Поиск по имени или email"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input"
+            />
+          </span>
+        )}
       </div>
 
-      {view === 'table' ? (
+      {view === 'matrix' ? (
+        <MatrixView users={users} />
+      ) : view === 'table' ? (
       /* Table */
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
