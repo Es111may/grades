@@ -154,63 +154,44 @@ export default function UsersClient({
 
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
-      <div className="flex items-end justify-between mb-8 gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-widest text-stone mb-2">
-            Пользователи системы
-          </div>
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-1.5">
-            Команда
-          </h1>
-          <div className="text-sm text-stone">
-            {counts.designer} дизайнеров · {counts.stardiz} стардизов · {counts.lead} лидов · {counts.admin} админов
-          </div>
-        </div>
+      <div className="flex items-end justify-between mb-6 gap-4">
+        <h1 className="font-display text-4xl font-semibold tracking-tight">Команда</h1>
         <button onClick={openNew} className="btn-accent">
           Добавить пользователя
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2 mb-5 flex-wrap">
-        <span className="text-xs text-stone mr-1">Роль</span>
-        {(['all', 'designer', 'stardiz', 'lead', 'admin'] as RoleFilter[]).map((f) => (
-          <button
-            key={f}
-            onClick={() => setRoleFilter(f)}
-            className={`px-3 py-1.5 rounded-pill text-xs font-medium transition-colors duration-150 ${
-              roleFilter === f
-                ? 'bg-ink text-snow'
-                : 'bg-snow text-stone border border-cloud hover:border-ash hover:text-ink'
-            }`}
-          >
-            {f === 'all'
-              ? 'Все'
-              : f === 'designer'
-                ? 'Дизайнеры'
-                : f === 'stardiz'
-                  ? 'Стардизы'
-                  : f === 'lead'
-                    ? 'Лиды'
-                    : 'Админы'}
-            <span className={`ml-1.5 ${roleFilter === f ? 'text-snow/70' : 'text-ash'}`}>
-              {counts[f]}
-            </span>
-          </button>
-        ))}
-        <span className="ml-auto w-[280px]">
-          <input
-            type="text"
-            placeholder="Поиск по имени или email"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input"
-          />
-        </span>
-      </div>
+      {/* Объединённый тулбар: роль (segmented) + view (segmented) + поиск + add */}
+      <div className="flex items-center gap-3 mb-5 flex-wrap">
+        <div className="segmented">
+          {(['all', 'designer', 'stardiz', 'lead', 'admin'] as RoleFilter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setRoleFilter(f)}
+              className={`segmented-item ${
+                roleFilter === f ? 'segmented-item-active' : ''
+              }`}
+            >
+              {f === 'all'
+                ? 'Все'
+                : f === 'designer'
+                  ? 'Дизайнеры'
+                  : f === 'stardiz'
+                    ? 'Стардизы'
+                    : f === 'lead'
+                      ? 'Лиды'
+                      : 'Админы'}
+              <span
+                className={`ml-1.5 ${
+                  roleFilter === f ? 'text-stone' : 'text-ash'
+                }`}
+              >
+                {counts[f]}
+              </span>
+            </button>
+          ))}
+        </div>
 
-      {/* View tabs — segmented control */}
-      <div className="mb-5">
         <div className="segmented">
           {(
             [
@@ -229,6 +210,16 @@ export default function UsersClient({
             </button>
           ))}
         </div>
+
+        <span className="ml-auto w-[280px]">
+          <input
+            type="text"
+            placeholder="Поиск по имени или email"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input"
+          />
+        </span>
       </div>
 
       {view === 'table' ? (
@@ -278,7 +269,7 @@ export default function UsersClient({
                 <td className="py-3 px-4 text-stone">{ROLE_LABELS[u.role] ?? u.role}</td>
                 <td className="py-3 px-4">
                   {u.build ? (
-                    <span className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-snow text-xs">
                       <span
                         className="w-1.5 h-1.5 rounded-full"
                         style={{

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 type Build = { id: number; code: string; name: string };
@@ -72,6 +72,11 @@ export default function KanbanView({
   const [dragId, setDragId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  function scrollBy(delta: number) {
+    scrollRef.current?.scrollBy({ left: delta, behavior: 'smooth' });
+  }
 
   const columns = useMemo(() => {
     if (groupBy === 'department') {
@@ -177,8 +182,27 @@ export default function KanbanView({
   }
 
   return (
-    <div className="overflow-x-auto pb-4 -mx-2 px-2">
-      <div className="flex gap-3 min-w-max">
+    <div>
+      {/* Scroll arrows — для Windows-пользователей без trackpad-жестов */}
+      <div className="flex items-center justify-end gap-1.5 mb-2">
+        <button
+          onClick={() => scrollBy(-340)}
+          aria-label="Прокрутить влево"
+          className="w-8 h-8 rounded-pill border border-cloud bg-snow text-stone hover:text-ink hover:border-ash flex items-center justify-center transition-colors"
+        >
+          ‹
+        </button>
+        <button
+          onClick={() => scrollBy(340)}
+          aria-label="Прокрутить вправо"
+          className="w-8 h-8 rounded-pill border border-cloud bg-snow text-stone hover:text-ink hover:border-ash flex items-center justify-center transition-colors"
+        >
+          ›
+        </button>
+      </div>
+
+      <div ref={scrollRef} className="overflow-x-auto pb-4 -mx-2 px-2 scroll-smooth">
+        <div className="flex gap-3 min-w-max">
         {columns.map((col) => (
           <div
             key={col.key}
@@ -256,6 +280,7 @@ export default function KanbanView({
             </div>
           </div>
         ))}
+        </div>
       </div>
       {!canDrop && (
         <div className="text-xs text-ash italic mt-3 px-2">

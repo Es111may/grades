@@ -17,12 +17,9 @@ export default async function DesignerHistoryPage() {
 
   return (
     <main className="max-w-[1100px] mx-auto px-8 pt-12 pb-16">
-      <div className="mb-8">
-        <div className="text-[11px] uppercase tracking-widest text-stone mb-2">
-          История оценок
-        </div>
+      <div className="mb-6">
         <h1 className="font-display text-4xl font-semibold tracking-tight">
-          Все оценки
+          История оценок
         </h1>
       </div>
 

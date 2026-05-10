@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import MigrateButton from './MigrateButton';
 import SkillCombobox from './SkillCombobox';
 
 type Build = { id: number; code: string; name: string };
@@ -41,20 +40,15 @@ export default function GradesClient({
 }) {
   return (
     <main className="max-w-[1200px] mx-auto px-8 pt-10 pb-16">
-      <div className="mb-8">
-        <div className="text-xs uppercase tracking-widest text-stone mb-2">
-          Грейды · матрица {matrixNumber}
-        </div>
+      <div className="mb-6">
         <h1 className="font-display text-4xl font-semibold tracking-tight mb-1.5">
           Грейды
         </h1>
         <p className="text-stone max-w-2xl">
-          Пороги XP по билдам и обязательные навыки для каждого грейда. Изменения применяются
-          к будущим оценкам — опубликованные используют свой снапшот.
+          Пороги XP по билдам и обязательные навыки. Изменения применяются к будущим
+          оценкам — опубликованные используют свой снапшот.
         </p>
       </div>
-
-      <MigrateButton />
 
       <div className="space-y-3">
         {grades.map((g) => (

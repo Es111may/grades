@@ -137,40 +137,44 @@ export default function Portrait({ data }: { data: PortraitData }) {
   return (
     <main className="max-w-[1300px] mx-auto px-8 pt-8 pb-16">
       {/* Hero */}
-      <div className="mb-8">
-        <div className="text-[11px] uppercase tracking-widest text-stone mb-2">
-          {data.publishedAt
-            ? `Опубликовано ${new Date(data.publishedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}`
-            : 'Оценка'}
-        </div>
+      <div className="mb-6">
         <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
           {data.designer.fullName}
         </h1>
-        <div className="flex items-center gap-2 text-sm text-stone">
+        <div className="flex items-center gap-2 text-sm text-stone flex-wrap">
           {data.designer.buildCode && (
-            <>
-              <span className="flex items-center gap-1.5">
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{
-                    background:
-                      data.designer.buildCode === 'creator'
-                        ? '#ade900'
-                        : data.designer.buildCode === 'visioner'
-                          ? '#7c3aed'
-                          : '#0ea5e9',
-                  }}
-                />
-                {data.designer.buildName}
-              </span>
-              <span className="text-ash">·</span>
-            </>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-snow text-xs">
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{
+                  background:
+                    data.designer.buildCode === 'creator'
+                      ? '#ade900'
+                      : data.designer.buildCode === 'visioner'
+                        ? '#7c3aed'
+                        : '#0ea5e9',
+                }}
+              />
+              {data.designer.buildName}
+            </span>
           )}
           <span>{data.designer.department ?? '—'}</span>
           {data.designer.leadName && (
             <>
               <span className="text-ash">·</span>
               <span>Лид: {data.designer.leadName}</span>
+            </>
+          )}
+          {data.publishedAt && (
+            <>
+              <span className="text-ash">·</span>
+              <span className="text-ash">
+                {new Date(data.publishedAt).toLocaleDateString('ru-RU', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </span>
             </>
           )}
         </div>

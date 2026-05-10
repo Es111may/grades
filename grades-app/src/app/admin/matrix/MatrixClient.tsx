@@ -112,21 +112,15 @@ export default function MatrixClient({
 
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
-      <div className="mb-8">
-        <div className="text-xs uppercase tracking-widest text-stone mb-2">
-          Матрица скиллов · версия {matrixNumber}
-        </div>
-        <h1 className="font-display text-4xl font-semibold tracking-tight mb-1.5">
-          Скиллы
-        </h1>
-        <p className="text-stone max-w-2xl">
-          {skills.filter((s) => s.active).length} активных · {skills.length} всего.
-          Изменения применяются к будущим оценкам; опубликованные используют свой снапшот.
-        </p>
+      <div className="flex items-end justify-between mb-6 gap-4">
+        <h1 className="font-display text-4xl font-semibold tracking-tight">Скиллы</h1>
+        <button onClick={() => setShowNewModal(true)} className="btn-accent">
+          Новый навык
+        </button>
       </div>
 
       {/* Build totals */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-5">
         {builds.map((b) => (
           <div key={b.id} className="card px-5 py-4">
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-stone mb-1">
@@ -144,8 +138,22 @@ export default function MatrixClient({
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2 mb-5">
+      {/* Тулбар: переключатель состояния + поиск */}
+      <div className="flex items-center gap-3 mb-5 flex-wrap">
+        <div className="segmented">
+          <button
+            onClick={() => setShowArchived(false)}
+            className={`segmented-item ${!showArchived ? 'segmented-item-active' : ''}`}
+          >
+            Активные
+          </button>
+          <button
+            onClick={() => setShowArchived(true)}
+            className={`segmented-item ${showArchived ? 'segmented-item-active' : ''}`}
+          >
+            Архивные
+          </button>
+        </div>
         <input
           type="search"
           value={search}
@@ -153,15 +161,6 @@ export default function MatrixClient({
           placeholder="Поиск по названию или группе"
           className="input flex-1"
         />
-        <button
-          onClick={() => setShowArchived(!showArchived)}
-          className={showArchived ? 'btn-secondary' : 'btn-ghost'}
-        >
-          {showArchived ? 'Архивные' : 'Активные'}
-        </button>
-        <button onClick={() => setShowNewModal(true)} className="btn-accent">
-          Новый навык
-        </button>
       </div>
 
       {showNewModal && (

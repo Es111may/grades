@@ -240,16 +240,20 @@ export default function AssessmentForm({
         <span className="text-ash mx-1.5">/</span>
         <span>{designer.fullName}</span>
       </div>
-      <div className="flex items-end justify-between gap-8 mb-8">
+      <div className="flex items-end justify-between gap-8 mb-6">
         <div>
-          <div className="text-[11px] uppercase tracking-widest text-stone mb-2">
-            {published ? 'Опубликовано' : 'Черновик оценки'}
+          <div className="flex items-center gap-2 mb-2">
+            <h1 className="font-display text-4xl font-semibold tracking-tight">
+              {designer.fullName}
+            </h1>
+            {published ? (
+              <span className="chip-accent">Опубликовано</span>
+            ) : (
+              <span className="chip-warn">Черновик</span>
+            )}
           </div>
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">
-            {designer.fullName}
-          </h1>
           <div className="flex items-center gap-2 text-sm text-stone">
-            <span className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill border border-cloud bg-snow text-xs">
               <span
                 className="w-1.5 h-1.5 rounded-full"
                 style={{
@@ -288,7 +292,6 @@ export default function AssessmentForm({
             </button>
           </div>
         )}
-        {published && <span className="chip-accent">Опубликовано</span>}
       </div>
 
       <div className="grid grid-cols-12 gap-8">
