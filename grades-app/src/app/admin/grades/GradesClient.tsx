@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SkillCombobox from './SkillCombobox';
-import { PlusIcon } from '@/components/icons';
+import { PlusIcon, CloseIcon } from '@/components/icons';
 
 type Build = { id: number; code: string; name: string };
 type Gate = {
@@ -308,10 +308,10 @@ function GatesColumn({
               </select>
               <button
                 onClick={() => deleteGate(gate.id)}
-                className="text-ash hover:text-blaze opacity-0 group-hover:opacity-100 transition-opacity"
+                className="text-ash hover:text-blaze opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-5 h-5"
                 title="Удалить"
               >
-                ✕
+                <CloseIcon className="w-3.5 h-3.5" />
               </button>
             </li>
           ))}

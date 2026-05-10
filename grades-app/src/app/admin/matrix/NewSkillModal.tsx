@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { CloseIcon } from '@/components/icons';
 
 type Build = { id: number; code: string; name: string };
 type Group = {
@@ -139,10 +140,10 @@ export default function NewSkillModal({
           </h2>
           <button
             onClick={onClose}
-            className="text-stone hover:text-ink text-lg w-8 h-8 flex items-center justify-center rounded-pill hover:bg-cloud/50 transition-colors"
+            className="text-stone hover:text-ink w-8 h-8 flex items-center justify-center rounded-pill hover:bg-cloud/50 transition-colors"
             aria-label="Закрыть"
           >
-            ✕
+            <CloseIcon className="w-4 h-4" />
           </button>
         </div>
 

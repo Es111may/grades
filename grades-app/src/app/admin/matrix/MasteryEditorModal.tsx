@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { CloseIcon } from '@/components/icons';
 
 type Mastery = { level: number; title: string; criteria: string };
 
@@ -97,9 +98,10 @@ export default function MasteryEditorModal({
           </div>
           <button
             onClick={onClose}
-            className="text-stone hover:text-ink text-lg w-8 h-8 flex items-center justify-center rounded-pill hover:bg-cloud/50 transition-colors shrink-0"
+            aria-label="Закрыть"
+            className="text-stone hover:text-ink w-8 h-8 flex items-center justify-center rounded-pill hover:bg-cloud/50 transition-colors shrink-0"
           >
-            ✕
+            <CloseIcon className="w-4 h-4" />
           </button>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Avatar from '@/components/Avatar';
-import { EditIcon } from '@/components/icons';
+import { EditIcon, CloseIcon } from '@/components/icons';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -233,7 +233,9 @@ export default function UserModal({
       role: form.role,
       buildId: form.role === 'designer' ? form.buildId : null,
       department: form.department || null,
-      leadId: form.role === 'designer' ? form.leadId : null,
+      // Лид может быть и у дизайнера, и у стардиза (стардизы тоже грейдируются).
+      leadId:
+        form.role === 'designer' || form.role === 'stardiz' ? form.leadId : null,
       stardizId: form.role === 'designer' ? form.stardizId : null,
       hiredAt: form.hiredAt || null,
       active: form.active,
@@ -334,9 +336,9 @@ export default function UserModal({
                 type="button"
                 onClick={handleAvatarRemove}
                 aria-label="Удалить аватар"
-                className="absolute -top-1 -right-1 w-5 h-5 rounded-pill bg-snow border border-cloud text-stone hover:text-blaze hover:border-blaze/40 shadow-soft flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -top-1 -right-1 w-5 h-5 rounded-pill bg-snow border border-cloud text-stone hover:text-blaze hover:border-blaze/40 shadow-soft flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                ✕
+                <CloseIcon className="w-3 h-3" />
               </button>
             )}
             <input
@@ -447,7 +449,7 @@ export default function UserModal({
                   ))}
                 </select>
               </div>
-              {form.role === 'designer' && (
+              {(form.role === 'designer' || form.role === 'stardiz') && (
                 <div>
                   <label className="block text-xs text-stone mb-1.5">Лид</label>
                   <select

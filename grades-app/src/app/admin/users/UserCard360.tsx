@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Avatar from '@/components/Avatar';
+import { CloseIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -136,10 +137,10 @@ export default function UserCard360({
             </div>
             <button
               onClick={onClose}
-              className="btn-ghost btn-sm shrink-0"
+              className="btn-ghost btn-sm shrink-0 w-8 h-8 p-0 flex items-center justify-center"
               aria-label="Закрыть"
             >
-              ✕
+              <CloseIcon className="w-4 h-4" />
             </button>
           </div>
         </div>

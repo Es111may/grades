@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Avatar from '@/components/Avatar';
+import { ChevronDownIcon } from '@/components/icons';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -280,14 +281,14 @@ export default function KanbanView({
             aria-label="Прокрутить влево"
             className="w-8 h-8 rounded-pill border border-cloud bg-snow text-stone hover:text-ink hover:border-ash flex items-center justify-center transition-colors"
           >
-            ‹
+            <ChevronDownIcon className="w-4 h-4 rotate-90" />
           </button>
           <button
             onClick={() => scrollBy(340)}
             aria-label="Прокрутить вправо"
             className="w-8 h-8 rounded-pill border border-cloud bg-snow text-stone hover:text-ink hover:border-ash flex items-center justify-center transition-colors"
           >
-            ›
+            <ChevronDownIcon className="w-4 h-4 -rotate-90" />
           </button>
         </div>
       </div>
