@@ -110,7 +110,7 @@
      без бордера. Используется в шапках, карточках, таблицах. */
   .chip-build {
     @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill
-           bg-cloud/60 text-xs font-medium text-stone;
+           bg-cloud/60 text-[11px] font-medium text-stone;
   }
 
   /* === Чипы (бэйджи статусов / ролей) === */
