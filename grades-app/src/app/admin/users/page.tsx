@@ -32,7 +32,8 @@ export default async function AdminUsersPage() {
         lead: { select: { id: true, fullName: true } },
         stardiz: { select: { id: true, fullName: true } },
       },
-      orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
+      // active desc — активные сверху, деактивированные в конце.
+      orderBy: [{ active: 'desc' }, { role: 'asc' }, { fullName: 'asc' }],
     }),
     prisma.build.findMany({ orderBy: { sortOrder: 'asc' } }),
     prisma.user.findMany({

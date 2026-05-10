@@ -278,6 +278,26 @@ export default function UserModal({
     }
   }
 
+  const [confirmHard, setConfirmHard] = useState(false);
+  const [hardBusy, setHardBusy] = useState(false);
+
+  async function handleHardDelete() {
+    if (!confirmHard) {
+      setConfirmHard(true);
+      return;
+    }
+    setHardBusy(true);
+    const res = await fetch(`/api/users/${user!.id}?hard=true`, { method: 'DELETE' });
+    if (res.ok) {
+      onDeleted(user!.id);
+    } else {
+      const j = await res.json().catch(() => ({}));
+      alert(j.error ?? 'Не получилось удалить навсегда');
+      setHardBusy(false);
+      setConfirmHard(false);
+    }
+  }
+
   async function handleAddNote() {
     if (!newNote.trim() || !user?.id) return;
     const res = await fetch(`/api/users/${user.id}/notes`, {
@@ -801,6 +821,41 @@ export default function UserModal({
                   </button>
                 )}
               </div>
+
+              {/* Hard-delete — только admin */}
+              {isAdmin && (
+                <div className="card p-5 flex items-center justify-between gap-4 mt-3">
+                  <div>
+                    <div className="font-medium text-sm">Удалить навсегда</div>
+                    <div className="text-xs text-stone mt-1 leading-relaxed">
+                      Безвозвратно. Возможно только если нет оценок, заметок
+                      или audit-записей, привязанных к пользователю.
+                    </div>
+                  </div>
+                  {confirmHard ? (
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => setConfirmHard(false)}
+                        disabled={hardBusy}
+                        className="btn-ghost btn-sm"
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        onClick={handleHardDelete}
+                        disabled={hardBusy}
+                        className="btn-danger btn-sm"
+                      >
+                        {hardBusy ? 'Удаляю…' : 'Да, удалить навсегда'}
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={handleHardDelete} className="btn-ghost-danger btn-sm">
+                      Удалить навсегда
+                    </button>
+                  )}
+                </div>
+              )}
             </section>
           )}
         </div>

@@ -121,6 +121,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json(user);
 }
 
+/**
+ * DELETE /api/users/[id]
+ *   ?hard=true — навсегда (только admin, и только если нет FK-зависимостей).
+ *   иначе       — soft-delete (active=false).
+ */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
   if (!me || !canManageUsers(me.role)) {
@@ -134,6 +139,29 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
   if (userId === me.id) {
     return NextResponse.json({ error: 'Нельзя удалить себя' }, { status: 400 });
+  }
+
+  const hard = new URL(req.url).searchParams.get('hard') === 'true';
+
+  if (hard) {
+    if (!canAssignAdminRole(me.role)) {
+      return NextResponse.json(
+        { error: 'Удалить навсегда может только админ' },
+        { status: 403 },
+      );
+    }
+    try {
+      await prisma.user.delete({ where: { id: userId } });
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error:
+            'Не получилось удалить навсегда — у пользователя есть зависимые записи (оценки, заметки или audit-лог). Сначала их нужно перенести или удалить.',
+        },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ ok: true, hard: true });
   }
 
   await prisma.user.update({
