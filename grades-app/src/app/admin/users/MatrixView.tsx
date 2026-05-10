@@ -24,6 +24,16 @@ type UserRow = {
   build: Build | null;
   active: boolean;
   avatarUrl?: string | null;
+  effectiveGrade?: string | null;
+};
+
+const GRADE_SHORT: Record<string, string> = {
+  junior: 'Джун',
+  junior_plus: 'Джун+',
+  premiddle: 'Пре-мидл',
+  middle: 'Мидл',
+  middle_plus: 'Мидл+',
+  senior: 'Синьор',
 };
 
 type Level = 'low' | 'mid' | 'high';
@@ -63,7 +73,15 @@ const parseCellId = (id: string): { potential: Level; performance: Level } | nul
 const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
-function UserCard({ user, ghosting = false }: { user: UserRow; ghosting?: boolean }) {
+function UserCard({
+  user,
+  ghosting = false,
+  showGrade = false,
+}: {
+  user: UserRow;
+  ghosting?: boolean;
+  showGrade?: boolean;
+}) {
   return (
     <div
       className={`bg-snow border border-cloud rounded-[10px] px-2.5 py-1.5 shadow-soft flex items-center gap-2 ${
@@ -71,7 +89,14 @@ function UserCard({ user, ghosting = false }: { user: UserRow; ghosting?: boolea
       }`}
     >
       <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={24} />
-      <span className="text-xs font-medium leading-tight truncate flex-1">{user.fullName}</span>
+      <span className="text-xs font-medium leading-tight truncate flex-1">
+        {user.fullName}
+      </span>
+      {showGrade && user.effectiveGrade && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded-pill bg-cloud/60 text-stone font-medium shrink-0 leading-none">
+          {GRADE_SHORT[user.effectiveGrade] ?? user.effectiveGrade}
+        </span>
+      )}
       {user.build && (
         <span
           className="w-1.5 h-1.5 rounded-full shrink-0"
@@ -83,7 +108,15 @@ function UserCard({ user, ghosting = false }: { user: UserRow; ghosting?: boolea
   );
 }
 
-function DraggableUser({ user, ghosting }: { user: UserRow; ghosting: boolean }) {
+function DraggableUser({
+  user,
+  ghosting,
+  showGrade = false,
+}: {
+  user: UserRow;
+  ghosting: boolean;
+  showGrade?: boolean;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `user-${user.id}`,
     data: { userId: user.id },
@@ -95,7 +128,11 @@ function DraggableUser({ user, ghosting }: { user: UserRow; ghosting: boolean })
       {...listeners}
       className={`cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-30' : ''}`}
     >
-      <UserCard user={user} ghosting={ghosting && !isDragging} />
+      <UserCard
+        user={user}
+        ghosting={ghosting && !isDragging}
+        showGrade={showGrade}
+      />
     </div>
   );
 }
@@ -126,7 +163,7 @@ function MatrixCell({
       </div>
       <div className="flex flex-col gap-1.5 flex-1">
         {users.map((u) => (
-          <DraggableUser key={u.id} user={u} ghosting={saving.has(u.id)} />
+          <DraggableUser key={u.id} user={u} ghosting={saving.has(u.id)} showGrade />
         ))}
       </div>
     </div>
@@ -454,7 +491,7 @@ export default function MatrixView({ users }: { users: UserRow[] }) {
       <DragOverlay dropAnimation={null}>
         {activeUser ? (
           <div className="rotate-2 shadow-soft-md">
-            <UserCard user={activeUser} />
+            <UserCard user={activeUser} showGrade={!!activeUser.effectiveGrade} />
           </div>
         ) : null}
       </DragOverlay>
