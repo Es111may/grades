@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { GRADE_NAMES, GRADE_ORDER, BUILD_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
+import { ChevronDownIcon } from '@/components/icons';
 
 type SkillData = {
   id: number;
@@ -375,13 +376,16 @@ export default function AssessmentForm({
                 className="card overflow-hidden"
               >
                 <div className="px-6 py-3.5 border-b border-cloud bg-canvas/60">
-                  <div className="text-[11px]  text-stone font-medium">
+                  <div className="text-base font-semibold text-ink">
                     {tax.taxName}
                   </div>
                 </div>
-                {tax.groups.map((group) => (
-                  <div key={group.name}>
-                    <div className="px-6 pt-4 pb-2 text-[11px]  text-stone">
+                {tax.groups.map((group, gIdx) => (
+                  <div
+                    key={group.name}
+                    className={gIdx > 0 ? 'border-t border-cloud' : ''}
+                  >
+                    <div className="px-6 pt-5 pb-2 text-sm font-medium text-stone">
                       {group.name}
                     </div>
                     {group.skills.map((skill) => (
@@ -524,7 +528,7 @@ function SkillCard({
             <span className="text-xs text-stone">вес {skill.weight}</span>
           </div>
           {skill.description && (
-            <div className="text-xs text-stone italic leading-relaxed">
+            <div className="text-xs text-stone leading-relaxed">
               {skill.description}
             </div>
           )}
@@ -537,12 +541,12 @@ function SkillCard({
         </div>
       </div>
 
-      {/* Mastery buttons */}
-      <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+      {/* Mastery buttons — равной ширины, текст truncate */}
+      <div className="flex items-stretch gap-1.5 mt-3 flex-wrap">
         <button
           onClick={() => !disabled && onSetLevel(0)}
           disabled={disabled}
-          className={`px-2.5 py-1 rounded-pill text-xs border transition-colors ${
+          className={`flex-1 min-w-[120px] max-w-[200px] h-8 px-3 rounded-pill text-xs border transition-colors flex items-center justify-center ${
             currentLevel === 0
               ? 'bg-ink text-snow border-ink'
               : 'bg-snow text-stone border-cloud hover:border-ash'
@@ -556,26 +560,26 @@ function SkillCard({
             onClick={() => !disabled && onSetLevel(lvl.level)}
             title={lvl.title}
             disabled={disabled}
-            className={`px-2.5 py-1 rounded-pill text-xs border transition-colors ${
+            className={`flex-1 min-w-[120px] max-w-[200px] h-8 px-3 rounded-pill text-xs border transition-colors flex items-center justify-center gap-1.5 ${
               currentLevel === lvl.level
                 ? 'bg-ink text-snow border-ink'
                 : 'bg-snow text-stone border-cloud hover:border-ash hover:text-ink'
             } ${disabled ? 'cursor-default' : ''}`}
           >
-            <span className="font-semibold mr-1">{lvl.level}</span>
-            {lvl.title.length > 18 ? lvl.title.slice(0, 18) + '…' : lvl.title}
+            <span className="font-semibold shrink-0">{lvl.level}</span>
+            <span className="truncate">{lvl.title}</span>
           </button>
         ))}
       </div>
 
       {/* Criteria details */}
       <details
-        className="mt-3"
+        className="mt-3 group"
         open={expanded}
         onToggle={(e) => setExpanded((e.target as HTMLDetailsElement).open)}
       >
         <summary className="text-xs text-stone hover:text-ink inline-flex items-center gap-1 cursor-pointer select-none">
-          <span className="text-[10px] transition-transform group-open:rotate-90">▸</span>
+          <ChevronDownIcon className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
           Критерии по уровням
         </summary>
         <div className="mt-3 space-y-2">
@@ -590,9 +594,9 @@ function SkillCard({
             >
               <div className="font-medium text-sm mb-1 flex items-center gap-2">
                 <span
-                  className={`font-display text-base leading-none ${
+                  className={`text-sm leading-none tabular-nums font-semibold ${
                     currentLevel === lvl.level ? 'text-ink' : 'text-ash'
-                  } font-semibold`}
+                  }`}
                 >
                   {lvl.level}
                 </span>
