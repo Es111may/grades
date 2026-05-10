@@ -76,7 +76,7 @@ const GRADE_OPTIONS = [
 
 const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
 
-const DEPARTMENTS = ['Inhouse', 'Create', 'Improve'];
+const DEPARTMENTS = ['Инхаус', 'Криэйт', 'Импрув'];
 
 export default function UserModal({
   user,
@@ -280,21 +280,32 @@ export default function UserModal({
 
   const [confirmHard, setConfirmHard] = useState(false);
   const [hardBusy, setHardBusy] = useState(false);
+  const [reassignTo, setReassignTo] = useState<number | ''>('');
+
+  const isLeadOrStardiz = user?.role === 'lead' || user?.role === 'stardiz';
+  // Список других активных лидов/стардизов для переноса.
+  const reassignTargets = leads.filter((l) => l.id !== user?.id);
 
   async function handleHardDelete() {
     if (!confirmHard) {
       setConfirmHard(true);
       return;
     }
+    if (isLeadOrStardiz && !reassignTo) {
+      alert('Выбери, на кого перенести подопечных, заметки и оценки');
+      return;
+    }
     setHardBusy(true);
-    const res = await fetch(`/api/users/${user!.id}?hard=true`, { method: 'DELETE' });
+    const qs = isLeadOrStardiz ? `&reassignTo=${reassignTo}` : '';
+    const res = await fetch(`/api/users/${user!.id}?hard=true${qs}`, {
+      method: 'DELETE',
+    });
     if (res.ok) {
       onDeleted(user!.id);
     } else {
       const j = await res.json().catch(() => ({}));
-      alert(j.error ?? 'Не получилось удалить навсегда');
+      alert(j.message ?? j.error ?? 'Не получилось удалить навсегда');
       setHardBusy(false);
-      setConfirmHard(false);
     }
   }
 
@@ -824,35 +835,69 @@ export default function UserModal({
 
               {/* Hard-delete — только admin */}
               {isAdmin && (
-                <div className="card p-5 flex items-center justify-between gap-4 mt-3">
-                  <div>
-                    <div className="font-medium text-sm">Удалить навсегда</div>
-                    <div className="text-xs text-stone mt-1 leading-relaxed">
-                      Безвозвратно. Возможно только если нет оценок, заметок
-                      или audit-записей, привязанных к пользователю.
+                <div className="card p-5 mt-3 space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="font-medium text-sm">Удалить навсегда</div>
+                      <div className="text-xs text-stone mt-1 leading-relaxed">
+                        {isLeadOrStardiz
+                          ? 'Для лида/стардиза нужно выбрать, на кого перенести подопечных, заметки и оценки.'
+                          : 'Дизайнер удалится со всеми оценками и заметками без переноса.'}
+                      </div>
                     </div>
-                  </div>
-                  {confirmHard ? (
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => setConfirmHard(false)}
-                        disabled={hardBusy}
-                        className="btn-ghost btn-sm"
-                      >
-                        Отмена
-                      </button>
+                    {!confirmHard && (
                       <button
                         onClick={handleHardDelete}
-                        disabled={hardBusy}
-                        className="btn-danger btn-sm"
+                        className="btn-ghost-danger btn-sm shrink-0"
                       >
-                        {hardBusy ? 'Удаляю…' : 'Да, удалить навсегда'}
+                        Удалить навсегда
                       </button>
+                    )}
+                  </div>
+
+                  {confirmHard && (
+                    <div className="space-y-3 pt-1">
+                      {isLeadOrStardiz && (
+                        <div>
+                          <label className="block text-xs text-stone mb-1.5">
+                            Переназначить на
+                          </label>
+                          <select
+                            className="input"
+                            value={reassignTo}
+                            onChange={(e) =>
+                              setReassignTo(e.target.value ? Number(e.target.value) : '')
+                            }
+                          >
+                            <option value="">Выбрать…</option>
+                            {reassignTargets.map((l) => (
+                              <option key={l.id} value={l.id}>
+                                {l.fullName}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <div className="flex gap-1.5 justify-end">
+                        <button
+                          onClick={() => {
+                            setConfirmHard(false);
+                            setReassignTo('');
+                          }}
+                          disabled={hardBusy}
+                          className="btn-ghost btn-sm"
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          onClick={handleHardDelete}
+                          disabled={hardBusy || (isLeadOrStardiz && !reassignTo)}
+                          className="btn-danger btn-sm"
+                        >
+                          {hardBusy ? 'Удаляю…' : 'Да, удалить навсегда'}
+                        </button>
+                      </div>
                     </div>
-                  ) : (
-                    <button onClick={handleHardDelete} className="btn-ghost-danger btn-sm">
-                      Удалить навсегда
-                    </button>
                   )}
                 </div>
               )}

@@ -84,9 +84,9 @@ export default function KanbanView({
   const columns = useMemo(() => {
     if (groupBy === 'department') {
       const cols: Array<{ key: string; label: string; users: UserRow[] }> = [
-        { key: 'Inhouse', label: 'Инхаус', users: [] },
-        { key: 'Create', label: 'Криэйт', users: [] },
-        { key: 'Improve', label: 'Импрув', users: [] },
+        { key: 'Инхаус', label: 'Инхаус', users: [] },
+        { key: 'Криэйт', label: 'Криэйт', users: [] },
+        { key: 'Импрув', label: 'Импрув', users: [] },
         { key: '__none', label: 'Без отдела', users: [] },
       ];
       const byKey = new Map(cols.map((c) => [c.key, c]));

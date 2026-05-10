@@ -260,7 +260,7 @@ export default function AssessmentForm({
                 <span className="chip-warn">Черновик</span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-sm text-stone">
+            <div className="flex items-center gap-1.5 text-sm text-stone">
               <span className="chip-build">
                 <span
                   className="w-1.5 h-1.5 rounded-full"

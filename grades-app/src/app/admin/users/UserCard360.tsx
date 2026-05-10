@@ -190,7 +190,7 @@ export default function UserCard360({
         </div>
 
         {/* Кнопки — равной ширины по всей ширине поп-апа */}
-        <div className="px-7 py-4 border-t border-cloud flex items-stretch gap-2">
+        <div className="px-7 py-4 border-t border-cloud flex items-stretch gap-1.5">
           {canDeactivate && (
             <button onClick={handleDeactivate} className="btn-ghost-danger flex-1">
               Деактивировать

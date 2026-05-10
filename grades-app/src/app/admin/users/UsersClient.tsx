@@ -69,6 +69,38 @@ function formatDate(d: string | null) {
   });
 }
 
+/**
+ * Стаж от hiredAt до сейчас. Формат:
+ *   меньше года   → «3 мес.»
+ *   ровно года    → «1 год»
+ *   составной     → «2 года 4 мес.»
+ *   меньше месяца → «<1 мес.»
+ */
+function formatTenure(hiredAt: string | null): string {
+  if (!hiredAt) return '—';
+  const start = new Date(hiredAt);
+  const now = new Date();
+  let months =
+    (now.getFullYear() - start.getFullYear()) * 12 +
+    (now.getMonth() - start.getMonth());
+  if (now.getDate() < start.getDate()) months--;
+  if (months < 0) return '—';
+  if (months < 1) return '<1 мес.';
+  const years = Math.floor(months / 12);
+  const m = months % 12;
+  const yearWord = (n: number) => {
+    const last = n % 10;
+    const lastTwo = n % 100;
+    if (lastTwo >= 11 && lastTwo <= 14) return 'лет';
+    if (last === 1) return 'год';
+    if (last >= 2 && last <= 4) return 'года';
+    return 'лет';
+  };
+  if (years === 0) return `${m} мес.`;
+  if (m === 0) return `${years} ${yearWord(years)}`;
+  return `${years} ${yearWord(years)} ${m} мес.`;
+}
+
 export default function UsersClient({
   initialUsers,
   builds,
@@ -199,7 +231,7 @@ export default function UsersClient({
       </div>
 
       {/* Объединённый тулбар: scope + роль + view + поиск */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
+      <div className="flex items-center gap-1.5 mb-5 flex-wrap">
         {showScopeSwitcher && (
           <div className="segmented">
             {(['all', 'mine'] as ScopeFilter[]).map((s) => (
@@ -282,7 +314,7 @@ export default function UsersClient({
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-canvas border-b border-cloud">
-              {['Имя', 'Роль', 'Билд', 'Отдел', 'Лид', 'Найм'].map((h) => (
+              {['Имя', 'Роль', 'Билд', 'Отдел', 'Лид', 'Стаж'].map((h) => (
                 <th
                   key={h}
                   className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone"
@@ -341,7 +373,9 @@ export default function UsersClient({
                 </td>
                 <td className="py-3 px-4 text-stone">{u.department ?? '—'}</td>
                 <td className="py-3 px-4 text-stone">{u.lead?.fullName ?? '—'}</td>
-                <td className="py-3 px-4 text-stone">{formatDate(u.hiredAt)}</td>
+                <td className="py-3 px-4 text-stone whitespace-nowrap">
+                  {formatTenure(u.hiredAt)}
+                </td>
                 <td className="py-3 px-4 text-center">
                   {u.gradeFloor ? (
                     <span className="chip-warn">

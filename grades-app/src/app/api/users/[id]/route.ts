@@ -141,7 +141,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: 'Нельзя удалить себя' }, { status: 400 });
   }
 
-  const hard = new URL(req.url).searchParams.get('hard') === 'true';
+  const url = new URL(req.url);
+  const hard = url.searchParams.get('hard') === 'true';
 
   if (hard) {
     if (!canAssignAdminRole(me.role)) {
@@ -150,13 +151,91 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
         { status: 403 },
       );
     }
+
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (!target) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    const reassignToParam = url.searchParams.get('reassignTo');
+    const reassignTo = reassignToParam ? parseInt(reassignToParam, 10) : null;
+
+    const isDesigner = target.role === 'designer';
+    const isLeadOrStardiz = target.role === 'lead' || target.role === 'stardiz';
+
     try {
-      await prisma.user.delete({ where: { id: userId } });
+      await prisma.$transaction(async (tx) => {
+        if (isDesigner) {
+          // Дизайнер: каскадно убираем всё, что на него завязано.
+          // DesignerNote и TeamMatrixCell.userId уже Cascade в схеме —
+          // сработают автоматически. AssessmentScore/History тоже Cascade
+          // по Assessment. Остаётся Assessment.designer и Assessment.lead.
+          await tx.assessment.deleteMany({ where: { designerId: userId } });
+          // Если был автором заметок (designer обычно не пишет, но мало ли) —
+          // заметки нужно убрать, иначе FK блокнёт удаление.
+          await tx.designerNote.deleteMany({ where: { authorId: userId } });
+        } else if (isLeadOrStardiz) {
+          if (!reassignTo) {
+            throw new Error('NEEDS_REASSIGN');
+          }
+          if (reassignTo === userId) {
+            throw new Error('REASSIGN_SELF');
+          }
+          // Переносим всё, что у лида/стардиза «как у автора».
+          await tx.user.updateMany({
+            where: { leadId: userId },
+            data: { leadId: reassignTo },
+          });
+          await tx.user.updateMany({
+            where: { stardizId: userId },
+            data: { stardizId: reassignTo },
+          });
+          await tx.assessment.updateMany({
+            where: { leadId: userId },
+            data: { leadId: reassignTo },
+          });
+          await tx.designerNote.updateMany({
+            where: { authorId: userId },
+            data: { authorId: reassignTo },
+          });
+          await tx.auditLog.updateMany({
+            where: { actorId: userId },
+            data: { actorId: reassignTo },
+          });
+          await tx.teamMatrixCell.updateMany({
+            where: { updatedById: userId },
+            data: { updatedById: reassignTo },
+          });
+          await tx.matrixVersion.updateMany({
+            where: { createdBy: userId },
+            data: { createdBy: reassignTo },
+          });
+        }
+        await tx.user.delete({ where: { id: userId } });
+      });
     } catch (e) {
+      const msg = (e as Error).message;
+      if (msg.includes('NEEDS_REASSIGN')) {
+        return NextResponse.json(
+          {
+            error: 'reassign_required',
+            message:
+              'Для удаления лида или стардиза нужно перенести его подопечных, оценки и заметки на другого.',
+          },
+          { status: 409 },
+        );
+      }
+      if (msg.includes('REASSIGN_SELF')) {
+        return NextResponse.json(
+          { error: 'Нельзя переназначить на самого себя' },
+          { status: 400 },
+        );
+      }
+      console.error('Hard-delete failed:', msg);
       return NextResponse.json(
         {
           error:
-            'Не получилось удалить навсегда — у пользователя есть зависимые записи (оценки, заметки или audit-лог). Сначала их нужно перенести или удалить.',
+            'Не получилось удалить навсегда. Сообщи Pavel — нужны зависимые правки.',
         },
         { status: 409 },
       );

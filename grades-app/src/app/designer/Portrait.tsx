@@ -165,7 +165,7 @@ export default function Portrait({
           <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
             {data.designer.fullName}
           </h1>
-          <div className="flex items-center gap-2 text-sm text-stone flex-wrap">
+          <div className="flex items-center gap-1.5 text-sm text-stone flex-wrap">
             {data.designer.buildCode && (
               <span className="chip-build">
                 <span

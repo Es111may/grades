@@ -17,9 +17,16 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const DEPT_BY_BUILD: Record<string, string> = {
-  creator: 'Inhouse',
-  visioner: 'Create',
-  navigator: 'Improve',
+  creator: 'Инхаус',
+  visioner: 'Криэйт',
+  navigator: 'Импрув',
+};
+
+// Одноразовая миграция: переименовать латинские названия отделов на кириллицу.
+const DEPT_RENAME: Record<string, string> = {
+  Inhouse: 'Инхаус',
+  Create: 'Криэйт',
+  Improve: 'Импрув',
 };
 
 async function main() {
@@ -50,7 +57,21 @@ async function main() {
     console.log(`  Итого: удалено ${deleted}, заблокировано ${blocked}`);
   }
 
-  // 2. Отдел по билду — только тем, у кого department=null и есть build.
+  // 2a. Переименовать латинские отделы на кириллицу (одноразово).
+  let renamed = 0;
+  for (const [from, to] of Object.entries(DEPT_RENAME)) {
+    const r = await prisma.user.updateMany({
+      where: { department: from },
+      data: { department: to },
+    });
+    if (r.count > 0) {
+      console.log(`  ⇄ переименовано ${from} → ${to}: ${r.count}`);
+      renamed += r.count;
+    }
+  }
+  if (renamed === 0) console.log('  ↷ Все отделы уже на кириллице');
+
+  // 2b. Отдел по билду — только тем, у кого department=null и есть build.
   const builds = await prisma.build.findMany();
   const codeById = new Map(builds.map((b) => [b.id, b.code]));
 
