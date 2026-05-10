@@ -168,7 +168,7 @@ export default function Portrait({ data }: { data: PortraitData }) {
           {data.publishedAt && (
             <>
               <span className="text-ash">·</span>
-              <span className="text-ash">
+              <span>
                 {new Date(data.publishedAt).toLocaleDateString('ru-RU', {
                   day: 'numeric',
                   month: 'long',
@@ -422,7 +422,7 @@ function GroupBreakdown({
             <div key={name} className="text-xs">
               <div className="flex items-center justify-between mb-0.5">
                 <span className="text-stone truncate">{name}</span>
-                <span className="text-ash ml-1">{pct}%</span>
+                <span className="text-stone ml-1 tabular-nums">{pct}%</span>
               </div>
               <div className="h-1.5 bg-canvas rounded-full overflow-hidden">
                 <div
