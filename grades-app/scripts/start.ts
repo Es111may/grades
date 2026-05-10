@@ -16,7 +16,14 @@ function run(cmd: string) {
 run('npx prisma db push --skip-generate');
 run('npx tsx scripts/import-excel.ts');
 run('npx tsx prisma/seed.ts');
-run('npx tsx scripts/import-team.ts');
+// scripts/import-team.ts — отключён.
+// Первоначальный импорт команды из data/team.csv уже сделан. На каждом
+// деплое скрипт пытался воссоздать тех, кого админ удалил через UI ещё
+// до появления ExcludedEmail (модель добавлена в v0.11.9). Чтобы
+// удалённые гарантированно больше не возвращались — отключаем
+// автоимпорт. Новые пользователи добавляются админом через UI кнопкой
+// «Добавить пользователя». Если когда-нибудь понадобится разовый
+// прогон — запустить вручную: `npx tsx scripts/import-team.ts`.
 run('npx tsx scripts/cleanup-team.ts');
 run('npx tsx scripts/migrate-grades.ts');
 

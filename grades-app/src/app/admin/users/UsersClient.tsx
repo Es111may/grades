@@ -139,6 +139,18 @@ export default function UsersClient({
     openEdit(user);
   }
 
+  async function handleToggleActive(user: UserRow) {
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: !user.active }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+    }
+  }
+
   function handleSaved(saved: UserRow) {
     setUsers((prev) => {
       const idx = prev.findIndex((u) => u.id === saved.id);
@@ -251,6 +263,7 @@ export default function UsersClient({
           users={filtered}
           gradeThresholds={gradeThresholds}
           onRowClick={open360}
+          onToggleActive={handleToggleActive}
         />
       ) : (
         <KanbanView
@@ -292,7 +305,12 @@ export default function UsersClient({
             setUsers((prev) =>
               prev.map((u) => (u.id === id ? { ...u, active: false } : u)),
             );
-            setCard360User(null);
+            // Не закрываем popup — обновляем локальное состояние карточки,
+            // чтобы Pavel видел результат (появляется чип «Неактивен»,
+            // кнопки действий исчезают).
+            setCard360User((curr) =>
+              curr && curr.id === id ? { ...curr, active: false } : curr,
+            );
           }}
         />
       )}

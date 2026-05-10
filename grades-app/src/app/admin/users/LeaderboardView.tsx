@@ -84,10 +84,12 @@ export default function LeaderboardView({
   users,
   gradeThresholds,
   onRowClick,
+  onToggleActive,
 }: {
   users: UserRow[];
   gradeThresholds: GradeThreshold[];
   onRowClick: (user: UserRow) => void;
+  onToggleActive: (user: UserRow) => void;
 }) {
   // На лидерборде сравниваем только дизайнеров — стардизы не грейдируются.
   const designers = useMemo(() => users.filter((u) => u.role === 'designer'), [users]);
@@ -195,6 +197,9 @@ export default function LeaderboardView({
               </Th>
             ))}
             <Th keyId="tenure">Стаж</Th>
+            <th className="text-center py-2.5 px-4 font-medium text-[11px] text-stone">
+              Активен
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-cloud">
@@ -267,6 +272,24 @@ export default function LeaderboardView({
                 ))}
                 <td className="py-3 px-4 text-stone whitespace-nowrap">
                   {formatTenure(tenureMonths(u.hiredAt))}
+                </td>
+                <td className="py-3 px-4 text-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleActive(u);
+                    }}
+                    className={`relative w-9 h-5 rounded-full transition-colors ${
+                      u.active ? 'bg-emerald' : 'bg-cloud'
+                    }`}
+                    aria-label={u.active ? 'Деактивировать' : 'Активировать'}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                        u.active ? 'left-[18px]' : 'left-0.5'
+                      }`}
+                    />
+                  </button>
                 </td>
               </tr>
             );
