@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { GRADE_NAMES, GRADE_ORDER, BUILD_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
-import { ChevronDownIcon } from '@/components/icons';
 
 type SkillData = {
   id: number;
@@ -496,6 +495,52 @@ export default function AssessmentForm({
   );
 }
 
+function MasteryOption({
+  title,
+  criteria,
+  xp,
+  selected,
+  onClick,
+  disabled,
+}: {
+  title: string;
+  criteria: string | null;
+  xp: number;
+  selected: boolean;
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full flex items-start gap-3 p-4 rounded-card border transition-colors text-left ${
+        selected
+          ? 'border-ink bg-canvas/60'
+          : 'border-cloud hover:border-ash bg-snow'
+      } ${disabled ? 'cursor-default' : 'cursor-pointer'}`}
+    >
+      <span
+        className={`shrink-0 w-4 h-4 mt-0.5 rounded-full border-2 flex items-center justify-center transition-colors ${
+          selected ? 'border-ink' : 'border-ash'
+        }`}
+      >
+        {selected && <span className="w-1.5 h-1.5 rounded-full bg-ink" />}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-ink leading-snug">{title}</div>
+        {criteria && (
+          <div className="text-xs text-stone leading-relaxed mt-1">{criteria}</div>
+        )}
+      </div>
+      <div className="shrink-0 text-xs text-stone tabular-nums self-start mt-0.5">
+        {xp}
+      </div>
+    </button>
+  );
+}
+
 function SkillCard({
   skill,
   currentLevel,
@@ -507,113 +552,56 @@ function SkillCard({
   onSetLevel: (level: number) => void;
   disabled: boolean;
 }) {
-  const [expanded, setExpanded] = useState(currentLevel > 0);
-  const xp = currentLevel * skill.weight;
-
   return (
-    <article className="px-6 py-4 border-b border-cloud last:border-b-0">
-      <div className="flex items-start justify-between gap-6 mb-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <span className="font-medium text-sm">{skill.name}</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-pill tracking-wide font-medium ${
-                skill.type === 'CORE'
-                  ? 'bg-ink text-snow'
-                  : 'bg-cloud/60 text-stone'
-              }`}
-            >
-              {skill.type}
-            </span>
-            <span className="text-xs text-stone">вес {skill.weight}</span>
-          </div>
-          {skill.description && (
-            <div className="text-xs text-stone leading-relaxed">
-              {skill.description}
-            </div>
-          )}
-        </div>
-        <div className="text-right shrink-0">
-          <div className="text-[11px]  text-stone mb-0.5">XP</div>
-          <div className="font-display text-2xl font-semibold leading-none tabular-nums">
-            {xp}
-          </div>
-        </div>
+    <article className="px-6 py-5 border-b border-cloud last:border-b-0">
+      {/* Header: имя + CORE + вес */}
+      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+        <span className="font-medium text-sm">{skill.name}</span>
+        <span
+          className={`text-[10px] px-1.5 py-0.5 rounded-pill tracking-wide font-medium ${
+            skill.type === 'CORE' ? 'bg-ink text-snow' : 'bg-cloud/60 text-stone'
+          }`}
+        >
+          {skill.type}
+        </span>
+        <span className="text-xs text-stone">{skill.weight} вес</span>
       </div>
 
-      {/* Mastery buttons — равной ширины, текст truncate */}
-      <div className="flex items-stretch gap-1.5 mt-3 flex-wrap">
-        <button
+      {/* Описание навыка */}
+      {skill.description && (
+        <div className="text-sm text-stone leading-relaxed mb-4">
+          {skill.description}
+        </div>
+      )}
+
+      {/* Уровни мастерства как вертикальный radio-список */}
+      <div className="flex flex-col gap-2">
+        <MasteryOption
+          title="Не оценено"
+          criteria={null}
+          xp={0}
+          selected={currentLevel === 0}
           onClick={() => !disabled && onSetLevel(0)}
           disabled={disabled}
-          className={`flex-1 min-w-[120px] max-w-[200px] h-8 px-3 rounded-pill text-xs border transition-colors flex items-center justify-center ${
-            currentLevel === 0
-              ? 'bg-ink text-snow border-ink'
-              : 'bg-snow text-stone border-cloud hover:border-ash'
-          } ${disabled ? 'cursor-default' : ''}`}
-        >
-          Не оценено
-        </button>
+        />
         {skill.levels.map((lvl) => (
-          <button
+          <MasteryOption
             key={lvl.level}
-            onClick={() => !disabled && onSetLevel(lvl.level)}
             title={lvl.title}
+            criteria={lvl.criteria}
+            xp={lvl.level * skill.weight}
+            selected={currentLevel === lvl.level}
+            onClick={() => !disabled && onSetLevel(lvl.level)}
             disabled={disabled}
-            className={`flex-1 min-w-[120px] max-w-[200px] h-8 px-3 rounded-pill text-xs border transition-colors flex items-center justify-center gap-1.5 ${
-              currentLevel === lvl.level
-                ? 'bg-ink text-snow border-ink'
-                : 'bg-snow text-stone border-cloud hover:border-ash hover:text-ink'
-            } ${disabled ? 'cursor-default' : ''}`}
-          >
-            <span className="font-semibold shrink-0">{lvl.level}</span>
-            <span className="truncate">{lvl.title}</span>
-          </button>
+          />
         ))}
       </div>
 
-      {/* Criteria details */}
-      <details
-        className="mt-3 group"
-        open={expanded}
-        onToggle={(e) => setExpanded((e.target as HTMLDetailsElement).open)}
-      >
-        <summary className="text-xs text-stone hover:text-ink inline-flex items-center gap-1 cursor-pointer select-none">
-          <ChevronDownIcon className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
-          Критерии по уровням
-        </summary>
-        <div className="mt-3 space-y-2">
-          {skill.levels.map((lvl) => (
-            <div
-              key={lvl.level}
-              className={`p-3 rounded-card border transition-colors ${
-                currentLevel === lvl.level
-                  ? 'bg-lime-light border-lime/40'
-                  : 'bg-canvas border-transparent'
-              }`}
-            >
-              <div className="font-medium text-sm mb-1 flex items-center gap-2">
-                <span
-                  className={`text-sm leading-none tabular-nums font-semibold ${
-                    currentLevel === lvl.level ? 'text-ink' : 'text-ash'
-                  }`}
-                >
-                  {lvl.level}
-                </span>
-                <span>{lvl.title}</span>
-              </div>
-              <div className="text-xs text-graphite leading-relaxed">
-                {lvl.criteria}
-              </div>
-            </div>
-          ))}
-          {skill.replaceableNote && (
-            <div className="bg-canvas border border-cloud rounded-card p-3 text-xs leading-relaxed text-graphite">
-              {skill.replaceableNote}
-            </div>
-          )}
+      {skill.replaceableNote && (
+        <div className="bg-canvas border border-cloud rounded-card p-3 mt-3 text-xs leading-relaxed text-graphite">
+          {skill.replaceableNote}
         </div>
-      </details>
+      )}
     </article>
   );
 }
