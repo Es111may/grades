@@ -24,46 +24,87 @@ export default async function AdminUsersPage() {
         }
       : {};
 
-  const [usersRaw, builds, leadsRaw, stardizesRaw, latestGrades] = await Promise.all([
-    prisma.user.findMany({
-      where: userWhere,
-      include: {
-        build: true,
-        lead: { select: { id: true, fullName: true } },
-        stardiz: { select: { id: true, fullName: true } },
-      },
-      // active desc — активные сверху, деактивированные в конце.
-      orderBy: [{ active: 'desc' }, { role: 'asc' }, { fullName: 'asc' }],
-    }),
-    prisma.build.findMany({ orderBy: { sortOrder: 'asc' } }),
-    prisma.user.findMany({
-      where: { role: { in: ['lead', 'admin'] }, active: true },
-      select: { id: true, fullName: true },
-      orderBy: { fullName: 'asc' },
-    }),
-    prisma.user.findMany({
-      where: { role: { in: ['stardiz', 'lead', 'admin'] }, active: true },
-      select: { id: true, fullName: true },
-      orderBy: { fullName: 'asc' },
-    }),
-    // Последний effectiveGrade каждого дизайнера + дата публикации — одним SQL-запросом.
-    prisma.$queryRaw<Array<{ designerId: number; effectiveGrade: string | null; publishedAt: Date | null }>>`
-      SELECT DISTINCT ON ("designerId") "designerId", "effectiveGrade", "publishedAt"
-      FROM assessments
-      WHERE status = 'published' AND "effectiveGrade" IS NOT NULL
-      ORDER BY "designerId", "publishedAt" DESC
-    `,
-  ]);
+  const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
 
-  const gradeByDesignerId = new Map<number, { grade: string; publishedAt: string | null }>();
+  const [usersRaw, builds, leadsRaw, stardizesRaw, latestGrades, gradeLevels] =
+    await Promise.all([
+      prisma.user.findMany({
+        where: userWhere,
+        include: {
+          build: true,
+          lead: { select: { id: true, fullName: true } },
+          stardiz: { select: { id: true, fullName: true } },
+        },
+        // active desc — активные сверху, деактивированные в конце.
+        orderBy: [{ active: 'desc' }, { role: 'asc' }, { fullName: 'asc' }],
+      }),
+      prisma.build.findMany({ orderBy: { sortOrder: 'asc' } }),
+      prisma.user.findMany({
+        where: { role: { in: ['lead', 'admin'] }, active: true },
+        select: { id: true, fullName: true },
+        orderBy: { fullName: 'asc' },
+      }),
+      prisma.user.findMany({
+        where: { role: { in: ['stardiz', 'lead', 'admin'] }, active: true },
+        select: { id: true, fullName: true },
+        orderBy: { fullName: 'asc' },
+      }),
+      // Последний published-ассессмент: грейд, дата, totalXp и xpByTaxonomy
+      // (последнее достаём из jsonb snapshot.result.xpByTaxonomy).
+      prisma.$queryRaw<
+        Array<{
+          designerId: number;
+          effectiveGrade: string | null;
+          publishedAt: Date | null;
+          totalXp: number | null;
+          xpByTaxonomy: Record<string, number> | null;
+        }>
+      >`
+        SELECT DISTINCT ON ("designerId")
+          "designerId",
+          "effectiveGrade",
+          "publishedAt",
+          "totalXp",
+          snapshot->'result'->'xpByTaxonomy' AS "xpByTaxonomy"
+        FROM assessments
+        WHERE status = 'published' AND "effectiveGrade" IS NOT NULL
+        ORDER BY "designerId", "publishedAt" DESC
+      `,
+      matrix
+        ? prisma.gradeLevel.findMany({
+            where: { matrixVersionId: matrix.id },
+            orderBy: { sortOrder: 'asc' },
+          })
+        : Promise.resolve([]),
+    ]);
+
+  const gradeByDesignerId = new Map<
+    number,
+    {
+      grade: string;
+      publishedAt: string | null;
+      totalXp: number | null;
+      xpByTaxonomy: Record<string, number> | null;
+    }
+  >();
   for (const a of latestGrades) {
     if (a.effectiveGrade) {
       gradeByDesignerId.set(a.designerId, {
         grade: a.effectiveGrade,
         publishedAt: a.publishedAt?.toISOString() ?? null,
+        totalXp: a.totalXp,
+        xpByTaxonomy: a.xpByTaxonomy,
       });
     }
   }
+
+  // Сериализуем grade-levels для клиента: code → { build: threshold }.
+  const gradeThresholds = gradeLevels.map((g) => ({
+    code: g.code,
+    name: g.name,
+    sortOrder: g.sortOrder,
+    xpThresholds: g.xpThresholds as Record<string, number>,
+  }));
 
   const users = usersRaw.map((u) => {
     const last = gradeByDesignerId.get(u.id);
@@ -86,6 +127,8 @@ export default async function AdminUsersPage() {
       avatarUrl: u.avatarUrl,
       effectiveGrade: last?.grade ?? null,
       lastAssessedAt: last?.publishedAt ?? null,
+      totalXp: last?.totalXp ?? null,
+      xpByTaxonomy: last?.xpByTaxonomy ?? null,
     };
   });
 
@@ -95,6 +138,7 @@ export default async function AdminUsersPage() {
       builds={builds}
       leads={leadsRaw}
       stardizes={stardizesRaw}
+      gradeThresholds={gradeThresholds}
       meId={me.id ?? null}
       meRole={me.role ?? ''}
     />

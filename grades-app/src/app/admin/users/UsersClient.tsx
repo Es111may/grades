@@ -5,7 +5,7 @@ import UserModal from './UserModal';
 import KanbanView from './KanbanView';
 import MatrixView from './MatrixView';
 import UserCard360 from './UserCard360';
-import Avatar from '@/components/Avatar';
+import LeaderboardView from './LeaderboardView';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -28,84 +28,33 @@ export type UserRow = {
   avatarUrl?: string | null;
   effectiveGrade?: string | null;
   lastAssessedAt?: string | null;
+  totalXp?: number | null;
+  xpByTaxonomy?: Record<string, number> | null;
 };
 
-type ViewMode = 'table' | 'kanban-dept' | 'kanban-lead' | 'kanban-grade' | 'matrix';
+export type GradeThreshold = {
+  code: string;
+  name: string;
+  sortOrder: number;
+  xpThresholds: Record<string, number>;
+};
+
+type ViewMode =
+  | 'leaderboard'
+  | 'kanban-dept'
+  | 'kanban-lead'
+  | 'kanban-grade'
+  | 'matrix';
 
 type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
 type ScopeFilter = 'all' | 'mine';
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Админ',
-  lead: 'Лид',
-  stardiz: 'Стардиз',
-  designer: 'Дизайнер',
-};
-
-const GRADE_LABELS: Record<string, string> = {
-  junior: 'Джун',
-  junior_plus: 'Джун+',
-  premiddle: 'Пре-мидл',
-  middle: 'Мидл',
-  middle_plus: 'Мидл+',
-  senior: 'Синьор',
-};
-
-function initials(name: string) {
-  return name
-    .split(' ')
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
-
-function formatDate(d: string | null) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-  });
-}
-
-/**
- * Стаж от hiredAt до сейчас. Формат:
- *   меньше года   → «3 мес.»
- *   ровно года    → «1 год»
- *   составной     → «2 года 4 мес.»
- *   меньше месяца → «<1 мес.»
- */
-function formatTenure(hiredAt: string | null): string {
-  if (!hiredAt) return '—';
-  const start = new Date(hiredAt);
-  const now = new Date();
-  let months =
-    (now.getFullYear() - start.getFullYear()) * 12 +
-    (now.getMonth() - start.getMonth());
-  if (now.getDate() < start.getDate()) months--;
-  if (months < 0) return '—';
-  if (months < 1) return '<1 мес.';
-  const years = Math.floor(months / 12);
-  const m = months % 12;
-  const yearWord = (n: number) => {
-    const last = n % 10;
-    const lastTwo = n % 100;
-    if (lastTwo >= 11 && lastTwo <= 14) return 'лет';
-    if (last === 1) return 'год';
-    if (last >= 2 && last <= 4) return 'года';
-    return 'лет';
-  };
-  if (years === 0) return `${m} мес.`;
-  if (m === 0) return `${years} ${yearWord(years)}`;
-  return `${years} ${yearWord(years)} ${m} мес.`;
-}
 
 export default function UsersClient({
   initialUsers,
   builds,
   leads,
   stardizes,
+  gradeThresholds,
   meId,
   meRole,
 }: {
@@ -113,6 +62,7 @@ export default function UsersClient({
   builds: Build[];
   leads: Lead[];
   stardizes: Lead[];
+  gradeThresholds: GradeThreshold[];
   meId: number | null;
   meRole: string;
 }) {
@@ -124,7 +74,7 @@ export default function UsersClient({
   const [modalUser, setModalUser] = useState<UserRow | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [isNew, setIsNew] = useState(false);
-  const [view, setView] = useState<ViewMode>('table');
+  const [view, setView] = useState<ViewMode>('leaderboard');
   const [card360User, setCard360User] = useState<UserRow | null>(null);
 
   // Свитчер «Все/Мои» виден только админу и лиду. Стардиз и так видит
@@ -207,18 +157,6 @@ export default function UsersClient({
     setModalOpen(false);
   }
 
-  async function handleToggleActive(user: UserRow) {
-    const res = await fetch(`/api/users/${user.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: !user.active }),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-    }
-  }
-
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="flex items-end justify-between mb-6 gap-4">
@@ -279,7 +217,7 @@ export default function UsersClient({
 
         <div className="segmented">
           {([
-            ['table', 'Таблица'],
+            ['leaderboard', 'Лидерборд'],
             ['kanban-dept', 'Отделы'],
             ['kanban-lead', 'Лиды'],
             ['kanban-grade', 'Уровни'],
@@ -308,113 +246,12 @@ export default function UsersClient({
 
       {view === 'matrix' ? (
         <MatrixView users={filtered} />
-      ) : view === 'table' ? (
-      /* Table */
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-canvas border-b border-cloud">
-              {['Имя', 'Роль', 'Билд', 'Отдел', 'Лид', 'Стаж'].map((h) => (
-                <th
-                  key={h}
-                  className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone"
-                >
-                  {h}
-                </th>
-              ))}
-              <th className="text-center py-2.5 px-4 font-medium text-[11px]  text-stone">
-                Floor
-              </th>
-              <th className="text-center py-2.5 px-4 font-medium text-[11px]  text-stone">
-                Активен
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-cloud">
-            {filtered.map((u) => (
-              <tr
-                key={u.id}
-                onClick={() => open360(u)}
-                className={`hover:bg-canvas/60 transition-colors cursor-pointer ${
-                  !u.active ? 'opacity-50' : ''
-                }`}
-              >
-                <td className="py-3 px-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={u.fullName} avatarUrl={u.avatarUrl} size={32} />
-                    <div className="min-w-0">
-                      <div className="font-medium leading-tight">{u.fullName}</div>
-                      <div className="text-xs text-stone leading-tight mt-0.5">
-                        {u.email}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-3 px-4 text-stone">{ROLE_LABELS[u.role] ?? u.role}</td>
-                <td className="py-3 px-4">
-                  {u.build ? (
-                    <span className="chip-build">
-                      <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{
-                          background:
-                            u.build.code === 'creator'
-                              ? '#00ca48'
-                              : u.build.code === 'visioner'
-                                ? '#7c3aed'
-                                : '#0ea5e9',
-                        }}
-                      />
-                      {u.build.name}
-                    </span>
-                  ) : (
-                    <span className="text-ash">—</span>
-                  )}
-                </td>
-                <td className="py-3 px-4 text-stone">{u.department ?? '—'}</td>
-                <td className="py-3 px-4 text-stone">{u.lead?.fullName ?? '—'}</td>
-                <td className="py-3 px-4 text-stone whitespace-nowrap">
-                  {formatTenure(u.hiredAt)}
-                </td>
-                <td className="py-3 px-4 text-center">
-                  {u.gradeFloor ? (
-                    <span className="chip-warn">
-                      {GRADE_LABELS[u.gradeFloor] ?? u.gradeFloor}
-                    </span>
-                  ) : (
-                    <span className="text-ash">—</span>
-                  )}
-                </td>
-                <td className="py-3 px-4 text-center">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleActive(u);
-                    }}
-                    className={`relative w-9 h-5 rounded-full transition-colors ${
-                      u.active ? 'bg-emerald' : 'bg-cloud'
-                    }`}
-                    aria-label={u.active ? 'Деактивировать' : 'Активировать'}
-                  >
-                    <span
-                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                        u.active ? 'left-[18px]' : 'left-0.5'
-                      }`}
-                    />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={8} className="py-12 text-center text-stone">
-                  Нет пользователей
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      ) : view === 'leaderboard' ? (
+        <LeaderboardView
+          users={filtered}
+          gradeThresholds={gradeThresholds}
+          onRowClick={open360}
+        />
       ) : (
         <KanbanView
           users={filtered}
@@ -428,11 +265,6 @@ export default function UsersClient({
           }
           onCardClick={(u) => open360(u as UserRow)}
         />
-      )}
-      {view === 'table' && (
-        <div className="mt-3 text-xs text-stone">
-          Серая строка — деактивированный пользователь.
-        </div>
       )}
 
       {modalOpen && (
