@@ -15,7 +15,7 @@ type Taxonomy = { id: number; code: string; name: string };
 const NEW_GROUP_VALUE = '__new__';
 
 const buildColor = (code: string) =>
-  code === 'creator' ? '#ade900' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
+  code === 'creator' ? '#d5ff0c' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 export default function NewSkillModal({
   builds,

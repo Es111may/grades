@@ -15,8 +15,8 @@ const config: Config = {
         // Бордеры и разделители
         ash: '#d2d2d7',
         cloud: '#e5e5ea',
-        // Бренд
-        lime: { DEFAULT: '#ade900', light: '#ebffb1', dim: '#f6ffce', dark: '#7ba300' },
+        // Бренд — основной зелёный + производные оттенки в той же тональности
+        lime: { DEFAULT: '#d5ff0c', light: '#ebff8a', dim: '#f8ffcc', dark: '#a8cd00' },
         // Системные акценты Apple-style
         sunset: '#ff9500',
         blaze: '#ff3b30',

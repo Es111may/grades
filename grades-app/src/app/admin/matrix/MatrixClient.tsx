@@ -31,7 +31,7 @@ type Skill = {
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
 
 const buildColor = (code: string) =>
-  code === 'creator' ? '#ade900' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
+  code === 'creator' ? '#d5ff0c' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 export default function MatrixClient({
   builds,
