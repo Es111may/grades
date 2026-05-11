@@ -84,7 +84,7 @@ export default function NewLeadReviewForm({ target }: { target: Target }) {
   const preview = csvText ? makeQuickPreview(csvText) : null;
 
   return (
-    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
+    <main className="max-w-[760px] mx-auto px-8 pt-10 pb-16">
       <div className="text-xs text-stone mb-3">
         <Link href="/admin/users" className="hover:text-ink transition-colors">
           Команда
@@ -115,7 +115,7 @@ export default function NewLeadReviewForm({ target }: { target: Target }) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-[760px] space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div className="card p-6 space-y-5">
           <div>
             <label className="block text-[11px] text-stone mb-1.5">Период</label>
