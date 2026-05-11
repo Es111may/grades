@@ -13,7 +13,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 const ROLE_TONE: Record<string, string> = {
-  admin: 'bg-[#fff7e6] text-sunset border border-sunset/25',
+  admin: 'bg-[#fff7e6] text-sunset',
   lead: 'bg-lime-light text-graphite border border-lime/30',
   stardiz: 'bg-[#ede9fe] text-[#6d28d9]',
   designer: 'bg-cloud/60 text-stone',

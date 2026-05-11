@@ -261,10 +261,11 @@ export default function AssessmentForm({
               {designer.fullName}
             </h1>
             <div className="flex items-center gap-1.5 flex-wrap">
-              {/* На странице оценки чип билда того же размера, что роль/
-                  черновик (text-[11px]). В таблицах/канбане он мельче — там
-                  используется .chip-build из globals.css. */}
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill bg-cloud/60 text-[11px] font-medium text-stone">
+              {/* На странице оценки чип билда такой же по размеру, как роль
+                  и статус — используем .chip-neutral, точку билда кладём
+                  внутрь. В таблицах/канбане более компактный .chip-build из
+                  globals.css. */}
+              <span className="chip-neutral">
                 <span
                   className="w-1.5 h-1.5 rounded-full"
                   style={{
