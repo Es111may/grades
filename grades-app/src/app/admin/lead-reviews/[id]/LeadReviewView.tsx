@@ -162,7 +162,7 @@ export default function LeadReviewView({
             {showRoleSplit && (
               <div className="space-y-2.5">
                 {presentRoles.map((role) => {
-                  const v = agg.enps.averageByRole[role];
+                  const v = agg.enps.averageByRole[role] ?? null;
                   return (
                     <div
                       key={role}
@@ -561,8 +561,8 @@ function EditableMarkdownBlock({
   );
 }
 
-function ScoreBar({ value, max }: { value: number | null; max: number }) {
-  if (value === null) {
+function ScoreBar({ value, max }: { value: number | null | undefined; max: number }) {
+  if (value == null) {
     return (
       <div className="flex-1 h-1.5 bg-cloud rounded-full overflow-hidden" />
     );
