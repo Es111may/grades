@@ -10,16 +10,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // дополнительный role-guard через canEditMatrix.
   const user = await requireRole(['admin', 'lead', 'stardiz']);
   const isAdminish = user.role === 'admin' || user.role === 'lead';
+  const isLeadLike = user.role === 'lead' || user.role === 'stardiz';
   const navItems = isAdminish
     ? [
         { href: '/admin/users', label: 'Пользователи' },
         { href: '/admin/matrix', label: 'Матрица' },
         { href: '/admin/grades', label: 'Грейды' },
         { href: '/lead/assessments', label: 'Оценки' },
+        ...(isLeadLike ? [{ href: '/admin/lead-reviews', label: 'Мой портрет' }] : []),
       ]
     : [
         { href: '/admin/users', label: 'Пользователи' },
         { href: '/lead/assessments', label: 'Все оценки' },
+        ...(isLeadLike ? [{ href: '/admin/lead-reviews', label: 'Мой портрет' }] : []),
       ];
   return (
     <>

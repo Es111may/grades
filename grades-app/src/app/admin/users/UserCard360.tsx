@@ -84,6 +84,15 @@ export default function UserCard360({
 
   const canOpenPortrait = user.role === 'designer' && user.active;
 
+  // Лид/стардиз (Phase 22): портрет 360° доступен админу всегда и
+  // самому лиду/стардизу для просмотра своих оценок.
+  const isLeadOrStardiz = user.role === 'lead' || user.role === 'stardiz';
+  const canOpenLeadReview =
+    isLeadOrStardiz && user.active && (meRole === 'admin' || isSelf);
+  // Импорт CSV из Google Form — только админ, и только для активных
+  // лидов/стардизов.
+  const canImportLeadReview = isLeadOrStardiz && user.active && meRole === 'admin';
+
   async function handleDeactivate() {
     if (!confirm(`Деактивировать ${user.fullName}? Пользователь не сможет войти.`)) return;
     const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
@@ -202,6 +211,22 @@ export default function UserCard360({
               className="btn-secondary flex-1"
             >
               Открыть портрет
+            </a>
+          )}
+          {canOpenLeadReview && (
+            <a
+              href={`/admin/lead-reviews?userId=${user.id}`}
+              className="btn-secondary flex-1"
+            >
+              Открыть портрет
+            </a>
+          )}
+          {canImportLeadReview && (
+            <a
+              href={`/admin/lead-reviews/new?userId=${user.id}`}
+              className="btn-secondary flex-1"
+            >
+              Импортировать опрос
             </a>
           )}
           {canAssess && (

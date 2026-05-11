@@ -220,6 +220,8 @@ model User {
   auditEntries         AuditLog[]
   matrixCell           TeamMatrixCell?    @relation("UserMatrixCell")
   matrixCellsUpdated   TeamMatrixCell[]   @relation("MatrixCellUpdater")
+  leadReviewsAboutMe   LeadReview[]       @relation("LeadReviewTarget")
+  leadReviewsIImported LeadReview[]       @relation("LeadReviewCreator")
 
   @@map("users")
 }
@@ -350,4 +352,42 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@index([targetType, targetId])
   @@map("audit_log")
+}
+
+// ============================================================
+// LEAD REVIEW (Phase 22, см. PRD §11.14)
+// 360-оценка лида/стардиза из анонимного Google Form-опроса.
+// Админ грузит CSV-экспорт → парсер считает агрегаты → сохраняем.
+// Поля aiSummary и cdoSummary — markdown, заполняет админ вручную.
+// Видимость самому лиду — сразу с момента создания (без публикации).
+// ============================================================
+
+model LeadReview {
+  id            Int      @id @default(autoincrement())
+  targetUserId  Int
+  targetUser    User     @relation("LeadReviewTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  // Свободный текст: "Q2 2026", "Май 2026", "Декабрь 2025"
+  period        String
+  // Версия шаблона опроса. Растёт при изменении набора вопросов.
+  // На v1 захардкожен в src/lib/leadSurvey.ts (6 категорий + eNPS + 4 открытых).
+  surveyVersion Int      @default(1)
+  // Сколько строк-ответов получили (для перепарса при необходимости).
+  responseCount Int      @default(0)
+  // Сырой CSV — на случай если поменяется логика парсинга.
+  rawCsv        String   @db.Text
+  // Готовые агрегаты для отрисовки портрета. Структура — см. parseLeadReviewCsv.
+  aggregates    Json
+  // Сводка ИИ-выводов. Markdown, заполняется админом вручную (Pavel прогоняет
+  // через ChatGPT/Gemini снаружи и вставляет результат).
+  aiSummary     String?  @db.Text
+  // CDO-блок: KPI периода, наблюдения, итоговая оценка от Pavel'a. Markdown.
+  cdoSummary    String?  @db.Text
+
+  createdById   Int
+  createdBy     User     @relation("LeadReviewCreator", fields: [createdById], references: [id])
+  importedAt    DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([targetUserId, importedAt])
+  @@map("lead_reviews")
 }

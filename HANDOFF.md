@@ -16,12 +16,13 @@
 
 ## Текущее состояние (на 11.05.2026)
 
-**Закрыто (Phase 0–12):**
+**Закрыто (Phase 0–12, 22.1):**
 - 0–8: каркас, импорт Excel, auth (email+password — Keycloak отвергнут), форма оценки, портрет, админ-матрица, грейды, гейты, канбан, stardiz, расширенные права лида.
 - **9** — 9-Box матрица потенциала (`@dnd-kit/core`, `TeamMatrixCell`, аккордеон с описанием).
 - **10** — Канбан как основной просмотр + popup-карточка 360° с 4 действиями. `/lead/page.tsx` стал редиректом на `/admin/users`. Stardiz получил доступ к `/admin/users` (видит только своих). Фильтр «Все/Мои» для admin/lead.
 - **11** — Лидерборд по уровням. Заменил «Таблицу» в segmented control. Колонки: Имя/Билд/Грейд/XP+прогресс-бар/UI/UX/PRD/IND/RES/Стаж/Активен. Сортировка по клику.
 - **12** — Визуальная доводка формы оценки. Radio-список уровней с criteria всегда видимыми (по макету Pavel'a, SVG).
+- **22.1** — 360-оценка лидов и стардизов: модель `LeadReview` + парсер CSV из Google Form + страницы `/admin/lead-reviews{,/[id],/new}`. Шаблон опроса v1 (6 категорий, eNPS, 4 открытых) — `src/lib/leadSurvey.ts`. Респонденты анонимны: показываем только роль (Дизайнер/Менеджер/...). Лид/стардиз получили вкладку «Мой портрет» в шапке. ИИ-сводка и CDO-блок — простые markdown-textarea, Pavel заполняет вручную.
 
 **Параллельно закрытое (поверх Phase 10–12):**
 - Bulk-импорт 25 реальных дизайнеров из `data/team.csv` (потом отключён — пересоздавал удалённых).
@@ -33,7 +34,7 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.14.8 (lemonia patch на 11.05).
+**Версия в `package.json`:** 0.15.0 (Phase 22.1 — 360-оценка лидов).
 
 ## Что в очереди (Phase 13+)
 
@@ -48,7 +49,11 @@
 7. **Phase 19** — Расширенный audit-log.
 8. **Phase 20** — UI «Ида.Продукты» (ждём ассетов).
 9. **Phase 21** — Метрическая система оценки команды (концепт, 4 категории — Эффективность/Траст/Dream Team/Качество результата).
-10. **Phase 22** — 360-оценка лидов и стардизов. CSV-импорт из Google Form + ИИ-выводы + CDO-блок. Решения зафиксированы.
+10. **Phase 22** — 360-оценка лидов и стардизов. **22.1 закрыта** (модель + импорт CSV + портрет). Дальше:
+    - 22.2 — sparkline-прогрессия между циклами на странице портрета лида
+    - 22.3 — автоматическая ИИ-генерация сводки (сейчас Pavel вставляет руками)
+    - 22.4 — структурированный CDO/KPI-блок (сейчас просто markdown)
+    - 22.5 — PDF-экспорт + reminder для лидов на испытательном (каждые 3 мес)
 
 ## Ключевые файлы
 
@@ -77,8 +82,15 @@ grades-app/
     AssessmentReminder.tsx         — сезонная плашка
     icons.tsx                      — Edit / Plus / Calendar / Close / ChevronDown
     PageSkeleton.tsx
+  src/lib/
+    leadSurvey.ts                  — Phase 22: шаблон 360-опроса v1 (категории, маппинг колонок CSV → вопросы) + типы агрегатов
+    parseLeadReviewCsv.ts          — Phase 22: парсер CSV-выгрузки Google Form, считает средние по пунктам/категориям/ролям
   src/app/
     globals.css                    — primitives (.btn-*, .input, .card, .chip-build, .chip-neutral/accent/warn/danger/info, .segmented)
+    admin/lead-reviews/            — Phase 22.1
+      page.tsx                     — точка входа: ?userId=X → редирект на свежую LeadReview или empty state
+      [id]/page.tsx, LeadReviewView.tsx — портрет лида с переключателем циклов, eNPS, категории, открытые ответы, AI-сводка, CDO
+      new/page.tsx, NewLeadReviewForm.tsx — форма загрузки CSV (admin only)
     layout.tsx, page.tsx (redirect)
     auth/signin/
     admin/layout.tsx               — пропускает admin/lead/stardiz, matrix/grades делают доп-guard
