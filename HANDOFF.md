@@ -4,41 +4,51 @@
 
 ## Что это за проект
 
-Веб-приложение для грейдирования дизайнеров в IDA Project. Заменяет Excel-шаблон. ~25 человек: ~5 лидов/админов, ~20 дизайнеров.
+Веб-приложение для грейдирования дизайнеров в IDA Project. Заменяет Excel-шаблон. ~25 человек: 3 лида + 2 стардиза + 20 дизайнеров + 1 админ (Pavel).
 
 - **Repo:** `git@github.com:Es111may/grades.git` (main = prod)
 - **Деплой:** Railway, авто-деплой при push в main
-- **URL:** уточни у Pavel
 - **Стек:** Next.js 14 App Router + TypeScript + Tailwind + Prisma 5 + Postgres + NextAuth
 
 ## С кем работаешь
 
-**Pavel G.** — design director в IDA, **не разработчик**. Любит конкретику, не любит лишнюю воду. Пиши на русском (как и весь проект). Не используй эмодзи если не попросит.
+**Pavel G.** — design director в IDA, **не разработчик**, локально код не запускает (нет npm/node в PATH). Любит конкретику, не любит лишнюю воду. Пиши на русском. Не используй эмодзи если не попросит. На push в main даёт право без подтверждения (написано прямо: «прямой push разрешён»).
 
-## Текущее состояние
+## Текущее состояние (на 11.05.2026)
 
-См. `02_PRD.md` § 10 — статус по фазам. Кратко:
+**Закрыто (Phase 0–12):**
+- 0–8: каркас, импорт Excel, auth (email+password — Keycloak отвергнут), форма оценки, портрет, админ-матрица, грейды, гейты, канбан, stardiz, расширенные права лида.
+- **9** — 9-Box матрица потенциала (`@dnd-kit/core`, `TeamMatrixCell`, аккордеон с описанием).
+- **10** — Канбан как основной просмотр + popup-карточка 360° с 4 действиями. `/lead/page.tsx` стал редиректом на `/admin/users`. Stardiz получил доступ к `/admin/users` (видит только своих). Фильтр «Все/Мои» для admin/lead.
+- **11** — Лидерборд по уровням. Заменил «Таблицу» в segmented control. Колонки: Имя/Билд/Грейд/XP+прогресс-бар/UI/UX/PRD/IND/RES/Стаж/Активен. Сортировка по клику.
+- **12** — Визуальная доводка формы оценки. Radio-список уровней с criteria всегда видимыми (по макету Pavel'a, SVG).
 
-**Сделано (Phase 0–9)**: каркас, импорт Excel, auth (email+password — Keycloak отвергнут), форма оценки, портрет дизайнера, админ-матрица + грейды + гейты, канбан пользователей, роль stardiz, расширенные права лида, **9-Box матрица потенциала** (вкладка в `/admin/users`, drag-n-drop через `@dnd-kit/core`, модель `TeamMatrixCell`, аккордеон с описанием системы).
+**Параллельно закрытое (поверх Phase 10–12):**
+- Bulk-импорт 25 реальных дизайнеров из `data/team.csv` (потом отключён — пересоздавал удалённых).
+- Аватары в БД (data URL JPEG 256×256, sharp на сервере для импорта из `data/user-avatar/*.png`).
+- Hard-delete с переносом для лида/стардиза (`reassignTo`), cascade для designer.
+- Чёрный список emails `ExcludedEmail` — чтобы удалённых не возвращали ни seed, ни import-team.
+- Сезонный ремайндер «До 15 апреля/октября назначь даты грейдирования» (component `AssessmentReminder`).
+- Единые `chip-*` примитивы, кириллица отделов (Инхаус/Криэйт/Импрув), иконки из `components/icons.tsx` (Edit/Plus/Calendar/Close/ChevronDown).
+- Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
+- Стиль `font-display` убран из мест где не нужен.
 
-**Полировка UI завершена** — все страницы на единых токенах + примитивах (`.btn-*`, `.input`, `.card`, `.chip-*`, `.segmented`). Apple-стиль.
+**Версия в `package.json`:** 0.14.8 (lemonia patch на 11.05).
 
-**Бренд** — основной зелёный `#d5ff0c`, точка билда «Создатель» — `#00ca48`.
-
-**Производительность** — кешированы миграции в памяти, `cache()` для сессии, loading-скелетоны на ключевых страницах, DISTINCT ON для последних оценок.
-
-## Что идёт следующим (Phase 10+)
+## Что в очереди (Phase 13+)
 
 См. `02_PRD.md` § 11. По приоритету:
 
-1. **Phase 10** — Канбан как основной просмотр + popup карточки 360° с 4 действиями. Удалить старый `/lead` («Мои дизайнеры»), интегрировать в `/admin/users` с фильтром «Все/Мои»
-2. **Phase 11** — Лидерборд по уровням (заменит вкладку «Таблица»)
-3. **Phase 12** — Визуальная доводка формы оценки
-4. **Phase 13** — Разделение `Skill.description` и `Skill.confirmationGuide`
-5. **Phase 14** — Самооценка дизайнера + загрузка подтверждений (SkillEvidence + SelfAssessment)
-6. **Phase 15** — График скорости роста в popup карточки
-
-Дальше: Phase 16 (perf-данные), 17 (ИПР), 18 (карточка-Buildin/Кроксы), 19 (audit-log), 20 (UI Ида.Продукты), Тимс.
+1. **Phase 13** — Разделить `Skill.description` и `Skill.confirmationGuide`. Малая, но требует чтобы Pavel прошёл по 51 навыку.
+2. **Phase 14** — Самооценка дизайнера + загрузка подтверждений (`SelfAssessment`, `SkillEvidence`). **Большая** (новые сущности, файловое хранилище, перестройка процесса).
+3. **Phase 15** — Sparkline-график скорости роста в popup карточки.
+4. **Phase 16** — Подгрузка перформанса **и стоимости** дизайнера в оценку + композитная формула лидерборда `score = α·XP + β·Perf − γ·Cost`. Решения зафиксированы (см. PRD §11.8).
+5. **Phase 17** — ИПР.
+6. **Phase 18** — Карточка Buildin-style.
+7. **Phase 19** — Расширенный audit-log.
+8. **Phase 20** — UI «Ида.Продукты» (ждём ассетов).
+9. **Phase 21** — Метрическая система оценки команды (концепт, 4 категории — Эффективность/Траст/Dream Team/Качество результата).
+10. **Phase 22** — 360-оценка лидов и стардизов. CSV-импорт из Google Form + ИИ-выводы + CDO-блок. Решения зафиксированы.
 
 ## Ключевые файлы
 
@@ -46,76 +56,90 @@
 02_PRD.md                          — главный док. Полный контекст.
 HANDOFF.md                         — этот файл.
 
-grades-app/                        — приложение
-  prisma/schema.prisma             — модель данных
+grades-app/
+  prisma/schema.prisma             — модель данных (см. ExcludedEmail, TeamMatrixCell)
+  data/team.csv                    — реальная команда (импортирована, скрипт отключён)
+  data/user-avatar/*.png           — фотки команды (распакованы из zip)
+  scripts/
+    start.ts                       — entry для Railway (db push + import + seed + cleanup + migrate)
+    import-team.ts                 — отключён из start.ts, можно запускать вручную
+    cleanup-team.ts                — удаляет inactive, переименовывает Inhouse→Инхаус, проставляет отдел по билду
+    import-excel.ts, migrate-grades.ts
   src/lib/
     auth.ts                        — NextAuth, password + dev провайдеры
-    session.ts                     — getCurrentUser + requireRole (cached)
-    permissions.ts                 — canViewAdmin / canEditMatrix / canGradeDesigner
-    grade.ts                       — чистая логика расчёта грейда
-    portrait.ts                    — лоадер данных портрета
-    types.ts                       — UserRole / GradeCode / BuildCode
-    cycle.ts                       — currentCycle helpers
-    db.ts                          — Prisma singleton
-    oneTimeMigrations.ts           — кешированные миграции в памяти
+    session.ts                     — getCurrentUser (cached), requireRole, getDashboardForRole → /admin/users
+    permissions.ts                 — canAccessUsers (admin/lead/stardiz), canManageUsers (admin/lead), canEditMatrix, canGradeDesigner
+    grade.ts, portrait.ts, types.ts, cycle.ts, db.ts, oneTimeMigrations.ts
   src/components/
-    AppHeader.tsx, HeaderNav.tsx, UserMenu.tsx
-    PageSkeleton.tsx               — скелетоны
+    AppHeader.tsx (async, тянет user из БД)
+    UserMenu.tsx, HeaderNav.tsx
+    Avatar.tsx                     — img или fallback на инициалы
+    AssessmentReminder.tsx         — сезонная плашка
+    icons.tsx                      — Edit / Plus / Calendar / Close / ChevronDown
+    PageSkeleton.tsx
   src/app/
-    globals.css                    — primitives (.btn-*, .input, .card, .chip-*, .segmented)
-    layout.tsx                     — корневой
-    page.tsx                       — redirect на dashboard
-    auth/signin/                   — login (email+password + dev section)
-    admin/users/                   — пользователи: таблица + 3 канбан-вида
-      KanbanView.tsx, UserModal.tsx, UsersClient.tsx, page.tsx
+    globals.css                    — primitives (.btn-*, .input, .card, .chip-build, .chip-neutral/accent/warn/danger/info, .segmented)
+    layout.tsx, page.tsx (redirect)
+    auth/signin/
+    admin/layout.tsx               — пропускает admin/lead/stardiz, matrix/grades делают доп-guard
+    admin/users/                   — основной экран
+      UsersClient.tsx              — корневой client, scope-фильтр, segmented view, modals
+      LeaderboardView.tsx          — таблица-лидерборд (Phase 11)
+      KanbanView.tsx               — 3 канбан-вида
+      MatrixView.tsx               — 9-Box с DnD (Phase 9)
+      UserModal.tsx                — большая форма редактирования + удаление навсегда с reassign
+      UserCard360.tsx              — popup карточки
+      page.tsx                     — server query (users, builds, latestGrades, gradeThresholds)
     admin/matrix/                  — матрица скиллов
-      MatrixClient.tsx, NewSkillModal.tsx, MasteryEditorModal.tsx, page.tsx
     admin/grades/                  — пороги XP + гейты
-      GradesClient.tsx, SkillCombobox.tsx, page.tsx
-    lead/                          — «Мои дизайнеры» (удалится в Phase 10)
-      page.tsx, layout.tsx
-      assess/                      — форма оценки
-      portrait/                    — просмотр чужого портрета
-      assessments/                 — все опубликованные
-    designer/                      — свой портрет
-      page.tsx, Portrait.tsx, history/
+    lead/                          — page.tsx = redirect, assess/portrait/assessments остались
+      assess/AssessmentForm.tsx    — radio-список уровней по макету Pavel'a
+    designer/
+      Portrait.tsx                 — портрет (стиль radio-list, чипы в header, цветные progress-bars по таксономии)
 
-  tailwind.config.ts               — токены: lime #d5ff0c, emerald, blaze, sunset, sky
-  package.json                     — version 0.8.x
-  scripts/start.ts                 — entry для Railway: prisma push + import + seed + migrate
+  tailwind.config.ts               — токены: lime #d5ff0c, ash #a1a1a6 (поднят для контраста), emerald, blaze, sunset, sky
+  package.json                     — версия в шапке = индикатор свежести деплоя
 ```
 
 ## Договорённости по стилю кода
 
-- **Всё через primitives.** Не пиши `bg-white border border-cloud rounded-card shadow-soft` — пиши `card`. Не пиши `bg-lime border ...` — пиши `btn-accent`. Если нужна кастомизация — оборачивай примитив, а не плодя нового.
-- **Шрифты:** `font-display` только для крупных заголовков (h1, h2, KPI-цифры). Обычный текст — body font (Inter).
-- **Tabular-nums** на всех числах в таблицах и статистике.
-- **Системные акценты** (emerald/sunset/blaze/sky) — для семантики (success/warn/danger/focus). Не путать с брендовым lime.
-- **Loading-скелетоны** для всех новых страниц с тяжёлой загрузкой.
+- **Через primitives.** Не плодить `bg-white border border-cloud rounded-card` — пиши `card`. Не плодить `bg-lime border ...` — пиши `btn-accent`. Кастомизация — через override классов, не через новый набор.
+- **`font-display`** только для больших заголовков (h1, h2, KPI). Обычный текст — body.
+- **Tabular-nums** на всех числах в таблицах.
+- **Системные акценты** (emerald/sunset/blaze/sky) — для семантики (success/warn/danger/focus). Брендовый — lime.
+- **Без uppercase tracking-widest** — Pavel однажды попросил убрать глобально (старая привычка из ранних фаз).
+- **`.chip-build` мельче `.chip-neutral`** (10px vs 11px) — билд второстепенен в плотных списках. Но на странице оценки и портрете билд вёрстан inline-чипом `.chip-neutral` с точкой внутри — там размеры равны.
+- **Иконки** — только из `components/icons.tsx`, не плодить inline-SVG.
 
 ## Коммиты и git
 
-- **Default branch: main**, прямой push разрешён.
-- **Bcrypt-пароль аккаунта:** Pavel G. (`pg@idaproject.com`) — генерится в админке, в репо не хранится.
-- Используй формат коммитов: `тип(scope): описание` + блок «что и почему» в body.
-- Подписывай Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- **Default branch: main**, прямой push разрешён. Используем worktree-флоу.
+- Формат коммитов: `тип(scope): описание` + тело с «что и почему».
+- Подписывай: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
+- Bump `package.json` version при заметных изменениях — это индикатор свежести деплоя.
 
 ## Деплой
 
-- Любой push в main → Railway пересобирает. Проверка свежести по `package.json` version.
-- **scripts/start.ts** запускается до Next.js: prisma db push, import-excel (skip если matrix используется), seed (idempotent upsert), migrate-grades (skip если уже мигрировано).
+- Любой push в main → Railway пересобирает. Pavel смотрит версию в шапке, чтобы понять прокатилось ли.
+- `scripts/start.ts` запускается до Next.js: `prisma db push` + `import-excel` + `seed` (idempotent + уважает ExcludedEmail) + `cleanup-team` + `migrate-grades`.
+- `import-team.ts` **отключён** из start.ts. Запускать вручную если нужно (хоть и не нужно после первичного импорта).
 - Если деплой завис — `git commit --allow-empty -m "trigger redeploy"` или bump version.
+- Sharp как dep работает на Railway Linux x64 из коробки (prebuilt binaries).
 
-## Известные подводные камни
+## Подводные камни
 
-1. **Render-cache миграций.** При перезапуске контейнера флаги в `oneTimeMigrations.ts` сбрасываются — миграции отрабатывают повторно (идемпотентно). Это нормально.
-2. **Cycle-поле в Assessment.** Хранится в БД (YYYY-MM), но в UI не показывается — оценки ad-hoc.
-3. **Stardiz** не имеет своего портрета: `/designer/*` для них закрыт. Они только грейдируют подопечных.
-4. **`/admin/audit`** не существует — ссылка убрана. Будет в Phase 19.
-5. **Грейды:** `intern` удалён, `premiddle` добавлен. Пороги: `0/75/105/135/180/230`.
+1. **Render-cache миграций.** При перезапуске контейнера флаги в `oneTimeMigrations.ts` сбрасываются — миграции отрабатывают повторно (идемпотентно). ОК.
+2. **JWT-сессия NextAuth** хранит fullName/role на 8 часов. AppHeader тянет fresh данные из БД на каждом SSR-рендере (чтоб правки админа сразу появлялись).
+3. **Stardiz** не имеет своего портрета (нет в `/designer/*`). У него только доступ к `/admin/users` (только свои подопечные) и к форме оценки.
+4. **/admin/matrix и /admin/grades** требуют `canEditMatrix(role)` — admin/lead. Stardiz туда не пройдёт.
+5. **Грейды:** `intern` удалён, `premiddle` добавлен. Пороги XP: `0/75/105/135/180/230` (могут отличаться по билду).
+6. **ExcludedEmail** — единственный механизм блокировки воссоздания удалённых через seed/import-team. И seed, и import-team уважают этот список.
 
-## Стартовый промпт для следующего чата
+## Стартовый промпт для нового чата
 
 ```
-Привет. Прочитай HANDOFF.md и 02_PRD.md в /Users/pavelg./Documents/Claude/Projects/Грейды/, потом приступим к Phase 9 (или к чему скажу).
+Привет. Прочитай /Users/pavelg./Documents/Claude/Projects/Грейды/HANDOFF.md
+и 02_PRD.md, потом приступим к следующей задаче.
 ```
+
+После этого можешь сказать «делаем Phase 13» / «у меня правка по UI портрета» / etc — новый Claude поднимет контекст за пару секунд.
