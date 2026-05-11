@@ -152,15 +152,19 @@ export default function LeaderboardView({
   }: {
     keyId: SortKey;
     children: React.ReactNode;
-    align?: 'left' | 'right';
+    align?: 'left' | 'center' | 'right';
   }) {
     const active = sortKey === keyId;
+    const alignClass =
+      align === 'center'
+        ? 'text-center'
+        : align === 'right'
+          ? 'text-right'
+          : 'text-left';
     return (
       <th
         onClick={() => toggleSort(keyId)}
-        className={`py-2.5 px-4 font-medium text-[11px] text-stone cursor-pointer select-none hover:text-ink transition-colors ${
-          align === 'right' ? 'text-right' : 'text-left'
-        }`}
+        className={`py-2.5 px-4 font-medium text-[11px] text-stone cursor-pointer select-none hover:text-ink transition-colors ${alignClass}`}
       >
         <span className="inline-flex items-center gap-1">
           {children}
@@ -188,15 +192,17 @@ export default function LeaderboardView({
               Билд
             </th>
             <Th keyId="grade">Грейд</Th>
-            <Th keyId="totalXp" align="right">
+            <Th keyId="totalXp" align="center">
               XP
             </Th>
             {TAXONOMIES.map((t) => (
-              <Th key={t} keyId={t} align="right">
+              <Th key={t} keyId={t} align="center">
                 {t}
               </Th>
             ))}
-            <Th keyId="tenure">Стаж</Th>
+            <Th keyId="tenure" align="center">
+              Стаж
+            </Th>
             <th className="text-center py-2.5 px-4 font-medium text-[11px] text-stone">
               Активен
             </th>
@@ -250,9 +256,9 @@ export default function LeaderboardView({
                     <span className="text-ash">—</span>
                   )}
                 </td>
-                <td className="py-3 px-4 text-right">
+                <td className="py-3 px-4 text-center">
                   {u.totalXp !== null && u.totalXp !== undefined ? (
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-center gap-1">
                       <span className="tabular-nums font-medium">{u.totalXp}</span>
                       <div className="w-20 h-1 rounded-full bg-cloud overflow-hidden">
                         <div
@@ -266,11 +272,11 @@ export default function LeaderboardView({
                   )}
                 </td>
                 {TAXONOMIES.map((t) => (
-                  <td key={t} className="py-3 px-4 text-right tabular-nums text-stone">
+                  <td key={t} className="py-3 px-4 text-center tabular-nums text-stone">
                     {u.xpByTaxonomy?.[t] ?? '—'}
                   </td>
                 ))}
-                <td className="py-3 px-4 text-stone whitespace-nowrap">
+                <td className="py-3 px-4 text-center text-stone whitespace-nowrap">
                   {formatTenure(tenureMonths(u.hiredAt))}
                 </td>
                 <td className="py-3 px-4 text-center">
