@@ -100,6 +100,7 @@ export async function loadPortraitData(designerId: number): Promise<
     return {
       id: s.id,
       name: s.name,
+      type: s.type,
       description: s.description ?? '',
       taxonomyCode: s.group.taxonomy.code,
       taxonomyName: s.group.taxonomy.name,
