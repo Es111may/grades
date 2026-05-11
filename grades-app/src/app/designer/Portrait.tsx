@@ -170,6 +170,17 @@ export default function Portrait({
             {data.designer.fullName}
           </h1>
           <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Дата грейдирования — первым чипом, чёрная: ключевая
+                метка «когда зафиксирован этот портрет». */}
+            {data.publishedAt && (
+              <span className="chip bg-ink text-snow">
+                {new Date(data.publishedAt).toLocaleDateString('ru-RU', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </span>
+            )}
             {data.designer.buildCode && (
               <span className="chip-neutral">
                 <span
@@ -191,15 +202,6 @@ export default function Portrait({
             )}
             {data.designer.leadName && (
               <span className="chip-neutral">Лид: {data.designer.leadName}</span>
-            )}
-            {data.publishedAt && (
-              <span className="chip-neutral">
-                {new Date(data.publishedAt).toLocaleDateString('ru-RU', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </span>
             )}
           </div>
         </div>

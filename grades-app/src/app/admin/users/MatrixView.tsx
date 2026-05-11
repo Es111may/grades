@@ -219,7 +219,7 @@ function AboutAccordion() {
         />
       </button>
       {open && (
-        <div className="px-5 pb-5 pt-1 text-sm text-graphite leading-relaxed space-y-4 border-t border-cloud">
+        <div className="px-5 pb-5 pt-8 text-sm text-graphite leading-relaxed space-y-4 border-t border-cloud">
           <p>
             <strong>Матрица потенциала 9-Box</strong> — инструмент для оценки сотрудников
             по двум осям: текущим достижениям и будущему потенциалу. Помогает увидеть,
