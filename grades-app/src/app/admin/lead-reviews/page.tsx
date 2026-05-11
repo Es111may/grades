@@ -59,7 +59,7 @@ export default async function LeadReviewsLandingPage({
   // Empty state
   const canImport = me.role === 'admin' && target.active;
   return (
-    <main className="max-w-[1100px] mx-auto px-8 pt-12 pb-16">
+    <main className="max-w-[1400px] mx-auto px-8 pt-12 pb-16">
       <div className="text-xs text-stone mb-3">
         <Link href="/admin/users" className="hover:text-ink transition-colors">
           Команда
@@ -71,11 +71,14 @@ export default async function LeadReviewsLandingPage({
       <div className="flex items-center gap-4 mb-8">
         <Avatar name={target.fullName} avatarUrl={target.avatarUrl} size={64} />
         <div>
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-1.5">
+          <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
             {target.fullName}
           </h1>
-          <div className="text-sm text-stone">
-            {target.role === 'lead' ? 'Лид' : 'Стардиз'} · ещё нет 360-оценок
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="chip-neutral">
+              {target.role === 'lead' ? 'Лид' : 'Стардиз'}
+            </span>
+            <span className="chip-neutral">Ещё нет 360-оценок</span>
           </div>
         </div>
       </div>

@@ -84,7 +84,7 @@ export default function NewLeadReviewForm({ target }: { target: Target }) {
   const preview = csvText ? makeQuickPreview(csvText) : null;
 
   return (
-    <main className="max-w-[760px] mx-auto px-8 pt-10 pb-16">
+    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="text-xs text-stone mb-3">
         <Link href="/admin/users" className="hover:text-ink transition-colors">
           Команда
@@ -103,16 +103,19 @@ export default function NewLeadReviewForm({ target }: { target: Target }) {
       <div className="flex items-center gap-4 mb-8">
         <Avatar name={target.fullName} avatarUrl={target.avatarUrl} size={56} />
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight mb-1">
+          <h1 className="font-display text-3xl font-semibold tracking-tight mb-2">
             Новая 360-оценка
           </h1>
-          <div className="text-sm text-stone">
-            {target.fullName} · {target.role === 'lead' ? 'Лид' : 'Стардиз'}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="chip-neutral">{target.fullName}</span>
+            <span className="chip-neutral">
+              {target.role === 'lead' ? 'Лид' : 'Стардиз'}
+            </span>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="max-w-[760px] space-y-5">
         <div className="card p-6 space-y-5">
           <div>
             <label className="block text-[11px] text-stone mb-1.5">Период</label>

@@ -64,12 +64,24 @@ export default function LeadReviewView({
       )
     )
       return;
-    const res = await fetch(`/api/lead-reviews/${review.id}`, { method: 'DELETE' });
-    if (res.ok) {
-      router.push(`/admin/lead-reviews?userId=${target.id}`);
-      router.refresh();
-    } else {
-      alert('Не получилось удалить — обнови страницу и попробуй ещё раз');
+    try {
+      const res = await fetch(`/api/lead-reviews/${review.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        // refresh() сбросит SSR-кеш, потом push — навигация уже на актуальную
+        // landing-страницу (которая сама редиректит на свежую LeadReview, если
+        // осталась, иначе — empty state).
+        router.refresh();
+        router.push(`/admin/lead-reviews?userId=${target.id}`);
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      const msg =
+        typeof data.error === 'string' ? data.error : res.statusText || 'Unknown error';
+      alert(`Не получилось удалить (${res.status}): ${msg}`);
+    } catch (e) {
+      alert(`Не получилось удалить — сеть пропала или сервер недоступен:\n${String(e)}`);
     }
   }
 
@@ -78,7 +90,7 @@ export default function LeadReviewView({
   const showRoleSplit = presentRoles.length >= 2;
 
   return (
-    <main className="max-w-[1100px] mx-auto px-8 pt-8 pb-16">
+    <main className="max-w-[1400px] mx-auto px-8 pt-8 pb-16">
       <div className="text-xs text-stone mb-3">
         <Link href="/admin/users" className="hover:text-ink transition-colors">
           Команда

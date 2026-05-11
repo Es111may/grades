@@ -1,9 +1,30 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Avatar from '@/components/Avatar';
 import { CloseIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
+
+type AssessmentHistoryRow = {
+  id: number;
+  publishedAt: string | null;
+  effectiveGrade: string | null;
+  totalXp: number | null;
+  leadName: string | null;
+};
+
+type LeadReviewHistoryRow = {
+  id: number;
+  period: string;
+  importedAt: string;
+  responseCount: number;
+  enps: number | null;
+};
+
+type HistoryData = {
+  assessments: AssessmentHistoryRow[];
+  leadReviews: LeadReviewHistoryRow[];
+};
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Админ',
@@ -63,6 +84,25 @@ export default function UserCard360({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  // Ленивая подгрузка истории оценок (Assessment'ов и LeadReview'ов).
+  // Загружаем при открытии — попап показывается сразу, а блок «История»
+  // подтягивается отдельным запросом.
+  const [history, setHistory] = useState<HistoryData | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/users/${user.id}/history`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setHistory(data);
+      })
+      .catch(() => {
+        // история необязательна — попап работает и без неё
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
 
   const isSelf = meId !== null && meId === user.id;
 
@@ -198,6 +238,15 @@ export default function UserCard360({
           <Field label="Стардиз" value={user.stardiz?.fullName ?? null} />
         </div>
 
+        {/* История оценок — лениво подгружается с сервера. Показывается
+            только если есть что показать (для админа без оценок — блока
+            не будет, чтобы не плодить пустоту). */}
+        <HistoryBlock
+          user={user}
+          history={history}
+          isLeadOrStardiz={isLeadOrStardiz}
+        />
+
         {/* Кнопки — равной ширины по всей ширине поп-апа */}
         <div className="px-7 py-4 border-t border-cloud flex items-stretch gap-1.5">
           {canDeactivate && (
@@ -210,7 +259,7 @@ export default function UserCard360({
               href={`/lead/portrait?id=${user.id}`}
               className="btn-secondary flex-1"
             >
-              Открыть портрет
+              Портрет
             </a>
           )}
           {canOpenLeadReview && (
@@ -218,7 +267,7 @@ export default function UserCard360({
               href={`/admin/lead-reviews?userId=${user.id}`}
               className="btn-secondary flex-1"
             >
-              Открыть портрет
+              Портрет
             </a>
           )}
           {canImportLeadReview && (
@@ -226,7 +275,7 @@ export default function UserCard360({
               href={`/admin/lead-reviews/new?userId=${user.id}`}
               className="btn-secondary flex-1"
             >
-              Импортировать опрос
+              Импорт опроса
             </a>
           )}
           {canAssess && (
@@ -243,6 +292,144 @@ export default function UserCard360({
       </div>
     </div>
   );
+}
+
+function HistoryBlock({
+  user,
+  history,
+  isLeadOrStardiz,
+}: {
+  user: UserRow;
+  history: HistoryData | null;
+  isLeadOrStardiz: boolean;
+}) {
+  // Пока загружается — ничего не рендерим (попап и так живой за счёт остального
+  // контента). Если загрузилось, но пусто — для дизайнера и лидов покажем
+  // плашку, чтобы было понятно «оценок ещё не было».
+  if (history === null) return null;
+
+  const showLeadReviews = isLeadOrStardiz;
+  const showAssessments = user.role === 'designer' || user.role === 'stardiz';
+
+  const hasAssessments = showAssessments && history.assessments.length > 0;
+  const hasLeadReviews = showLeadReviews && history.leadReviews.length > 0;
+
+  // Для admin (нет ассессментов и нет lead-review) — скрываем блок,
+  // чтобы не плодить пустые секции.
+  if (
+    user.role === 'admin' ||
+    (!hasAssessments && !hasLeadReviews && !showAssessments && !showLeadReviews)
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="px-7 py-5 border-t border-cloud space-y-4">
+      {showAssessments && (
+        <div>
+          <div className="text-[10px] text-stone mb-2">
+            История оценок дизайнера
+          </div>
+          {hasAssessments ? (
+            <div className="space-y-1.5">
+              {history.assessments.slice(0, 5).map((a, idx) => {
+                const next = history.assessments[idx + 1];
+                const delta =
+                  next && a.totalXp !== null && next.totalXp !== null
+                    ? a.totalXp - next.totalXp
+                    : null;
+                return (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between gap-3 py-1.5 px-3 bg-canvas/50 rounded-card text-sm"
+                  >
+                    <span className="text-stone tabular-nums shrink-0 w-24">
+                      {formatDate(a.publishedAt)}
+                    </span>
+                    <span className="flex-1 font-medium truncate">
+                      {a.effectiveGrade
+                        ? GRADE_NAMES[a.effectiveGrade] ?? a.effectiveGrade
+                        : '—'}
+                    </span>
+                    <span className="text-stone tabular-nums shrink-0 w-12 text-right">
+                      {a.totalXp ?? 0} XP
+                    </span>
+                    {delta !== null && delta !== 0 && (
+                      <span
+                        className={`tabular-nums shrink-0 w-10 text-right text-xs font-medium ${
+                          delta > 0 ? 'text-emerald' : 'text-blaze'
+                        }`}
+                      >
+                        {delta > 0 ? '+' : ''}
+                        {delta}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              {history.assessments.length > 5 && (
+                <div className="text-[11px] text-ash italic pl-3">
+                  + ещё {history.assessments.length - 5} в архиве
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-xs text-ash italic">Оценок ещё не было</div>
+          )}
+        </div>
+      )}
+
+      {showLeadReviews && (
+        <div>
+          <div className="text-[10px] text-stone mb-2">
+            История 360-оценок
+          </div>
+          {hasLeadReviews ? (
+            <div className="space-y-1.5">
+              {history.leadReviews.slice(0, 5).map((r) => (
+                <a
+                  key={r.id}
+                  href={`/admin/lead-reviews/${r.id}`}
+                  className="flex items-center justify-between gap-3 py-1.5 px-3 bg-canvas/50 rounded-card text-sm hover:bg-canvas transition-colors"
+                >
+                  <span className="font-medium shrink-0 w-32 truncate">
+                    {r.period}
+                  </span>
+                  <span className="flex-1 text-stone text-xs">
+                    {r.responseCount} {pluralResp(r.responseCount)}
+                  </span>
+                  {r.enps !== null && (
+                    <span className="tabular-nums shrink-0 text-xs text-stone">
+                      eNPS{' '}
+                      <strong className="text-ink">{r.enps.toFixed(1)}</strong>
+                    </span>
+                  )}
+                </a>
+              ))}
+              {history.leadReviews.length > 5 && (
+                <div className="text-[11px] text-ash italic pl-3">
+                  + ещё {history.leadReviews.length - 5} в архиве
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-xs text-ash italic">
+              360-оценок ещё не было
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function pluralResp(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 19) return 'респондентов';
+  if (mod10 === 1) return 'респондент';
+  if (mod10 >= 2 && mod10 <= 4) return 'респондента';
+  return 'респондентов';
 }
 
 function Field({ label, value }: { label: string; value: string | null }) {

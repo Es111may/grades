@@ -5,6 +5,15 @@ import { getCurrentUser } from '@/lib/session';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
 
+function formatDate(iso: Date | null) {
+  if (!iso) return '—';
+  return iso.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export default async function DesignerHistoryPage() {
   const user = await getCurrentUser();
   if (!user?.id) return null;
@@ -16,7 +25,7 @@ export default async function DesignerHistoryPage() {
   });
 
   return (
-    <main className="max-w-[1100px] mx-auto px-8 pt-12 pb-16">
+    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="mb-6">
         <h1 className="font-display text-4xl font-semibold tracking-tight">
           История оценок
@@ -28,52 +37,73 @@ export default async function DesignerHistoryPage() {
           <p className="text-stone">Опубликованных оценок пока нет.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {assessments.map((a, idx) => {
-            const prev = assessments[idx + 1];
-            const xpDelta = prev ? (a.totalXp ?? 0) - (prev.totalXp ?? 0) : null;
-            return (
-              <div key={a.id} className="card-hover p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-[11px]  text-stone mb-1">
-                      {a.publishedAt
-                        ? new Date(a.publishedAt).toLocaleDateString('ru-RU', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })
-                        : '—'}
-                    </div>
-                    <div className="font-display text-xl font-semibold tracking-tight mb-0.5">
-                      {GRADE_NAMES[(a.effectiveGrade ?? 'junior') as GradeCode]}
-                    </div>
-                    <div className="text-xs text-stone">
-                      Оценил: {a.lead?.fullName ?? '—'}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-display text-2xl font-semibold tabular-nums">
+        <div className="card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-canvas border-b border-cloud">
+                <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                  Опубликовано
+                </th>
+                <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                  Оценил
+                </th>
+                <th className="text-right py-2.5 px-4 font-medium text-[11px] text-stone">
+                  Грейд
+                </th>
+                <th className="text-right py-2.5 px-4 font-medium text-[11px] text-stone">
+                  XP
+                </th>
+                <th className="text-right py-2.5 px-4 font-medium text-[11px] text-stone w-20">
+                  Δ XP
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cloud">
+              {assessments.map((a, idx) => {
+                const prev = assessments[idx + 1];
+                const xpDelta =
+                  prev && a.totalXp !== null && prev.totalXp !== null
+                    ? a.totalXp - prev.totalXp
+                    : null;
+                return (
+                  <tr key={a.id} className="hover:bg-canvas/60 transition-colors">
+                    <td className="py-3 px-4 text-stone tabular-nums whitespace-nowrap">
+                      {formatDate(a.publishedAt)}
+                    </td>
+                    <td className="py-3 px-4 text-stone">
+                      {a.lead?.fullName ?? '—'}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className="font-display text-base font-semibold tracking-tight">
+                        {GRADE_NAMES[(a.effectiveGrade ?? 'junior') as GradeCode] ??
+                          a.effectiveGrade ??
+                          '—'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right text-stone tabular-nums">
                       {a.totalXp ?? 0}
-                    </div>
-                    <div className="text-[11px]  text-stone">
-                      XP
-                    </div>
-                    {xpDelta !== null && xpDelta !== 0 && (
-                      <div
-                        className={`text-xs mt-1 font-medium tabular-nums ${
-                          xpDelta > 0 ? 'text-emerald' : 'text-blaze'
-                        }`}
-                      >
-                        {xpDelta > 0 ? '+' : ''}
-                        {xpDelta}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                    </td>
+                    <td className="py-3 px-4 text-right tabular-nums">
+                      {xpDelta === null ? (
+                        <span className="text-ash">—</span>
+                      ) : xpDelta === 0 ? (
+                        <span className="text-stone">0</span>
+                      ) : (
+                        <span
+                          className={`font-medium ${
+                            xpDelta > 0 ? 'text-emerald' : 'text-blaze'
+                          }`}
+                        >
+                          {xpDelta > 0 ? '+' : ''}
+                          {xpDelta}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </main>
