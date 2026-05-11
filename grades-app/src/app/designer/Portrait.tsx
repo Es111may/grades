@@ -15,6 +15,7 @@ import { Radar } from 'react-chartjs-2';
 import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
+import { ChevronDownIcon } from '@/components/icons';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -566,13 +567,11 @@ function SkillAccordion({
           {earnedXp} / {maxXp} XP
         </span>
         {hasContent && (
-          <span
-            className={`text-ash text-[10px] transition-transform duration-150 shrink-0 ${
-              open ? 'rotate-90' : ''
+          <ChevronDownIcon
+            className={`w-3.5 h-3.5 text-ash transition-transform duration-150 shrink-0 ${
+              open ? 'rotate-180' : ''
             }`}
-          >
-            ▸
-          </span>
+          />
         )}
       </button>
 
