@@ -111,6 +111,9 @@ export default function LeaderboardView({
     const arr = [...designers];
     const dir = sortDir === 'asc' ? 1 : -1;
     arr.sort((a, b) => {
+      // Деактивированные всегда в конец — независимо от выбранной сортировки
+      // и направления. Внутри обеих групп сохраняется обычная сортировка.
+      if (a.active !== b.active) return a.active ? -1 : 1;
       let av: number | string = 0;
       let bv: number | string = 0;
       if (sortKey === 'name') {

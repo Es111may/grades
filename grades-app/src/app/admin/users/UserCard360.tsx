@@ -339,24 +339,25 @@ function HistoryBlock({
                     ? a.totalXp - next.totalXp
                     : null;
                 return (
-                  <div
+                  <a
                     key={a.id}
-                    className="flex items-center justify-between gap-3 py-1.5 px-3 bg-canvas/50 rounded-card text-sm"
+                    href={`/lead/portrait?id=${user.id}`}
+                    className="flex items-center justify-between gap-3 py-2 px-3 bg-canvas/50 rounded-card text-sm hover:bg-canvas transition-colors"
                   >
-                    <span className="text-stone tabular-nums shrink-0 w-24">
+                    <span className="text-stone tabular-nums shrink-0 whitespace-nowrap">
                       {formatDate(a.publishedAt)}
                     </span>
-                    <span className="flex-1 font-medium truncate">
+                    <span className="flex-1 font-medium truncate text-right">
                       {a.effectiveGrade
                         ? GRADE_NAMES[a.effectiveGrade] ?? a.effectiveGrade
                         : '—'}
                     </span>
-                    <span className="text-stone tabular-nums shrink-0 w-12 text-right">
+                    <span className="text-stone tabular-nums shrink-0 whitespace-nowrap">
                       {a.totalXp ?? 0} XP
                     </span>
                     {delta !== null && delta !== 0 && (
                       <span
-                        className={`tabular-nums shrink-0 w-10 text-right text-xs font-medium ${
+                        className={`tabular-nums shrink-0 text-xs font-medium whitespace-nowrap ${
                           delta > 0 ? 'text-emerald' : 'text-blaze'
                         }`}
                       >
@@ -364,7 +365,7 @@ function HistoryBlock({
                         {delta}
                       </span>
                     )}
-                  </div>
+                  </a>
                 );
               })}
               {history.assessments.length > 5 && (
@@ -390,16 +391,14 @@ function HistoryBlock({
                 <a
                   key={r.id}
                   href={`/admin/lead-reviews/${r.id}`}
-                  className="flex items-center justify-between gap-3 py-1.5 px-3 bg-canvas/50 rounded-card text-sm hover:bg-canvas transition-colors"
+                  className="flex items-center justify-between gap-3 py-2 px-3 bg-canvas/50 rounded-card text-sm hover:bg-canvas transition-colors"
                 >
-                  <span className="font-medium shrink-0 w-32 truncate">
-                    {r.period}
-                  </span>
-                  <span className="flex-1 text-stone text-xs">
+                  <span className="font-medium truncate flex-1">{r.period}</span>
+                  <span className="text-stone text-xs shrink-0 whitespace-nowrap">
                     {r.responseCount} {pluralResp(r.responseCount)}
                   </span>
                   {r.enps !== null && (
-                    <span className="tabular-nums shrink-0 text-xs text-stone">
+                    <span className="tabular-nums shrink-0 text-xs text-stone whitespace-nowrap">
                       eNPS{' '}
                       <strong className="text-ink">{r.enps.toFixed(1)}</strong>
                     </span>

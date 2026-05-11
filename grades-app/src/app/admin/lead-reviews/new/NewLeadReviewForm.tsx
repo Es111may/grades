@@ -345,8 +345,11 @@ function parseRow(line: string): string[] {
 }
 
 function suggestPeriod(): string {
-  const now = new Date();
-  const month = now.getMonth();
-  const quarter = Math.floor(month / 3) + 1;
-  return `Q${quarter} ${now.getFullYear()}`;
+  // Текущая дата в формате «11 мая 2026 г.» — Pavel хочет именно «сегодня»,
+  // а не квартал. Можно отредактировать руками, если нужно «Q2 2026».
+  return new Date().toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }

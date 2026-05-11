@@ -57,21 +57,25 @@ export default function LeadReviewView({
   const isAdmin = meRole === 'admin';
   const agg = review.aggregates;
 
+  // Двухступенчатое удаление: первый клик — кнопка превращается в
+  // «Подтвердить удаление», второй — отправляет DELETE на API.
+  // Через 5 секунд бездействия возвращается в исходное состояние —
+  // защита от случайного двойного клика.
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  function armDelete() {
+    setDeleteArmed(true);
+    setTimeout(() => setDeleteArmed(false), 5000);
+  }
+
   async function handleDelete() {
-    if (
-      !confirm(
-        `Удалить оценку «${review.period}» для ${target.fullName}? Действие необратимо.`,
-      )
-    )
-      return;
+    setDeleting(true);
     try {
       const res = await fetch(`/api/lead-reviews/${review.id}`, {
         method: 'DELETE',
       });
       if (res.ok) {
-        // refresh() сбросит SSR-кеш, потом push — навигация уже на актуальную
-        // landing-страницу (которая сама редиректит на свежую LeadReview, если
-        // осталась, иначе — empty state).
         router.refresh();
         router.push(`/admin/lead-reviews?userId=${target.id}`);
         return;
@@ -80,8 +84,12 @@ export default function LeadReviewView({
       const msg =
         typeof data.error === 'string' ? data.error : res.statusText || 'Unknown error';
       alert(`Не получилось удалить (${res.status}): ${msg}`);
+      setDeleting(false);
+      setDeleteArmed(false);
     } catch (e) {
       alert(`Не получилось удалить — сеть пропала или сервер недоступен:\n${String(e)}`);
+      setDeleting(false);
+      setDeleteArmed(false);
     }
   }
 
@@ -124,13 +132,25 @@ export default function LeadReviewView({
             >
               Новый цикл
             </Link>
-            <button
-              onClick={handleDelete}
-              className="btn-ghost-danger"
-              title="Удалить эту оценку"
-            >
-              Удалить
-            </button>
+            {!deleteArmed ? (
+              <button
+                onClick={armDelete}
+                className="btn-ghost-danger"
+                title="Удалить эту оценку"
+                type="button"
+              >
+                Удалить
+              </button>
+            ) : (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="btn-danger"
+                type="button"
+              >
+                {deleting ? 'Удаляю…' : 'Точно удалить?'}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -155,44 +175,42 @@ export default function LeadReviewView({
         </div>
       )}
 
-      {/* eNPS — большая карточка */}
+      {/* eNPS — основная сводная карточка */}
       <div className="card p-7 mb-6">
-        <div className="grid grid-cols-[auto_1fr] gap-10 items-end">
+        <div className="grid grid-cols-[auto_1fr] gap-10 items-center">
           <div>
             <div className="text-[11px] text-stone mb-2">
               Готовность работать с лидом
             </div>
-            <div className="font-display text-6xl font-semibold tracking-tight leading-none tabular-nums">
+            <div className="font-display text-5xl font-semibold tracking-tight leading-none tabular-nums">
               {agg.enps.average !== null ? agg.enps.average.toFixed(1) : '—'}
-              <span className="text-2xl text-stone font-normal ml-1.5">/ 10</span>
+              <span className="text-xl text-stone font-normal ml-1.5">/ 10</span>
             </div>
             <div className="text-xs text-stone mt-2">
               eNPS · ответили {agg.enps.answeredCount}
             </div>
           </div>
-          <div>
-            {showRoleSplit && (
-              <div className="space-y-2.5">
-                {presentRoles.map((role) => {
-                  const v = agg.enps.averageByRole[role] ?? null;
-                  return (
-                    <div
-                      key={role}
-                      className="flex items-center justify-between gap-3 text-sm"
-                    >
-                      <span className="text-stone w-24 shrink-0">
-                        {ROLE_LABEL[role]} ({agg.roleCounts[role]})
-                      </span>
-                      <ScoreBar value={v} max={10} />
-                      <span className="tabular-nums w-8 text-right">
-                        {v !== null ? v.toFixed(1) : '—'}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {showRoleSplit && (
+            <div className="space-y-2">
+              {presentRoles.map((role) => {
+                const v = agg.enps.averageByRole[role] ?? null;
+                return (
+                  <div
+                    key={role}
+                    className="flex items-center gap-3 text-sm"
+                  >
+                    <span className="text-stone w-32 shrink-0 text-xs">
+                      {ROLE_LABEL[role]} ({agg.roleCounts[role]})
+                    </span>
+                    <ScoreBar value={v} max={10} />
+                    <span className="tabular-nums w-10 text-right text-xs font-medium">
+                      {v !== null ? v.toFixed(1) : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -229,23 +247,23 @@ export default function LeadReviewView({
       {/* AI-сводка */}
       <EditableMarkdownBlock
         title="Сводка по ИИ"
-        hint="Прогони агрегаты и ответы через ChatGPT / Gemini снаружи и вставь markdown сюда."
+        badge="AI"
+        hint="Прогони агрегаты через ChatGPT / Gemini снаружи и вставь markdown сюда"
         value={review.aiSummary ?? ''}
         canEdit={isAdmin}
         reviewId={review.id}
         field="aiSummary"
-        accent="info"
       />
 
       {/* CDO-блок */}
       <EditableMarkdownBlock
-        title="CDO-блок"
-        hint="Планы, KPI, наблюдения, итоговая оценка от Pavel'a."
+        title="Блок CDO"
+        badge="CDO"
+        hint="Планы, KPI, наблюдения, итоговая оценка"
         value={review.cdoSummary ?? ''}
         canEdit={isAdmin}
         reviewId={review.id}
         field="cdoSummary"
-        accent="warn"
       />
 
       <div className="text-xs text-ash text-center mt-10">
@@ -269,22 +287,22 @@ function CategoryCard({
 
   return (
     <section className="card overflow-hidden">
-      <div className="px-6 py-4 border-b border-cloud bg-canvas/60 flex items-baseline justify-between gap-4">
-        <h3 className="text-base font-semibold text-ink">{category.label}</h3>
-        <div className="font-display text-2xl font-semibold tracking-tight tabular-nums">
+      <div className="px-6 py-4 border-b border-cloud bg-canvas/60 flex items-center justify-between gap-4">
+        <h3 className="text-base font-semibold text-ink leading-tight">{category.label}</h3>
+        <div className="font-display text-2xl font-semibold tracking-tight tabular-nums shrink-0">
           {category.average !== null ? category.average.toFixed(2) : '—'}
           <span className="text-sm text-stone font-normal ml-1">/ 5</span>
         </div>
       </div>
 
-      <div className="px-6 py-5 space-y-3.5">
+      <div className="px-6 py-5 space-y-4">
         {category.items.map((item) => (
           <div key={item.id} className="text-sm">
             <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0 text-graphite leading-snug">
                 {item.question}
               </div>
-              <span className="tabular-nums shrink-0 w-12 text-right font-medium">
+              <span className="tabular-nums shrink-0 w-12 text-right font-semibold">
                 {item.average !== null ? item.average.toFixed(2) : '—'}
               </span>
             </div>
@@ -292,13 +310,14 @@ function CategoryCard({
               <ScoreBar value={item.average} max={5} />
             </div>
             {showRoleSplit && (
-              <div className="flex items-center gap-3 mt-1.5 text-[11px] text-ash flex-wrap">
+              <div className="flex items-center gap-3 mt-2 text-[11px] text-ash flex-wrap">
                 {presentRoles.map((role) => {
                   const v = item.averageByRole[role];
                   if (v === undefined || v === null) return null;
                   return (
                     <span key={role} className="tabular-nums">
-                      {ROLE_LABEL[role]}: <strong className="text-stone">{v.toFixed(2)}</strong>
+                      {ROLE_LABEL[role]}:{' '}
+                      <strong className="text-stone">{v.toFixed(2)}</strong>
                     </span>
                   );
                 })}
@@ -478,20 +497,20 @@ function OpenQuestionCard({ item }: { item: OpenItemAggregate }) {
 
 function EditableMarkdownBlock({
   title,
+  badge,
   hint,
   value,
   canEdit,
   reviewId,
   field,
-  accent,
 }: {
   title: string;
+  badge: string;
   hint: string;
   value: string;
   canEdit: boolean;
   reviewId: number;
   field: 'aiSummary' | 'cdoSummary';
-  accent: 'info' | 'warn';
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -514,17 +533,17 @@ function EditableMarkdownBlock({
     }
   }
 
-  const accentClass =
-    accent === 'info'
-      ? 'border-l-4 border-l-sky'
-      : 'border-l-4 border-l-sunset';
-
   return (
-    <section className={`card mb-6 overflow-hidden ${accentClass}`}>
-      <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-baseline justify-between gap-4">
-        <div>
-          <h3 className="text-base font-semibold text-ink">{title}</h3>
-          <p className="text-xs text-stone mt-0.5">{hint}</p>
+    <section className="card mb-6 overflow-hidden">
+      <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="chip-build shrink-0">{badge}</span>
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-ink leading-tight">
+              {title}
+            </h3>
+            <p className="text-xs text-stone mt-0.5 truncate">{hint}</p>
+          </div>
         </div>
         {canEdit && !editing && (
           <button
@@ -532,7 +551,8 @@ function EditableMarkdownBlock({
               setDraft(value);
               setEditing(true);
             }}
-            className="btn-ghost btn-sm"
+            className="btn-ghost btn-sm shrink-0"
+            type="button"
           >
             {value ? 'Редактировать' : 'Заполнить'}
           </button>
