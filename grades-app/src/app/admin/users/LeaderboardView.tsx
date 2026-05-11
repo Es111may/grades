@@ -168,15 +168,11 @@ export default function LeaderboardView({
       >
         <span className="inline-flex items-center gap-1">
           {children}
-          <ChevronDownIcon
-            className={`w-3 h-3 transition-all ${
-              active
-                ? sortDir === 'asc'
-                  ? 'rotate-180 text-ink'
-                  : 'text-ink'
-                : 'opacity-0 group-hover/th:opacity-50'
-            }`}
-          />
+          {active && (
+            <ChevronDownIcon
+              className={`w-3 h-3 text-ink ${sortDir === 'asc' ? 'rotate-180' : ''}`}
+            />
+          )}
         </span>
       </th>
     );
