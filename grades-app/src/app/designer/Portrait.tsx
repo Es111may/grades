@@ -542,29 +542,25 @@ function SkillAccordion({
 
   return (
     <article className="px-6 py-4 border-b border-cloud last:border-b-0">
-      {/* Header row: clickable */}
+      {/* Header row: clickable — компактный вид по варианту B Pavel'a:
+          имя · текущий уровень-чип · XP earned/max · шеврон.
+          CORE/SEC и вес уехали внутрь раскрытого блока. */}
       <button
         type="button"
         onClick={() => hasContent && setOpen((v) => !v)}
         disabled={!hasContent}
         className="w-full flex items-center gap-3 text-left disabled:cursor-default"
       >
-        <div className="flex items-center gap-2 mb-1 flex-wrap flex-1 min-w-0">
-          <span className="font-medium text-sm">{skill.name}</span>
-          <span
-            className={`text-[10px] px-1.5 py-0.5 rounded-pill tracking-wide font-medium ${
-              skill.type === 'CORE' ? 'bg-ink text-snow' : 'bg-cloud/60 text-stone'
-            }`}
-          >
-            {skill.type}
-          </span>
-          <span className="text-xs text-stone">{skill.weight} вес</span>
-          {skill.levelTitle && skill.masteryLevel > 0 && (
-            <span className="text-xs text-stone truncate">· {skill.levelTitle}</span>
-          )}
-        </div>
-        <span className="text-xs text-stone tabular-nums shrink-0">
-          {earnedXp} / {maxXp} XP
+        <span className="font-medium text-sm flex-1 min-w-0 truncate">
+          {skill.name}
+        </span>
+        {skill.masteryLevel > 0 && skill.levelTitle ? (
+          <span className="chip-neutral shrink-0">{skill.levelTitle}</span>
+        ) : (
+          <span className="chip-neutral shrink-0 text-ash">Не оценено</span>
+        )}
+        <span className="text-xs text-stone tabular-nums shrink-0 w-12 text-right">
+          {earnedXp} / {maxXp}
         </span>
         {hasContent && (
           <ChevronDownIcon
@@ -575,9 +571,19 @@ function SkillAccordion({
         )}
       </button>
 
-      {/* Раскрытое: описание + radio-список уровней в стиле формы оценки */}
+      {/* Раскрытое: мета (CORE/вес) + описание + radio-список уровней */}
       {open && (
         <div className="mt-4 space-y-3">
+          <div className="flex items-center gap-2 text-xs text-stone">
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-pill tracking-wide font-medium ${
+                skill.type === 'CORE' ? 'bg-ink text-snow' : 'bg-cloud/60 text-stone'
+              }`}
+            >
+              {skill.type}
+            </span>
+            <span>{skill.weight} вес</span>
+          </div>
           {skill.description && (
             <div className="text-sm text-stone leading-relaxed">
               {skill.description}
