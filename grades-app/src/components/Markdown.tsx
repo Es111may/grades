@@ -51,23 +51,39 @@ export function MarkdownContent({ text }: { text: string }) {
     }
     flushBullets();
 
-    if (trimmed.startsWith('### ')) {
+    if (trimmed.startsWith('#### ')) {
+      // самый мелкий — мини-метка
       blocks.push(
-        <h4 key={key++} className="text-sm font-semibold text-ink mt-4 mb-1.5">
+        <div
+          key={key++}
+          className="text-[10px] font-medium uppercase tracking-wider text-ash mt-2 mb-1"
+        >
+          {renderInline(trimmed.slice(5))}
+        </div>,
+      );
+    } else if (trimmed.startsWith('### ')) {
+      // маленький подзаголовок — нейтральный stone, uppercase
+      blocks.push(
+        <div
+          key={key++}
+          className="text-[11px] font-medium uppercase tracking-wide text-stone mt-3 mb-1"
+        >
           {renderInline(trimmed.slice(4))}
-        </h4>,
+        </div>,
       );
     } else if (trimmed.startsWith('## ')) {
+      // средний заголовок
       blocks.push(
-        <h3 key={key++} className="text-base font-semibold text-ink mt-4 mb-2">
+        <h4 key={key++} className="text-sm font-semibold text-ink mt-3 mb-1.5">
           {renderInline(trimmed.slice(3))}
-        </h3>,
+        </h4>,
       );
     } else if (trimmed.startsWith('# ')) {
+      // самый крупный из «небольших» — обычная жирная строка
       blocks.push(
-        <h2 key={key++} className="text-lg font-semibold text-ink mt-4 mb-2">
+        <h3 key={key++} className="text-base font-semibold text-ink mt-4 mb-2">
           {renderInline(trimmed.slice(2))}
-        </h2>,
+        </h3>,
       );
     } else if (trimmed === '') {
       blocks.push(<div key={key++} className="h-2" />);
@@ -273,7 +289,7 @@ export function EditableMarkdownBlock({
               value={draft}
               onChange={setDraft}
               onSubmit={() => !saving && save()}
-              placeholder="Markdown · **жирный** (⌘B), *курсив* (⌘I), [ссылка](url), ### заголовок"
+              placeholder="Markdown · **жирный** (⌘B), *курсив* (⌘I), [ссылка](url), # / ## / ### / #### — заголовки от среднего к мини"
             />
             <div className="flex items-center justify-between gap-2">
               <div className="text-[11px] text-ash">
