@@ -11,6 +11,27 @@ import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import type { PortraitData } from '@/app/designer/Portrait';
 
+/**
+ * Безопасно читаем `Assessment.leadComment` отдельным запросом.
+ *
+ * Field был добавлен в Phase 22.1; если миграция (`prisma db push` в
+ * start.ts) ещё не применилась на инстансе, прямой SELECT упадёт
+ * с ошибкой «column does not exist». Поэтому пробуем — если не вышло,
+ * молча возвращаем null. На функциональность портрета это не влияет.
+ */
+async function safeReadLeadComment(assessmentId: number): Promise<string | null> {
+  try {
+    const row = await prisma.assessment.findUnique({
+      where: { id: assessmentId },
+      select: { leadComment: true },
+    });
+    return row?.leadComment ?? null;
+  } catch (e) {
+    console.warn('[portrait] leadComment read failed (column missing?):', e);
+    return null;
+  }
+}
+
 export async function loadPortraitData(
   designerId: number,
   assessmentId?: number,
@@ -25,8 +46,10 @@ export async function loadPortraitData(
   });
   if (!designer) return { kind: 'not_found' };
 
-  // Все опубликованные оценки этого дизайнера — для переключателя циклов
-  // в шапке портрета. Идут от свежей к старой.
+  // Все опубликованные оценки этого дизайнера — для переключателя циклов.
+  // Явный select по только тем колонкам, которые точно были в схеме до
+  // Phase 22.1 — чтобы запрос не падал, если новая колонка leadComment
+  // ещё не успела добавиться в БД.
   const allPublished = await prisma.assessment.findMany({
     where: { designerId, status: 'published' },
     orderBy: { publishedAt: 'desc' },
@@ -35,25 +58,33 @@ export async function loadPortraitData(
 
   // Если в URL пришёл явный assessmentId — открываем его (если он принадлежит
   // дизайнеру и опубликован); иначе — последнюю опубликованную.
-  let assessment;
-  if (assessmentId) {
-    assessment = await prisma.assessment.findFirst({
-      where: { id: assessmentId, designerId, status: 'published' },
-      include: { scores: true },
-    });
-    if (!assessment) {
-      // Запрошенный id не подходит — fallback к свежей публикации.
-      assessment = await prisma.assessment.findFirst({
-        where: { designerId, status: 'published' },
-        orderBy: { publishedAt: 'desc' },
-        include: { scores: true },
-      });
-    }
-  } else {
+  // Используем явный select без leadComment — чтобы запрос не падал, если
+  // новая колонка (Phase 22.1) ещё не успела добавиться в БД.
+  const assessmentSelect = {
+    id: true,
+    designerId: true,
+    leadId: true,
+    matrixVersionId: true,
+    cycle: true,
+    status: true,
+    publishedAt: true,
+    totalXp: true,
+    calculatedGrade: true,
+    effectiveGrade: true,
+    scores: true,
+  };
+
+  let assessment = assessmentId
+    ? await prisma.assessment.findFirst({
+        where: { id: assessmentId, designerId, status: 'published' },
+        select: assessmentSelect,
+      })
+    : null;
+  if (!assessment) {
     assessment = await prisma.assessment.findFirst({
       where: { designerId, status: 'published' },
       orderBy: { publishedAt: 'desc' },
-      include: { scores: true },
+      select: assessmentSelect,
     });
   }
 
@@ -68,7 +99,7 @@ export async function loadPortraitData(
   }
 
   // Load skills + grade levels параллельно — обе зависят только от matrixVersionId/buildId
-  const [skills, gradeLevels] = await Promise.all([
+  const [skills, gradeLevels, leadComment] = await Promise.all([
     prisma.skill.findMany({
       where: { matrixVersionId: assessment.matrixVersionId, active: true },
       include: {
@@ -82,6 +113,7 @@ export async function loadPortraitData(
       include: { gates: { where: { buildId: designer.buildId! } } },
       orderBy: { sortOrder: 'asc' },
     }),
+    safeReadLeadComment(assessment.id),
   ]);
 
   const buildCode = (designer.build?.code as BuildCode) ?? 'creator';
@@ -202,7 +234,7 @@ export async function loadPortraitData(
     xpByGroup,
     nextGrade,
     skills: skillsForDisplay,
-    leadComment: assessment.leadComment ?? null,
+    leadComment,
     siblings: allPublished.map((a) => ({
       id: a.id,
       publishedAt: a.publishedAt?.toISOString() ?? null,
