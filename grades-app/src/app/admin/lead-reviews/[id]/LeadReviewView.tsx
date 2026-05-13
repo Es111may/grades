@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Avatar from '@/components/Avatar';
@@ -40,6 +40,12 @@ type Review = {
   cdoSummary: string | null;
 };
 
+type Previous = {
+  id: number;
+  period: string;
+  aggregates: LeadReviewAggregates;
+};
+
 const ROLE_ORDER: ResponderRole[] = ['designer', 'manager', 'lead', 'frontend', 'other'];
 
 export default function LeadReviewView({
@@ -47,20 +53,19 @@ export default function LeadReviewView({
   review,
   target,
   siblings,
+  previous,
 }: {
   meRole: string;
   review: Review;
   target: Target;
   siblings: Sibling[];
+  previous: Previous | null;
 }) {
   const router = useRouter();
   const isAdmin = meRole === 'admin';
   const agg = review.aggregates;
 
-  // Двухступенчатое удаление: первый клик — кнопка превращается в
-  // «Подтвердить удаление», второй — отправляет DELETE на API.
-  // Через 5 секунд бездействия возвращается в исходное состояние —
-  // защита от случайного двойного клика.
+  // Двухступенчатое удаление
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -93,9 +98,26 @@ export default function LeadReviewView({
     }
   }
 
-  // Роли, по которым были ответы — для таблицы сравнения
+  // Роли с ответами
   const presentRoles = ROLE_ORDER.filter((r) => (agg.roleCounts[r] ?? 0) > 0);
   const showRoleSplit = presentRoles.length >= 2;
+
+  // Floating-свитчер циклов: показывается, когда оригинальный уезжает за
+  // viewport. Наблюдаем за inline-свитчером через IntersectionObserver.
+  const inlineSwitcherRef = useRef<HTMLDivElement | null>(null);
+  const [floatingVisible, setFloatingVisible] = useState(false);
+  useEffect(() => {
+    if (!inlineSwitcherRef.current || siblings.length <= 1) return;
+    const el = inlineSwitcherRef.current;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        setFloatingVisible(!entry.isIntersecting);
+      },
+      { rootMargin: '0px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [siblings.length]);
 
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-8 pb-16">
@@ -155,27 +177,17 @@ export default function LeadReviewView({
         )}
       </div>
 
-      {/* Переключатель между циклами оценки этого же лида */}
+      {/* Переключатель циклов — inline */}
       {siblings.length > 1 && (
-        <div className="mb-6 flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] text-stone mr-1">Все циклы:</span>
-          <div className="segmented">
-            {siblings.map((s) => (
-              <Link
-                key={s.id}
-                href={`/admin/lead-reviews/${s.id}`}
-                className={`segmented-item ${
-                  s.id === review.id ? 'segmented-item-active' : ''
-                }`}
-              >
-                {s.period}
-              </Link>
-            ))}
-          </div>
+        <div ref={inlineSwitcherRef} className="mb-6">
+          <CyclesSwitcher
+            siblings={siblings}
+            currentId={review.id}
+          />
         </div>
       )}
 
-      {/* eNPS — основная сводная карточка */}
+      {/* eNPS */}
       <div className="card p-7 mb-6">
         <div className="grid grid-cols-[auto_1fr] gap-10 items-center">
           <div>
@@ -195,11 +207,8 @@ export default function LeadReviewView({
               {presentRoles.map((role) => {
                 const v = agg.enps.averageByRole[role] ?? null;
                 return (
-                  <div
-                    key={role}
-                    className="flex items-center gap-3 text-sm"
-                  >
-                    <span className="text-stone w-32 shrink-0 text-xs">
+                  <div key={role} className="flex items-center gap-3 text-sm">
+                    <span className="text-stone w-32 shrink-0 text-xs whitespace-nowrap">
                       {ROLE_LABEL[role]} ({agg.roleCounts[role]})
                     </span>
                     <ScoreBar value={v} max={10} />
@@ -214,6 +223,15 @@ export default function LeadReviewView({
         </div>
       </div>
 
+      {/* Изменения относительно предыдущего цикла */}
+      {previous && (
+        <DiffWithPreviousCard
+          current={agg}
+          previous={previous}
+          currentPeriod={review.period}
+        />
+      )}
+
       {/* Категории */}
       <div className="space-y-4 mb-8">
         {agg.categories.map((cat) => (
@@ -226,12 +244,9 @@ export default function LeadReviewView({
         ))}
       </div>
 
-      {/* Сравнение оценок по ролям — таблица (если есть несколько ролей) */}
+      {/* Сравнение по ролям */}
       {showRoleSplit && (
-        <RoleComparisonTable
-          aggregates={agg}
-          presentRoles={presentRoles}
-        />
+        <RoleComparisonTable aggregates={agg} presentRoles={presentRoles} />
       )}
 
       {/* Открытые вопросы */}
@@ -269,7 +284,158 @@ export default function LeadReviewView({
       <div className="text-xs text-ash text-center mt-10">
         Импортировано {new Date(review.importedAt).toLocaleString('ru-RU')}
       </div>
+
+      {/* Floating-свитчер циклов: появляется при скролле, когда inline уехал */}
+      {siblings.length > 1 && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-200 ease-apple-out ${
+            floatingVisible
+              ? 'opacity-100 translate-y-0 pointer-events-auto'
+              : 'opacity-0 translate-y-3 pointer-events-none'
+          }`}
+        >
+          <div className="bg-snow/95 backdrop-blur-md border border-cloud rounded-pill shadow-soft-lg p-1">
+            <CyclesSwitcher siblings={siblings} currentId={review.id} />
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+function CyclesSwitcher({
+  siblings,
+  currentId,
+}: {
+  siblings: Sibling[];
+  currentId: number;
+}) {
+  return (
+    <div className="segmented">
+      {siblings.map((s) => (
+        <Link
+          key={s.id}
+          href={`/admin/lead-reviews/${s.id}`}
+          className={`segmented-item whitespace-nowrap ${
+            s.id === currentId ? 'segmented-item-active' : ''
+          }`}
+        >
+          {s.period}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function DiffWithPreviousCard({
+  current,
+  previous,
+  currentPeriod,
+}: {
+  current: LeadReviewAggregates;
+  previous: Previous;
+  currentPeriod: string;
+}) {
+  // Считаем дельты по каждой категории и по eNPS
+  const rows: Array<{
+    label: string;
+    prev: number | null;
+    curr: number | null;
+    delta: number | null;
+    scale: '5' | '10';
+  }> = [];
+
+  for (const cat of current.categories) {
+    const prevCat = previous.aggregates.categories.find((c) => c.id === cat.id);
+    rows.push({
+      label: cat.label,
+      prev: prevCat?.average ?? null,
+      curr: cat.average,
+      delta:
+        cat.average !== null && (prevCat?.average ?? null) !== null
+          ? cat.average - (prevCat!.average as number)
+          : null,
+      scale: '5',
+    });
+  }
+  rows.push({
+    label: 'Готовность работать (eNPS, 1–10)',
+    prev: previous.aggregates.enps.average,
+    curr: current.enps.average,
+    delta:
+      current.enps.average !== null && previous.aggregates.enps.average !== null
+        ? current.enps.average - previous.aggregates.enps.average
+        : null,
+    scale: '10',
+  });
+
+  return (
+    <section className="card overflow-hidden mb-6">
+      <div className="px-6 py-4 border-b border-cloud bg-canvas/60 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-ink">
+            Изменение с прошлого цикла
+          </h2>
+          <p className="text-xs text-stone mt-0.5">
+            {previous.period} → {currentPeriod}
+          </p>
+        </div>
+      </div>
+      <table className="w-full text-sm">
+        <thead className="text-[11px] text-stone bg-canvas/40">
+          <tr>
+            <th className="text-left px-6 py-3 font-medium">Категория</th>
+            <th className="text-right px-4 py-3 font-medium w-28 whitespace-nowrap">
+              Было
+            </th>
+            <th className="text-right px-4 py-3 font-medium w-28 whitespace-nowrap">
+              Стало
+            </th>
+            <th className="text-right px-6 py-3 font-medium w-28 whitespace-nowrap">
+              Δ
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => {
+            const fmt = (v: number | null) =>
+              v === null ? '—' : r.scale === '10' ? v.toFixed(1) : v.toFixed(2);
+            const isEnps = r.scale === '10';
+            return (
+              <tr
+                key={i}
+                className={`border-t border-cloud hover:bg-canvas/40 transition-colors ${
+                  isEnps ? 'bg-canvas/40 font-medium' : ''
+                }`}
+              >
+                <td className="px-6 py-3 text-graphite">{r.label}</td>
+                <td className="text-right px-4 py-3 tabular-nums text-stone">
+                  {fmt(r.prev)}
+                </td>
+                <td className="text-right px-4 py-3 tabular-nums">{fmt(r.curr)}</td>
+                <td className="text-right px-6 py-3 tabular-nums font-medium">
+                  {r.delta === null ? (
+                    <span className="text-ash">—</span>
+                  ) : Math.abs(r.delta) < 0.005 ? (
+                    <span className="text-stone">0</span>
+                  ) : (
+                    <span
+                      className={
+                        r.delta > 0 ? 'text-emerald' : 'text-blaze'
+                      }
+                    >
+                      {r.delta > 0 ? '+' : ''}
+                      {r.scale === '10' ? r.delta.toFixed(1) : r.delta.toFixed(2)}
+                      <span className="ml-1">{r.delta > 0 ? '↑' : '↓'}</span>
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>
   );
 }
 
@@ -315,7 +481,7 @@ function CategoryCard({
                   const v = item.averageByRole[role];
                   if (v === undefined || v === null) return null;
                   return (
-                    <span key={role} className="tabular-nums">
+                    <span key={role} className="tabular-nums whitespace-nowrap">
                       {ROLE_LABEL[role]}:{' '}
                       <strong className="text-stone">{v.toFixed(2)}</strong>
                     </span>
@@ -332,6 +498,7 @@ function CategoryCard({
           <button
             onClick={() => setOpen((v) => !v)}
             className="w-full px-6 py-3 flex items-center justify-between text-sm text-stone hover:bg-canvas/40 transition-colors"
+            type="button"
           >
             <span>Подробный фидбек</span>
             <ChevronDownIcon
@@ -343,9 +510,7 @@ function CategoryCard({
               {category.openItems.map((oi) =>
                 oi.answers.length > 0 ? (
                   <div key={oi.id}>
-                    <div className="text-[11px] text-stone mb-2">
-                      {oi.question}
-                    </div>
+                    <div className="text-[11px] text-stone mb-2">{oi.question}</div>
                     <ul className="space-y-2">
                       {oi.answers.map((a, idx) => (
                         <li
@@ -380,9 +545,7 @@ function RoleComparisonTable({
   return (
     <section className="card overflow-hidden mb-8">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/60">
-        <h2 className="text-base font-semibold text-ink">
-          Сравнение оценок по ролям
-        </h2>
+        <h2 className="text-base font-semibold text-ink">Сравнение оценок по ролям</h2>
         <p className="text-xs text-stone mt-1">
           Средняя по категории, разбивка по тем, кто отвечал.
         </p>
@@ -394,13 +557,15 @@ function RoleComparisonTable({
             {presentRoles.map((r) => (
               <th
                 key={r}
-                className="text-right px-4 py-3 font-medium tabular-nums w-28"
+                className="text-right px-4 py-3 font-medium tabular-nums w-32 whitespace-nowrap"
               >
                 {ROLE_LABEL[r]} ({aggregates.roleCounts[r]})
               </th>
             ))}
             {presentRoles.length >= 2 && (
-              <th className="text-right px-6 py-3 font-medium w-24">Разрыв</th>
+              <th className="text-right px-6 py-3 font-medium w-24 whitespace-nowrap">
+                Разрыв
+              </th>
             )}
           </tr>
         </thead>
@@ -409,9 +574,7 @@ function RoleComparisonTable({
             const values = presentRoles.map((r) => cat.averageByRole[r] ?? null);
             const nums = values.filter((v): v is number => typeof v === 'number');
             const gap =
-              nums.length >= 2
-                ? Math.max(...nums) - Math.min(...nums)
-                : null;
+              nums.length >= 2 ? Math.max(...nums) - Math.min(...nums) : null;
             return (
               <tr
                 key={cat.id}
@@ -516,6 +679,7 @@ function EditableMarkdownBlock({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   async function save() {
     setSaving(true);
@@ -533,15 +697,56 @@ function EditableMarkdownBlock({
     }
   }
 
+  // Bold через cmd/ctrl + B. Курсивы через cmd/ctrl + I.
+  // Если есть выделение — оборачиваем; если нет — вставляем плейсхолдер
+  // и оставляем курсор внутри.
+  function wrapSelection(prefix: string, suffix: string) {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const before = draft.slice(0, start);
+    const sel = draft.slice(start, end);
+    const after = draft.slice(end);
+    const next = before + prefix + sel + suffix + after;
+    setDraft(next);
+    requestAnimationFrame(() => {
+      const t = textareaRef.current;
+      if (!t) return;
+      t.focus();
+      if (sel) {
+        t.setSelectionRange(start + prefix.length, end + prefix.length);
+      } else {
+        const caret = start + prefix.length;
+        t.setSelectionRange(caret, caret);
+      }
+    });
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod) return;
+    const k = e.key.toLowerCase();
+    if (k === 'b') {
+      e.preventDefault();
+      wrapSelection('**', '**');
+    } else if (k === 'i') {
+      e.preventDefault();
+      wrapSelection('*', '*');
+    } else if (k === 'enter') {
+      // Ctrl+Enter / Cmd+Enter — быстрое сохранение
+      e.preventDefault();
+      if (!saving) save();
+    }
+  }
+
   return (
     <section className="card mb-6 overflow-hidden">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <span className="chip-build shrink-0">{badge}</span>
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-ink leading-tight">
-              {title}
-            </h3>
+            <h3 className="text-base font-semibold text-ink leading-tight">{title}</h3>
             <p className="text-xs text-stone mt-0.5 truncate">{hint}</p>
           </div>
         </div>
@@ -562,29 +767,40 @@ function EditableMarkdownBlock({
         {editing ? (
           <div className="space-y-3">
             <textarea
+              ref={textareaRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              className="input"
+              onKeyDown={handleKeyDown}
+              className="input font-mono"
               rows={12}
-              placeholder="Markdown · переносы строк сохраняются"
+              placeholder="Markdown · **жирный** (⌘B), *курсив* (⌘I), [ссылка](url), ### заголовок"
             />
-            <div className="flex items-center gap-2 justify-end">
-              <button
-                onClick={() => setEditing(false)}
-                className="btn-ghost"
-                disabled={saving}
-              >
-                Отмена
-              </button>
-              <button onClick={save} disabled={saving} className="btn-accent">
-                {saving ? 'Сохраняю…' : 'Сохранить'}
-              </button>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11px] text-ash">
+                ⌘B — жирный · ⌘I — курсив · ⌘↵ — сохранить
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditing(false)}
+                  className="btn-ghost"
+                  disabled={saving}
+                  type="button"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={save}
+                  disabled={saving}
+                  className="btn-accent"
+                  type="button"
+                >
+                  {saving ? 'Сохраняю…' : 'Сохранить'}
+                </button>
+              </div>
             </div>
           </div>
         ) : value ? (
-          <div className="text-sm leading-relaxed text-graphite whitespace-pre-line">
-            {value}
-          </div>
+          <MarkdownContent text={value} />
         ) : (
           <div className="text-sm text-ash italic">Ещё не заполнено</div>
         )}
@@ -593,18 +809,146 @@ function EditableMarkdownBlock({
   );
 }
 
-function ScoreBar({ value, max }: { value: number | null | undefined; max: number }) {
-  if (value == null) {
-    return (
-      <div className="flex-1 h-1.5 bg-cloud rounded-full overflow-hidden" />
+/**
+ * Простой markdown-рендер для aiSummary / cdoSummary. Сторонние библиотеки
+ * не подключаем — поддерживаем минимально нужный набор:
+ *   - ## и ### заголовки
+ *   - **жирный** и *курсив*
+ *   - [текст](url) — ссылки
+ *   - `-` / `*` буллеты
+ *   - пустая строка = разрыв абзаца
+ */
+function MarkdownContent({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const blocks: React.ReactNode[] = [];
+  let bulletGroup: string[] = [];
+  let key = 0;
+
+  function flushBullets() {
+    if (bulletGroup.length === 0) return;
+    blocks.push(
+      <ul key={key++} className="my-2 space-y-1">
+        {bulletGroup.map((b, i) => (
+          <li key={i} className="flex gap-2">
+            <span className="text-stone shrink-0">·</span>
+            <span className="flex-1">{renderInline(b)}</span>
+          </li>
+        ))}
+      </ul>,
     );
+    bulletGroup = [];
+  }
+
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\r$/, '');
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      bulletGroup.push(trimmed.slice(2));
+      continue;
+    }
+    flushBullets();
+
+    if (trimmed.startsWith('### ')) {
+      blocks.push(
+        <h4
+          key={key++}
+          className="text-sm font-semibold text-ink mt-4 mb-1.5"
+        >
+          {renderInline(trimmed.slice(4))}
+        </h4>,
+      );
+    } else if (trimmed.startsWith('## ')) {
+      blocks.push(
+        <h3
+          key={key++}
+          className="text-base font-semibold text-ink mt-4 mb-2"
+        >
+          {renderInline(trimmed.slice(3))}
+        </h3>,
+      );
+    } else if (trimmed.startsWith('# ')) {
+      blocks.push(
+        <h2
+          key={key++}
+          className="text-lg font-semibold text-ink mt-4 mb-2"
+        >
+          {renderInline(trimmed.slice(2))}
+        </h2>,
+      );
+    } else if (trimmed === '') {
+      blocks.push(<div key={key++} className="h-2" />);
+    } else {
+      blocks.push(
+        <p key={key++} className="leading-relaxed">
+          {renderInline(line)}
+        </p>,
+      );
+    }
+  }
+  flushBullets();
+
+  return (
+    <div className="text-sm leading-relaxed text-graphite space-y-1">
+      {blocks}
+    </div>
+  );
+}
+
+/**
+ * Инлайновое форматирование строки markdown.
+ * Поддерживаем: **bold**, *italic*, [text](url).
+ * Регулярка ищет первое вхождение любого, повторяет до конца.
+ */
+function renderInline(text: string): React.ReactNode {
+  const out: React.ReactNode[] = [];
+  let i = 0;
+  let cursor = 0;
+  const re = /(\*\*[^*\n]+?\*\*)|(\*[^*\n]+?\*)|(\[[^\]\n]+?\]\([^)\n]+?\))/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > cursor) out.push(text.slice(cursor, m.index));
+    if (m[1]) {
+      out.push(<strong key={i++}>{m[1].slice(2, -2)}</strong>);
+    } else if (m[2]) {
+      out.push(<em key={i++}>{m[2].slice(1, -1)}</em>);
+    } else if (m[3]) {
+      const lm = m[3].match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (lm) {
+        out.push(
+          <a
+            key={i++}
+            href={lm[2]}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sky underline underline-offset-2 hover:text-ink transition-colors"
+          >
+            {lm[1]}
+          </a>,
+        );
+      } else {
+        out.push(m[3]);
+      }
+    }
+    cursor = re.lastIndex;
+  }
+  if (cursor < text.length) out.push(text.slice(cursor));
+  return out.length ? out : text;
+}
+
+function ScoreBar({
+  value,
+  max,
+}: {
+  value: number | null | undefined;
+  max: number;
+}) {
+  if (value == null) {
+    return <div className="flex-1 h-1.5 bg-cloud rounded-full overflow-hidden" />;
   }
   const pct = Math.min(100, (value / max) * 100);
-  // Цвет: до 3 — blaze, до 4 — sunset, выше — emerald (для шкалы 5).
-  // Для шкалы 10: до 6 — blaze, до 8 — sunset, выше — emerald.
   const ratio = value / max;
-  const color =
-    ratio < 0.6 ? '#ff453a' : ratio < 0.8 ? '#ff9f0a' : '#34c759';
+  const color = ratio < 0.6 ? '#ff453a' : ratio < 0.8 ? '#ff9f0a' : '#34c759';
   return (
     <div className="flex-1 h-1.5 bg-cloud rounded-full overflow-hidden">
       <div

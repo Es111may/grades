@@ -42,12 +42,26 @@ export default async function LeadReviewPage({
     redirect('/admin/users');
   }
 
-  // Все циклы того же лида — для переключателя в шапке
+  // Все циклы того же лида — для переключателя в шапке + поиска предыдущего
   const allReviews = await prisma.leadReview.findMany({
     where: { targetUserId: review.targetUserId },
     orderBy: { importedAt: 'desc' },
-    select: { id: true, period: true, importedAt: true, responseCount: true },
+    select: {
+      id: true,
+      period: true,
+      importedAt: true,
+      responseCount: true,
+      aggregates: true,
+    },
   });
+
+  // Предыдущий цикл — следующая по дате запись, более старая чем текущая.
+  // Сортировка desc, поэтому в массиве предыдущий идёт ПОСЛЕ текущего.
+  const currentIdx = allReviews.findIndex((r) => r.id === review.id);
+  const prev =
+    currentIdx >= 0 && currentIdx < allReviews.length - 1
+      ? allReviews[currentIdx + 1]
+      : null;
 
   return (
     <LeadReviewView
@@ -61,6 +75,15 @@ export default async function LeadReviewPage({
         aiSummary: review.aiSummary,
         cdoSummary: review.cdoSummary,
       }}
+      previous={
+        prev
+          ? {
+              id: prev.id,
+              period: prev.period,
+              aggregates: prev.aggregates as unknown as LeadReviewAggregates,
+            }
+          : null
+      }
       target={review.targetUser}
       siblings={allReviews.map((r) => ({
         id: r.id,
