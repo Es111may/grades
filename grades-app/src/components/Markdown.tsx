@@ -51,38 +51,18 @@ export function MarkdownContent({ text }: { text: string }) {
     }
     flushBullets();
 
-    if (trimmed.startsWith('#### ')) {
-      // самый мелкий — мини-метка
+    // Один формат заголовка — точь-в-точь как «Блок CDO» в шапке карточки
+    // (text-base font-semibold text-ink). Поддерживаем все четыре уровня
+    // решётки одинаково: чтобы не думать какой уровень — любая `#`/`##`/
+    // `###`/`####` строка становится одинаковым заголовком.
+    const headingMatch = trimmed.match(/^#{1,4}\s+(.*)$/);
+    if (headingMatch) {
       blocks.push(
-        <div
+        <h3
           key={key++}
-          className="text-[10px] font-medium uppercase tracking-wider text-ash mt-2 mb-1"
+          className="text-base font-semibold text-ink leading-tight mt-4 mb-2"
         >
-          {renderInline(trimmed.slice(5))}
-        </div>,
-      );
-    } else if (trimmed.startsWith('### ')) {
-      // маленький подзаголовок — нейтральный stone, uppercase
-      blocks.push(
-        <div
-          key={key++}
-          className="text-[11px] font-medium uppercase tracking-wide text-stone mt-3 mb-1"
-        >
-          {renderInline(trimmed.slice(4))}
-        </div>,
-      );
-    } else if (trimmed.startsWith('## ')) {
-      // средний заголовок
-      blocks.push(
-        <h4 key={key++} className="text-sm font-semibold text-ink mt-3 mb-1.5">
-          {renderInline(trimmed.slice(3))}
-        </h4>,
-      );
-    } else if (trimmed.startsWith('# ')) {
-      // самый крупный из «небольших» — обычная жирная строка
-      blocks.push(
-        <h3 key={key++} className="text-base font-semibold text-ink mt-4 mb-2">
-          {renderInline(trimmed.slice(2))}
+          {renderInline(headingMatch[1])}
         </h3>,
       );
     } else if (trimmed === '') {
@@ -289,7 +269,7 @@ export function EditableMarkdownBlock({
               value={draft}
               onChange={setDraft}
               onSubmit={() => !saving && save()}
-              placeholder="Markdown · **жирный** (⌘B), *курсив* (⌘I), [ссылка](url), # / ## / ### / #### — заголовки от среднего к мини"
+              placeholder="Markdown · **жирный** (⌘B), *курсив* (⌘I), [ссылка](url), # заголовок"
             />
             <div className="flex items-center justify-between gap-2">
               <div className="text-[11px] text-ash">
