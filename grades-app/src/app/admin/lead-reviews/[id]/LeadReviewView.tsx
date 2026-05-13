@@ -224,13 +224,22 @@ export default function LeadReviewView({
         </div>
       </div>
 
-      {/* Изменения относительно предыдущего цикла */}
-      {previous && (
+      {/* Сравнительный блок:
+            — если есть предыдущий цикл, показываем «Изменения с прошлого»
+              (с раскрывающейся разбивкой по ролям внутри);
+            — если это первый цикл и есть несколько ролей — показываем
+              классическое «Сравнение оценок по ролям». */}
+      {previous ? (
         <DiffWithPreviousCard
           current={agg}
           previous={previous}
           currentPeriod={review.period}
+          presentRoles={presentRoles}
         />
+      ) : (
+        showRoleSplit && (
+          <RoleComparisonTable aggregates={agg} presentRoles={presentRoles} />
+        )
       )}
 
       {/* Категории */}
@@ -244,11 +253,6 @@ export default function LeadReviewView({
           />
         ))}
       </div>
-
-      {/* Сравнение по ролям */}
-      {showRoleSplit && (
-        <RoleComparisonTable aggregates={agg} presentRoles={presentRoles} />
-      )}
 
       {/* Открытые вопросы */}
       <div className="space-y-4 mb-8">
@@ -332,22 +336,35 @@ function DiffWithPreviousCard({
   current,
   previous,
   currentPeriod,
+  presentRoles,
 }: {
   current: LeadReviewAggregates;
   previous: Previous;
   currentPeriod: string;
+  presentRoles: ResponderRole[];
 }) {
-  // Считаем дельты по каждой категории и по eNPS
+  const [expanded, setExpanded] = useState(false);
+
+  // Считаем дельты по каждой категории и по eNPS (общие — для основной строки)
   const rows: Array<{
     label: string;
     prev: number | null;
     curr: number | null;
     delta: number | null;
     scale: '5' | '10';
+    // Разбивка по ролям (для раскрытого вида). Каждая роль — пара [было, стало].
+    byRole: Partial<Record<ResponderRole, { prev: number | null; curr: number | null }>>;
   }> = [];
 
   for (const cat of current.categories) {
     const prevCat = previous.aggregates.categories.find((c) => c.id === cat.id);
+    const byRole: Partial<Record<ResponderRole, { prev: number | null; curr: number | null }>> = {};
+    for (const role of presentRoles) {
+      byRole[role] = {
+        prev: prevCat?.averageByRole?.[role] ?? null,
+        curr: cat.averageByRole?.[role] ?? null,
+      };
+    }
     rows.push({
       label: cat.label,
       prev: prevCat?.average ?? null,
@@ -357,7 +374,17 @@ function DiffWithPreviousCard({
           ? cat.average - (prevCat!.average as number)
           : null,
       scale: '5',
+      byRole,
     });
+  }
+
+  // eNPS
+  const enpsByRole: Partial<Record<ResponderRole, { prev: number | null; curr: number | null }>> = {};
+  for (const role of presentRoles) {
+    enpsByRole[role] = {
+      prev: previous.aggregates.enps.averageByRole?.[role] ?? null,
+      curr: current.enps.averageByRole?.[role] ?? null,
+    };
   }
   rows.push({
     label: 'Готовность работать (eNPS, 1–10)',
@@ -368,7 +395,10 @@ function DiffWithPreviousCard({
         ? current.enps.average - previous.aggregates.enps.average
         : null,
     scale: '10',
+    byRole: enpsByRole,
   });
+
+  const canExpand = presentRoles.length >= 2;
 
   return (
     <section className="card overflow-hidden mb-6">
@@ -436,6 +466,96 @@ function DiffWithPreviousCard({
           })}
         </tbody>
       </table>
+
+      {/* Раскрытие — детали по ролям. Показываем кнопку только если есть
+          две и более ролей, по которым можно разложить. */}
+      {canExpand && (
+        <>
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full px-6 py-3 border-t border-cloud flex items-center justify-between text-sm text-stone hover:bg-canvas/40 transition-colors"
+            type="button"
+          >
+            <span>{expanded ? 'Свернуть' : 'Подробнее по ролям'}</span>
+            <ChevronDownIcon
+              className={`w-4 h-4 transition-transform duration-150 ${
+                expanded ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+          {expanded && (
+            <div className="border-t border-cloud overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-[11px] text-stone bg-canvas/40">
+                  <tr>
+                    <th className="text-left px-6 py-3 font-medium">Блок</th>
+                    {presentRoles.flatMap((role) => [
+                      <th
+                        key={`${role}-prev`}
+                        className="text-right px-3 py-3 font-medium tabular-nums whitespace-nowrap"
+                      >
+                        {ROLE_LABEL[role]} · {previous.period}
+                      </th>,
+                      <th
+                        key={`${role}-curr`}
+                        className="text-right px-3 py-3 font-medium tabular-nums whitespace-nowrap"
+                      >
+                        {ROLE_LABEL[role]} · {currentPeriod}
+                      </th>,
+                    ])}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => {
+                    const fmt = (v: number | null) =>
+                      v === null ? '—' : r.scale === '10' ? v.toFixed(1) : v.toFixed(2);
+                    const isEnps = r.scale === '10';
+                    return (
+                      <tr
+                        key={i}
+                        className={`border-t border-cloud ${
+                          isEnps ? 'bg-canvas/40 font-medium' : ''
+                        }`}
+                      >
+                        <td className="px-6 py-3 text-graphite">{r.label}</td>
+                        {presentRoles.flatMap((role) => {
+                          const cell = r.byRole[role];
+                          const prevV = cell?.prev ?? null;
+                          const currV = cell?.curr ?? null;
+                          const delta =
+                            prevV !== null && currV !== null
+                              ? currV - prevV
+                              : null;
+                          const deltaColor =
+                            delta === null || Math.abs(delta) < 0.005
+                              ? ''
+                              : delta > 0
+                                ? 'text-emerald'
+                                : 'text-blaze';
+                          return [
+                            <td
+                              key={`${role}-prev`}
+                              className="text-right px-3 py-3 tabular-nums text-stone"
+                            >
+                              {fmt(prevV)}
+                            </td>,
+                            <td
+                              key={`${role}-curr`}
+                              className={`text-right px-3 py-3 tabular-nums ${deltaColor}`}
+                            >
+                              {fmt(currV)}
+                            </td>,
+                          ];
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }
