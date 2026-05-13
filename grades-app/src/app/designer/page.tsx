@@ -80,7 +80,7 @@ export default async function DesignerPortraitPage({
   return (
     <Portrait
       data={result.data}
-      buildSiblingHref={(id) => `/designer?assessmentId=${id}`}
+      siblingHrefPrefix="/designer?assessmentId="
     />
   );
 }

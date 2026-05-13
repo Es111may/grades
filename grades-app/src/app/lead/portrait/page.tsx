@@ -100,9 +100,7 @@ export default async function LeadPortraitPage({
       <Portrait
         data={result.data}
         breadcrumb={{ href: '/admin/users', label: 'Команда' }}
-        buildSiblingHref={(id) =>
-          `/lead/portrait?id=${designerId}&assessmentId=${id}`
-        }
+        siblingHrefPrefix={`/lead/portrait?id=${designerId}&assessmentId=`}
       />
     </>
   );

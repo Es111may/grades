@@ -87,13 +87,15 @@ export type PortraitData = {
 export default function Portrait({
   data,
   breadcrumb,
-  buildSiblingHref,
+  siblingHrefPrefix,
 }: {
   data: PortraitData;
   breadcrumb?: { href: string; label: string };
-  /** Билдер URL для переключателя циклов. На /designer ссылка имеет вид
-   *  `?assessmentId=X`, на /lead/portrait — `?id=Y&assessmentId=X`. */
-  buildSiblingHref: (assessmentId: number) => string;
+  /** Префикс URL для переключателя циклов. К нему прицепляется id, чтобы
+   *  получился готовый href. Сервер не умеет сериализовать функции в
+   *  client-компоненты, поэтому передаём строку.
+   *  Пример: `/designer?assessmentId=` → `/designer?assessmentId=42`. */
+  siblingHrefPrefix: string;
 }) {
   const [rowHovered, setRowHovered] = useState(false);
 
@@ -242,7 +244,7 @@ export default function Portrait({
           <CyclesSwitcher
             siblings={data.siblings}
             currentId={data.assessmentId}
-            buildHref={buildSiblingHref}
+            hrefPrefix={siblingHrefPrefix}
           />
         </div>
       )}
@@ -491,7 +493,7 @@ export default function Portrait({
             <CyclesSwitcher
               siblings={data.siblings}
               currentId={data.assessmentId}
-              buildHref={buildSiblingHref}
+              hrefPrefix={siblingHrefPrefix}
             />
           </div>
         </div>
@@ -503,18 +505,18 @@ export default function Portrait({
 function CyclesSwitcher({
   siblings,
   currentId,
-  buildHref,
+  hrefPrefix,
 }: {
   siblings: PortraitData['siblings'];
   currentId: number;
-  buildHref: (id: number) => string;
+  hrefPrefix: string;
 }) {
   return (
     <div className="segmented">
       {siblings.map((s) => (
         <Link
           key={s.id}
-          href={buildHref(s.id)}
+          href={`${hrefPrefix}${s.id}`}
           className={`segmented-item whitespace-nowrap ${
             s.id === currentId ? 'segmented-item-active' : ''
           }`}
