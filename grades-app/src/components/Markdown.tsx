@@ -65,6 +65,10 @@ export function MarkdownContent({ text }: { text: string }) {
           {renderInline(headingMatch[1])}
         </h3>,
       );
+    } else if (/^_{2,}$/.test(trimmed)) {
+      // Горизонтальная линия — строка из двух и более подчёркиваний.
+      // Pavel специально попросил такой синтаксис (вместо стандартного ---).
+      blocks.push(<hr key={key++} className="border-cloud my-3" />);
     } else if (trimmed === '') {
       blocks.push(<div key={key++} className="h-2" />);
     } else {
@@ -269,7 +273,7 @@ export function EditableMarkdownBlock({
               value={draft}
               onChange={setDraft}
               onSubmit={() => !saving && save()}
-              placeholder="Markdown · **жирный** (⌘B), *курсив* (⌘I), [ссылка](url), # заголовок"
+              placeholder="Markdown · **жирный** (⌘B), *курсив* (⌘I), [ссылка](url), # заголовок, __ — линия"
             />
             <div className="flex items-center justify-between gap-2">
               <div className="text-[11px] text-ash">
