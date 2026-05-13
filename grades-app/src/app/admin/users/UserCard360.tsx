@@ -33,6 +33,8 @@ const ROLE_LABEL: Record<string, string> = {
   designer: 'Дизайнер',
 };
 
+// Цветовые токены для чипа роли — используем поверх базового `.chip`
+// (одинаковый размер и шрифт, отличается только фон/текст).
 const ROLE_TONE: Record<string, string> = {
   admin: 'bg-[#fff7e6] text-sunset',
   lead: 'bg-lime-light text-graphite border border-lime/30',
@@ -189,17 +191,15 @@ export default function UserCard360({
                 </button>
               </div>
 
-              {/* Полоса чипов: роль · билд · грейд · floor · неактивен */}
+              {/* Полоса чипов: роль · билд · грейд · floor · неактивен.
+                  Все на базе `.chip` — одинаковый размер шрифта и паддинги,
+                  меняется только цветовая палитра. */}
               <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-pill text-[11px] font-medium ${
-                    ROLE_TONE[user.role] ?? ROLE_TONE.designer
-                  }`}
-                >
+                <span className={`chip ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
                   {ROLE_LABEL[user.role] ?? user.role}
                 </span>
                 {user.build && (
-                  <span className="chip-build">
+                  <span className="chip-neutral">
                     <span
                       className="w-1.5 h-1.5 rounded-full"
                       style={{ background: buildColor(user.build.code) }}
@@ -221,17 +221,6 @@ export default function UserCard360({
                   )}
                 {!user.active && <span className="chip-danger">Неактивен</span>}
               </div>
-
-              {/* Подпись о дате последней оценки — только для дизайнеров,
-                  и только если она была. Inline, без отдельной секции. */}
-              {user.role === 'designer' && user.lastAssessedAt && (
-                <div className="text-xs text-stone mt-2">
-                  Последняя оценка:{' '}
-                  <span className="text-graphite font-medium">
-                    {formatDate(user.lastAssessedAt)}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>
