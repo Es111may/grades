@@ -26,6 +26,10 @@ run('npx tsx prisma/seed.ts');
 // прогон — запустить вручную: `npx tsx scripts/import-team.ts`.
 run('npx tsx scripts/cleanup-team.ts');
 run('npx tsx scripts/migrate-grades.ts');
+// Phase 22: исторические 360-оценки лидов/стардизов (декабрь 2025 — март 2026)
+// восстановленные из markdown-отчётов Buildin. Скрипт идемпотентный,
+// упавший импорт не блокирует деплой (внутри ловит исключения).
+run('npx tsx scripts/import-historical-lead-reviews.ts');
 
 console.log('\n▶ Starting Next.js...\n');
 // npm start теперь указывает на этот скрипт, поэтому запускаем next напрямую (start:next)
