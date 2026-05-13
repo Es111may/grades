@@ -24,6 +24,10 @@ export default function MasteryEditorModal({
       : [{ level: 1, title: 'Уровень 1', criteria: '' }],
   );
   const [saving, setSaving] = useState(false);
+  // Индекс уровня, для которого «взведена» кнопка удаления. Через 5 сек
+  // сбрасывается. Двухступенчатый клик — замена нативного confirm(),
+  // который в некоторых браузерах молча блокируется.
+  const [removeArmedIdx, setRemoveArmedIdx] = useState<number | null>(null);
 
   function updateLevel(idx: number, patch: Partial<Mastery>) {
     setLevels((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
@@ -38,12 +42,20 @@ export default function MasteryEditorModal({
     ]);
   }
 
+  function armRemove(idx: number) {
+    setRemoveArmedIdx(idx);
+    setTimeout(
+      () => setRemoveArmedIdx((curr) => (curr === idx ? null : curr)),
+      5000,
+    );
+  }
+
   function removeLevel(idx: number) {
     if (levels.length <= 1) return;
-    if (!confirm(`Удалить уровень ${levels[idx].level}?`)) return;
     setLevels((prev) =>
       prev.filter((_, i) => i !== idx).map((l, i) => ({ ...l, level: i + 1 })),
     );
+    setRemoveArmedIdx(null);
   }
 
   async function save() {
@@ -97,6 +109,7 @@ export default function MasteryEditorModal({
             </h2>
           </div>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Закрыть"
             className="text-stone hover:text-ink w-8 h-8 flex items-center justify-center rounded-pill hover:bg-cloud/50 transition-colors shrink-0"
@@ -112,15 +125,26 @@ export default function MasteryEditorModal({
                 <div className="font-display text-sm font-semibold tracking-tight">
                   Уровень {l.level}
                 </div>
-                {levels.length > 1 && (
-                  <button
-                    onClick={() => removeLevel(idx)}
-                    className="text-xs text-stone hover:text-blaze transition-colors"
-                    title="Удалить уровень"
-                  >
-                    Удалить
-                  </button>
-                )}
+                {levels.length > 1 &&
+                  (removeArmedIdx === idx ? (
+                    <button
+                      type="button"
+                      onClick={() => removeLevel(idx)}
+                      className="text-xs font-medium text-blaze hover:underline transition-colors"
+                      title="Подтвердить удаление"
+                    >
+                      Точно удалить?
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => armRemove(idx)}
+                      className="text-xs text-stone hover:text-blaze transition-colors"
+                      title="Удалить уровень"
+                    >
+                      Удалить
+                    </button>
+                  ))}
               </div>
 
               <div className="space-y-2">
@@ -143,17 +167,27 @@ export default function MasteryEditorModal({
           ))}
 
           {levels.length < 5 && (
-            <button onClick={addLevel} className="btn-ghost btn-sm">
+            <button type="button" onClick={addLevel} className="btn-ghost btn-sm">
               + Добавить уровень
             </button>
           )}
         </div>
 
         <div className="px-7 py-4 border-t border-cloud flex items-center justify-end gap-2 bg-canvas/40 rounded-b-modal">
-          <button onClick={onClose} disabled={saving} className="btn-ghost btn-sm">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="btn-ghost btn-sm"
+          >
             Отмена
           </button>
-          <button onClick={save} disabled={saving} className="btn-accent btn-sm">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="btn-accent btn-sm"
+          >
             {saving ? 'Сохраняю…' : 'Сохранить'}
           </button>
         </div>
