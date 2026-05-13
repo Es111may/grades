@@ -24,30 +24,10 @@ const GROUP_RENAMES: Array<{ from: string; to: string }> = [
   { from: 'Контент-дизайн', to: 'Контент' },
 ];
 
-const TARGET_THRESHOLDS = {
-  junior: 0,
-  junior_plus: 75,
-  premiddle: 105,
-  middle: 135,
-  middle_plus: 180,
-  senior: 230,
-} as const;
-const TARGET_NAMES: Record<string, string> = {
-  junior: 'Джун',
-  junior_plus: 'Джун+',
-  premiddle: 'Пре-мидл',
-  middle: 'Мидл',
-  middle_plus: 'Мидл+',
-  senior: 'Синьор',
-};
-const TARGET_SORT: Record<string, number> = {
-  junior: 0,
-  junior_plus: 1,
-  premiddle: 2,
-  middle: 3,
-  middle_plus: 4,
-  senior: 5,
-};
+// Дефолтный порог для свежесозданного premiddle (если этого грейда вообще
+// не было в БД — наследие старой структуры). Дальше Pavel правит через
+// /admin/grades, эти значения уже не трогаются.
+const PREMIDDLE_DEFAULT_THRESHOLD = 105;
 
 // Имена билдов на 13 мая 2026 — после переименования в названия отделов.
 // Раньше: Создатель / Визионер / Навигатор. Теперь: Инхаус / Криэйт / Импрув.
@@ -109,6 +89,15 @@ export async function ensureGroupNames(): Promise<void> {
   groupNamesEnsured = true;
 }
 
+/**
+ * Структурная миграция грейдов: одноразовые шаги, которые невозможно
+ * сделать через UI. После первого срабатывания становится no-op.
+ *
+ * НАМЕРЕННО НЕ ПЕРЕЗАПИСЫВАЕТ xpThresholds/name/sortOrder существующих
+ * грейдов — раньше тут был блок «приведения к целевым значениям», и он
+ * откатывал ручные правки Pavel'a в /admin/grades при каждом рестарте
+ * контейнера. Теперь миграция не лезет в уже созданные строки.
+ */
 export async function ensureGradesMigrated(): Promise<void> {
   if (gradesMigrated) return;
   const matrices = await prisma.matrixVersion.findMany();
@@ -122,6 +111,7 @@ export async function ensureGradesMigrated(): Promise<void> {
     const intern = byCode.get('intern');
     const hasPremiddle = byCode.has('premiddle');
 
+    // 1. Удаляем старый intern: переносим зависимые поля на junior.
     if (intern) {
       await prisma.assessment.updateMany({
         where: { calculatedGrade: 'intern' },
@@ -139,45 +129,19 @@ export async function ensureGradesMigrated(): Promise<void> {
       await prisma.gradeLevel.delete({ where: { id: intern.id } });
     }
 
+    // 2. Создаём premiddle, если этого грейда совсем не было.
     if (!hasPremiddle) {
       const xp: Record<string, number> = {};
-      for (const bc of buildCodes) xp[bc] = TARGET_THRESHOLDS.premiddle;
+      for (const bc of buildCodes) xp[bc] = PREMIDDLE_DEFAULT_THRESHOLD;
       await prisma.gradeLevel.create({
         data: {
           matrixVersionId: matrix.id,
           code: 'premiddle',
-          name: TARGET_NAMES.premiddle,
-          sortOrder: TARGET_SORT.premiddle,
+          name: 'Пре-мидл',
+          sortOrder: 2,
           xpThresholds: xp as unknown as Prisma.InputJsonValue,
         },
       });
-    }
-
-    for (const code of Object.keys(TARGET_THRESHOLDS)) {
-      const g = await prisma.gradeLevel.findFirst({
-        where: { matrixVersionId: matrix.id, code },
-      });
-      if (!g) continue;
-      const xp: Record<string, number> = {};
-      for (const bc of buildCodes) {
-        xp[bc] = TARGET_THRESHOLDS[code as keyof typeof TARGET_THRESHOLDS];
-      }
-      const t = g.xpThresholds as Record<string, number>;
-      const target = TARGET_THRESHOLDS[code as keyof typeof TARGET_THRESHOLDS];
-      const needsUpdate =
-        g.name !== TARGET_NAMES[code] ||
-        g.sortOrder !== TARGET_SORT[code] ||
-        !buildCodes.every((bc) => t?.[bc] === target);
-      if (needsUpdate) {
-        await prisma.gradeLevel.update({
-          where: { id: g.id },
-          data: {
-            xpThresholds: xp as unknown as Prisma.InputJsonValue,
-            name: TARGET_NAMES[code],
-            sortOrder: TARGET_SORT[code],
-          },
-        });
-      }
     }
   }
   gradesMigrated = true;
