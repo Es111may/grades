@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function PortraitActions({
@@ -13,32 +14,75 @@ export default function PortraitActions({
   hasDraft: boolean;
 }) {
   const router = useRouter();
-  const [reopening, setReopening] = useState(false);
+  // Двухступенчатое удаление — confirm() в некоторых браузерах
+  // молча блокируется.
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  async function reopen() {
-    setReopening(true);
+  function armDelete() {
+    setDeleteArmed(true);
+    setTimeout(() => setDeleteArmed(false), 5000);
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/assessments/${publishedAssessmentId}/reopen`, {
-        method: 'POST',
+      const res = await fetch(`/api/assessments/${publishedAssessmentId}`, {
+        method: 'DELETE',
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        alert(`Ошибка: ${j.error ?? 'не удалось переоткрыть'}`);
-        setReopening(false);
+        alert(`Не получилось удалить: ${j.error ?? res.statusText}`);
+        setDeleting(false);
+        setDeleteArmed(false);
         return;
       }
-      router.push(`/lead/assess?id=${designerId}`);
+      router.refresh();
+      router.push('/admin/users');
     } catch (e) {
       alert(`Ошибка: ${(e as Error).message}`);
-      setReopening(false);
+      setDeleting(false);
+      setDeleteArmed(false);
     }
   }
 
   return (
-    <div className="flex items-center justify-end gap-4 max-w-[1400px] mx-auto px-8 pt-5">
-      <button onClick={reopen} disabled={reopening} className="btn-accent btn-sm">
-        {reopening ? 'Создаю…' : hasDraft ? 'Продолжить черновик' : 'Новая оценка'}
-      </button>
+    <div className="flex items-center justify-end gap-2 max-w-[1400px] mx-auto px-8 pt-5">
+      {hasDraft && (
+        <Link
+          href={`/lead/assess?id=${designerId}`}
+          className="btn-secondary btn-sm"
+        >
+          Продолжить черновик
+        </Link>
+      )}
+      {/* «Новый цикл» — всегда создаёт свежий draft поверх опубликованной.
+          AssessPage по ?new=1 принудительно создаёт новую assessment, копируя
+          scores из последней опубликованной как стартовую точку. */}
+      <Link
+        href={`/lead/assess?id=${designerId}&new=1`}
+        className="btn-secondary btn-sm"
+      >
+        Новый цикл
+      </Link>
+      {!deleteArmed ? (
+        <button
+          type="button"
+          onClick={armDelete}
+          className="btn-ghost-danger btn-sm"
+        >
+          Удалить
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="btn-danger btn-sm"
+        >
+          {deleting ? 'Удаляю…' : 'Точно удалить?'}
+        </button>
+      )}
     </div>
   );
 }

@@ -262,10 +262,26 @@ export default function AssessmentForm({
     setPublishing(false);
   }
 
+  // Двухступенчатое подтверждение отмены черновика — вместо confirm(),
+  // который в некоторых браузерах молча возвращает false.
+  const [discardArmed, setDiscardArmed] = useState(false);
+
+  function armDiscard() {
+    setDiscardArmed(true);
+    setTimeout(() => setDiscardArmed(false), 5000);
+  }
+
   async function handleDiscard() {
     if (published) return;
-    if (!confirm('Удалить черновик? Все оценки будут потеряны.')) return;
-    await fetch(`/api/assessments/${assessmentId}`, { method: 'DELETE' });
+    const res = await fetch(`/api/assessments/${assessmentId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      alert(`Не получилось удалить черновик: ${j.error ?? res.statusText}`);
+      setDiscardArmed(false);
+      return;
+    }
     router.push('/admin/users');
   }
 
@@ -331,10 +347,25 @@ export default function AssessmentForm({
             >
               сохранено
             </span>
-            <button onClick={handleDiscard} className="btn-secondary">
-              Отменить черновик
-            </button>
+            {!discardArmed ? (
+              <button
+                type="button"
+                onClick={armDiscard}
+                className="btn-ghost-danger"
+              >
+                Отменить черновик
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleDiscard}
+                className="btn-danger"
+              >
+                Точно отменить?
+              </button>
+            )}
             <button
+              type="button"
               onClick={handlePublish}
               disabled={publishing || calc.filled === 0}
               className="btn-accent"
