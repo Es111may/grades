@@ -298,6 +298,9 @@ model Assessment {
   effectiveGrade  String?
   // Полный snapshot — гарантия, что портрет не "съедет" при правке матрицы
   snapshot        Json?
+  // Мнение лида/стардиза, написанное на форме оценки (markdown).
+  // Показывается на портрете дизайнера — аналог CDO-блока у лидов.
+  leadComment     String?       @db.Text
 
   scores  AssessmentScore[]
   history AssessmentHistory[]

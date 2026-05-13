@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { GRADE_NAMES, GRADE_ORDER, BUILD_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
+import { MarkdownTextarea } from '@/components/Markdown';
 
 type SkillData = {
   id: number;
@@ -44,6 +45,7 @@ export default function AssessmentForm({
   skills,
   grades,
   existingScores,
+  initialLeadComment,
   maxXp,
 }: {
   assessmentId: number;
@@ -62,6 +64,7 @@ export default function AssessmentForm({
   skills: SkillData[];
   grades: GradeData[];
   existingScores: Record<number, number>;
+  initialLeadComment: string;
   maxXp: number;
 }) {
   const router = useRouter();
@@ -73,7 +76,13 @@ export default function AssessmentForm({
   const saveTimeout = useRef<NodeJS.Timeout | null>(null);
   const pendingScores = useRef<{ skillId: number; masteryLevel: number }[]>([]);
 
-  // Auto-save debounced
+  // Мнение лида/стардиза — markdown-текст, автосейв с debounce 800мс,
+  // отдельным запросом (не смешиваем с очередью scores).
+  const [leadComment, setLeadComment] = useState<string>(initialLeadComment);
+  const leadCommentTimeout = useRef<NodeJS.Timeout | null>(null);
+  const leadCommentDirty = useRef(false);
+
+  // Auto-save scores
   const doSave = useCallback(async () => {
     if (pendingScores.current.length === 0 || published) return;
     setSaveStatus('saving');
@@ -90,6 +99,28 @@ export default function AssessmentForm({
     setTimeout(() => setSaveStatus('idle'), 1500);
   }, [assessmentId, published]);
 
+  // Auto-save leadComment отдельно — он не смешивается с очередью scores
+  const saveLeadComment = useCallback(async () => {
+    if (!leadCommentDirty.current || published) return;
+    leadCommentDirty.current = false;
+    setSaveStatus('saving');
+    await fetch('/api/assessments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assessmentId, leadComment }),
+    });
+    setSaveStatus('saved');
+    setTimeout(() => setSaveStatus('idle'), 1500);
+  }, [assessmentId, leadComment, published]);
+
+  function handleLeadCommentChange(next: string) {
+    if (published) return;
+    setLeadComment(next);
+    leadCommentDirty.current = true;
+    if (leadCommentTimeout.current) clearTimeout(leadCommentTimeout.current);
+    leadCommentTimeout.current = setTimeout(saveLeadComment, 800);
+  }
+
   function setMastery(skillId: number, level: number) {
     if (published) return;
     setScores((prev) => ({ ...prev, [skillId]: level }));
@@ -103,9 +134,11 @@ export default function AssessmentForm({
   useEffect(() => {
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
+      if (leadCommentTimeout.current) clearTimeout(leadCommentTimeout.current);
       if (pendingScores.current.length > 0) doSave();
+      if (leadCommentDirty.current) saveLeadComment();
     };
-  }, [doSave]);
+  }, [doSave, saveLeadComment]);
 
   // Live calculation
   const calc = useMemo(() => {
@@ -412,6 +445,43 @@ export default function AssessmentForm({
                 ))}
               </section>
             ))}
+
+            {/* Мнение дизайн-лида / стардиза — markdown-блок. Авто-сейв при
+                каждом изменении (debounce 800мс). После публикации текст
+                становится read-only и показывается на портрете дизайнера. */}
+            <section className="card overflow-hidden">
+              <div className="px-6 py-3.5 border-b border-cloud bg-canvas/30 flex items-center gap-3">
+                <span className="chip-build shrink-0">Лид</span>
+                <div className="min-w-0">
+                  <div className="text-base font-semibold text-ink leading-tight">
+                    Мнение дизайн-лида / стардиза
+                  </div>
+                  <div className="text-xs text-stone mt-0.5">
+                    Покажется дизайнеру на портрете. Markdown · ⌘B жирный · ⌘I курсив.
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 py-5">
+                {published ? (
+                  leadComment ? (
+                    <div className="text-sm leading-relaxed text-graphite whitespace-pre-line">
+                      {leadComment}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-ash italic">
+                      Лид не оставил мнения к этой оценке
+                    </div>
+                  )
+                ) : (
+                  <MarkdownTextarea
+                    value={leadComment}
+                    onChange={handleLeadCommentChange}
+                    placeholder="Что важно зафиксировать про этого дизайнера: сильные стороны, зоны роста, наблюдения за цикл."
+                    rows={8}
+                  />
+                )}
+              </div>
+            </section>
           </div>
         </main>
 

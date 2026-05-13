@@ -7,11 +7,21 @@ import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
 import Portrait from './Portrait';
 
-export default async function DesignerPortraitPage() {
+export default async function DesignerPortraitPage({
+  searchParams,
+}: {
+  searchParams: { assessmentId?: string };
+}) {
   const user = await getCurrentUser();
   if (!user?.id) return null;
 
-  const result = await loadPortraitData(user.id);
+  const assessmentId = searchParams.assessmentId
+    ? parseInt(searchParams.assessmentId, 10)
+    : undefined;
+  const result = await loadPortraitData(
+    user.id,
+    Number.isFinite(assessmentId) ? assessmentId : undefined,
+  );
 
   if (result.kind === 'not_found') {
     return (
@@ -67,5 +77,10 @@ export default async function DesignerPortraitPage() {
     );
   }
 
-  return <Portrait data={result.data} />;
+  return (
+    <Portrait
+      data={result.data}
+      buildSiblingHref={(id) => `/designer?assessmentId=${id}`}
+    />
+  );
 }

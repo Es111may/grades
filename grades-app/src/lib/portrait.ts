@@ -11,7 +11,10 @@ import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import type { PortraitData } from '@/app/designer/Portrait';
 
-export async function loadPortraitData(designerId: number): Promise<
+export async function loadPortraitData(
+  designerId: number,
+  assessmentId?: number,
+): Promise<
   | { kind: 'no_assessment'; designer: { fullName: string; gradeFloor: GradeCode | null } }
   | { kind: 'ok'; data: PortraitData }
   | { kind: 'not_found' }
@@ -22,12 +25,37 @@ export async function loadPortraitData(designerId: number): Promise<
   });
   if (!designer) return { kind: 'not_found' };
 
-  // Find latest published assessment
-  const assessment = await prisma.assessment.findFirst({
+  // Все опубликованные оценки этого дизайнера — для переключателя циклов
+  // в шапке портрета. Идут от свежей к старой.
+  const allPublished = await prisma.assessment.findMany({
     where: { designerId, status: 'published' },
     orderBy: { publishedAt: 'desc' },
-    include: { scores: true },
+    select: { id: true, publishedAt: true, effectiveGrade: true, totalXp: true },
   });
+
+  // Если в URL пришёл явный assessmentId — открываем его (если он принадлежит
+  // дизайнеру и опубликован); иначе — последнюю опубликованную.
+  let assessment;
+  if (assessmentId) {
+    assessment = await prisma.assessment.findFirst({
+      where: { id: assessmentId, designerId, status: 'published' },
+      include: { scores: true },
+    });
+    if (!assessment) {
+      // Запрошенный id не подходит — fallback к свежей публикации.
+      assessment = await prisma.assessment.findFirst({
+        where: { designerId, status: 'published' },
+        orderBy: { publishedAt: 'desc' },
+        include: { scores: true },
+      });
+    }
+  } else {
+    assessment = await prisma.assessment.findFirst({
+      where: { designerId, status: 'published' },
+      orderBy: { publishedAt: 'desc' },
+      include: { scores: true },
+    });
+  }
 
   if (!assessment) {
     return {
@@ -174,6 +202,13 @@ export async function loadPortraitData(designerId: number): Promise<
     xpByGroup,
     nextGrade,
     skills: skillsForDisplay,
+    leadComment: assessment.leadComment ?? null,
+    siblings: allPublished.map((a) => ({
+      id: a.id,
+      publishedAt: a.publishedAt?.toISOString() ?? null,
+      effectiveGrade: (a.effectiveGrade as GradeCode | null) ?? null,
+      totalXp: a.totalXp ?? null,
+    })),
   };
 
   return { kind: 'ok', data };

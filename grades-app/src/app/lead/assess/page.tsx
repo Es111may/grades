@@ -153,6 +153,7 @@ export default async function AssessPage({
       skills={skillsData}
       grades={gradesData}
       existingScores={existingScores}
+      initialLeadComment={assessment.leadComment ?? ''}
       maxXp={maxXp}
     />
   );

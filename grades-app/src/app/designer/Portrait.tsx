@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Chart as ChartJS,
@@ -16,6 +16,7 @@ import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
+import { MarkdownContent } from '@/components/Markdown';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -72,16 +73,43 @@ export type PortraitData = {
     levelTitle: string | null;
     levels: { level: number; title: string; criteria: string }[];
   }[];
+  /** Мнение дизайн-лида/стардиза, оставленное на форме оценки (markdown). */
+  leadComment: string | null;
+  /** Все опубликованные оценки этого дизайнера — для переключателя циклов. */
+  siblings: {
+    id: number;
+    publishedAt: string | null;
+    effectiveGrade: GradeCode | null;
+    totalXp: number | null;
+  }[];
 };
 
 export default function Portrait({
   data,
   breadcrumb,
+  buildSiblingHref,
 }: {
   data: PortraitData;
   breadcrumb?: { href: string; label: string };
+  /** Билдер URL для переключателя циклов. На /designer ссылка имеет вид
+   *  `?assessmentId=X`, на /lead/portrait — `?id=Y&assessmentId=X`. */
+  buildSiblingHref: (assessmentId: number) => string;
 }) {
   const [rowHovered, setRowHovered] = useState(false);
+
+  // Floating-свитчер циклов: показывается при скролле, когда inline уехал.
+  const inlineSwitcherRef = useRef<HTMLDivElement | null>(null);
+  const [floatingVisible, setFloatingVisible] = useState(false);
+  useEffect(() => {
+    if (!inlineSwitcherRef.current || data.siblings.length <= 1) return;
+    const el = inlineSwitcherRef.current;
+    const obs = new IntersectionObserver(
+      ([entry]) => setFloatingVisible(!entry.isIntersecting),
+      { rootMargin: '0px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [data.siblings.length]);
 
   const xpProgress = data.maxXp > 0 ? Math.round((data.totalXp / data.maxXp) * 100) : 0;
   const isFloorActive =
@@ -206,6 +234,18 @@ export default function Portrait({
           </div>
         </div>
       </div>
+
+      {/* Переключатель циклов — inline. Появляется только если у дизайнера
+          две или больше опубликованных оценок. */}
+      {data.siblings.length > 1 && (
+        <div ref={inlineSwitcherRef} className="mb-6">
+          <CyclesSwitcher
+            siblings={data.siblings}
+            currentId={data.assessmentId}
+            buildHref={buildSiblingHref}
+          />
+        </div>
+      )}
 
       {/* Grade card */}
       <div className="card p-7 mb-6">
@@ -421,7 +461,74 @@ export default function Portrait({
           );
         })}
       </div>
+
+      {/* Мнение дизайн-лида / стардиза — аналог CDO-блока у лидов.
+          Текст пишет лид на форме оценки; здесь он показан в read-only. */}
+      {data.leadComment && (
+        <section className="card mt-6 overflow-hidden">
+          <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center gap-3">
+            <span className="chip-build shrink-0">Лид</span>
+            <h3 className="text-base font-semibold text-ink leading-tight">
+              Мнение дизайн-лида / стардиза
+            </h3>
+          </div>
+          <div className="px-6 py-5">
+            <MarkdownContent text={data.leadComment} />
+          </div>
+        </section>
+      )}
+
+      {/* Floating-свитчер циклов — выезжает снизу при скролле */}
+      {data.siblings.length > 1 && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-200 ease-apple-out ${
+            floatingVisible
+              ? 'opacity-100 translate-y-0 pointer-events-auto'
+              : 'opacity-0 translate-y-3 pointer-events-none'
+          }`}
+        >
+          <div className="bg-snow/95 backdrop-blur-md border border-cloud rounded-pill shadow-soft-lg p-1">
+            <CyclesSwitcher
+              siblings={data.siblings}
+              currentId={data.assessmentId}
+              buildHref={buildSiblingHref}
+            />
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+function CyclesSwitcher({
+  siblings,
+  currentId,
+  buildHref,
+}: {
+  siblings: PortraitData['siblings'];
+  currentId: number;
+  buildHref: (id: number) => string;
+}) {
+  return (
+    <div className="segmented">
+      {siblings.map((s) => (
+        <Link
+          key={s.id}
+          href={buildHref(s.id)}
+          className={`segmented-item whitespace-nowrap ${
+            s.id === currentId ? 'segmented-item-active' : ''
+          }`}
+        >
+          {s.publishedAt
+            ? new Date(s.publishedAt).toLocaleDateString('ru-RU', {
+                day: 'numeric',
+                month: 'short',
+                year: '2-digit',
+              })
+            : `#${s.id}`}
+        </Link>
+      ))}
+    </div>
   );
 }
 

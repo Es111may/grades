@@ -51,20 +51,30 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(assessment);
 }
 
-/** POST /api/assessments — batch save scores (auto-save) */
+/**
+ * POST /api/assessments — batch save scores (auto-save) и/или
+ * обновление поля leadComment (мнение дизайн-лида).
+ *
+ * Полезная нагрузка: { assessmentId, scores?, leadComment? }.
+ * Хотя бы одно из {scores, leadComment} должно присутствовать.
+ */
 export async function POST(req: NextRequest) {
   const me = await getCurrentUser();
-  if (!me || (me.role !== 'lead' && me.role !== 'admin')) {
+  if (
+    !me ||
+    (me.role !== 'lead' && me.role !== 'admin' && me.role !== 'stardiz')
+  ) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const body = await req.json();
-  const { assessmentId, scores } = body as {
+  const { assessmentId, scores, leadComment } = body as {
     assessmentId: number;
-    scores: { skillId: number; masteryLevel: number }[];
+    scores?: { skillId: number; masteryLevel: number }[];
+    leadComment?: string | null;
   };
 
-  if (!assessmentId || !Array.isArray(scores)) {
+  if (!assessmentId) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
@@ -73,23 +83,34 @@ export async function POST(req: NextRequest) {
   });
 
   if (!assessment || assessment.status === 'published') {
-    return NextResponse.json({ error: 'Assessment not found or already published' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Assessment not found or already published' },
+      { status: 400 },
+    );
   }
 
-  // Upsert each score
-  for (const s of scores) {
-    await prisma.assessmentScore.upsert({
-      where: {
-        assessmentId_skillId: { assessmentId, skillId: s.skillId },
-      },
-      create: {
-        assessmentId,
-        skillId: s.skillId,
-        masteryLevel: s.masteryLevel,
-      },
-      update: {
-        masteryLevel: s.masteryLevel,
-      },
+  if (Array.isArray(scores)) {
+    for (const s of scores) {
+      await prisma.assessmentScore.upsert({
+        where: {
+          assessmentId_skillId: { assessmentId, skillId: s.skillId },
+        },
+        create: {
+          assessmentId,
+          skillId: s.skillId,
+          masteryLevel: s.masteryLevel,
+        },
+        update: {
+          masteryLevel: s.masteryLevel,
+        },
+      });
+    }
+  }
+
+  if (leadComment !== undefined) {
+    await prisma.assessment.update({
+      where: { id: assessmentId },
+      data: { leadComment: leadComment ?? null },
     });
   }
 

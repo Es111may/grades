@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
+import { MarkdownContent, MarkdownTextarea } from '@/components/Markdown';
 import {
   ROLE_LABEL,
   ROLE_LABEL_ONE,
@@ -679,7 +680,6 @@ function EditableMarkdownBlock({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   async function save() {
     setSaving(true);
@@ -694,49 +694,6 @@ function EditableMarkdownBlock({
       router.refresh();
     } else {
       alert('Не получилось сохранить — попробуй ещё раз');
-    }
-  }
-
-  // Bold через cmd/ctrl + B. Курсивы через cmd/ctrl + I.
-  // Если есть выделение — оборачиваем; если нет — вставляем плейсхолдер
-  // и оставляем курсор внутри.
-  function wrapSelection(prefix: string, suffix: string) {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const before = draft.slice(0, start);
-    const sel = draft.slice(start, end);
-    const after = draft.slice(end);
-    const next = before + prefix + sel + suffix + after;
-    setDraft(next);
-    requestAnimationFrame(() => {
-      const t = textareaRef.current;
-      if (!t) return;
-      t.focus();
-      if (sel) {
-        t.setSelectionRange(start + prefix.length, end + prefix.length);
-      } else {
-        const caret = start + prefix.length;
-        t.setSelectionRange(caret, caret);
-      }
-    });
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const mod = e.metaKey || e.ctrlKey;
-    if (!mod) return;
-    const k = e.key.toLowerCase();
-    if (k === 'b') {
-      e.preventDefault();
-      wrapSelection('**', '**');
-    } else if (k === 'i') {
-      e.preventDefault();
-      wrapSelection('*', '*');
-    } else if (k === 'enter') {
-      // Ctrl+Enter / Cmd+Enter — быстрое сохранение
-      e.preventDefault();
-      if (!saving) save();
     }
   }
 
@@ -766,13 +723,10 @@ function EditableMarkdownBlock({
       <div className="px-6 py-5">
         {editing ? (
           <div className="space-y-3">
-            <textarea
-              ref={textareaRef}
+            <MarkdownTextarea
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="input font-mono"
-              rows={12}
+              onChange={setDraft}
+              onSubmit={() => !saving && save()}
               placeholder="Markdown · **жирный** (⌘B), *курсив* (⌘I), [ссылка](url), ### заголовок"
             />
             <div className="flex items-center justify-between gap-2">
@@ -807,133 +761,6 @@ function EditableMarkdownBlock({
       </div>
     </section>
   );
-}
-
-/**
- * Простой markdown-рендер для aiSummary / cdoSummary. Сторонние библиотеки
- * не подключаем — поддерживаем минимально нужный набор:
- *   - ## и ### заголовки
- *   - **жирный** и *курсив*
- *   - [текст](url) — ссылки
- *   - `-` / `*` буллеты
- *   - пустая строка = разрыв абзаца
- */
-function MarkdownContent({ text }: { text: string }) {
-  const lines = text.split('\n');
-  const blocks: React.ReactNode[] = [];
-  let bulletGroup: string[] = [];
-  let key = 0;
-
-  function flushBullets() {
-    if (bulletGroup.length === 0) return;
-    blocks.push(
-      <ul key={key++} className="my-2 space-y-1">
-        {bulletGroup.map((b, i) => (
-          <li key={i} className="flex gap-2">
-            <span className="text-stone shrink-0">·</span>
-            <span className="flex-1">{renderInline(b)}</span>
-          </li>
-        ))}
-      </ul>,
-    );
-    bulletGroup = [];
-  }
-
-  for (const rawLine of lines) {
-    const line = rawLine.replace(/\r$/, '');
-    const trimmed = line.trim();
-
-    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      bulletGroup.push(trimmed.slice(2));
-      continue;
-    }
-    flushBullets();
-
-    if (trimmed.startsWith('### ')) {
-      blocks.push(
-        <h4
-          key={key++}
-          className="text-sm font-semibold text-ink mt-4 mb-1.5"
-        >
-          {renderInline(trimmed.slice(4))}
-        </h4>,
-      );
-    } else if (trimmed.startsWith('## ')) {
-      blocks.push(
-        <h3
-          key={key++}
-          className="text-base font-semibold text-ink mt-4 mb-2"
-        >
-          {renderInline(trimmed.slice(3))}
-        </h3>,
-      );
-    } else if (trimmed.startsWith('# ')) {
-      blocks.push(
-        <h2
-          key={key++}
-          className="text-lg font-semibold text-ink mt-4 mb-2"
-        >
-          {renderInline(trimmed.slice(2))}
-        </h2>,
-      );
-    } else if (trimmed === '') {
-      blocks.push(<div key={key++} className="h-2" />);
-    } else {
-      blocks.push(
-        <p key={key++} className="leading-relaxed">
-          {renderInline(line)}
-        </p>,
-      );
-    }
-  }
-  flushBullets();
-
-  return (
-    <div className="text-sm leading-relaxed text-graphite space-y-1">
-      {blocks}
-    </div>
-  );
-}
-
-/**
- * Инлайновое форматирование строки markdown.
- * Поддерживаем: **bold**, *italic*, [text](url).
- * Регулярка ищет первое вхождение любого, повторяет до конца.
- */
-function renderInline(text: string): React.ReactNode {
-  const out: React.ReactNode[] = [];
-  let i = 0;
-  let cursor = 0;
-  const re = /(\*\*[^*\n]+?\*\*)|(\*[^*\n]+?\*)|(\[[^\]\n]+?\]\([^)\n]+?\))/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > cursor) out.push(text.slice(cursor, m.index));
-    if (m[1]) {
-      out.push(<strong key={i++}>{m[1].slice(2, -2)}</strong>);
-    } else if (m[2]) {
-      out.push(<em key={i++}>{m[2].slice(1, -1)}</em>);
-    } else if (m[3]) {
-      const lm = m[3].match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-      if (lm) {
-        out.push(
-          <a
-            key={i++}
-            href={lm[2]}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sky underline underline-offset-2 hover:text-ink transition-colors"
-          >
-            {lm[1]}
-          </a>,
-        );
-      } else {
-        out.push(m[3]);
-      }
-    }
-    cursor = re.lastIndex;
-  }
-  if (cursor < text.length) out.push(text.slice(cursor));
-  return out.length ? out : text;
 }
 
 function ScoreBar({

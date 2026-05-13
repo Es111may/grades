@@ -13,7 +13,7 @@ import PortraitActions from './PortraitActions';
 export default async function LeadPortraitPage({
   searchParams,
 }: {
-  searchParams: { id?: string };
+  searchParams: { id?: string; assessmentId?: string };
 }) {
   const user = await getCurrentUser();
   if (!user?.id) redirect('/auth/signin');
@@ -30,7 +30,13 @@ export default async function LeadPortraitPage({
     designer.stardizId === user.id;
   if (!canView) redirect('/admin/users');
 
-  const result = await loadPortraitData(designerId);
+  const assessmentId = searchParams.assessmentId
+    ? parseInt(searchParams.assessmentId, 10)
+    : undefined;
+  const result = await loadPortraitData(
+    designerId,
+    Number.isFinite(assessmentId) ? assessmentId : undefined,
+  );
 
   if (result.kind === 'not_found') redirect('/admin/users');
 
@@ -94,6 +100,9 @@ export default async function LeadPortraitPage({
       <Portrait
         data={result.data}
         breadcrumb={{ href: '/admin/users', label: 'Команда' }}
+        buildSiblingHref={(id) =>
+          `/lead/portrait?id=${designerId}&assessmentId=${id}`
+        }
       />
     </>
   );
