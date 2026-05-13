@@ -340,10 +340,12 @@ function parseGatesSheet(workbook: XLSX.WorkBook, allSkills: ParsedSkill[]): Par
 // ============================================================
 
 async function ensureBuilds(): Promise<Record<BuildCode, number>> {
+  // Билды теперь называются как отделы (см. src/lib/types.ts).
+  // code остался прежним для совместимости со старыми оценками.
   const builds: { code: BuildCode; name: string; sortOrder: number }[] = [
-    { code: 'visioner', name: 'Визионер', sortOrder: 1 },
-    { code: 'navigator', name: 'Навигатор', sortOrder: 2 },
-    { code: 'creator', name: 'Создатель', sortOrder: 3 },
+    { code: 'visioner', name: 'Криэйт', sortOrder: 1 },
+    { code: 'navigator', name: 'Импрув', sortOrder: 2 },
+    { code: 'creator', name: 'Инхаус', sortOrder: 3 },
   ];
   const result: Record<string, number> = {};
   for (const b of builds) {

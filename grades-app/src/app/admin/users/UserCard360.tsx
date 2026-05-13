@@ -148,9 +148,9 @@ export default function UserCard360({
     }
   }
 
-  // Список метаданных — показываем только то, что заполнено
+  // Список метаданных — показываем только то, что заполнено.
+  // «Отдел» удалён: после переименования билдов он дублирует Билд.
   const metaFields: Array<{ label: string; value: string | null }> = [
-    { label: 'Отдел', value: user.department },
     { label: 'Билд', value: user.build?.name ?? null },
     { label: 'Дата найма', value: user.hiredAt ? formatDate(user.hiredAt) : null },
     { label: 'Лид', value: user.lead?.fullName ?? null },

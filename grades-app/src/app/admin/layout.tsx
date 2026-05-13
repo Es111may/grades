@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { requireRole } from '@/lib/session';
+import { ensureBuildNames } from '@/lib/oneTimeMigrations';
 import AppHeader from '@/components/AppHeader';
 import AssessmentReminder from '@/components/AssessmentReminder';
 
@@ -9,6 +10,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // в layout. Подстраницы /admin/matrix и /admin/grades делают
   // дополнительный role-guard через canEditMatrix.
   const user = await requireRole(['admin', 'lead', 'stardiz']);
+  // Билды переименовали в названия отделов (май 2026) — миграция
+  // идемпотентная, мгновенный no-op после первого срабатывания.
+  await ensureBuildNames();
   const isAdminish = user.role === 'admin' || user.role === 'lead';
   const isLeadLike = user.role === 'lead' || user.role === 'stardiz';
   const navItems = isAdminish

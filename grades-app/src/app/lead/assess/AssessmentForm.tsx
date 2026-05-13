@@ -312,9 +312,8 @@ export default function AssessmentForm({
                 />
                 {designer.buildName}
               </span>
-              {designer.department && (
-                <span className="chip-neutral">{designer.department}</span>
-              )}
+              {/* Чип `department` убран — дублирует buildName после
+                  переименования билдов в названия отделов. */}
               {published ? (
                 <span className="chip-accent">Опубликовано</span>
               ) : (

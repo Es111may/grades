@@ -49,9 +49,29 @@ const TARGET_SORT: Record<string, number> = {
   senior: 5,
 };
 
+// Имена билдов на 13 мая 2026 — после переименования в названия отделов.
+// Раньше: Создатель / Визионер / Навигатор. Теперь: Инхаус / Криэйт / Импрув.
+const BUILD_NAMES_TARGET: Record<string, string> = {
+  creator: 'Инхаус',
+  visioner: 'Криэйт',
+  navigator: 'Импрув',
+};
+
 let taxonomyNamesEnsured = false;
 let groupNamesEnsured = false;
 let gradesMigrated = false;
+let buildNamesEnsured = false;
+
+export async function ensureBuildNames(): Promise<void> {
+  if (buildNamesEnsured) return;
+  for (const [code, name] of Object.entries(BUILD_NAMES_TARGET)) {
+    const b = await prisma.build.findUnique({ where: { code } });
+    if (b && b.name !== name) {
+      await prisma.build.update({ where: { code }, data: { name } });
+    }
+  }
+  buildNamesEnsured = true;
+}
 
 export async function ensureTaxonomyNames(): Promise<void> {
   if (taxonomyNamesEnsured) return;

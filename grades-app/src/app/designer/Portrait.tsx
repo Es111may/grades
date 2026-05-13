@@ -239,9 +239,8 @@ export default function Portrait({
                 {data.designer.buildName}
               </span>
             )}
-            {data.designer.department && (
-              <span className="chip-neutral">{data.designer.department}</span>
-            )}
+            {/* Чип `department` убран: после переименования билдов в названия
+                отделов он дублирует данные buildName. */}
             {data.designer.leadName && (
               <span className="chip-neutral">Лид: {data.designer.leadName}</span>
             )}

@@ -30,8 +30,11 @@ export const GRADE_NAMES: Record<GradeCode, string> = {
   senior: 'Синьор',
 };
 
+// Билды теперь называются как отделы — Pavel переименовал в мае 2026
+// (раньше были «Создатель/Визионер/Навигатор»). code остался прежним,
+// чтобы не ломать ссылки в коде и в БД.
 export const BUILD_NAMES: Record<BuildCode, string> = {
-  creator: 'Создатель',
-  visioner: 'Визионер',
-  navigator: 'Навигатор',
+  creator: 'Инхаус',
+  visioner: 'Криэйт',
+  navigator: 'Импрув',
 };
