@@ -101,6 +101,11 @@ export default async function LeadPortraitPage({
         data={result.data}
         breadcrumb={{ href: '/admin/users', label: 'Команда' }}
         siblingHrefPrefix={`/lead/portrait?id=${designerId}&assessmentId=`}
+        canEditLeadComment={
+          user.role === 'admin' ||
+          designer.leadId === user.id ||
+          designer.stardizId === user.id
+        }
       />
     </>
   );

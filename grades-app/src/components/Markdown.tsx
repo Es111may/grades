@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 /**
  * Минимальный markdown-рендер и editable-блок для текстовых полей,
@@ -196,5 +196,117 @@ export function MarkdownTextarea({
       placeholder={placeholder}
       disabled={disabled}
     />
+  );
+}
+
+/**
+ * Универсальный «карточка с markdown-полем» для админа/лида.
+ * Над telegrame, ниже — либо MarkdownContent (просмотр), либо
+ * MarkdownTextarea (редактирование). При сохранении вызывается
+ * onSave; вернувший true считается успехом.
+ */
+export function EditableMarkdownBlock({
+  title,
+  badge,
+  hint,
+  value,
+  canEdit,
+  onSave,
+  emptyLabel,
+}: {
+  title: string;
+  badge?: string;
+  hint?: string;
+  value: string;
+  canEdit: boolean;
+  onSave: (next: string) => Promise<boolean>;
+  /** Текст, который показываем дизайнеру (или другому read-only зрителю)
+   *  если поле пустое. Если не задан и canEdit=false — блок скрывается. */
+  emptyLabel?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    const ok = await onSave(draft);
+    setSaving(false);
+    if (ok) {
+      setEditing(false);
+    } else {
+      alert('Не получилось сохранить — попробуй ещё раз');
+    }
+  }
+
+  // Если значения нет и редактировать нельзя — обычно блок не нужен,
+  // если только не передан явный emptyLabel для read-only зрителя.
+  if (!value && !canEdit && !emptyLabel) return null;
+
+  return (
+    <section className="card mb-6 overflow-hidden">
+      <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          {badge && <span className="chip-build shrink-0">{badge}</span>}
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-ink leading-tight">{title}</h3>
+            {hint && <p className="text-xs text-stone mt-0.5 truncate">{hint}</p>}
+          </div>
+        </div>
+        {canEdit && !editing && (
+          <button
+            onClick={() => {
+              setDraft(value);
+              setEditing(true);
+            }}
+            className="btn-ghost btn-sm shrink-0"
+            type="button"
+          >
+            {value ? 'Редактировать' : 'Заполнить'}
+          </button>
+        )}
+      </div>
+      <div className="px-6 py-5">
+        {editing ? (
+          <div className="space-y-3">
+            <MarkdownTextarea
+              value={draft}
+              onChange={setDraft}
+              onSubmit={() => !saving && save()}
+              placeholder="Markdown · **жирный** (⌘B), *курсив* (⌘I), [ссылка](url), ### заголовок"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11px] text-ash">
+                ⌘B — жирный · ⌘I — курсив · ⌘↵ — сохранить
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditing(false)}
+                  className="btn-ghost"
+                  disabled={saving}
+                  type="button"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={save}
+                  disabled={saving}
+                  className="btn-accent"
+                  type="button"
+                >
+                  {saving ? 'Сохраняю…' : 'Сохранить'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : value ? (
+          <MarkdownContent text={value} />
+        ) : (
+          <div className="text-sm text-ash italic">
+            {emptyLabel ?? 'Ещё не заполнено'}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

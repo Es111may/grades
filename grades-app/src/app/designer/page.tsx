@@ -81,6 +81,7 @@ export default async function DesignerPortraitPage({
     <Portrait
       data={result.data}
       siblingHrefPrefix="/designer?assessmentId="
+      canEditLeadComment={false}
     />
   );
 }

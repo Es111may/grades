@@ -16,7 +16,7 @@ import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
-import { MarkdownContent } from '@/components/Markdown';
+import { EditableMarkdownBlock } from '@/components/Markdown';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
@@ -89,6 +89,7 @@ export default function Portrait({
   data,
   breadcrumb,
   siblingHrefPrefix,
+  canEditLeadComment = false,
 }: {
   data: PortraitData;
   breadcrumb?: { href: string; label: string };
@@ -97,8 +98,17 @@ export default function Portrait({
    *  client-компоненты, поэтому передаём строку.
    *  Пример: `/designer?assessmentId=` → `/designer?assessmentId=42`. */
   siblingHrefPrefix: string;
+  /** Может ли текущий пользователь редактировать «Мнение лида»: admin —
+   *  всегда; lead, если он ведёт дизайнера; stardiz — если он лид или
+   *  стардиз. Дизайнер на своём `/designer` его видит, но не правит. */
+  canEditLeadComment?: boolean;
 }) {
   const [rowHovered, setRowHovered] = useState(false);
+
+  // Локальное состояние «Мнения лида» — нужно для оптимистичного
+  // обновления карточки после сохранения. Иначе пришлось бы делать
+  // router.refresh() и весь портрет перерисовывался бы.
+  const [leadComment, setLeadComment] = useState<string>(data.leadComment ?? '');
 
   // Список таксономий, по которым у дизайнера есть навыки — для меню
   // быстрой навигации внизу. Порядок фиксированный.
@@ -442,20 +452,31 @@ export default function Portrait({
 
       {/* Мнение дизайн-лида / стардиза — аналог CDO-блока у лидов.
           Pavel попросил вывести его ПЕРЕД блоком «Навыки», чтобы дизайнер
-          сначала видел человеческий контекст, потом разбор по навыкам. */}
-      {data.leadComment && (
-        <section className="card mb-6 overflow-hidden">
-          <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center gap-3">
-            <span className="chip-build shrink-0">Лид</span>
-            <h3 className="text-base font-semibold text-ink leading-tight">
-              Мнение дизайн-лида / стардиза
-            </h3>
-          </div>
-          <div className="px-6 py-5">
-            <MarkdownContent text={data.leadComment} />
-          </div>
-        </section>
-      )}
+          сначала видел человеческий контекст, потом разбор по навыкам.
+          Редактирование доступно admin/lead/stardiz прямо с портрета
+          (без перехода на форму оценки). */}
+      <EditableMarkdownBlock
+        title="Мнение дизайн-лида / стардиза"
+        badge="Лид"
+        value={leadComment}
+        canEdit={canEditLeadComment}
+        emptyLabel="Лид ещё не оставил мнения к этой оценке"
+        onSave={async (next) => {
+          const res = await fetch('/api/assessments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              assessmentId: data.assessmentId,
+              leadComment: next,
+            }),
+          });
+          if (res.ok) {
+            setLeadComment(next);
+            return true;
+          }
+          return false;
+        }}
+      />
 
       {/* Skills grouped — accordions, стиль как у формы оценки */}
       <div className="space-y-5">

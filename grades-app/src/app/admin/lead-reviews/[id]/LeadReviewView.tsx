@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
-import { MarkdownContent, MarkdownTextarea } from '@/components/Markdown';
+import { EditableMarkdownBlock } from '@/components/Markdown';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import {
   ROLE_LABEL,
@@ -266,23 +266,24 @@ export default function LeadReviewView({
         ))}
       </section>
 
-      {/* Выводы: AI-сводка + CDO */}
+      {/* Выводы: AI-сводка + CDO. Локальный state на оба поля, чтобы
+          оптимистично обновлять без router.refresh(). */}
       <section id="summary" className="scroll-mt-24">
-        <EditableMarkdownBlock
+        <LeadReviewMarkdownField
           title="Сводка по ИИ"
           badge="AI"
           hint="Прогони агрегаты через ChatGPT / Gemini снаружи и вставь markdown сюда"
-          value={review.aiSummary ?? ''}
+          initialValue={review.aiSummary ?? ''}
           canEdit={isAdmin}
           reviewId={review.id}
           field="aiSummary"
         />
 
-        <EditableMarkdownBlock
+        <LeadReviewMarkdownField
           title="Блок CDO"
           badge="CDO"
           hint="Планы, KPI, наблюдения, итоговая оценка"
-          value={review.cdoSummary ?? ''}
+          initialValue={review.cdoSummary ?? ''}
           canEdit={isAdmin}
           reviewId={review.id}
           field="cdoSummary"
@@ -773,11 +774,16 @@ function OpenQuestionCard({ item }: { item: OpenItemAggregate }) {
   );
 }
 
-function EditableMarkdownBlock({
+/**
+ * Тонкая обёртка над `EditableMarkdownBlock` для полей `aiSummary` и
+ * `cdoSummary` у LeadReview. Заворачивает работу с локальным state +
+ * сетевой запрос к PATCH /api/lead-reviews/[id].
+ */
+function LeadReviewMarkdownField({
   title,
   badge,
   hint,
-  value,
+  initialValue,
   canEdit,
   reviewId,
   field,
@@ -785,95 +791,32 @@ function EditableMarkdownBlock({
   title: string;
   badge: string;
   hint: string;
-  value: string;
+  initialValue: string;
   canEdit: boolean;
   reviewId: number;
   field: 'aiSummary' | 'cdoSummary';
 }) {
-  const router = useRouter();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    setSaving(true);
-    const res = await fetch(`/api/lead-reviews/${reviewId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [field]: draft }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      setEditing(false);
-      router.refresh();
-    } else {
-      alert('Не получилось сохранить — попробуй ещё раз');
-    }
-  }
-
+  const [value, setValue] = useState(initialValue);
   return (
-    <section className="card mb-6 overflow-hidden">
-      <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="chip-build shrink-0">{badge}</span>
-          <div className="min-w-0">
-            <h3 className="text-base font-semibold text-ink leading-tight">{title}</h3>
-            <p className="text-xs text-stone mt-0.5 truncate">{hint}</p>
-          </div>
-        </div>
-        {canEdit && !editing && (
-          <button
-            onClick={() => {
-              setDraft(value);
-              setEditing(true);
-            }}
-            className="btn-ghost btn-sm shrink-0"
-            type="button"
-          >
-            {value ? 'Редактировать' : 'Заполнить'}
-          </button>
-        )}
-      </div>
-      <div className="px-6 py-5">
-        {editing ? (
-          <div className="space-y-3">
-            <MarkdownTextarea
-              value={draft}
-              onChange={setDraft}
-              onSubmit={() => !saving && save()}
-              placeholder="Markdown · **жирный** (⌘B), *курсив* (⌘I), [ссылка](url), ### заголовок"
-            />
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] text-ash">
-                ⌘B — жирный · ⌘I — курсив · ⌘↵ — сохранить
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setEditing(false)}
-                  className="btn-ghost"
-                  disabled={saving}
-                  type="button"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={save}
-                  disabled={saving}
-                  className="btn-accent"
-                  type="button"
-                >
-                  {saving ? 'Сохраняю…' : 'Сохранить'}
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : value ? (
-          <MarkdownContent text={value} />
-        ) : (
-          <div className="text-sm text-ash italic">Ещё не заполнено</div>
-        )}
-      </div>
-    </section>
+    <EditableMarkdownBlock
+      title={title}
+      badge={badge}
+      hint={hint}
+      value={value}
+      canEdit={canEdit}
+      onSave={async (next) => {
+        const res = await fetch(`/api/lead-reviews/${reviewId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [field]: next }),
+        });
+        if (res.ok) {
+          setValue(next);
+          return true;
+        }
+        return false;
+      }}
+    />
   );
 }
 

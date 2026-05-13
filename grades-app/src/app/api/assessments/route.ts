@@ -52,16 +52,22 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/assessments — batch save scores (auto-save) и/или
- * обновление поля leadComment (мнение дизайн-лида).
+ * POST /api/assessments — частичное обновление оценки.
  *
- * Полезная нагрузка: { assessmentId, scores?, leadComment? }.
- * Хотя бы одно из {scores, leadComment} должно присутствовать.
+ * Поддерживает два независимых набора полей:
+ *   - `scores` — массив { skillId, masteryLevel }, batch-апдейт. Доступно
+ *     только для draft-оценки. Используется автосейвом формы.
+ *   - `leadComment` — markdown-мнение лида/стардиза. Доступно и для
+ *     published — на странице портрета можно дописать или поправить
+ *     мнение позже без снятия публикации. Право проверяется отдельно:
+ *     admin всегда, lead — если ведёт дизайнера, stardiz — если он лид
+ *     или стардиз этого дизайнера.
  */
 export async function POST(req: NextRequest) {
   const me = await getCurrentUser();
   if (
     !me ||
+    !me.id ||
     (me.role !== 'lead' && me.role !== 'admin' && me.role !== 'stardiz')
   ) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -80,16 +86,44 @@ export async function POST(req: NextRequest) {
 
   const assessment = await prisma.assessment.findUnique({
     where: { id: assessmentId },
+    select: { id: true, status: true, designerId: true },
   });
 
-  if (!assessment || assessment.status === 'published') {
+  if (!assessment) {
+    return NextResponse.json({ error: 'Assessment not found' }, { status: 404 });
+  }
+
+  const wantsScoresUpdate = Array.isArray(scores);
+  const wantsLeadCommentUpdate = leadComment !== undefined;
+
+  // scores — только для draft
+  if (wantsScoresUpdate && assessment.status === 'published') {
     return NextResponse.json(
-      { error: 'Assessment not found or already published' },
+      { error: 'Нельзя менять оценки в опубликованной оценке' },
       { status: 400 },
     );
   }
 
-  if (Array.isArray(scores)) {
+  // leadComment — отдельная проверка прав на этого конкретного дизайнера
+  if (wantsLeadCommentUpdate) {
+    const designer = await prisma.user.findUnique({
+      where: { id: assessment.designerId },
+      select: { leadId: true, stardizId: true },
+    });
+    const canEditLeadComment =
+      me.role === 'admin' ||
+      (me.role === 'lead' && designer?.leadId === me.id) ||
+      (me.role === 'stardiz' &&
+        (designer?.stardizId === me.id || designer?.leadId === me.id));
+    if (!canEditLeadComment) {
+      return NextResponse.json(
+        { error: 'Только лид/стардиз этого дизайнера может писать мнение' },
+        { status: 403 },
+      );
+    }
+  }
+
+  if (wantsScoresUpdate && scores) {
     for (const s of scores) {
       await prisma.assessmentScore.upsert({
         where: {
@@ -107,7 +141,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (leadComment !== undefined) {
+  if (wantsLeadCommentUpdate) {
     await prisma.assessment.update({
       where: { id: assessmentId },
       data: { leadComment: leadComment ?? null },
