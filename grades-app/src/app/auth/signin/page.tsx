@@ -38,9 +38,14 @@ export default async function SignInPage({
     <main className="min-h-screen flex items-center justify-center px-4 py-12 bg-canvas">
       <div className="w-full max-w-[400px]">
         <div className="mb-8 text-center">
-          <div className="font-display font-semibold text-2xl tracking-tight mb-1">
-            Грейды
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/grades-logo.svg"
+            alt="Грейды"
+            width={135}
+            height={25}
+            className="mx-auto mb-3"
+          />
           <p className="text-sm text-stone">Войди с рабочей почтой и паролем</p>
         </div>
         <SignInForm

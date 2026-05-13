@@ -18,9 +18,14 @@ export default function AuthErrorPage({
   return (
     <main className="min-h-screen flex items-center justify-center px-4 py-12 bg-canvas">
       <div className="w-full max-w-[400px] text-center">
-        <div className="font-display font-semibold text-2xl tracking-tight mb-1">
-          Грейды
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/grades-logo.svg"
+          alt="Грейды"
+          width={135}
+          height={25}
+          className="mx-auto mb-3"
+        />
         <p className="text-sm text-stone mb-6">Не получилось войти</p>
         <div className="card p-6 mb-5">
           <p className="text-sm text-ink leading-relaxed">{message}</p>
