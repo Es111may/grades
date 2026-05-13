@@ -17,9 +17,9 @@ function activePeriod(): 'spring' | 'autumn' | null {
   const now = new Date();
   const m = now.getMonth() + 1; // 1..12
   const d = now.getDate();
-  // TEMP: добавлен май для временной визуальной проверки. Удалить `|| m === 5`,
-  // когда Pavel подтвердит, что плашка выглядит как нужно.
-  if ((m === 3 && d >= 15) || (m === 4 && d <= 15) || m === 5) return 'spring';
+  // Весеннее окно — 15 марта … 15 апреля.
+  if ((m === 3 && d >= 15) || (m === 4 && d <= 15)) return 'spring';
+  // Осеннее окно — 15 сентября … 15 октября.
   if ((m === 9 && d >= 15) || (m === 10 && d <= 15)) return 'autumn';
   return null;
 }
