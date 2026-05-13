@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Chart as ChartJS,
@@ -17,6 +17,7 @@ import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { MarkdownContent } from '@/components/Markdown';
+import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -99,19 +100,20 @@ export default function Portrait({
 }) {
   const [rowHovered, setRowHovered] = useState(false);
 
-  // Floating-свитчер циклов: показывается при скролле, когда inline уехал.
-  const inlineSwitcherRef = useRef<HTMLDivElement | null>(null);
-  const [floatingVisible, setFloatingVisible] = useState(false);
-  useEffect(() => {
-    if (!inlineSwitcherRef.current || data.siblings.length <= 1) return;
-    const el = inlineSwitcherRef.current;
-    const obs = new IntersectionObserver(
-      ([entry]) => setFloatingVisible(!entry.isIntersecting),
-      { rootMargin: '0px' },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [data.siblings.length]);
+  // Список таксономий, по которым у дизайнера есть навыки — для меню
+  // быстрой навигации внизу. Порядок фиксированный.
+  const presentTaxonomies = useMemo(
+    () => TAXONOMY_ORDER.filter((code) => data.skills.some((s) => s.taxonomyCode === code)),
+    [data.skills],
+  );
+
+  const navSections: SectionNavItem[] = useMemo(
+    () => [
+      { id: 'stats', label: 'Статистика' },
+      ...presentTaxonomies.map((code) => ({ id: `tax-${code}`, label: code })),
+    ],
+    [presentTaxonomies],
+  );
 
   const xpProgress = data.maxXp > 0 ? Math.round((data.totalXp / data.maxXp) * 100) : 0;
   const isFloorActive =
@@ -237,10 +239,10 @@ export default function Portrait({
         </div>
       </div>
 
-      {/* Переключатель циклов — inline. Появляется только если у дизайнера
-          две или больше опубликованных оценок. */}
+      {/* Переключатель циклов — inline в шапке (floating-копию убрали в
+          пользу SectionNav). */}
       {data.siblings.length > 1 && (
-        <div ref={inlineSwitcherRef} className="mb-6">
+        <div className="mb-6">
           <CyclesSwitcher
             siblings={data.siblings}
             currentId={data.assessmentId}
@@ -248,6 +250,9 @@ export default function Portrait({
           />
         </div>
       )}
+
+      {/* === Статистика: grade-card, taxonomy-cards, radar, next-gate === */}
+      <section id="stats" className="scroll-mt-24">
 
       {/* Grade card */}
       <div className="card p-7 mb-6">
@@ -432,6 +437,26 @@ export default function Portrait({
         </div>
       )}
 
+      </section>
+      {/* /Статистика */}
+
+      {/* Мнение дизайн-лида / стардиза — аналог CDO-блока у лидов.
+          Pavel попросил вывести его ПЕРЕД блоком «Навыки», чтобы дизайнер
+          сначала видел человеческий контекст, потом разбор по навыкам. */}
+      {data.leadComment && (
+        <section className="card mb-6 overflow-hidden">
+          <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center gap-3">
+            <span className="chip-build shrink-0">Лид</span>
+            <h3 className="text-base font-semibold text-ink leading-tight">
+              Мнение дизайн-лида / стардиза
+            </h3>
+          </div>
+          <div className="px-6 py-5">
+            <MarkdownContent text={data.leadComment} />
+          </div>
+        </section>
+      )}
+
       {/* Skills grouped — accordions, стиль как у формы оценки */}
       <div className="space-y-5">
         <h2 className="font-display text-2xl font-semibold tracking-tight">Навыки</h2>
@@ -441,7 +466,11 @@ export default function Portrait({
             data.skills.find((s) => s.taxonomyCode === code)?.taxonomyName ?? code;
           const taxXp = data.xpByTaxonomy[code] ?? 0;
           return (
-            <section key={code} className="card overflow-hidden">
+            <section
+              key={code}
+              id={`tax-${code}`}
+              className="card overflow-hidden scroll-mt-24"
+            >
               <div className="px-6 py-3.5 border-b border-cloud bg-canvas/60 flex items-baseline justify-between">
                 <div className="text-base font-semibold text-ink">{taxName}</div>
                 <div className="text-xs text-stone tabular-nums">{taxXp} XP</div>
@@ -464,40 +493,8 @@ export default function Portrait({
         })}
       </div>
 
-      {/* Мнение дизайн-лида / стардиза — аналог CDO-блока у лидов.
-          Текст пишет лид на форме оценки; здесь он показан в read-only. */}
-      {data.leadComment && (
-        <section className="card mt-6 overflow-hidden">
-          <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center gap-3">
-            <span className="chip-build shrink-0">Лид</span>
-            <h3 className="text-base font-semibold text-ink leading-tight">
-              Мнение дизайн-лида / стардиза
-            </h3>
-          </div>
-          <div className="px-6 py-5">
-            <MarkdownContent text={data.leadComment} />
-          </div>
-        </section>
-      )}
-
-      {/* Floating-свитчер циклов — выезжает снизу при скролле */}
-      {data.siblings.length > 1 && (
-        <div
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-200 ease-apple-out ${
-            floatingVisible
-              ? 'opacity-100 translate-y-0 pointer-events-auto'
-              : 'opacity-0 translate-y-3 pointer-events-none'
-          }`}
-        >
-          <div className="bg-snow/95 backdrop-blur-md border border-cloud rounded-pill shadow-soft-lg p-1">
-            <CyclesSwitcher
-              siblings={data.siblings}
-              currentId={data.assessmentId}
-              hrefPrefix={siblingHrefPrefix}
-            />
-          </div>
-        </div>
-      )}
+      {/* Sticky-навигация по разделам (заменила floating-свитчер циклов) */}
+      <SectionNav sections={navSections} />
     </main>
   );
 }

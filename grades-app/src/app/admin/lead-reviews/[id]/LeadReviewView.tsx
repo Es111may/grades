@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { MarkdownContent, MarkdownTextarea } from '@/components/Markdown';
+import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import {
   ROLE_LABEL,
   ROLE_LABEL_ONE,
@@ -103,22 +104,21 @@ export default function LeadReviewView({
   const presentRoles = ROLE_ORDER.filter((r) => (agg.roleCounts[r] ?? 0) > 0);
   const showRoleSplit = presentRoles.length >= 2;
 
-  // Floating-свитчер циклов: показывается, когда оригинальный уезжает за
-  // viewport. Наблюдаем за inline-свитчером через IntersectionObserver.
-  const inlineSwitcherRef = useRef<HTMLDivElement | null>(null);
-  const [floatingVisible, setFloatingVisible] = useState(false);
-  useEffect(() => {
-    if (!inlineSwitcherRef.current || siblings.length <= 1) return;
-    const el = inlineSwitcherRef.current;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        setFloatingVisible(!entry.isIntersecting);
-      },
-      { rootMargin: '0px' },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [siblings.length]);
+  // Sticky-навигация по разделам — выезжает снизу при скролле.
+  const navSections: SectionNavItem[] = useMemo(
+    () => [
+      { id: 'stats', label: 'Статистика' },
+      { id: 'cat-review_quality', label: 'Ревью' },
+      { id: 'cat-process', label: 'Процессы' },
+      { id: 'cat-growth', label: 'Наставничество' },
+      { id: 'cat-product', label: 'Решения' },
+      { id: 'cat-communication', label: 'Коммуникация' },
+      { id: 'cat-collaboration', label: 'Разработка' },
+      { id: 'questions', label: 'Вопросы' },
+      { id: 'summary', label: 'Выводы' },
+    ],
+    [],
+  );
 
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-8 pb-16">
@@ -178,69 +178,70 @@ export default function LeadReviewView({
         )}
       </div>
 
-      {/* Переключатель циклов — inline */}
+      {/* Переключатель циклов — inline в шапке (floating-копию убрали в
+          пользу SectionNav). */}
       {siblings.length > 1 && (
-        <div ref={inlineSwitcherRef} className="mb-6">
-          <CyclesSwitcher
-            siblings={siblings}
-            currentId={review.id}
-          />
+        <div className="mb-6">
+          <CyclesSwitcher siblings={siblings} currentId={review.id} />
         </div>
       )}
 
-      {/* eNPS */}
-      <div className="card p-7 mb-6">
-        <div className="grid grid-cols-[auto_1fr] gap-10 items-center">
-          <div>
-            <div className="text-[11px] text-stone mb-2">
-              Готовность работать с лидом
+      {/* === Статистика: eNPS + (Diff/RoleComparison) === */}
+      <section id="stats" className="scroll-mt-24">
+        {/* eNPS */}
+        <div className="card p-7 mb-6">
+          <div className="grid grid-cols-[auto_1fr] gap-10 items-center">
+            <div>
+              <div className="text-[11px] text-stone mb-2">
+                Готовность работать с лидом
+              </div>
+              <div className="font-display text-5xl font-semibold tracking-tight leading-none tabular-nums">
+                {agg.enps.average !== null ? agg.enps.average.toFixed(1) : '—'}
+                <span className="text-xl text-stone font-normal ml-1.5">/ 10</span>
+              </div>
+              <div className="text-xs text-stone mt-2">
+                eNPS · ответили {agg.enps.answeredCount}
+              </div>
             </div>
-            <div className="font-display text-5xl font-semibold tracking-tight leading-none tabular-nums">
-              {agg.enps.average !== null ? agg.enps.average.toFixed(1) : '—'}
-              <span className="text-xl text-stone font-normal ml-1.5">/ 10</span>
-            </div>
-            <div className="text-xs text-stone mt-2">
-              eNPS · ответили {agg.enps.answeredCount}
-            </div>
+            {showRoleSplit && (
+              <div className="space-y-2">
+                {presentRoles.map((role) => {
+                  const v = agg.enps.averageByRole[role] ?? null;
+                  return (
+                    <div key={role} className="flex items-center gap-3 text-sm">
+                      <span className="text-stone w-32 shrink-0 text-xs whitespace-nowrap">
+                        {ROLE_LABEL[role]} ({agg.roleCounts[role]})
+                      </span>
+                      <ScoreBar value={v} max={10} />
+                      <span className="tabular-nums w-10 text-right text-xs font-medium">
+                        {v !== null ? v.toFixed(1) : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          {showRoleSplit && (
-            <div className="space-y-2">
-              {presentRoles.map((role) => {
-                const v = agg.enps.averageByRole[role] ?? null;
-                return (
-                  <div key={role} className="flex items-center gap-3 text-sm">
-                    <span className="text-stone w-32 shrink-0 text-xs whitespace-nowrap">
-                      {ROLE_LABEL[role]} ({agg.roleCounts[role]})
-                    </span>
-                    <ScoreBar value={v} max={10} />
-                    <span className="tabular-nums w-10 text-right text-xs font-medium">
-                      {v !== null ? v.toFixed(1) : '—'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* Сравнительный блок:
-            — если есть предыдущий цикл, показываем «Изменения с прошлого»
-              (с раскрывающейся разбивкой по ролям внутри);
-            — если это первый цикл и есть несколько ролей — показываем
-              классическое «Сравнение оценок по ролям». */}
-      {previous ? (
-        <DiffWithPreviousCard
-          current={agg}
-          previous={previous}
-          currentPeriod={review.period}
-          presentRoles={presentRoles}
-        />
-      ) : (
-        showRoleSplit && (
-          <RoleComparisonTable aggregates={agg} presentRoles={presentRoles} />
-        )
-      )}
+        {/* Сравнительный блок:
+              — если есть предыдущий цикл, показываем «Изменения с прошлого»
+                (с раскрывающейся разбивкой по ролям внутри);
+              — если это первый цикл и есть несколько ролей — показываем
+                классическое «Сравнение оценок по ролям». */}
+        {previous ? (
+          <DiffWithPreviousCard
+            current={agg}
+            previous={previous}
+            currentPeriod={review.period}
+            presentRoles={presentRoles}
+          />
+        ) : (
+          showRoleSplit && (
+            <RoleComparisonTable aggregates={agg} presentRoles={presentRoles} />
+          )
+        )}
+      </section>
 
       {/* Категории */}
       <div className="space-y-4 mb-8">
@@ -250,60 +251,51 @@ export default function LeadReviewView({
             category={cat}
             presentRoles={presentRoles}
             showRoleSplit={showRoleSplit}
+            anchorId={`cat-${cat.id}`}
           />
         ))}
       </div>
 
       {/* Открытые вопросы */}
-      <div className="space-y-4 mb-8">
+      <section id="questions" className="space-y-4 mb-8 scroll-mt-24">
         <h2 className="font-display text-2xl font-semibold tracking-tight">
           Открытые вопросы
         </h2>
         {agg.openQuestions.map((oq) => (
           <OpenQuestionCard key={oq.id} item={oq} />
         ))}
-      </div>
+      </section>
 
-      {/* AI-сводка */}
-      <EditableMarkdownBlock
-        title="Сводка по ИИ"
-        badge="AI"
-        hint="Прогони агрегаты через ChatGPT / Gemini снаружи и вставь markdown сюда"
-        value={review.aiSummary ?? ''}
-        canEdit={isAdmin}
-        reviewId={review.id}
-        field="aiSummary"
-      />
+      {/* Выводы: AI-сводка + CDO */}
+      <section id="summary" className="scroll-mt-24">
+        <EditableMarkdownBlock
+          title="Сводка по ИИ"
+          badge="AI"
+          hint="Прогони агрегаты через ChatGPT / Gemini снаружи и вставь markdown сюда"
+          value={review.aiSummary ?? ''}
+          canEdit={isAdmin}
+          reviewId={review.id}
+          field="aiSummary"
+        />
 
-      {/* CDO-блок */}
-      <EditableMarkdownBlock
-        title="Блок CDO"
-        badge="CDO"
-        hint="Планы, KPI, наблюдения, итоговая оценка"
-        value={review.cdoSummary ?? ''}
-        canEdit={isAdmin}
-        reviewId={review.id}
-        field="cdoSummary"
-      />
+        <EditableMarkdownBlock
+          title="Блок CDO"
+          badge="CDO"
+          hint="Планы, KPI, наблюдения, итоговая оценка"
+          value={review.cdoSummary ?? ''}
+          canEdit={isAdmin}
+          reviewId={review.id}
+          field="cdoSummary"
+        />
+      </section>
 
       <div className="text-xs text-ash text-center mt-10">
         Импортировано {new Date(review.importedAt).toLocaleString('ru-RU')}
       </div>
 
-      {/* Floating-свитчер циклов: появляется при скролле, когда inline уехал */}
-      {siblings.length > 1 && (
-        <div
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-200 ease-apple-out ${
-            floatingVisible
-              ? 'opacity-100 translate-y-0 pointer-events-auto'
-              : 'opacity-0 translate-y-3 pointer-events-none'
-          }`}
-        >
-          <div className="bg-snow/95 backdrop-blur-md border border-cloud rounded-pill shadow-soft-lg p-1">
-            <CyclesSwitcher siblings={siblings} currentId={review.id} />
-          </div>
-        </div>
-      )}
+      {/* Sticky-навигация по разделам (заменила floating-свитчер циклов) */}
+      <SectionNav sections={navSections} />
+
     </main>
   );
 }
@@ -564,16 +556,18 @@ function CategoryCard({
   category,
   presentRoles,
   showRoleSplit,
+  anchorId,
 }: {
   category: CategoryAggregate;
   presentRoles: ResponderRole[];
   showRoleSplit: boolean;
+  anchorId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const hasOpenItems = category.openItems.some((o) => o.answers.length > 0);
 
   return (
-    <section className="card overflow-hidden">
+    <section id={anchorId} className="card overflow-hidden scroll-mt-24">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/60 flex items-center justify-between gap-4">
         <h3 className="text-base font-semibold text-ink leading-tight">{category.label}</h3>
         <div className="font-display text-2xl font-semibold tracking-tight tabular-nums shrink-0">
