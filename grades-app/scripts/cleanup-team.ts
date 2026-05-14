@@ -1,15 +1,23 @@
 /**
  * Одноразовые чистки команды (idempotent после первого запуска):
  *
- *  1. Удалить всех пользователей с active=false. Если FK-связи не дают
- *     удалить (есть assessments/notes/audit) — оставляем и пишем warning.
+ *  1. Переименование латинских отделов на кириллицу (одноразовая).
  *  2. Для пользователей с привязанным билдом, но без отдела, проставить
  *     отдел по маппингу:
- *        Создатель → Inhouse
- *        Визионер  → Create
- *        Навигатор → Improve
+ *        creator   → Инхаус
+ *        visioner  → Криэйт
+ *        navigator → Импрув
  *
  * Запускается каждый деплой; после первого прогона ничего не делает.
+ *
+ * ВАЖНО — что больше НЕ делаем:
+ *   Раньше скрипт удалял всех пользователей с active=false на каждом
+ *   деплое, считая, что «деактивирован» = «можно навсегда грохнуть».
+ *   Это сломало UX: Pavel деактивировал дизайнера через UI («выключить
+ *   доступ»), а следующим деплоем тот пропадал из списка и его email
+ *   попадал в ExcludedEmail. Теперь soft-delete = «active=false»
+ *   остаётся в списке (с opacity-50), а hard-delete делается только
+ *   через специальную кнопку с reassign — `?hard=true` в API.
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -31,90 +39,6 @@ const DEPT_RENAME: Record<string, string> = {
 
 async function main() {
   console.log('🧹 Cleanup team...');
-
-  // 1. Удалить неактивных навсегда. Для каждого делаем cascade — точно как
-  // в API DELETE ?hard=true. Лидов/стардизов переадресовываем на админа,
-  // дизайнерам каскадно вычищаем оценки и заметки-автора.
-  // Email удалённых заносим в ExcludedEmail, чтобы import-team их не вернул.
-  const inactive = await prisma.user.findMany({
-    where: { active: false },
-    select: { id: true, email: true, fullName: true, role: true },
-  });
-
-  if (inactive.length === 0) {
-    console.log('  ↷ Неактивных пользователей нет');
-  } else {
-    // Найдём admin'а, на которого переадресовываем лидов/стардизов.
-    const admin = await prisma.user.findFirst({ where: { role: 'admin' } });
-    if (!admin) {
-      console.warn('  ⚠ Нет админа — лидов/стардизов переадресовать не на кого. Пропускаю их.');
-    }
-
-    let deleted = 0;
-    let blocked = 0;
-    for (const u of inactive) {
-      // Admin'а не трогаем — единственный, на кого переадресуем.
-      if (u.role === 'admin') {
-        blocked++;
-        console.warn(`  ⚠ ${u.fullName} <${u.email}> — admin, пропускаю`);
-        continue;
-      }
-      try {
-        await prisma.$transaction(async (tx) => {
-          if (u.role === 'lead' || u.role === 'stardiz') {
-            if (!admin) throw new Error('NO_ADMIN');
-            await tx.assessment.deleteMany({ where: { designerId: u.id } });
-            await tx.user.updateMany({
-              where: { leadId: u.id },
-              data: { leadId: admin.id },
-            });
-            await tx.user.updateMany({
-              where: { stardizId: u.id },
-              data: { stardizId: admin.id },
-            });
-            await tx.assessment.updateMany({
-              where: { leadId: u.id },
-              data: { leadId: admin.id },
-            });
-            await tx.designerNote.updateMany({
-              where: { authorId: u.id },
-              data: { authorId: admin.id },
-            });
-            await tx.auditLog.updateMany({
-              where: { actorId: u.id },
-              data: { actorId: admin.id },
-            });
-            await tx.teamMatrixCell.updateMany({
-              where: { updatedById: u.id },
-              data: { updatedById: admin.id },
-            });
-            await tx.matrixVersion.updateMany({
-              where: { createdBy: u.id },
-              data: { createdBy: admin.id },
-            });
-          } else {
-            // designer
-            await tx.assessment.deleteMany({ where: { designerId: u.id } });
-            await tx.designerNote.deleteMany({ where: { authorId: u.id } });
-          }
-          await tx.user.delete({ where: { id: u.id } });
-          await tx.excludedEmail.upsert({
-            where: { email: u.email },
-            update: {},
-            create: { email: u.email, reason: 'cleanup_inactive' },
-          });
-        });
-        deleted++;
-        console.log(`  ✕ удалён ${u.fullName} <${u.email}> (${u.role})`);
-      } catch (e) {
-        blocked++;
-        console.warn(
-          `  ⚠ не могу удалить ${u.fullName} <${u.email}> — ${(e as Error).message.split('\n')[0]}`,
-        );
-      }
-    }
-    console.log(`  Итого: удалено ${deleted}, заблокировано ${blocked}`);
-  }
 
   // 2a. Переименовать латинские отделы на кириллицу (одноразово).
   let renamed = 0;
