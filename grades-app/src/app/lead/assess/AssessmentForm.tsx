@@ -512,6 +512,46 @@ export default function AssessmentForm({
                 )}
               </div>
             </section>
+
+            {/* Дубль кнопок публикации/отмены в конце формы — после
+                длинной прокрутки удобнее иметь действия под рукой,
+                не возвращаясь в шапку. */}
+            {!published && (
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <span
+                  className={`text-xs text-stone transition-opacity ${
+                    saveStatus === 'saved' ? 'opacity-100' : 'opacity-0'
+                  }`}
+                >
+                  сохранено
+                </span>
+                {!discardArmed ? (
+                  <button
+                    type="button"
+                    onClick={armDiscard}
+                    className="btn-ghost-danger"
+                  >
+                    Отменить черновик
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleDiscard}
+                    className="btn-danger"
+                  >
+                    Точно отменить?
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handlePublish}
+                  disabled={publishing || calc.filled === 0}
+                  className="btn-accent"
+                >
+                  {publishing ? 'Публикую…' : 'Опубликовать'}
+                </button>
+              </div>
+            )}
           </div>
         </main>
 
