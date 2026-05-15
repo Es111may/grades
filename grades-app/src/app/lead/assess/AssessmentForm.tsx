@@ -69,7 +69,6 @@ export default function AssessmentForm({
 }) {
   const router = useRouter();
   const [scores, setScores] = useState<Record<number, number>>(existingScores);
-  const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(assessmentStatus === 'published');
