@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { GRADE_NAMES, GRADE_ORDER, BUILD_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
+import { FlagIcon } from '@/components/icons';
 import { MarkdownTextarea } from '@/components/Markdown';
 
 type SkillData = {
@@ -45,6 +46,7 @@ export default function AssessmentForm({
   skills,
   grades,
   existingScores,
+  existingFlags,
   initialLeadComment,
   maxXp,
 }: {
@@ -64,16 +66,23 @@ export default function AssessmentForm({
   skills: SkillData[];
   grades: GradeData[];
   existingScores: Record<number, number>;
+  existingFlags: Record<number, boolean>;
   initialLeadComment: string;
   maxXp: number;
 }) {
   const router = useRouter();
   const [scores, setScores] = useState<Record<number, number>>(existingScores);
+  const [flags, setFlags] = useState<Record<number, boolean>>(existingFlags);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(assessmentStatus === 'published');
   const saveTimeout = useRef<NodeJS.Timeout | null>(null);
-  const pendingScores = useRef<{ skillId: number; masteryLevel: number }[]>([]);
+  // Очередь изменений по скиллам: и `masteryLevel`, и `flagged` идут одним
+  // batch'ем. Каждое поле опционально — серверная сторона upsert'ит только
+  // переданные поля.
+  const pendingScores = useRef<
+    { skillId: number; masteryLevel?: number; flagged?: boolean }[]
+  >([]);
 
   // Мнение лида/стардиза — markdown-текст, автосейв с debounce 800мс,
   // отдельным запросом (не смешиваем с очередью scores).
@@ -127,6 +136,20 @@ export default function AssessmentForm({
 
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(doSave, 800);
+  }
+
+  function toggleFlag(skillId: number) {
+    if (published) return;
+    setFlags((prev) => {
+      const next = !prev[skillId];
+      const out = { ...prev };
+      if (next) out[skillId] = true;
+      else delete out[skillId];
+      pendingScores.current.push({ skillId, flagged: next });
+      if (saveTimeout.current) clearTimeout(saveTimeout.current);
+      saveTimeout.current = setTimeout(doSave, 500);
+      return out;
+    });
   }
 
   // Flush on unmount
@@ -388,6 +411,9 @@ export default function AssessmentForm({
                 const taxFilled = taxSkills.filter(
                   (s) => (scores[s.id] ?? 0) > 0,
                 ).length;
+                const taxFlagged = taxSkills.filter(
+                  (s) => flags[s.id],
+                ).length;
                 const pct = Math.round(
                   (taxFilled / Math.max(1, taxSkills.length)) * 100,
                 );
@@ -397,12 +423,23 @@ export default function AssessmentForm({
                     href={`#group-${tax.taxCode}`}
                     className="block group"
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm group-hover:text-ink transition-colors">
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <span className="text-sm group-hover:text-ink transition-colors min-w-0 truncate">
                         {tax.taxName}
                       </span>
-                      <span className="text-[11px] text-ash font-medium tabular-nums">
-                        {taxFilled}/{taxSkills.length}
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        {taxFlagged > 0 && (
+                          <span
+                            className="inline-flex items-center gap-0.5 text-[10px] text-blaze font-medium tabular-nums"
+                            title="Помечено к возврату"
+                          >
+                            <FlagIcon className="w-3 h-3" />
+                            {taxFlagged}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-ash font-medium tabular-nums">
+                          {taxFilled}/{taxSkills.length}
+                        </span>
                       </span>
                     </div>
                     <div className="h-1 bg-cloud rounded-full overflow-hidden">
@@ -466,7 +503,9 @@ export default function AssessmentForm({
                         key={skill.id}
                         skill={skill}
                         currentLevel={scores[skill.id] ?? 0}
+                        flagged={!!flags[skill.id]}
                         onSetLevel={(lvl) => setMastery(skill.id, lvl)}
+                        onToggleFlag={() => toggleFlag(skill.id)}
                         disabled={published}
                       />
                     ))}
@@ -695,17 +734,25 @@ function MasteryOption({
 function SkillCard({
   skill,
   currentLevel,
+  flagged,
   onSetLevel,
+  onToggleFlag,
   disabled,
 }: {
   skill: SkillData;
   currentLevel: number;
+  flagged: boolean;
   onSetLevel: (level: number) => void;
+  onToggleFlag: () => void;
   disabled: boolean;
 }) {
   return (
-    <article className="px-6 py-5 border-b border-cloud last:border-b-0">
-      {/* Header: имя + CORE + вес */}
+    <article
+      className={`px-6 py-5 border-b border-cloud last:border-b-0 transition-colors ${
+        flagged ? 'bg-blaze/5' : ''
+      }`}
+    >
+      {/* Header: имя + CORE + вес + кнопка-флаг справа */}
       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
         <span className="font-medium text-sm">{skill.name}</span>
         <span
@@ -716,6 +763,25 @@ function SkillCard({
           {skill.type}
         </span>
         <span className="text-xs text-stone">{skill.weight} вес</span>
+        {!disabled && (
+          <button
+            type="button"
+            onClick={onToggleFlag}
+            className={`ml-auto w-7 h-7 -mr-1 flex items-center justify-center rounded-pill transition-colors ${
+              flagged
+                ? 'text-blaze bg-blaze/10 hover:bg-blaze/20'
+                : 'text-ash hover:text-blaze hover:bg-blaze/10'
+            }`}
+            title={
+              flagged
+                ? 'Снять пометку — навык не требует возврата'
+                : 'Пометить, чтобы вернуться позже'
+            }
+            aria-label={flagged ? 'Снять пометку' : 'Пометить навык'}
+          >
+            <FlagIcon className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Описание навыка */}

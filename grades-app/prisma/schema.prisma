@@ -319,6 +319,9 @@ model AssessmentScore {
   masteryLevel Int        // 0..N (0 = не оценено)
   comment      String?    @db.Text
   evidenceUrl  String?
+  // Пометка «вернуться к навыку» — флажок, который лид ставит в режиме
+  // черновика, чтобы не забыть пересмотреть навык до публикации.
+  flagged      Boolean    @default(false)
   updatedAt    DateTime   @updatedAt
 
   @@unique([assessmentId, skillId])

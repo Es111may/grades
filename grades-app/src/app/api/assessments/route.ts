@@ -76,7 +76,13 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { assessmentId, scores, leadComment } = body as {
     assessmentId: number;
-    scores?: { skillId: number; masteryLevel: number }[];
+    // Каждый элемент может содержать либо masteryLevel, либо flagged,
+    // либо оба сразу — обновляем только то, что пришло.
+    scores?: {
+      skillId: number;
+      masteryLevel?: number;
+      flagged?: boolean;
+    }[];
     leadComment?: string | null;
   };
 
@@ -125,6 +131,10 @@ export async function POST(req: NextRequest) {
 
   if (wantsScoresUpdate && scores) {
     for (const s of scores) {
+      const update: { masteryLevel?: number; flagged?: boolean } = {};
+      if (typeof s.masteryLevel === 'number') update.masteryLevel = s.masteryLevel;
+      if (typeof s.flagged === 'boolean') update.flagged = s.flagged;
+      if (Object.keys(update).length === 0) continue;
       await prisma.assessmentScore.upsert({
         where: {
           assessmentId_skillId: { assessmentId, skillId: s.skillId },
@@ -132,11 +142,10 @@ export async function POST(req: NextRequest) {
         create: {
           assessmentId,
           skillId: s.skillId,
-          masteryLevel: s.masteryLevel,
+          masteryLevel: update.masteryLevel ?? 0,
+          flagged: update.flagged ?? false,
         },
-        update: {
-          masteryLevel: s.masteryLevel,
-        },
+        update,
       });
     }
   }

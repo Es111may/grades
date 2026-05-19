@@ -125,8 +125,10 @@ export default async function AssessPage({
   }));
 
   const existingScores: Record<number, number> = {};
+  const existingFlags: Record<number, boolean> = {};
   for (const sc of assessment.scores) {
     existingScores[sc.skillId] = sc.masteryLevel;
+    if (sc.flagged) existingFlags[sc.skillId] = true;
   }
 
   // Max possible XP
@@ -153,6 +155,7 @@ export default async function AssessPage({
       skills={skillsData}
       grades={gradesData}
       existingScores={existingScores}
+      existingFlags={existingFlags}
       initialLeadComment={assessment.leadComment ?? ''}
       maxXp={maxXp}
     />
