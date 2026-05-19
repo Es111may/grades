@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Avatar from '@/components/Avatar';
-import { CloseIcon } from '@/components/icons';
+import { CloseIcon, ChevronDownIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
 
 type AssessmentHistoryRow = {
@@ -242,6 +242,11 @@ export default function UserCard360({
           isLeadOrStardiz={isLeadOrStardiz}
         />
 
+        {/* «Срок с последнего повышения» — данные тянутся из ClickHouse-копии
+            HR-портала. Видно только admin/lead, только для дизайнеров и
+            стардизов. Сумма не показывается — только период. */}
+        <RaiseBlock user={user} meRole={meRole} meId={meId} />
+
         {/* Footer: опасное действие слева, навигация и edit — справа.
             Деактивация — двухступенчатая (без confirm). */}
         <div className="px-7 py-4 border-t border-cloud flex items-center gap-2">
@@ -433,4 +438,115 @@ function Field({ label, value }: { label: string; value: string | null }) {
       <div className="text-graphite">{value}</div>
     </div>
   );
+}
+
+/**
+ * Аккордеон «Срок с последнего повышения». Данные грузятся лениво
+ * в момент раскрытия — пока пользователь не открыл, нет смысла
+ * нагружать ClickHouse.
+ *
+ * Видимость:
+ *  - admin — для дизайнеров и стардизов;
+ *  - lead  — только для своих подопечных (designer/stardiz);
+ *  - остальные роли не видят блок вовсе.
+ *
+ * Сумма повышения намеренно НЕ показывается — Pavel хочет, чтобы лиды
+ * видели только сам факт «давно/недавно повышали», но не зарплату.
+ */
+function RaiseBlock({
+  user,
+  meRole,
+  meId,
+}: {
+  user: UserRow;
+  meRole: string;
+  meId: number | null;
+}) {
+  // Только для дизайнеров и стардизов имеет смысл
+  const isTarget = user.role === 'designer' || user.role === 'stardiz';
+  // Видимость: admin — всех, lead — только своих
+  const isMineForLead = meRole === 'lead' && meId !== null && user.leadId === meId;
+  const canView = meRole === 'admin' || isMineForLead;
+
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<{ lastRaiseAt: string | null } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!open || data !== null || loading) return;
+    setLoading(true);
+    setError(false);
+    fetch(`/api/users/${user.id}/last-raise`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((j) => setData(j))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [open, user.id, data, loading]);
+
+  if (!isTarget || !canView) return null;
+
+  return (
+    <div className="border-t border-cloud">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full px-7 py-3 flex items-center justify-between text-sm text-stone hover:bg-canvas/40 transition-colors"
+      >
+        <span>Срок с последнего повышения</span>
+        <ChevronDownIcon
+          className={`w-4 h-4 transition-transform duration-150 ${
+            open ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+      {open && (
+        <div className="px-7 pb-4 -mt-1 text-sm">
+          {loading && <span className="text-stone italic">Загрузка…</span>}
+          {!loading && error && (
+            <span className="text-ash italic">Данные о повышениях недоступны</span>
+          )}
+          {!loading && !error && data && (
+            data.lastRaiseAt ? (
+              <span className="text-graphite font-medium">
+                {formatRaisePeriod(data.lastRaiseAt)}
+              </span>
+            ) : (
+              <span className="text-ash italic">Повышений не зафиксировано</span>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Сколько прошло с даты повышения — в человеческих годах/месяцах. */
+function formatRaisePeriod(iso: string): string {
+  const start = new Date(iso);
+  const now = new Date();
+  let months =
+    (now.getFullYear() - start.getFullYear()) * 12 +
+    (now.getMonth() - start.getMonth());
+  if (now.getDate() < start.getDate()) months--;
+  if (months < 1) return 'Меньше месяца';
+  const years = Math.floor(months / 12);
+  const m = months % 12;
+  const yearWord = (n: number) => {
+    const last = n % 10;
+    const lastTwo = n % 100;
+    if (lastTwo >= 11 && lastTwo <= 14) return 'лет';
+    if (last === 1) return 'год';
+    if (last >= 2 && last <= 4) return 'года';
+    return 'лет';
+  };
+  const monthWord = (n: number) => {
+    const last = n % 10;
+    const lastTwo = n % 100;
+    if (lastTwo >= 11 && lastTwo <= 14) return 'мес.';
+    return 'мес.';
+  };
+  if (years === 0) return `${m} ${monthWord(m)}`;
+  if (m === 0) return `${years} ${yearWord(years)}`;
+  return `${years} ${yearWord(years)} ${m} ${monthWord(m)}`;
 }
