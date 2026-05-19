@@ -40,9 +40,9 @@ export default async function SignInPage({
         <div className="mb-8 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/grades-logo.svg"
-            alt="Грейды"
-            width={135}
+            src="/grades-logo.png"
+            alt="Ида Грейдс"
+            width={180}
             height={25}
             className="mx-auto mb-3"
           />

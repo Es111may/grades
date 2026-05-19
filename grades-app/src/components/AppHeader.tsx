@@ -42,7 +42,12 @@ export default async function AppHeader({
             aria-label="Грейды"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/grades-logo.svg" alt="Грейды" width={108} height={20} />
+            <img
+              src="/grades-logo.png"
+              alt="Ида Грейдс"
+              width={158}
+              height={22}
+            />
           </Link>
           {navItems.length > 0 && <HeaderNav items={navItems} />}
         </div>
