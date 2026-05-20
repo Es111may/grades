@@ -135,18 +135,41 @@ export async function POST(req: NextRequest) {
       if (typeof s.masteryLevel === 'number') update.masteryLevel = s.masteryLevel;
       if (typeof s.flagged === 'boolean') update.flagged = s.flagged;
       if (Object.keys(update).length === 0) continue;
-      await prisma.assessmentScore.upsert({
-        where: {
-          assessmentId_skillId: { assessmentId, skillId: s.skillId },
-        },
-        create: {
-          assessmentId,
-          skillId: s.skillId,
-          masteryLevel: update.masteryLevel ?? 0,
-          flagged: update.flagged ?? false,
-        },
-        update,
-      });
+
+      try {
+        await prisma.assessmentScore.upsert({
+          where: {
+            assessmentId_skillId: { assessmentId, skillId: s.skillId },
+          },
+          create: {
+            assessmentId,
+            skillId: s.skillId,
+            masteryLevel: update.masteryLevel ?? 0,
+            flagged: update.flagged ?? false,
+          },
+          update,
+        });
+      } catch (e) {
+        // Fallback: если колонка `flagged` ещё не добавилась в БД
+        // (Phase 0.18.2 — миграция могла не успеть применится на инстансе),
+        // повторяем upsert без неё, чтобы оценка не терялась.
+        const msg = (e as Error).message ?? '';
+        const isMissingFlagged =
+          msg.includes('flagged') || msg.includes('column') || msg.includes('Unknown arg');
+        if (!isMissingFlagged) throw e;
+        console.warn('[assessments] retry upsert without flagged:', msg.slice(0, 200));
+        await prisma.assessmentScore.upsert({
+          where: {
+            assessmentId_skillId: { assessmentId, skillId: s.skillId },
+          },
+          create: {
+            assessmentId,
+            skillId: s.skillId,
+            masteryLevel: update.masteryLevel ?? 0,
+          },
+          update: { masteryLevel: update.masteryLevel },
+        });
+      }
     }
   }
 

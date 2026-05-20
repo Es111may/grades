@@ -95,7 +95,9 @@ export default function AssessmentForm({
       // игнор — non-critical
     }
   }, [touched, touchedKey]);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saveStatus, setSaveStatus] = useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle');
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(assessmentStatus === 'published');
   const saveTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -112,35 +114,73 @@ export default function AssessmentForm({
   const leadCommentTimeout = useRef<NodeJS.Timeout | null>(null);
   const leadCommentDirty = useRef(false);
 
-  // Auto-save scores
+  // Auto-save scores. Раньше тут стояла «огневая забывалка»: статус
+  // переходил в «сохранено» даже когда API упал. Теперь — обязательная
+  // проверка res.ok; при ошибке кладём пачку обратно в очередь, чтобы
+  // следующий клик попробовал её снова, и показываем статус «не сохранилось».
   const doSave = useCallback(async () => {
     if (pendingScores.current.length === 0 || published) return;
     setSaveStatus('saving');
     const toSave = [...pendingScores.current];
     pendingScores.current = [];
-
-    await fetch('/api/assessments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assessmentId, scores: toSave }),
-    });
-
-    setSaveStatus('saved');
-    setTimeout(() => setSaveStatus('idle'), 1500);
+    try {
+      const res = await fetch('/api/assessments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assessmentId, scores: toSave }),
+      });
+      if (!res.ok) {
+        pendingScores.current.unshift(...toSave);
+        const j = await res.json().catch(() => ({}));
+        // eslint-disable-next-line no-console
+        console.error('[assess] save failed:', res.status, j);
+        setSaveStatus('error');
+        return;
+      }
+      setSaveStatus('saved');
+      setTimeout(
+        () => setSaveStatus((s) => (s === 'saved' ? 'idle' : s)),
+        1500,
+      );
+    } catch (e) {
+      pendingScores.current.unshift(...toSave);
+      // eslint-disable-next-line no-console
+      console.error('[assess] save network error:', e);
+      setSaveStatus('error');
+    }
   }, [assessmentId, published]);
 
-  // Auto-save leadComment отдельно — он не смешивается с очередью scores
+  // Auto-save leadComment отдельно — он не смешивается с очередью scores.
+  // Та же защита от тихих 500: при не-ok сбрасываем dirty=true, чтобы
+  // следующий тик автосейва попробовал ещё раз.
   const saveLeadComment = useCallback(async () => {
     if (!leadCommentDirty.current || published) return;
     leadCommentDirty.current = false;
     setSaveStatus('saving');
-    await fetch('/api/assessments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assessmentId, leadComment }),
-    });
-    setSaveStatus('saved');
-    setTimeout(() => setSaveStatus('idle'), 1500);
+    try {
+      const res = await fetch('/api/assessments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assessmentId, leadComment }),
+      });
+      if (!res.ok) {
+        leadCommentDirty.current = true;
+        // eslint-disable-next-line no-console
+        console.error('[assess] leadComment save failed:', res.status);
+        setSaveStatus('error');
+        return;
+      }
+      setSaveStatus('saved');
+      setTimeout(
+        () => setSaveStatus((s) => (s === 'saved' ? 'idle' : s)),
+        1500,
+      );
+    } catch (e) {
+      leadCommentDirty.current = true;
+      // eslint-disable-next-line no-console
+      console.error('[assess] leadComment network error:', e);
+      setSaveStatus('error');
+    }
   }, [assessmentId, leadComment, published]);
 
   function handleLeadCommentChange(next: string) {
@@ -394,13 +434,19 @@ export default function AssessmentForm({
         </div>
         {!published && (
           <div className="flex items-center gap-3">
-            <span
-              className={`text-xs text-stone transition-opacity ${
-                saveStatus === 'saved' ? 'opacity-100' : 'opacity-0'
-              }`}
-            >
-              сохранено
-            </span>
+            {saveStatus === 'error' ? (
+              <span className="text-xs text-blaze font-medium">
+                не сохранилось — обнови страницу
+              </span>
+            ) : (
+              <span
+                className={`text-xs text-stone transition-opacity ${
+                  saveStatus === 'saved' ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                сохранено
+              </span>
+            )}
             {!discardArmed ? (
               <button
                 type="button"
