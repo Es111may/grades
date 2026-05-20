@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { GRADE_NAMES, GRADE_ORDER, BUILD_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
-import { FlagIcon } from '@/components/icons';
+import { CheckIcon, FlagIcon } from '@/components/icons';
 import { MarkdownTextarea } from '@/components/Markdown';
 
 type SkillData = {
@@ -73,6 +73,28 @@ export default function AssessmentForm({
   const router = useRouter();
   const [scores, setScores] = useState<Record<number, number>>(existingScores);
   const [flags, setFlags] = useState<Record<number, boolean>>(existingFlags);
+  // «Тронутые» в этой сессии навыки — visual hint «я уже сюда заходил».
+  // Хранится в sessionStorage: переживает reload вкладки, но не закрытие.
+  // В БД не сохраняем — это сугубо рабочая память для текущего захода.
+  const [touched, setTouched] = useState<Set<number>>(() => new Set());
+  const touchedKey = `assess-touched-${assessmentId}`;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.sessionStorage.getItem(touchedKey);
+      if (raw) setTouched(new Set(JSON.parse(raw) as number[]));
+    } catch {
+      // sessionStorage может быть недоступен — fallback на пустой Set
+    }
+  }, [touchedKey]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.sessionStorage.setItem(touchedKey, JSON.stringify(Array.from(touched)));
+    } catch {
+      // игнор — non-critical
+    }
+  }, [touched, touchedKey]);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(assessmentStatus === 'published');
@@ -129,10 +151,20 @@ export default function AssessmentForm({
     leadCommentTimeout.current = setTimeout(saveLeadComment, 800);
   }
 
+  function markTouched(skillId: number) {
+    setTouched((prev) => {
+      if (prev.has(skillId)) return prev;
+      const next = new Set(prev);
+      next.add(skillId);
+      return next;
+    });
+  }
+
   function setMastery(skillId: number, level: number) {
     if (published) return;
     setScores((prev) => ({ ...prev, [skillId]: level }));
     pendingScores.current.push({ skillId, masteryLevel: level });
+    markTouched(skillId);
 
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(doSave, 800);
@@ -504,6 +536,7 @@ export default function AssessmentForm({
                         skill={skill}
                         currentLevel={scores[skill.id] ?? 0}
                         flagged={!!flags[skill.id]}
+                        touched={touched.has(skill.id)}
                         onSetLevel={(lvl) => setMastery(skill.id, lvl)}
                         onToggleFlag={() => toggleFlag(skill.id)}
                         disabled={published}
@@ -735,6 +768,7 @@ function SkillCard({
   skill,
   currentLevel,
   flagged,
+  touched,
   onSetLevel,
   onToggleFlag,
   disabled,
@@ -742,6 +776,7 @@ function SkillCard({
   skill: SkillData;
   currentLevel: number;
   flagged: boolean;
+  touched: boolean;
   onSetLevel: (level: number) => void;
   onToggleFlag: () => void;
   disabled: boolean;
@@ -752,8 +787,17 @@ function SkillCard({
         flagged ? 'bg-blaze/5' : ''
       }`}
     >
-      {/* Header: имя + CORE + вес + кнопка-флаг справа */}
+      {/* Header: чек-сессии · имя · CORE · вес · флаг */}
       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+        {touched && !disabled && (
+          <span
+            className="text-emerald shrink-0"
+            title="Уровень изменён в этой сессии"
+            aria-label="Изменено в этой сессии"
+          >
+            <CheckIcon className="w-3.5 h-3.5" />
+          </span>
+        )}
         <span className="font-medium text-sm">{skill.name}</span>
         <span
           className={`text-[10px] px-1.5 py-0.5 rounded-pill tracking-wide font-medium ${

@@ -40,6 +40,14 @@ export function CalendarIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
+export function CheckIcon({ className = 'w-4 h-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M10.0007 15.1709L19.1931 5.97852L20.6079 7.39273L10.0007 18L3.63672 11.636L5.05093 10.2218L10.0007 15.1709Z" />
+    </svg>
+  );
+}
+
 export function FlagIcon({ className = 'w-4 h-4' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
