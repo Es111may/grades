@@ -17,7 +17,6 @@ import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
-import PortraitBanner from '@/components/PortraitBanner';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
@@ -201,14 +200,15 @@ export default function Portrait({
           <span>{data.designer.fullName}</span>
         </div>
       )}
-      {/* Карточка-баннер: фон по грейду, имя · фамилия большим текстом,
-          теги внизу. MVP — без стикеров, без upload картинки, без полос. */}
-      <PortraitBanner
+      {/* Карточка-баннер временно скрыта — Pavel вернёт когда будут
+          готовы upload картинки и зелёные полосы для лидов (PRD §11.16).
+          Компонент остаётся в src/components/PortraitBanner.tsx. */}
+      {/* <PortraitBanner
         fullName={data.designer.fullName}
         role="designer"
         grade={data.effectiveGrade}
         buildCode={data.designer.buildCode}
-      />
+      /> */}
 
       {/* Hero: аватар слева от имени и мета-инфо */}
       <div className="mb-6 flex items-center gap-4">
