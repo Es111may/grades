@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
+import PortraitBanner from '@/components/PortraitBanner';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import {
   ROLE_LABEL,
@@ -129,6 +130,12 @@ export default function LeadReviewView({
         <span className="text-ash mx-1.5">/</span>
         <span>{target.fullName}</span>
       </div>
+
+      {/* Карточка-баннер: цвет фона по роли (lead/stardiz). MVP без полос. */}
+      <PortraitBanner
+        fullName={target.fullName}
+        role={target.role === 'lead' ? 'lead' : 'stardiz'}
+      />
 
       {/* Hero */}
       <div className="mb-6 flex items-center gap-4">

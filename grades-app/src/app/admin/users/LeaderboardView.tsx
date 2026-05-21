@@ -49,36 +49,6 @@ function formatTenure(months: number): string {
   return `${years} ${yearWord(years)} ${m} мес.`;
 }
 
-/**
- * Прогресс к следующему грейду. Возвращает 0..1 (для bar) и текстовую подпись.
- * Если уже senior или нет следующего грейда — 1.
- */
-function gradeProgress(
-  effectiveGrade: string | null,
-  totalXp: number | null,
-  buildCode: string | null,
-  thresholds: GradeThreshold[],
-): { pct: number; nextLabel: string | null; nextXp: number | null } {
-  if (!effectiveGrade || totalXp === null || !buildCode || thresholds.length === 0) {
-    return { pct: 0, nextLabel: null, nextXp: null };
-  }
-  const sorted = [...thresholds].sort((a, b) => a.sortOrder - b.sortOrder);
-  const currentIdx = sorted.findIndex((g) => g.code === effectiveGrade);
-  if (currentIdx === -1) return { pct: 0, nextLabel: null, nextXp: null };
-  const current = sorted[currentIdx];
-  const next = sorted[currentIdx + 1];
-  if (!next) return { pct: 1, nextLabel: null, nextXp: null };
-  const cThr = current.xpThresholds[buildCode] ?? 0;
-  const nThr = next.xpThresholds[buildCode] ?? 0;
-  const range = nThr - cThr;
-  if (range <= 0) return { pct: 1, nextLabel: null, nextXp: null };
-  const inRange = Math.max(0, totalXp - cThr);
-  return {
-    pct: Math.min(1, inRange / range),
-    nextLabel: GRADE_LABELS[next.code] ?? next.code,
-    nextXp: nThr,
-  };
-}
 
 export default function LeaderboardView({
   users,
@@ -209,12 +179,6 @@ export default function LeaderboardView({
         </thead>
         <tbody className="divide-y divide-cloud">
           {sorted.map((u) => {
-            const prog = gradeProgress(
-              u.effectiveGrade ?? null,
-              u.totalXp ?? null,
-              u.build?.code ?? null,
-              gradeThresholds,
-            );
             return (
               <tr
                 key={u.id}
@@ -257,15 +221,7 @@ export default function LeaderboardView({
                 </td>
                 <td className="py-3 px-4 text-center">
                   {u.totalXp !== null && u.totalXp !== undefined ? (
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="tabular-nums font-medium">{u.totalXp}</span>
-                      <div className="w-20 h-1 rounded-full bg-cloud overflow-hidden">
-                        <div
-                          className="h-full bg-lime rounded-full"
-                          style={{ width: `${Math.round(prog.pct * 100)}%` }}
-                        />
-                      </div>
-                    </div>
+                    <span className="tabular-nums font-medium">{u.totalXp}</span>
                   ) : (
                     <span className="text-ash">—</span>
                   )}
