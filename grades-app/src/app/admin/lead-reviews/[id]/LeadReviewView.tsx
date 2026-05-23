@@ -112,11 +112,13 @@ export default function LeadReviewView({
   // Sticky-навигация по разделам — выезжает снизу при скролле.
   const navSections: SectionNavItem[] = useMemo(
     () => [
-      // «Проекты» — если можно редактировать или уже что-то выбрано.
+      { id: 'stats', label: 'Статистика' },
+      // Проекты — сразу после Статистики (Pavel: «в навигации после
+      // Статистика»). Якорь добавляется только если есть что показать
+      // или можно редактировать.
       ...(canEditProjects || initialProjects.length > 0
         ? [{ id: 'projects', label: 'Проекты' }]
         : []),
-      { id: 'stats', label: 'Статистика' },
       { id: 'cat-review_quality', label: 'Ревью' },
       { id: 'cat-process', label: 'Процессы' },
       { id: 'cat-growth', label: 'Наставничество' },
@@ -201,15 +203,6 @@ export default function LeadReviewView({
         </div>
       )}
 
-      {/* Проекты — Pavel Phase 24. */}
-      <section id="projects" className="scroll-mt-24">
-        <ProjectsField
-          userId={target.id}
-          initialProjects={initialProjects}
-          canEdit={canEditProjects}
-        />
-      </section>
-
       {/* === Статистика: eNPS + (Diff/RoleComparison) === */}
       <section id="stats" className="scroll-mt-24">
         {/* eNPS */}
@@ -288,6 +281,17 @@ export default function LeadReviewView({
         {agg.openQuestions.map((oq) => (
           <OpenQuestionCard key={oq.id} item={oq} />
         ))}
+      </section>
+
+      {/* Проекты — Pavel: «над "Мнение лида"». У лида ближайший аналог
+          «Мнения лида» с дизайнерского портрета — раздел «Выводы»
+          (AI-сводка + CDO). Поэтому ставим Проекты прямо над ним. */}
+      <section id="projects" className="scroll-mt-24">
+        <ProjectsField
+          userId={target.id}
+          initialProjects={initialProjects}
+          canEdit={canEditProjects}
+        />
       </section>
 
       {/* Выводы: AI-сводка + CDO. Локальный state на оба поля, чтобы

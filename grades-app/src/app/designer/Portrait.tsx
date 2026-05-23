@@ -131,12 +131,13 @@ export default function Portrait({
   const navSections: SectionNavItem[] = useMemo(
     () => [
       { id: 'stats', label: 'Статистика' },
-      ...presentTaxonomies.map((code) => ({ id: `tax-${code}`, label: code })),
-      // Проекты добавляем только если есть что показать или можно
-      // редактировать — иначе якорь будет вести в пустоту.
+      // Проекты — сразу после статистики (Pavel: «в навигации после
+      // Статистика»). Якорь добавляется только если есть что
+      // показать или можно редактировать.
       ...(canEditProjects || initialProjects.length > 0
         ? [{ id: 'projects', label: 'Проекты' }]
         : []),
+      ...presentTaxonomies.map((code) => ({ id: `tax-${code}`, label: code })),
     ],
     [presentTaxonomies, canEditProjects, initialProjects.length],
   );
@@ -285,16 +286,6 @@ export default function Portrait({
           />
         </div>
       )}
-
-      {/* Проекты — справочник М:N с продуктами Ида (лаймовый чип) и
-          девелоперами/проектами/прочим (серые чипы). Pavel'a Phase 24. */}
-      <section id="projects" className="scroll-mt-24">
-        <ProjectsField
-          userId={userId}
-          initialProjects={initialProjects}
-          canEdit={canEditProjects}
-        />
-      </section>
 
       {/* === Статистика: grade-card, taxonomy-cards, radar, next-gate === */}
       <section id="stats" className="scroll-mt-24">
@@ -484,6 +475,15 @@ export default function Portrait({
 
       </section>
       {/* /Статистика */}
+
+      {/* Проекты — справочник М:N. Pavel: «над "Мнение лида"». */}
+      <section id="projects" className="scroll-mt-24">
+        <ProjectsField
+          userId={userId}
+          initialProjects={initialProjects}
+          canEdit={canEditProjects}
+        />
+      </section>
 
       {/* Мнение дизайн-лида / стардиза — аналог CDO-блока у лидов.
           Pavel попросил вывести его ПЕРЕД блоком «Навыки», чтобы дизайнер

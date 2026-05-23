@@ -109,14 +109,9 @@ export default function ProjectsField({
   return (
     <section className="card mb-6 overflow-hidden">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-ink leading-tight">
-            Проекты
-          </h3>
-          <p className="text-xs text-stone mt-0.5">
-            С чем работал — добавляй из справочника или создай новый
-          </p>
-        </div>
+        <h3 className="text-base font-semibold text-ink leading-tight">
+          Проекты
+        </h3>
         {canEdit && (
           <button
             type="button"
@@ -241,7 +236,7 @@ function ProjectPicker({
   }, [query, allProjects]);
 
   return (
-    <div className="mt-3 border-t border-cloud pt-4 space-y-3">
+    <div className="mt-5 border-t border-cloud pt-6 space-y-6">
       <input
         ref={inputRef}
         type="text"
@@ -255,10 +250,10 @@ function ProjectPicker({
       {allProjects === null ? (
         <div className="text-xs text-ash italic">Загрузка…</div>
       ) : grouped && grouped.length > 0 ? (
-        <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+        <div className="space-y-6 max-h-[420px] overflow-y-auto pr-1">
           {grouped.map((g) => (
             <div key={g.cat}>
-              <div className="text-[10px] text-stone mb-1.5 uppercase tracking-wider">
+              <div className="text-xs text-stone mb-2.5 font-medium">
                 {PROJECT_CATEGORY_LABELS[g.cat as ProjectCategory] ?? g.cat}
               </div>
               <div className="flex flex-wrap gap-1.5">
