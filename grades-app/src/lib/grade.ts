@@ -142,13 +142,23 @@ export function calcGrade(input: GradeCalcInput): GradeCalcResult {
   const scoreMap = new Map<number, number>();
   for (const s of scores) scoreMap.set(s.skillId, s.masteryLevel);
 
+  // Гейты считаем только по активным навыкам — если навык архивирован
+  // (Skill.active=false), то и гейт по нему игнорируется. Иначе на портрете
+  // вылетал «непройденный навык #546», потому что навык удалили из матрицы,
+  // а гейт остался в gradelevel.gates.
+  const activeSkillIds = new Set<number>();
+  for (const s of skills) if (s.active) activeSkillIds.add(s.skillId);
+  const onlyActiveGates = (
+    gates: { skillId: number; requiredMastery: number }[],
+  ) => gates.filter((g) => activeSkillIds.has(g.skillId));
+
   // Идём от Senior к Junior, ищем первый грейд, который человек проходит по обоим условиям.
   // Junior — fallback (минимальный грейд, его порог = 0).
   let calculatedGrade: GradeCode = 'junior';
   for (const g of sortedDesc) {
     if (g.code === 'junior') continue;
     if (total < g.threshold) continue;
-    if (!isGatesPassed(scoreMap, g.gates)) continue;
+    if (!isGatesPassed(scoreMap, onlyActiveGates(g.gates))) continue;
     calculatedGrade = g.code;
     break;
   }
@@ -164,7 +174,7 @@ export function calcGrade(input: GradeCalcInput): GradeCalcResult {
   for (const g of sortedAsc) {
     if (GRADE_ORDER[g.code] <= GRADE_ORDER[calculatedGrade]) continue;
     const xpNeeded = Math.max(0, g.threshold - total);
-    const failedGates = getFailedGates(scoreMap, g.gates);
+    const failedGates = getFailedGates(scoreMap, onlyActiveGates(g.gates));
     nextGrade = { code: g.code, xpNeeded, failedGates };
     break;
   }

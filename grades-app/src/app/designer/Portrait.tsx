@@ -555,6 +555,29 @@ export default function Portrait({
   );
 }
 
+// Дата публикации в переключателе циклов — в формате «13 мая 2026»
+// (без «г.», полный год). Стандартный toLocaleDateString'ru-RU всегда
+// прицепляет «г.» в конце, поэтому собираем строку вручную.
+const MONTHS_RU = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
+];
+
+function formatPublishedDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getDate()} ${MONTHS_RU[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 function CyclesSwitcher({
   siblings,
   currentId,
@@ -575,11 +598,7 @@ function CyclesSwitcher({
           }`}
         >
           {s.publishedAt
-            ? new Date(s.publishedAt).toLocaleDateString('ru-RU', {
-                day: 'numeric',
-                month: 'short',
-                year: '2-digit',
-              })
+            ? formatPublishedDate(s.publishedAt)
             : `#${s.id}`}
         </Link>
       ))}
