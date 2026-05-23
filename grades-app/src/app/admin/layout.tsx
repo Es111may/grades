@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { requireRole } from '@/lib/session';
-import { ensureBuildNames } from '@/lib/oneTimeMigrations';
+import { ensureBuildNames, ensureProjectsSeeded } from '@/lib/oneTimeMigrations';
 import AppHeader from '@/components/AppHeader';
 import AssessmentReminder from '@/components/AssessmentReminder';
 
@@ -13,6 +13,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Билды переименовали в названия отделов (май 2026) — миграция
   // идемпотентная, мгновенный no-op после первого срабатывания.
   await ensureBuildNames();
+  // Справочник проектов: один раз при первом запуске заливает
+  // начальный список (Phase 24). Дальше — управляется через UI.
+  await ensureProjectsSeeded();
   const isAdminish = user.role === 'admin' || user.role === 'lead';
   const isLeadLike = user.role === 'lead' || user.role === 'stardiz';
   const navItems = isAdminish

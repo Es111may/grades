@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
+import ProjectsField from '@/components/ProjectsField';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import {
   ROLE_LABEL,
@@ -56,12 +57,16 @@ export default function LeadReviewView({
   target,
   siblings,
   previous,
+  initialProjects,
+  canEditProjects,
 }: {
   meRole: string;
   review: Review;
   target: Target;
   siblings: Sibling[];
   previous: Previous | null;
+  initialProjects: { id: number; name: string; category: string }[];
+  canEditProjects: boolean;
 }) {
   const router = useRouter();
   const isAdmin = meRole === 'admin';
@@ -107,6 +112,10 @@ export default function LeadReviewView({
   // Sticky-навигация по разделам — выезжает снизу при скролле.
   const navSections: SectionNavItem[] = useMemo(
     () => [
+      // «Проекты» — если можно редактировать или уже что-то выбрано.
+      ...(canEditProjects || initialProjects.length > 0
+        ? [{ id: 'projects', label: 'Проекты' }]
+        : []),
       { id: 'stats', label: 'Статистика' },
       { id: 'cat-review_quality', label: 'Ревью' },
       { id: 'cat-process', label: 'Процессы' },
@@ -117,7 +126,7 @@ export default function LeadReviewView({
       { id: 'questions', label: 'Вопросы' },
       { id: 'summary', label: 'Выводы' },
     ],
-    [],
+    [canEditProjects, initialProjects.length],
   );
 
   return (
@@ -191,6 +200,15 @@ export default function LeadReviewView({
           <CyclesSwitcher siblings={siblings} currentId={review.id} />
         </div>
       )}
+
+      {/* Проекты — Pavel Phase 24. */}
+      <section id="projects" className="scroll-mt-24">
+        <ProjectsField
+          userId={target.id}
+          initialProjects={initialProjects}
+          canEdit={canEditProjects}
+        />
+      </section>
 
       {/* === Статистика: eNPS + (Diff/RoleComparison) === */}
       <section id="stats" className="scroll-mt-24">

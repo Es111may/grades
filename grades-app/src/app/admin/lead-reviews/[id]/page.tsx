@@ -42,6 +42,19 @@ export default async function LeadReviewPage({
     redirect('/admin/users');
   }
 
+  // Проекты лида/стардиза (Phase 24)
+  const userProjects = await prisma.userProject.findMany({
+    where: { userId: review.targetUserId },
+    include: {
+      project: { select: { id: true, name: true, category: true } },
+    },
+    orderBy: [
+      { project: { category: 'asc' } },
+      { project: { sortOrder: 'asc' } },
+      { project: { name: 'asc' } },
+    ],
+  });
+
   // Все циклы того же лида — для переключателя в шапке + поиска предыдущего
   const allReviews = await prisma.leadReview.findMany({
     where: { targetUserId: review.targetUserId },
@@ -91,6 +104,8 @@ export default async function LeadReviewPage({
         importedAt: r.importedAt.toISOString(),
         responseCount: r.responseCount,
       }))}
+      initialProjects={userProjects.map((up) => up.project)}
+      canEditProjects={me.role === 'admin' || review.targetUserId === me.id}
     />
   );
 }

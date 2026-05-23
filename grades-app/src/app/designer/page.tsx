@@ -77,11 +77,27 @@ export default async function DesignerPortraitPage({
     );
   }
 
+  // Проекты дизайнера — справочник M:N. Дизайнер сам редактирует список.
+  const userProjects = await prisma.userProject.findMany({
+    where: { userId: user.id },
+    include: {
+      project: { select: { id: true, name: true, category: true } },
+    },
+    orderBy: [
+      { project: { category: 'asc' } },
+      { project: { sortOrder: 'asc' } },
+      { project: { name: 'asc' } },
+    ],
+  });
+
   return (
     <Portrait
       data={result.data}
       siblingHrefPrefix="/designer?assessmentId="
       canEditLeadComment={false}
+      userId={user.id}
+      initialProjects={userProjects.map((up) => up.project)}
+      canEditProjects={true}
     />
   );
 }

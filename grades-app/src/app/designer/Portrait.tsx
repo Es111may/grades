@@ -17,6 +17,7 @@ import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
+import ProjectsField from '@/components/ProjectsField';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
@@ -90,6 +91,9 @@ export default function Portrait({
   breadcrumb,
   siblingHrefPrefix,
   canEditLeadComment = false,
+  userId,
+  initialProjects,
+  canEditProjects = false,
 }: {
   data: PortraitData;
   breadcrumb?: { href: string; label: string };
@@ -102,6 +106,13 @@ export default function Portrait({
    *  всегда; lead, если он ведёт дизайнера; stardiz — если он лид или
    *  стардиз. Дизайнер на своём `/designer` его видит, но не правит. */
   canEditLeadComment?: boolean;
+  /** Id владельца портрета — нужен для PUT /api/users/[id]/projects. */
+  userId: number;
+  /** Проекты, которые уже выбрал пользователь (server-side fetch). */
+  initialProjects: { id: number; name: string; category: string }[];
+  /** Может ли текущий пользователь редактировать список проектов
+   *  (сам владелец или admin). */
+  canEditProjects?: boolean;
 }) {
   const [rowHovered, setRowHovered] = useState(false);
 
@@ -121,8 +132,13 @@ export default function Portrait({
     () => [
       { id: 'stats', label: 'Статистика' },
       ...presentTaxonomies.map((code) => ({ id: `tax-${code}`, label: code })),
+      // Проекты добавляем только если есть что показать или можно
+      // редактировать — иначе якорь будет вести в пустоту.
+      ...(canEditProjects || initialProjects.length > 0
+        ? [{ id: 'projects', label: 'Проекты' }]
+        : []),
     ],
-    [presentTaxonomies],
+    [presentTaxonomies, canEditProjects, initialProjects.length],
   );
 
   const xpProgress = data.maxXp > 0 ? Math.round((data.totalXp / data.maxXp) * 100) : 0;
@@ -269,6 +285,16 @@ export default function Portrait({
           />
         </div>
       )}
+
+      {/* Проекты — справочник М:N с продуктами Ида (лаймовый чип) и
+          девелоперами/проектами/прочим (серые чипы). Pavel'a Phase 24. */}
+      <section id="projects" className="scroll-mt-24">
+        <ProjectsField
+          userId={userId}
+          initialProjects={initialProjects}
+          canEdit={canEditProjects}
+        />
+      </section>
 
       {/* === Статистика: grade-card, taxonomy-cards, radar, next-gate === */}
       <section id="stats" className="scroll-mt-24">

@@ -90,6 +90,18 @@ export default async function LeadPortraitPage({
     orderBy: { createdAt: 'desc' },
   });
 
+  const userProjects = await prisma.userProject.findMany({
+    where: { userId: designerId },
+    include: {
+      project: { select: { id: true, name: true, category: true } },
+    },
+    orderBy: [
+      { project: { category: 'asc' } },
+      { project: { sortOrder: 'asc' } },
+      { project: { name: 'asc' } },
+    ],
+  });
+
   return (
     <>
       <PortraitActions
@@ -106,6 +118,9 @@ export default async function LeadPortraitPage({
           designer.leadId === user.id ||
           designer.stardizId === user.id
         }
+        userId={designerId}
+        initialProjects={userProjects.map((up) => up.project)}
+        canEditProjects={user.role === 'admin' || designerId === user.id}
       />
     </>
   );

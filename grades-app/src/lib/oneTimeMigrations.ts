@@ -11,6 +11,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
+import { INITIAL_PROJECTS } from './initialProjects';
 
 const TAXONOMY_NAMES: Record<string, string> = {
   UI: 'UI · Визуал',
@@ -41,6 +42,35 @@ let taxonomyNamesEnsured = false;
 let groupNamesEnsured = false;
 let gradesMigrated = false;
 let buildNamesEnsured = false;
+let projectsSeeded = false;
+
+/**
+ * Однократный seed справочника проектов. Если в таблице projects пусто —
+ * заливаем стартовый список из src/lib/initialProjects.ts. Потом UI сам
+ * добавляет/убирает проекты, миграция уже не вмешивается.
+ *
+ * Если Pavel удалит проекты вручную и обнулит таблицу — seed снова зальёт
+ * исходный набор. Это намеренно: позволяет «вернуться к дефолту» простым
+ * truncate'ом без редеплоя.
+ */
+export async function ensureProjectsSeeded(): Promise<void> {
+  if (projectsSeeded) return;
+  const count = await prisma.project.count();
+  if (count > 0) {
+    projectsSeeded = true;
+    return;
+  }
+  // createMany без skipDuplicates: уникальный name, у нас стартовый список
+  // заведомо без дублей.
+  await prisma.project.createMany({
+    data: INITIAL_PROJECTS.map((p, idx) => ({
+      name: p.name,
+      category: p.category,
+      sortOrder: idx,
+    })),
+  });
+  projectsSeeded = true;
+}
 
 export async function ensureBuildNames(): Promise<void> {
   if (buildNamesEnsured) return;

@@ -222,6 +222,8 @@ model User {
   matrixCellsUpdated   TeamMatrixCell[]   @relation("MatrixCellUpdater")
   leadReviewsAboutMe   LeadReview[]       @relation("LeadReviewTarget")
   leadReviewsIImported LeadReview[]       @relation("LeadReviewCreator")
+  projects             UserProject[]
+  projectsCreated      Project[]          @relation("ProjectCreatedBy")
 
   @@map("users")
 }
@@ -367,6 +369,41 @@ model AuditLog {
 // Поля aiSummary и cdoSummary — markdown, заполняет админ вручную.
 // Видимость самому лиду — сразу с момента создания (без публикации).
 // ============================================================
+
+// ============================================================
+// PROJECTS (Phase 24 — карточка проектов на портрете)
+// Дизайнеры, стардизы и лиды отмечают, с какими проектами они
+// работали. Pavel может расширять справочник на лету.
+// ============================================================
+
+model Project {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  // "developer" | "project" | "ida_product" | "other"
+  category  String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  createdById Int?
+  createdBy   User?  @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+
+  users     UserProject[]
+
+  @@index([category, name])
+  @@map("projects")
+}
+
+model UserProject {
+  userId    Int
+  projectId Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+  @@map("user_projects")
+}
 
 model LeadReview {
   id            Int      @id @default(autoincrement())
