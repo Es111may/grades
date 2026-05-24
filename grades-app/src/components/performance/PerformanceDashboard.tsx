@@ -171,7 +171,9 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
           <select
             value={periodValue}
             onChange={(e) => setPeriodValue(e.target.value)}
-            className="input input-sm max-w-[180px] disabled:opacity-50"
+            className="bg-snow border border-cloud rounded-card h-9 px-3 text-xs text-ink
+                       focus:outline-none focus:border-sky focus:ring-4 focus:ring-sky/15
+                       disabled:opacity-50 max-w-[180px]"
             disabled={state !== 'ready'}
           >
             {periodOptions.map((o) => (
@@ -347,7 +349,7 @@ function FiltersPopover({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`inline-flex items-center gap-2 bg-snow border rounded-card
-                    px-3 py-1.5 text-xs text-ink transition-colors
+                    h-9 px-3 text-xs text-ink transition-colors
                     hover:border-ash focus:outline-none focus:border-sky
                     focus:ring-4 focus:ring-sky/15
                     ${open ? 'border-ash' : 'border-cloud'}`}

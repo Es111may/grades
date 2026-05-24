@@ -146,6 +146,9 @@ export default function Portrait({
       // Перформанс показываем сразу после Проектов — это второй «человеческий»
       // блок, ещё до разбора по навыкам.
       ...(showPerformance ? [{ id: 'performance', label: 'Перформанс' }] : []),
+      // «Выводы» — это блок «Мнение дизайн-лида / стардиза». Лейбл короткий,
+      // как просил Pavel.
+      { id: 'lead-comment', label: 'Выводы' },
       ...presentTaxonomies.map((code) => ({ id: `tax-${code}`, label: code })),
     ],
     [presentTaxonomies, canEditProjects, initialProjects.length, showPerformance],
@@ -507,29 +510,32 @@ export default function Portrait({
           Pavel попросил вывести его ПЕРЕД блоком «Навыки», чтобы дизайнер
           сначала видел человеческий контекст, потом разбор по навыкам.
           Редактирование доступно admin/lead/stardiz прямо с портрета
-          (без перехода на форму оценки). */}
-      <EditableMarkdownBlock
-        title="Мнение дизайн-лида / стардиза"
-        badge="Лид"
-        value={leadComment}
-        canEdit={canEditLeadComment}
-        emptyLabel="Лид ещё не оставил мнения к этой оценке"
-        onSave={async (next) => {
-          const res = await fetch('/api/assessments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              assessmentId: data.assessmentId,
-              leadComment: next,
-            }),
-          });
-          if (res.ok) {
-            setLeadComment(next);
-            return true;
-          }
-          return false;
-        }}
-      />
+          (без перехода на форму оценки). Якорь `lead-comment` ведёт
+          сюда из SectionNav (лейбл «Выводы»). */}
+      <section id="lead-comment" className="scroll-mt-24">
+        <EditableMarkdownBlock
+          title="Мнение дизайн-лида / стардиза"
+          badge="Лид"
+          value={leadComment}
+          canEdit={canEditLeadComment}
+          emptyLabel="Лид ещё не оставил мнения к этой оценке"
+          onSave={async (next) => {
+            const res = await fetch('/api/assessments', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                assessmentId: data.assessmentId,
+                leadComment: next,
+              }),
+            });
+            if (res.ok) {
+              setLeadComment(next);
+              return true;
+            }
+            return false;
+          }}
+        />
+      </section>
 
       {/* Skills grouped — accordions, стиль как у формы оценки */}
       <div className="space-y-5">
