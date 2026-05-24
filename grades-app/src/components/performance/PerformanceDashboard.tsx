@@ -135,12 +135,19 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
     <section className="card mb-6 overflow-hidden">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/30">
         <h3 className="text-base font-semibold text-ink leading-tight">
-          Мой перформанс
+          Перформанс
         </h3>
         <p className="text-xs text-stone mt-1.5 leading-relaxed">
-          Статистика по задачам из ActiveCollab и Яндекс Трекера. По умолчанию
-          учитываются только задачи с эстимейтом, завершённые и где дизайнер
-          участвовал больше 50% времени — это эталонная выборка для ассесмента.
+          Твоя эффективность по задачам. Самое главное — % попадания в срок.
+          Стремись к 85% и выше.{' '}
+          <a
+            href="https://buildin.ai/idaproject/28b054e2-8fd8-4ffd-b45a-8294ad44668b"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-ink underline underline-offset-2 hover:text-stone transition-colors"
+          >
+            Больше о технике тут
+          </a>
         </p>
       </div>
 
@@ -162,7 +169,9 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
           <select
             value={periodValue}
             onChange={(e) => setPeriodValue(e.target.value)}
-            className="input max-w-[220px]"
+            className="bg-snow border border-cloud rounded-pill px-3.5 py-1.5 text-xs text-ink
+                       focus:outline-none focus:border-sky focus:ring-4 focus:ring-sky/15
+                       disabled:opacity-50 min-w-[160px]"
             disabled={state !== 'ready'}
           >
             {periodOptions.map((o) => (
@@ -267,8 +276,10 @@ function Segment({
   options: SegmentOption[];
   onChange: (next: string) => void;
 }) {
+  // Используем общепроектный сегмент-контрол (.segmented в globals.css),
+  // чтобы был единый стиль с переключателем «Все / Мои» и др.
   return (
-    <div className="inline-flex items-center rounded-pill bg-canvas border border-cloud p-0.5">
+    <div className="segmented">
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -276,11 +287,7 @@ function Segment({
             key={o.value}
             type="button"
             onClick={() => onChange(o.value)}
-            className={`px-3.5 py-1 text-xs font-medium rounded-pill transition-colors ${
-              active
-                ? 'bg-ink text-snow'
-                : 'text-stone hover:text-ink'
-            }`}
+            className={`segmented-item ${active ? 'segmented-item-active' : ''}`}
           >
             {o.label}
           </button>
@@ -299,13 +306,15 @@ function Checkbox({
   checked: boolean;
   onChange: (next: boolean) => void;
 }) {
+  // accent-ink — родная Tailwind-утилита, красит галочку и фон чекбокса в
+  // ink (тёмный), а не в синий по умолчанию (то, что просил Pavel).
   return (
     <label className="inline-flex items-center gap-2 cursor-pointer select-none">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="w-4 h-4 rounded border-cloud text-ink focus:ring-ink/30"
+        className="w-4 h-4 rounded border-cloud accent-ink focus:ring-ink/30"
       />
       <span className="text-ink">{label}</span>
     </label>
