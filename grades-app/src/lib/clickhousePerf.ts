@@ -558,37 +558,90 @@ function mapRow(row: RawTaskRow, source: TaskSource): TaskDetail {
 // ============================================================
 
 /**
+ * Диагностика ответа для дебага: сколько строк вернул каждый источник,
+ * сколько сырых (без фильтров) — нужно, когда дашборд пустой и непонятно,
+ * email ли не тот, или фильтры всё отрезали.
+ */
+export interface FetchTasksResult {
+  tasks: TaskDetail[];
+  diagnostics: {
+    /** Какой email пошёл в ClickHouse (после нормализации). */
+    email: string;
+    /** Сколько строк collab.* вернул с применёнными фильтрами. */
+    collabCount: number;
+    /** Сколько строк manage.* вернул с применёнными фильтрами. */
+    trackerCount: number;
+    /** Сколько строк вернул бы collab.* БЕЗ фильтров (для дебага). */
+    collabRawCount: number;
+    /** Сколько строк вернул бы manage.* БЕЗ фильтров (для дебага). */
+    trackerRawCount: number;
+    /** Ошибки запросов, если были. */
+    errors: string[];
+  };
+}
+
+/**
  * Подтягивает список задач дизайнера за весь доступный период (2024-01-01+).
  *
  * Запускает два параллельных запроса (collab + manage) и склеивает результат.
  * Если один из источников падает — возвращаем хотя бы то, что есть из другого
  * (как в Python-сервисе).
+ *
+ * Email нормализуем в нижний регистр — в ClickHouse `=` и `position()` работают
+ * побайтово, а в проде встречались записи вида `Pg@idaproject.com` рядом с
+ * `pg@idaproject.com` (разные источники ETL).
  */
-export async function fetchDesignerTasks(p: FetchTasksParams): Promise<TaskDetail[]> {
+export async function fetchDesignerTasks(
+  p: FetchTasksParams,
+): Promise<FetchTasksResult> {
   const client = getClient();
-  const queryParams: Record<string, string> = { developer: p.email };
+  const email = p.email.trim().toLowerCase();
+  const queryParams: Record<string, string> = { developer: email };
   if (p.quarter) queryParams.quarter = p.quarter;
   if (p.month) queryParams.month = p.month;
 
-  // Запускаем оба запроса параллельно. Каждый возвращает [] при ошибке —
-  // лучше частичные данные, чем пустой портрет.
-  const [collabRows, trackerRows] = await Promise.all([
-    runQuery<RawTaskRow>(client, buildCollabTasksSQL(p), queryParams).catch((err) => {
-      console.error('[clickhousePerf] collab query failed:', err);
-      return [] as RawTaskRow[];
-    }),
-    runQuery<RawTaskRow>(client, buildManageTrackerTasksSQL(p), queryParams).catch(
-      (err) => {
-        console.error('[clickhousePerf] manage tracker query failed:', err);
-        return [] as RawTaskRow[];
-      },
-    ),
+  const errors: string[] = [];
+
+  const safeRun = async (sql: string, label: string): Promise<RawTaskRow[]> => {
+    try {
+      return await runQuery<RawTaskRow>(client, sql, queryParams);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[clickhousePerf] ${label} query failed:`, msg);
+      errors.push(`${label}: ${msg}`);
+      return [];
+    }
+  };
+
+  // Основные запросы с пользовательскими фильтрами и «сырые» (без фильтров)
+  // запускаем параллельно — чтобы дебаг не удваивал латенси.
+  const rawParams: FetchTasksParams = {
+    ...p,
+    hasEstimate: false,
+    completedOnly: false,
+    workedHardOnly: false,
+  };
+  const [collabRows, trackerRows, collabRaw, trackerRaw] = await Promise.all([
+    safeRun(buildCollabTasksSQL(p), 'collab filtered'),
+    safeRun(buildManageTrackerTasksSQL(p), 'manage filtered'),
+    safeRun(buildCollabTasksSQL(rawParams), 'collab raw'),
+    safeRun(buildManageTrackerTasksSQL(rawParams), 'manage raw'),
   ]);
 
-  return [
-    ...collabRows.map((r) => mapRow(r, 'collab')),
-    ...trackerRows.map((r) => mapRow(r, 'tracker')),
-  ];
+  return {
+    tasks: [
+      ...collabRows.map((r) => mapRow(r, 'collab')),
+      ...trackerRows.map((r) => mapRow(r, 'tracker')),
+    ],
+    diagnostics: {
+      email,
+      collabCount: collabRows.length,
+      trackerCount: trackerRows.length,
+      collabRawCount: collabRaw.length,
+      trackerRawCount: trackerRaw.length,
+      errors,
+    },
+  };
 }
 
 async function runQuery<T>(

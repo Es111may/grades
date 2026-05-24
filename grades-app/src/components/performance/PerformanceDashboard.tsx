@@ -74,8 +74,9 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
       })
       .then((data: { tasks: TaskDetail[] }) => {
         if (cancelled) return;
-        setTasks(data.tasks ?? []);
-        setState(data.tasks?.length ? 'ready' : 'empty');
+        const list = data.tasks ?? [];
+        setTasks(list);
+        setState(list.length ? 'ready' : 'empty');
       })
       .catch((err) => {
         if (cancelled) return;

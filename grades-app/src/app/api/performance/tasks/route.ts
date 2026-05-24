@@ -12,6 +12,10 @@
  *
  * Email берётся из БД по userId, а не из query — иначе можно было бы
  * подставить чужой email и обойти проверку.
+ *
+ * Дебаг: добавь `&debug=1` (доступно только админу) — вернётся блок
+ * `diagnostics` с тем, какой email пошёл в CH, сколько строк отдал каждый
+ * источник с фильтрами и без, и ошибки запросов (если были).
  */
 
 export const dynamic = 'force-dynamic';
@@ -65,19 +69,42 @@ export async function GET(req: NextRequest) {
   const hasEstimate = parseBool(url.searchParams.get('hasEstimate'), true);
   const completedOnly = parseBool(url.searchParams.get('completedOnly'), true);
   const workedHardOnly = parseBool(url.searchParams.get('workedHardOnly'), true);
+  const debug = parseBool(url.searchParams.get('debug'), false) && me.role === 'admin';
 
   try {
-    const tasks = await fetchDesignerTasks({
+    const { tasks, diagnostics } = await fetchDesignerTasks({
       email: target.email,
       hasEstimate,
       completedOnly,
       workedHardOnly,
     });
-    return NextResponse.json({ tasks });
+
+    // В Railway-логи всегда — короткая сводка, чтобы можно было понять,
+    // почему дашборд пустой, не дёргая `debug=1`.
+    console.info(
+      `[/api/performance/tasks] userId=${userId} email=${diagnostics.email} ` +
+        `filtered=collab:${diagnostics.collabCount}+manage:${diagnostics.trackerCount} ` +
+        `raw=collab:${diagnostics.collabRawCount}+manage:${diagnostics.trackerRawCount} ` +
+        `errors=${diagnostics.errors.length}`,
+    );
+
+    return NextResponse.json(
+      debug
+        ? {
+            tasks,
+            diagnostics,
+            appliedFilters: { hasEstimate, completedOnly, workedHardOnly },
+          }
+        : { tasks },
+    );
   } catch (err) {
     console.error('[/api/performance/tasks] ClickHouse error:', err);
     return NextResponse.json(
-      { error: 'ClickHouse unavailable', tasks: [] },
+      {
+        error: 'ClickHouse unavailable',
+        message: err instanceof Error ? err.message : String(err),
+        tasks: [],
+      },
       { status: 502 },
     );
   }
