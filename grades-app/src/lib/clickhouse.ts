@@ -2,30 +2,57 @@
  * Лёгкий HTTP-клиент к ClickHouse — нужен для подтягивания данных из HR-системы
  * Иды (повышения ЗП и т.п.).
  *
- * Подключение и креды можно переопределить через env (рекомендуется
- * перенести в Railway Variables), но есть дефолты на случай, если переменные
- * не проставлены — Pavel передал учётные данные напрямую при постановке задачи.
+ * Все креды берутся из переменных окружения. На Railway их нужно проставить
+ * в Variables:
  *
- * Запросы параметризованные через нативные ClickHouse `{name:Type}`-параметры,
+ *   CLICKHOUSE_HOST       — например `158.160.85.201`
+ *   CLICKHOUSE_PORT       — обычно `8123`
+ *   CLICKHOUSE_USER       — логин ClickHouse
+ *   CLICKHOUSE_PASSWORD   — пароль ClickHouse
+ *
+ * Если хоть одна переменная не задана — `chQuery()` бросит понятную ошибку,
+ * вызывающий код (см. `/api/users/[id]/last-raise`) ловит её и возвращает
+ * пустой ответ, чтобы не валить страницу портрета.
+ *
+ * Запросы параметризованные через нативные ClickHouse `{name:Type}` —
  * передаются в query-string как `param_name=…`. Это безопаснее, чем
  * склеивать строку SQL руками.
  */
 
-const CH_URL = process.env.CLICKHOUSE_URL ?? 'http://158.160.85.201:8123';
-const CH_USER = process.env.CLICKHOUSE_USER ?? 'designgrades';
-const CH_PASS =
-  process.env.CLICKHOUSE_PASSWORD ?? 'Savor7-Unjustly-Fidelity-Tripod-Boogeyman';
+function getCreds(): { url: string; user: string; password: string } {
+  const host = process.env.CLICKHOUSE_HOST;
+  const port = process.env.CLICKHOUSE_PORT;
+  const user = process.env.CLICKHOUSE_USER;
+  const password = process.env.CLICKHOUSE_PASSWORD;
+  const missing: string[] = [];
+  if (!host) missing.push('CLICKHOUSE_HOST');
+  if (!port) missing.push('CLICKHOUSE_PORT');
+  if (!user) missing.push('CLICKHOUSE_USER');
+  if (!password) missing.push('CLICKHOUSE_PASSWORD');
+  if (missing.length > 0) {
+    throw new Error(
+      `ClickHouse env vars not set: ${missing.join(', ')}. ` +
+        `Установи переменные на Railway (Service → Variables).`,
+    );
+  }
+  return {
+    url: `http://${host}:${port}`,
+    user: user as string,
+    password: password as string,
+  };
+}
 
 export async function chQuery<T>(
   sql: string,
   params: Record<string, string | number> = {},
 ): Promise<T[]> {
-  const auth = 'Basic ' + Buffer.from(`${CH_USER}:${CH_PASS}`).toString('base64');
-  const url = new URL(CH_URL);
+  const { url, user, password } = getCreds();
+  const auth = 'Basic ' + Buffer.from(`${user}:${password}`).toString('base64');
+  const u = new URL(url);
   for (const [k, v] of Object.entries(params)) {
-    url.searchParams.set(`param_${k}`, String(v));
+    u.searchParams.set(`param_${k}`, String(v));
   }
-  const res = await fetch(url.toString(), {
+  const res = await fetch(u.toString(), {
     method: 'POST',
     headers: {
       Authorization: auth,

@@ -18,29 +18,22 @@
  *     ida.team — там данные актуальнее и полнее.
  *
  * Запросы параметризованные через нативные ClickHouse `{name:Type}` —
- * никакой склейки строк руками. Креды берутся из ENV; есть дефолты на случай,
- * если переменные не проставлены (Pavel передал учётные данные напрямую).
+ * никакой склейки строк руками.
+ *
+ * Все креды берутся из переменных окружения. На Railway их нужно проставить
+ * в Variables:
+ *
+ *   CLICKHOUSE_HOST       — например `158.160.85.201`
+ *   CLICKHOUSE_PORT       — обычно `8123`
+ *   CLICKHOUSE_USER       — логин ClickHouse
+ *   CLICKHOUSE_PASSWORD   — пароль ClickHouse
+ *
+ * Если хоть одна переменная не задана — клиент кинет понятную ошибку при
+ * первом обращении; API-роут `/api/performance/tasks` поймает её и вернёт
+ * 502 с пустым массивом задач (дашборд покажет «не удалось загрузить»).
  */
 
 import { createClient, type ClickHouseClient } from '@clickhouse/client';
-
-// ============================================================
-// Конфиг
-// ============================================================
-
-/**
- * Дефолтные креды — те же, что Pavel дал в чате (тот же ClickHouse, что
- * используется для подтягивания дат повышений в `clickhouse.ts`). Для prod
- * лучше задать переменные окружения, но без них всё равно работает.
- */
-const CH_URL =
-  process.env.CLICKHOUSE_URL ??
-  `http://${process.env.CLICKHOUSE_HOST ?? '158.160.85.201'}:${
-    process.env.CLICKHOUSE_PORT ?? '8123'
-  }`;
-const CH_USER = process.env.CLICKHOUSE_USER ?? 'designgrades';
-const CH_PASS =
-  process.env.CLICKHOUSE_PASSWORD ?? 'Savor7-Unjustly-Fidelity-Tripod-Boogeyman';
 
 // ============================================================
 // Singleton-клиент
@@ -50,10 +43,27 @@ let _client: ClickHouseClient | null = null;
 
 function getClient(): ClickHouseClient {
   if (_client) return _client;
+
+  const host = process.env.CLICKHOUSE_HOST;
+  const port = process.env.CLICKHOUSE_PORT;
+  const user = process.env.CLICKHOUSE_USER;
+  const password = process.env.CLICKHOUSE_PASSWORD;
+  const missing: string[] = [];
+  if (!host) missing.push('CLICKHOUSE_HOST');
+  if (!port) missing.push('CLICKHOUSE_PORT');
+  if (!user) missing.push('CLICKHOUSE_USER');
+  if (!password) missing.push('CLICKHOUSE_PASSWORD');
+  if (missing.length > 0) {
+    throw new Error(
+      `ClickHouse env vars not set: ${missing.join(', ')}. ` +
+        `Установи переменные на Railway (Service → Variables).`,
+    );
+  }
+
   _client = createClient({
-    url: CH_URL,
-    username: CH_USER,
-    password: CH_PASS,
+    url: `http://${host}:${port}`,
+    username: user,
+    password,
     // Запрос задач — тяжёлый JOIN по миллионам записей time_records.
     // 15 секунд — компромисс между «не упасть на медленных запросах» и
     // «не блокировать рендер портрета слишком долго».
