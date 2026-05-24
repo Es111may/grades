@@ -133,10 +133,13 @@ export default function LeaderboardView({
     keyId,
     children,
     align = 'left',
+    tooltip,
   }: {
     keyId: SortKey;
     children: React.ReactNode;
     align?: 'left' | 'center' | 'right';
+    /** Нативный browser tooltip — показывается при наведении на заголовок. */
+    tooltip?: string;
   }) {
     const active = sortKey === keyId;
     const alignClass =
@@ -148,6 +151,7 @@ export default function LeaderboardView({
     return (
       <th
         onClick={() => toggleSort(keyId)}
+        title={tooltip}
         className={`py-2.5 px-4 font-medium text-[11px] text-stone cursor-pointer select-none hover:text-ink transition-colors ${alignClass}`}
       >
         <span className="inline-flex items-center gap-1">
@@ -163,22 +167,22 @@ export default function LeaderboardView({
   }
 
   return (
-    <>
-      {sortKey === 'composite' && (
-        <div className="text-xs text-stone mb-3 px-1">
-          Сортировка по рейтингу: XP (60%) + В срок (40%). Инхаус ранжируется
-          только по XP — у них нет данных в трекерах. Кликни на любой столбец,
-          чтобы сортировать по нему.
-        </div>
-      )}
-      <div className="card overflow-hidden">
+    <div className="card overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-canvas border-b border-cloud">
             {/* «Топ» — место для номера ранга. Кликом возвращает к
                 composite-сортировке (дефолтному рейтингу XP+В срок).
-                Это и есть «кнопка сброса» — не нужна отдельная. */}
-            <Th keyId="composite" align="center">Топ</Th>
+                Это и есть «кнопка сброса» — не нужна отдельная.
+                Tooltip объясняет формулу — раньше это была отдельная
+                подпись над таблицей, спрятали по просьбе Pavel'a. */}
+            <Th
+              keyId="composite"
+              align="center"
+              tooltip="Сортировка по рейтингу: XP (60%) + В срок (40%). Инхаус ранжируется только по XP — у них нет данных в трекерах. Кликни на любой столбец, чтобы сортировать по нему."
+            >
+              Топ
+            </Th>
             <Th keyId="name">Имя</Th>
             <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
               Билд
@@ -303,8 +307,7 @@ export default function LeaderboardView({
           })}
         </tbody>
       </table>
-      </div>
-    </>
+    </div>
   );
 }
 
