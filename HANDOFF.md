@@ -34,7 +34,16 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.21.0 (Phase 16 MVP — дашборд «Мой перформанс» на портрете дизайнера).
+**Версия в `package.json`:** 0.22.0 (Phase 16 закрыта — перформанс в лидерборде + composite score + чип «В срок» на портрете).
+
+**Phase 16 закрыто (0.22.0):**
+- Композитный score `0.6·(xp/maxXp) + 0.4·(onTime/100)` в `src/lib/perfScore.ts`. Для creator (Инхаус) / без данных / выборки < 5 задач — берётся только xpNorm. Дефолтная сортировка лидерборда теперь по composite.
+- Чип «В срок (6 мес)» в hero-карточке портрета (3-я колонка `grid-cols-[auto_1fr_auto]`). Цвет: ≥85% emerald · 70–84% amber · <70% blaze. Для creator и лидов — не рендерится.
+- Колонка «В срок» в лидерборде между XP и UI; ячейка `OnTimeCell` с цветовой подсветкой. Сортируется отдельно или участвует в дефолтной composite-сортировке. Подпись над таблицей объясняет формулу.
+- Batched ClickHouse-запрос для всей команды (`src/lib/clickhousePerfBatch.ts`): один SQL с `WHERE email IN (...)` и `subtractMonths(today(), 6)` окном. Фильтры зашиты (эстимейт + завершённые + ≥50% + оба источника).
+- In-memory cache TTL 15 мин (`src/lib/perfCache.ts`). После рестарта Railway первый заход — 5–8 сек, дальше моментально.
+- `/api/performance/leaderboard` — endpoint на будущее; server-side рендер админ-страницы тянет данные напрямую через `fetchOnTimeStatsByEmail`.
+- `showPerformance` на портрете определяется ролью target user: только `designer` и `stardiz` (стардизы работают руками), для `lead`/`admin` блок и чип не рисуются.
 
 **Phase 16 MVP закрыто (0.21.0):**
 - ClickHouse-коннектор на TypeScript через официальный `@clickhouse/client` (`src/lib/clickhousePerf.ts`) — порт Python-сервиса `ida.team/backend/analytics/services/time_manage.py` под направление `design`.

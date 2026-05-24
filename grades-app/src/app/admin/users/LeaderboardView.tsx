@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
+import { getOnTimeZone } from '@/lib/perfScore';
 import type { UserRow, GradeThreshold } from './UsersClient';
 
 const GRADE_LABELS: Record<string, string> = {
@@ -20,7 +21,7 @@ type TaxKey = (typeof TAXONOMIES)[number];
 const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
-type SortKey = 'name' | 'grade' | 'totalXp' | 'tenure' | TaxKey;
+type SortKey = 'composite' | 'name' | 'grade' | 'totalXp' | 'onTime' | 'tenure' | TaxKey;
 
 function tenureMonths(hiredAt: string | null): number {
   if (!hiredAt) return -1;
@@ -64,7 +65,10 @@ export default function LeaderboardView({
   // На лидерборде сравниваем только дизайнеров — стардизы не грейдируются.
   const designers = useMemo(() => users.filter((u) => u.role === 'designer'), [users]);
 
-  const [sortKey, setSortKey] = useState<SortKey>('totalXp');
+  // Дефолтная сортировка — composite score (XP·0.6 + perf·0.4). Это и есть
+  // «истинный» рейтинг лидерборда. По клику на любую другую колонку
+  // переключается на простую сортировку по ней.
+  const [sortKey, setSortKey] = useState<SortKey>('composite');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   function toggleSort(key: SortKey) {
@@ -86,7 +90,10 @@ export default function LeaderboardView({
       if (a.active !== b.active) return a.active ? -1 : 1;
       let av: number | string = 0;
       let bv: number | string = 0;
-      if (sortKey === 'name') {
+      if (sortKey === 'composite') {
+        av = a.compositeScore ?? -1;
+        bv = b.compositeScore ?? -1;
+      } else if (sortKey === 'name') {
         av = a.fullName.toLowerCase();
         bv = b.fullName.toLowerCase();
       } else if (sortKey === 'grade') {
@@ -97,6 +104,10 @@ export default function LeaderboardView({
       } else if (sortKey === 'totalXp') {
         av = a.totalXp ?? -1;
         bv = b.totalXp ?? -1;
+      } else if (sortKey === 'onTime') {
+        // Инхаус и те, у кого нет данных — в конец независимо от sortDir.
+        av = a.onTimePercent ?? -1;
+        bv = b.onTimePercent ?? -1;
       } else if (sortKey === 'tenure') {
         av = tenureMonths(a.hiredAt);
         bv = tenureMonths(b.hiredAt);
@@ -152,7 +163,15 @@ export default function LeaderboardView({
   }
 
   return (
-    <div className="card overflow-hidden">
+    <>
+      {sortKey === 'composite' && (
+        <div className="text-xs text-stone mb-3 px-1">
+          Сортировка по рейтингу: XP (60%) + В срок (40%). Инхаус ранжируется
+          только по XP — у них нет данных в трекерах. Кликни на любой столбец,
+          чтобы сортировать по нему.
+        </div>
+      )}
+      <div className="card overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-canvas border-b border-cloud">
@@ -163,6 +182,9 @@ export default function LeaderboardView({
             <Th keyId="grade">Грейд</Th>
             <Th keyId="totalXp" align="center">
               XP
+            </Th>
+            <Th keyId="onTime" align="center">
+              В срок
             </Th>
             {TAXONOMIES.map((t) => (
               <Th key={t} keyId={t} align="center">
@@ -226,6 +248,13 @@ export default function LeaderboardView({
                     <span className="text-ash">—</span>
                   )}
                 </td>
+                <td className="py-3 px-4 text-center">
+                  <OnTimeCell
+                    onTimePercent={u.onTimePercent ?? null}
+                    totalTasks={u.onTimeTotalTasks ?? 0}
+                    buildCode={u.build?.code ?? null}
+                  />
+                </td>
                 {TAXONOMIES.map((t) => (
                   <td key={t} className="py-3 px-4 text-center tabular-nums text-stone">
                     {u.xpByTaxonomy?.[t] ?? '—'}
@@ -257,6 +286,34 @@ export default function LeaderboardView({
           })}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Ячейка «В срок» в лидерборде.
+ * - Инхаус (creator) и пустая выборка → «—».
+ * - Иначе процент в цвете под зону (emerald ≥ 85, amber 70–84, blaze < 70).
+ */
+function OnTimeCell({
+  onTimePercent,
+  totalTasks,
+  buildCode,
+}: {
+  onTimePercent: number | null;
+  totalTasks: number;
+  buildCode: string | null;
+}) {
+  if (buildCode === 'creator' || onTimePercent == null || totalTasks === 0) {
+    return <span className="text-ash">—</span>;
+  }
+  const zone = getOnTimeZone(onTimePercent);
+  const colorClass =
+    zone === 'emerald' ? 'text-emerald' : zone === 'amber' ? 'text-amber-600' : 'text-blaze';
+  return (
+    <span className={`tabular-nums font-semibold ${colorClass}`}>
+      {Math.round(onTimePercent)}%
+    </span>
   );
 }

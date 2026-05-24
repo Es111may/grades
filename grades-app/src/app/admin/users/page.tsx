@@ -4,6 +4,9 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { canAccessUsers } from '@/lib/permissions';
+import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
+import { computeScore } from '@/lib/perfScore';
+import type { BuildCode } from '@/lib/types';
 import UsersClient from './UsersClient';
 
 export default async function AdminUsersPage() {
@@ -25,6 +28,23 @@ export default async function AdminUsersPage() {
       : {};
 
   const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
+
+  // Phase 16: maxXp по билду — нужно для xpNorm в composite score.
+  // Грузим SkillWeight + Skill, считаем sum(weight × maxMasteryLevel) по
+  // активным навыкам, группируя по buildId. Одинаково для всех дизайнеров
+  // одного билда — поэтому считаем тут один раз, в page.
+  const skillWeightsForMax = matrix
+    ? await prisma.skillWeight.findMany({
+        where: { matrixVersionId: matrix.id },
+        include: { skill: { select: { active: true, maxMasteryLevel: true } } },
+      })
+    : [];
+  const maxXpByBuildId = new Map<number, number>();
+  for (const sw of skillWeightsForMax) {
+    if (!sw.skill.active) continue;
+    const cur = maxXpByBuildId.get(sw.buildId) ?? 0;
+    maxXpByBuildId.set(sw.buildId, cur + sw.weight * sw.skill.maxMasteryLevel);
+  }
 
   const [usersRaw, builds, leadsRaw, stardizesRaw, latestGrades, gradeLevels] =
     await Promise.all([
@@ -106,8 +126,47 @@ export default async function AdminUsersPage() {
     xpThresholds: g.xpThresholds as Record<string, number>,
   }));
 
+  // Phase 16: батч-агрегат «% попадания в срок за 6 мес». Тянем сразу
+  // для всех дизайнеров — один CH-запрос, потом кэш 15 мин.
+  // Инхаус (creator) тоже отправляем — внутри запроса они отфильтруются
+  // фильтрами «had estimate / completed / worked-hard» (т.к. в трекерах
+  // их задач нет), а если что-то найдётся — это всё равно мусор: для них
+  // perfScore не применяется (см. perfScore.ts).
+  const designerEmails = usersRaw
+    .filter((u) => (u.role === 'designer' || u.role === 'stardiz') && u.active && u.email)
+    .map((u) => u.email);
+  let onTimeByEmail = new Map<string, { onTimePercent: number | null; totalTasks: number }>();
+  if (designerEmails.length > 0) {
+    try {
+      onTimeByEmail = await fetchOnTimeStatsByEmail(designerEmails);
+    } catch (err) {
+      console.error('[/admin/users] fetchOnTimeStatsByEmail failed:', err);
+      // Fall through: всем onTime = null, composite опустится в xpNorm.
+    }
+  }
+
   const users = usersRaw.map((u) => {
     const last = gradeByDesignerId.get(u.id);
+    const maxXp = u.buildId ? maxXpByBuildId.get(u.buildId) ?? 0 : 0;
+    const perfStat = u.email ? onTimeByEmail.get(u.email.toLowerCase()) : undefined;
+    const onTimePercent = perfStat?.onTimePercent ?? null;
+    const onTimeTotalTasks = perfStat?.totalTasks ?? 0;
+
+    // Composite score считаем только для дизайнеров (стардизы не
+    // ранжируются в лидерборде). Передаём buildCode в формулу — она сама
+    // отключит perf-компонент для creator/без данных/малой выборки.
+    let compositeScore: number | null = null;
+    if (u.role === 'designer') {
+      const r = computeScore({
+        xp: last?.totalXp ?? null,
+        maxXp,
+        buildCode: (u.build?.code as BuildCode) ?? null,
+        onTimePercent,
+        totalTasks: onTimeTotalTasks,
+      });
+      compositeScore = r.score;
+    }
+
     return {
       id: u.id,
       email: u.email,
@@ -129,6 +188,10 @@ export default async function AdminUsersPage() {
       lastAssessedAt: last?.publishedAt ?? null,
       totalXp: last?.totalXp ?? null,
       xpByTaxonomy: last?.xpByTaxonomy ?? null,
+      maxXp,
+      onTimePercent,
+      onTimeTotalTasks,
+      compositeScore,
     };
   });
 

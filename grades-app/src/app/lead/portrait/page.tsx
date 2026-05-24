@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { loadPortraitData } from '@/lib/portrait';
+import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
 import Portrait from '@/app/designer/Portrait';
@@ -102,6 +103,25 @@ export default async function LeadPortraitPage({
     ],
   });
 
+  // Перформанс — только для designer/stardiz целевого пользователя.
+  // Лида/админа на собственном портрете тут вообще не открывают, но если
+  // вдруг будет ссылка — блок не покажем.
+  const showPerformance = designer.role === 'designer' || designer.role === 'stardiz';
+  let onTimePercent: number | null = null;
+  let onTimeTotalTasks = 0;
+  if (showPerformance && designer.email) {
+    try {
+      const stats = await fetchOnTimeStatsByEmail([designer.email]);
+      const s = stats.get(designer.email.toLowerCase());
+      if (s) {
+        onTimePercent = s.onTimePercent;
+        onTimeTotalTasks = s.totalTasks;
+      }
+    } catch (err) {
+      console.error('[/lead/portrait] fetchOnTimeStatsByEmail failed:', err);
+    }
+  }
+
   return (
     <>
       <PortraitActions
@@ -121,6 +141,9 @@ export default async function LeadPortraitPage({
         userId={designerId}
         initialProjects={userProjects.map((up) => up.project)}
         canEditProjects={user.role === 'admin' || designerId === user.id}
+        showPerformance={showPerformance}
+        onTimePercent={onTimePercent}
+        onTimeTotalTasks={onTimeTotalTasks}
       />
     </>
   );

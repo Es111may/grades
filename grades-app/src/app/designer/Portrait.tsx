@@ -19,6 +19,7 @@ import { ChevronDownIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
 import ProjectsField from '@/components/ProjectsField';
 import PerformanceDashboard from '@/components/performance/PerformanceDashboard';
+import OnTimeChip from '@/components/performance/OnTimeChip';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
@@ -96,6 +97,8 @@ export default function Portrait({
   initialProjects,
   canEditProjects = false,
   showPerformance = true,
+  onTimePercent = null,
+  onTimeTotalTasks = 0,
 }: {
   data: PortraitData;
   breadcrumb?: { href: string; label: string };
@@ -115,10 +118,15 @@ export default function Portrait({
   /** Может ли текущий пользователь редактировать список проектов
    *  (сам владелец или admin). */
   canEditProjects?: boolean;
-  /** Если true — показываем блок «Мой перформанс» с данными из ClickHouse
-   *  (через `/api/performance/tasks?userId=...`). На странице админ-просмотра
-   *  лида/стардиза можно отключить флагом. По умолчанию включено. */
+  /** Если true — показываем блок «Перформанс» (детальный дашборд с задачами)
+   *  и чип «В срок» в hero-карточке. На портрете лида (как сотрудника)
+   *  передаём false: они не работают руками в трекерах. По умолчанию on. */
   showPerformance?: boolean;
+  /** Текущий % попадания в срок за 6 мес (server-side подтянут из ClickHouse).
+   *  null = нет данных / ClickHouse недоступен / у пользователя нет email. */
+  onTimePercent?: number | null;
+  /** Кол-во задач в выборке для onTimePercent — нужно для подписи под чипом. */
+  onTimeTotalTasks?: number;
 }) {
   const [rowHovered, setRowHovered] = useState(false);
 
@@ -302,9 +310,11 @@ export default function Portrait({
       {/* === Статистика: grade-card, taxonomy-cards, radar, next-gate === */}
       <section id="stats" className="scroll-mt-24">
 
-      {/* Grade card */}
+      {/* Grade card. Третья колонка — чип «В срок (6 мес)», рендерится только
+          если у дизайнера непустая выборка и билд не creator (Инхаус).
+          OnTimeChip сам решает что показывать — мы просто кладём его в grid. */}
       <div className="card p-7 mb-6">
-        <div className="grid grid-cols-[auto_1fr] gap-10 items-end">
+        <div className="grid grid-cols-[auto_1fr_auto] gap-10 items-end">
           <div>
             <div className="text-[11px]  text-stone mb-2">
               {isFloorActive ? 'Эффективный грейд' : 'Грейд'}
@@ -338,6 +348,16 @@ export default function Portrait({
             </div>
             <div className="text-xs text-stone mt-1.5">{xpProgress}% от максимума</div>
           </div>
+          {/* Третья колонка: чип «В срок (6 мес)». Сам рисует null если
+              creator или нет данных — поэтому grid в этом случае
+              схлопывается до 2 видимых колонок. */}
+          {showPerformance && (
+            <OnTimeChip
+              onTimePercent={onTimePercent}
+              totalTasks={onTimeTotalTasks}
+              buildCode={data.designer.buildCode}
+            />
+          )}
         </div>
       </div>
 

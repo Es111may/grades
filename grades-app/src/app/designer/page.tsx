@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { loadPortraitData } from '@/lib/portrait';
+import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
 import Portrait from './Portrait';
@@ -90,6 +91,26 @@ export default async function DesignerPortraitPage({
     ],
   });
 
+  // Перформанс показываем только дизайнерам и стардизам (они работают
+  // руками в трекерах). Лиды/админы на собственном портрете блок не видят.
+  const showPerformance = user.role === 'designer' || user.role === 'stardiz';
+  let onTimePercent: number | null = null;
+  let onTimeTotalTasks = 0;
+  if (showPerformance && user.email) {
+    try {
+      const stats = await fetchOnTimeStatsByEmail([user.email]);
+      const s = stats.get(user.email.toLowerCase());
+      if (s) {
+        onTimePercent = s.onTimePercent;
+        onTimeTotalTasks = s.totalTasks;
+      }
+    } catch (err) {
+      // ClickHouse недоступен — портрет всё равно показываем, чип просто
+      // не нарисуется (null).
+      console.error('[/designer] fetchOnTimeStatsByEmail failed:', err);
+    }
+  }
+
   return (
     <Portrait
       data={result.data}
@@ -98,6 +119,9 @@ export default async function DesignerPortraitPage({
       userId={user.id}
       initialProjects={userProjects.map((up) => up.project)}
       canEditProjects={true}
+      showPerformance={showPerformance}
+      onTimePercent={onTimePercent}
+      onTimeTotalTasks={onTimeTotalTasks}
     />
   );
 }

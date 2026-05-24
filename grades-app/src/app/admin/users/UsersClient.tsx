@@ -30,6 +30,15 @@ export type UserRow = {
   lastAssessedAt?: string | null;
   totalXp?: number | null;
   xpByTaxonomy?: Record<string, number> | null;
+  // Phase 16: перформанс из ClickHouse + composite score для сортировки.
+  /** Максимальный XP в матрице для билда дизайнера. Нужен для xpNorm. */
+  maxXp?: number | null;
+  /** % попадания в срок за 6 мес (jobs из collab+manage). null если данных нет. */
+  onTimePercent?: number | null;
+  /** Сколько задач в выборке за 6 мес — для проверки минимальной значимости. */
+  onTimeTotalTasks?: number;
+  /** Composite score 0..1 (0.6·xpNorm + 0.4·perfNorm). Пред-рассчитан на сервере. */
+  compositeScore?: number | null;
 };
 
 export type GradeThreshold = {
