@@ -34,7 +34,17 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.15.0 (Phase 22.1 — 360-оценка лидов).
+**Версия в `package.json`:** 0.21.0 (Phase 16 MVP — дашборд «Мой перформанс» на портрете дизайнера).
+
+**Phase 16 MVP закрыто (0.21.0):**
+- ClickHouse-коннектор на TypeScript через официальный `@clickhouse/client` (`src/lib/clickhousePerf.ts`) — порт Python-сервиса `ida.team/backend/analytics/services/time_manage.py` под направление `design`.
+- API `/api/performance/tasks?userId=...` с проверкой прав (admin / self / lead / stardiz), `src/app/api/performance/tasks/route.ts`.
+- React-порт `ProfilePerformanceDashboard.vue` (`src/components/performance/{PerformanceDashboard,PerformanceSummaryTable,PerformanceCharts,PerformanceTasksTable}.tsx`).
+- Чистая агрегация по периодам в `src/lib/performanceAggregation.ts` (порт `useTimeManageAggregation.ts`).
+- Дашборд встроен в `Portrait.tsx` после блока «Проекты», добавлен якорь `#performance` в SectionNav.
+- Композитная формула `α·XP + β·Perf − γ·Cost` пока не реализована — это была Phase 16 в полном виде, MVP закрывает только визуализацию перформанса.
+
+Креды ClickHouse — `CLICKHOUSE_HOST=158.160.85.201`, `CLICKHOUSE_PORT=8123`, `CLICKHOUSE_USER=designgrades`. Дефолты захардкожены в `clickhousePerf.ts`/`clickhouse.ts`, но на Railway лучше выставить через Variables.
 
 ## Что в очереди (Phase 13+)
 

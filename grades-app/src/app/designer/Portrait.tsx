@@ -18,6 +18,7 @@ import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
 import ProjectsField from '@/components/ProjectsField';
+import PerformanceDashboard from '@/components/performance/PerformanceDashboard';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
@@ -94,6 +95,7 @@ export default function Portrait({
   userId,
   initialProjects,
   canEditProjects = false,
+  showPerformance = true,
 }: {
   data: PortraitData;
   breadcrumb?: { href: string; label: string };
@@ -113,6 +115,10 @@ export default function Portrait({
   /** Может ли текущий пользователь редактировать список проектов
    *  (сам владелец или admin). */
   canEditProjects?: boolean;
+  /** Если true — показываем блок «Мой перформанс» с данными из ClickHouse
+   *  (через `/api/performance/tasks?userId=...`). На странице админ-просмотра
+   *  лида/стардиза можно отключить флагом. По умолчанию включено. */
+  showPerformance?: boolean;
 }) {
   const [rowHovered, setRowHovered] = useState(false);
 
@@ -137,9 +143,12 @@ export default function Portrait({
       ...(canEditProjects || initialProjects.length > 0
         ? [{ id: 'projects', label: 'Проекты' }]
         : []),
+      // Перформанс показываем сразу после Проектов — это второй «человеческий»
+      // блок, ещё до разбора по навыкам.
+      ...(showPerformance ? [{ id: 'performance', label: 'Перформанс' }] : []),
       ...presentTaxonomies.map((code) => ({ id: `tax-${code}`, label: code })),
     ],
-    [presentTaxonomies, canEditProjects, initialProjects.length],
+    [presentTaxonomies, canEditProjects, initialProjects.length, showPerformance],
   );
 
   const xpProgress = data.maxXp > 0 ? Math.round((data.totalXp / data.maxXp) * 100) : 0;
@@ -484,6 +493,15 @@ export default function Portrait({
           canEdit={canEditProjects}
         />
       </section>
+
+      {/* Мой перформанс — данные из ClickHouse (collab + manage tracker).
+          Лениво подтягивается на клиенте: server-side тянуть запрос нет
+          смысла, он тяжёлый и блокировал бы рендер всего портрета. */}
+      {showPerformance && (
+        <section id="performance" className="scroll-mt-24">
+          <PerformanceDashboard userId={userId} />
+        </section>
+      )}
 
       {/* Мнение дизайн-лида / стардиза — аналог CDO-блока у лидов.
           Pavel попросил вывести его ПЕРЕД блоком «Навыки», чтобы дизайнер
