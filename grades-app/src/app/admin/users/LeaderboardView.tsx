@@ -175,6 +175,10 @@ export default function LeaderboardView({
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-canvas border-b border-cloud">
+            {/* «Топ» — место для номера ранга. Кликом возвращает к
+                composite-сортировке (дефолтному рейтингу XP+В срок).
+                Это и есть «кнопка сброса» — не нужна отдельная. */}
+            <Th keyId="composite" align="center">Топ</Th>
             <Th keyId="name">Имя</Th>
             <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
               Билд
@@ -200,7 +204,11 @@ export default function LeaderboardView({
           </tr>
         </thead>
         <tbody className="divide-y divide-cloud">
-          {sorted.map((u) => {
+          {sorted.map((u, index) => {
+            // Номер строки в текущем порядке. Когда активна composite-сортировка,
+            // подсвечиваем его как «настоящий ранг». При других сортировках —
+            // серым, потому что номер всё ещё валиден, но он не «рейтинг».
+            const isRankActive = sortKey === 'composite';
             return (
               <tr
                 key={u.id}
@@ -209,6 +217,15 @@ export default function LeaderboardView({
                   !u.active ? 'opacity-50' : ''
                 }`}
               >
+                <td className="py-3 px-4 text-center">
+                  <span
+                    className={`tabular-nums ${
+                      isRankActive ? 'font-semibold text-ink' : 'text-stone'
+                    }`}
+                  >
+                    {index + 1}
+                  </span>
+                </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-3">
                     <Avatar name={u.fullName} avatarUrl={u.avatarUrl} size={32} />
