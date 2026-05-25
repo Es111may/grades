@@ -156,6 +156,13 @@ export default function Portrait({
     [data.skills],
   );
 
+  // Pavel: на портретах ребят из билда Инхаус (`creator`) блок «Перформанс»
+  // и якорь в нав-плашке прячем — у них нет данных в трекерах, дашборд
+  // всегда пустой. Чип «В срок» в шапке уже сам решает не рисоваться
+  // для `creator` (см. OnTimeChip).
+  const showPerformanceForBuild =
+    showPerformance && data.designer.buildCode !== 'creator';
+
   const navSections: SectionNavItem[] = useMemo(
     () => [
       { id: 'stats', label: 'Статистика' },
@@ -166,8 +173,8 @@ export default function Portrait({
         ? [{ id: 'projects', label: 'Проекты' }]
         : []),
       // Перформанс показываем сразу после Проектов — это второй «человеческий»
-      // блок, ещё до разбора по навыкам.
-      ...(showPerformance ? [{ id: 'performance', label: 'Перформанс' }] : []),
+      // блок, ещё до разбора по навыкам. Для Инхауса скрываем — данных нет.
+      ...(showPerformanceForBuild ? [{ id: 'performance', label: 'Перформанс' }] : []),
       // «Выводы» — это блок «Мнение дизайн-лида / стардиза». Лейбл короткий,
       // как просил Pavel.
       { id: 'lead-comment', label: 'Выводы' },
@@ -182,7 +189,7 @@ export default function Portrait({
       presentTaxonomies,
       canEditProjects,
       initialProjects.length,
-      showPerformance,
+      showPerformanceForBuild,
       meRole,
     ],
   );
@@ -544,8 +551,10 @@ export default function Portrait({
 
       {/* Мой перформанс — данные из ClickHouse (collab + manage tracker).
           Лениво подтягивается на клиенте: server-side тянуть запрос нет
-          смысла, он тяжёлый и блокировал бы рендер всего портрета. */}
-      {showPerformance && (
+          смысла, он тяжёлый и блокировал бы рендер всего портрета.
+          Для Инхауса (`creator`) — скрываем целиком, у них нет трекаемых
+          задач, дашборд всегда был бы пустым. */}
+      {showPerformanceForBuild && (
         <section id="performance" className="scroll-mt-24">
           <PerformanceDashboard userId={userId} />
         </section>
