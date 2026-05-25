@@ -38,12 +38,10 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default function AuditView({
-  meRole,
   initialEntries,
   actors,
   pageSize,
 }: {
-  meRole: string;
   initialEntries: AuditEntry[];
   actors: ActorInfo[];
   pageSize: number;
@@ -129,16 +127,9 @@ export default function AuditView({
   }, [initialEntries, entries]);
 
   return (
-    <main className="max-w-[1400px] mx-auto px-8 pt-8 pb-16">
-      <div className="mb-6">
-        <h1 className="font-display text-3xl font-semibold tracking-tight mb-1">
-          Аудит-лог
-        </h1>
-        <p className="text-sm text-stone">
-          {meRole === 'admin'
-            ? 'Все события системы: правки пользователей, оценок, ИПР, проектов, 360-опросов.'
-            : 'Твои действия + изменения по твоим подопечным.'}
-        </p>
+    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
+      <div className="flex items-end justify-between mb-6 gap-4">
+        <h1 className="font-display text-4xl font-semibold tracking-tight">Аудит</h1>
       </div>
 
       {/* Фильтры */}

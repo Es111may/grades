@@ -102,7 +102,6 @@ export default async function AdminAuditPage() {
 
   return (
     <AuditView
-      meRole={me.role}
       initialEntries={serialized}
       actors={actors}
       pageSize={PAGE_SIZE}

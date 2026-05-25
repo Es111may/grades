@@ -19,6 +19,8 @@ export default async function LeadLayout({ children }: { children: React.ReactNo
         { href: '/admin/matrix', label: 'Матрица' },
         { href: '/admin/grades', label: 'Грейды' },
         { href: '/lead/assessments', label: 'Оценки' },
+        // Аудит-лог (Phase 19) — admin и lead. Стандартный пункт нав-меню.
+        { href: '/admin/audit', label: 'Аудит' },
         ...(isLeadLike ? [{ href: '/admin/lead-reviews', label: 'Мой портрет' }] : []),
       ]
     : [
