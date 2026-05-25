@@ -25,22 +25,57 @@ function generatePassword(length = 12): string {
 }
 
 /**
- * POST /api/users/[id]/password — admin only.
+ * POST /api/users/[id]/password
+ *
+ * Кто может выдавать пароли:
+ *   - admin    — любому пользователю
+ *   - lead     — только дизайнеру, которого он ведёт (target.leadId === me.id)
+ *   - stardiz  — только дизайнеру, у которого он стардиз (target.stardizId === me.id),
+ *                либо если он формальный лид (target.leadId === me.id)
+ *
+ * Лиды и стардизы НЕ могут выдавать пароли другим лидам/стардизам/админам —
+ * только своим подопечным-дизайнерам. Иначе это эскалация привилегий.
+ *
  * Body: { password? }. Если password не передан — генерим случайный.
- * Ответ: { password } — открытый текст показываем один раз, чтобы админ скопировал.
+ * Ответ: { password } — открытый текст показываем один раз, чтобы выдающий
+ * скопировал и переслал владельцу.
  */
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
   const me = await getCurrentUser();
-  if (!me || me.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!me) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const userId = parseInt(params.id, 10);
   if (isNaN(userId)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      leadId: true,
+      stardizId: true,
+    },
+  });
+  if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const isAdmin = me.role === 'admin';
+  // Лид/стардиз могут только своим подопечным-дизайнерам. Это закрывает
+  // лазейку «лид выдаёт пароль другому лиду и заходит под ним».
+  const isManaging =
+    (me.role === 'lead' || me.role === 'stardiz') &&
+    user.role === 'designer' &&
+    (user.leadId === me.id || user.stardizId === me.id);
+
+  if (!isAdmin && !isManaging) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({}));
@@ -51,9 +86,6 @@ export async function POST(
       { status: 400 },
     );
   }
-
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const password = parsed.data.password ?? generatePassword(12);
   const passwordHash = await bcrypt.hash(password, 10);

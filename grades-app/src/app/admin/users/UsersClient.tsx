@@ -297,6 +297,7 @@ export default function UsersClient({
           leads={leads}
           stardizes={stardizes}
           meRole={meRole}
+          meId={meId}
           onClose={() => setModalOpen(false)}
           onSaved={handleSaved}
           onDeleted={handleDeleted}

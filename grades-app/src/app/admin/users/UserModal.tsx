@@ -85,6 +85,7 @@ export default function UserModal({
   leads,
   stardizes,
   meRole,
+  meId,
   onClose,
   onSaved,
   onDeleted,
@@ -95,11 +96,23 @@ export default function UserModal({
   leads: Lead[];
   stardizes: Lead[];
   meRole: string;
+  /** id текущего пользователя — нужен для проверки прав «свой подопечный»
+   *  у lead/stardiz (выдача паролей). */
+  meId: number | null;
   onClose: () => void;
   onSaved: (u: UserData) => void;
   onDeleted: (id: number) => void;
 }) {
   const isAdmin = meRole === 'admin';
+  // Лид/стардиз могут выдавать пароль ТОЛЬКО своему подопечному-дизайнеру.
+  // Логика идентична серверной в /api/users/[id]/password — иначе UI
+  // покажет кнопку, а API не пустит.
+  const isManagingThisDesigner =
+    (meRole === 'lead' || meRole === 'stardiz') &&
+    user?.role === 'designer' &&
+    meId !== null &&
+    (user.leadId === meId || user.stardizId === meId);
+  const canManagePassword = !isNew && (isAdmin || isManagingThisDesigner);
   const [form, setForm] = useState({
     fullName: user?.fullName ?? '',
     email: user?.email ?? '',
@@ -710,8 +723,8 @@ export default function UserModal({
             </section>
           )}
 
-          {/* Password — admin only */}
-          {!isNew && isAdmin && (
+          {/* Пароль — admin всем, lead/stardiz только своему дизайнеру */}
+          {canManagePassword && (
             <section>
               <div className="text-xs  text-stone mb-3">
                 Пароль для входа
