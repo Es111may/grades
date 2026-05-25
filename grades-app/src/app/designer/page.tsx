@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { loadPortraitData } from '@/lib/portrait';
 import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
+import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
 import Portrait from './Portrait';
@@ -111,6 +112,20 @@ export default async function DesignerPortraitPage({
     }
   }
 
+  // Phase 17 — ИПР. Зритель здесь — сам owner портрета, т.е. user. У него
+  // право создавать чек-листы себе (по матрице прав), значит canCreate=true.
+  // Но используем общий хелпер — он же гарантирует консистентность.
+  const meAsTarget = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, role: true, leadId: true, stardizId: true },
+  });
+  const canCreateChecklists =
+    !!meAsTarget &&
+    canCreateChecklistFor(
+      { id: user.id, role: user.role ?? '' },
+      meAsTarget,
+    );
+
   return (
     <Portrait
       data={result.data}
@@ -122,6 +137,9 @@ export default async function DesignerPortraitPage({
       showPerformance={showPerformance}
       onTimePercent={onTimePercent}
       onTimeTotalTasks={onTimeTotalTasks}
+      meRole={(user.role ?? 'designer') as Role}
+      meUserId={user.id}
+      canCreateChecklists={canCreateChecklists}
     />
   );
 }

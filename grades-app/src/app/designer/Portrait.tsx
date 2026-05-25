@@ -20,7 +20,9 @@ import { EditableMarkdownBlock } from '@/components/Markdown';
 import ProjectsField from '@/components/ProjectsField';
 import PerformanceDashboard from '@/components/performance/PerformanceDashboard';
 import OnTimeChip from '@/components/performance/OnTimeChip';
+import ChecklistsSection from '@/components/checklists/ChecklistsSection';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
+import type { Role } from '@/lib/checklistPermissions';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -99,6 +101,9 @@ export default function Portrait({
   showPerformance = true,
   onTimePercent = null,
   onTimeTotalTasks = 0,
+  meRole,
+  meUserId,
+  canCreateChecklists = false,
 }: {
   data: PortraitData;
   breadcrumb?: { href: string; label: string };
@@ -127,6 +132,15 @@ export default function Portrait({
   onTimePercent?: number | null;
   /** Кол-во задач в выборке для onTimePercent — нужно для подписи под чипом. */
   onTimeTotalTasks?: number;
+  /** Phase 17 — ИПР. Роль зрителя — нужно для расчёта прав на клиенте. */
+  meRole?: Role;
+  /** Phase 17 — id зрителя (не owner'а портрета). Нужно для бейджа
+   *  «Я» когда зритель сам автор чек-листа. */
+  meUserId?: number;
+  /** Phase 17 — можно ли текущему пользователю создавать чек-листы
+   *  на портрете owner'а. Рассчитано на сервере по
+   *  `canCreateChecklistFor(me, target)`. */
+  canCreateChecklists?: boolean;
 }) {
   const [rowHovered, setRowHovered] = useState(false);
 
@@ -157,9 +171,20 @@ export default function Portrait({
       // «Выводы» — это блок «Мнение дизайн-лида / стардиза». Лейбл короткий,
       // как просил Pavel.
       { id: 'lead-comment', label: 'Выводы' },
+      // ИПР рендерим только если мы (зритель) можем видеть портрет — для
+      // того, кому показывают, это true (canCreateChecklists для дизайнера
+      // = true, потому что себе можно). Если meRole не передан вовсе —
+      // секцию не показываем (legacy-вызовы).
+      ...(meRole ? [{ id: 'ipr', label: 'ИПР' }] : []),
       ...presentTaxonomies.map((code) => ({ id: `tax-${code}`, label: code })),
     ],
-    [presentTaxonomies, canEditProjects, initialProjects.length, showPerformance],
+    [
+      presentTaxonomies,
+      canEditProjects,
+      initialProjects.length,
+      showPerformance,
+      meRole,
+    ],
   );
 
   const xpProgress = data.maxXp > 0 ? Math.round((data.totalXp / data.maxXp) * 100) : 0;
@@ -556,6 +581,19 @@ export default function Portrait({
           }}
         />
       </section>
+
+      {/* ИПР — чек-листы. Phase 17. Рендерим если зритель имеет meRole
+          (т.е. это аутентифицированный пользователь — что должно быть
+          всегда). Серверная проверка прав ещё раз сделает то же самое. */}
+      {meRole && meUserId !== undefined && (
+        <section id="ipr" className="scroll-mt-24">
+          <ChecklistsSection
+            ownerId={userId}
+            me={{ id: meUserId, role: meRole }}
+            canCreate={canCreateChecklists}
+          />
+        </section>
+      )}
 
       {/* Skills grouped — accordions, стиль как у формы оценки */}
       <div className="space-y-5">

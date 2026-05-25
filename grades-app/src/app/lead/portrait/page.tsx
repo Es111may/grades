@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { loadPortraitData } from '@/lib/portrait';
 import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
+import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
 import Portrait from '@/app/designer/Portrait';
@@ -122,6 +123,18 @@ export default async function LeadPortraitPage({
     }
   }
 
+  // Phase 17 — ИПР: можно ли мне (зрителю) создавать чек-листы на портрете
+  // target'а (designer).
+  const canCreateChecklists = canCreateChecklistFor(
+    { id: user.id, role: user.role ?? '' },
+    {
+      id: designer.id,
+      role: designer.role,
+      leadId: designer.leadId,
+      stardizId: designer.stardizId,
+    },
+  );
+
   return (
     <>
       <PortraitActions
@@ -144,6 +157,9 @@ export default async function LeadPortraitPage({
         showPerformance={showPerformance}
         onTimePercent={onTimePercent}
         onTimeTotalTasks={onTimeTotalTasks}
+        meRole={(user.role ?? 'designer') as Role}
+        meUserId={user.id}
+        canCreateChecklists={canCreateChecklists}
       />
     </>
   );

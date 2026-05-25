@@ -7,7 +7,9 @@ import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
 import ProjectsField from '@/components/ProjectsField';
+import ChecklistsSection from '@/components/checklists/ChecklistsSection';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
+import type { Role } from '@/lib/checklistPermissions';
 import {
   ROLE_LABEL,
   ROLE_LABEL_ONE,
@@ -53,20 +55,26 @@ const ROLE_ORDER: ResponderRole[] = ['designer', 'manager', 'lead', 'frontend', 
 
 export default function LeadReviewView({
   meRole,
+  meUserId,
   review,
   target,
   siblings,
   previous,
   initialProjects,
   canEditProjects,
+  canCreateChecklists,
 }: {
   meRole: string;
+  /** Phase 17 — id зрителя (для бейджа «Я» в чек-листах) */
+  meUserId: number;
   review: Review;
   target: Target;
   siblings: Sibling[];
   previous: Previous | null;
   initialProjects: { id: number; name: string; category: string }[];
   canEditProjects: boolean;
+  /** Phase 17 — может ли зритель создавать чек-листы на портрете target'а. */
+  canCreateChecklists: boolean;
 }) {
   const router = useRouter();
   const isAdmin = meRole === 'admin';
@@ -127,6 +135,9 @@ export default function LeadReviewView({
       { id: 'cat-collaboration', label: 'Разработка' },
       { id: 'questions', label: 'Вопросы' },
       { id: 'summary', label: 'Выводы' },
+      // Phase 17 — ИПР после Выводов (CDO). По задумке: сначала
+      // человеческие итоги цикла, потом — план на следующий.
+      { id: 'ipr', label: 'ИПР' },
     ],
     [canEditProjects, initialProjects.length],
   );
@@ -315,6 +326,16 @@ export default function LeadReviewView({
           canEdit={isAdmin}
           reviewId={review.id}
           field="cdoSummary"
+        />
+      </section>
+
+      {/* ИПР — Phase 17. После «Выводов / Блока CDO» — логичная преемственность:
+          оценили цикл, теперь ставим план на следующий. */}
+      <section id="ipr" className="scroll-mt-24">
+        <ChecklistsSection
+          ownerId={target.id}
+          me={{ id: meUserId, role: (meRole as Role) ?? 'designer' }}
+          canCreate={canCreateChecklists}
         />
       </section>
 

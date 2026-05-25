@@ -34,7 +34,17 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.22.0 (Phase 16 закрыта — перформанс в лидерборде + composite score + чип «В срок» на портрете).
+**Версия в `package.json`:** 0.23.0 (Phase 17 — ИПР: чек-листы на портрете в стиле Telegram).
+
+**Phase 17 закрыто (0.23.0):**
+- Две Prisma-модели: `Checklist` (owner + createdBy + createdByRole snapshot) и `ChecklistItem` (text + checked + sortOrder).
+- `src/lib/checklistPermissions.ts` — pure-логика прав. Иерархия `admin > lead > stardiz > designer`. Создание по матрице (admin → всем, lead → designer+stardiz+себе, stardiz → designer+себе, designer → только себе). Структурное редактирование = автор + любая роль строго старше `createdByRole`. Отметка `checked` = все, кто видит портрет (включая владельца, иначе ИПР бесполезен).
+- API: `GET/POST /api/users/[id]/checklists`, `PATCH/DELETE /api/checklists/[id]` (целиком title + items атомарно), `PATCH /api/checklist-items/[id]` (только `checked` — отдельный endpoint, чтобы дизайнер мог отмечать выполнение, но не менять текст).
+- UI: `src/components/checklists/{ChecklistsSection,ChecklistCard}.tsx`. Карточки в стиле Telegram-чек-листа: title inline-edit, badge кто создал, чекбоксы с мгновенным `PATCH`, inline «+ добавить пункт», двухступенчатая кнопка «Удалить».
+- Интеграция: секция «ИПР» с якорем `#ipr` в SectionNav. На портрете дизайнера/стардиза — после блока «Выводы» (мнение лида/стардиза). На портрете лида (`LeadReviewView`) — после «Блока CDO».
+- Чек-листы, созданные владельцем сами себе, прозрачны для старших ролей (Pavel подтвердил).
+
+
 
 **Phase 16 закрыто (0.22.0):**
 - Композитный score `0.6·(xp/maxXp) + 0.4·(onTime/100)` в `src/lib/perfScore.ts`. Для creator (Инхаус) / без данных / выборки < 5 задач — берётся только xpNorm. Дефолтная сортировка лидерборда теперь по composite.

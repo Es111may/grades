@@ -224,6 +224,9 @@ model User {
   leadReviewsIImported LeadReview[]       @relation("LeadReviewCreator")
   projects             UserProject[]
   projectsCreated      Project[]          @relation("ProjectCreatedBy")
+  // Phase 17 — ИПР (чек-листы)
+  checklistsAboutMe    Checklist[]        @relation("ChecklistOwner")
+  checklistsCreated    Checklist[]        @relation("ChecklistCreator")
 
   @@map("users")
 }
@@ -433,4 +436,53 @@ model LeadReview {
 
   @@index([targetUserId, importedAt])
   @@map("lead_reviews")
+}
+
+// ============================================================
+// CHECKLISTS — ИПР (Phase 17)
+//
+// Каждый чек-лист «висит» на конкретном пользователе (owner). Его поставил
+// кто-то (createdBy) — это либо сам owner, либо его лид/стардиз/админ.
+// `createdByRole` — снимок роли автора на момент создания: если автор
+// сегодня дизайнер, а завтра стал стардизом — права на этот чек-лист
+// остаются «как от дизайнера». Это упрощает логику и не зависит от
+// последующих изменений.
+//
+// Иерархия редактирования (см. src/lib/checklistPermissions.ts):
+//   admin > lead > stardiz > designer
+//   Редактировать структуру (title, items) могут: автор + любая роль
+//   старше `createdByRole`. Отмечать `checked` могут все, кто видит
+//   портрет owner'а (включая самого owner'а).
+// ============================================================
+
+model Checklist {
+  id            Int      @id @default(autoincrement())
+  ownerId       Int
+  owner         User     @relation("ChecklistOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdById   Int
+  createdBy     User     @relation("ChecklistCreator", fields: [createdById], references: [id])
+  /// 'admin' | 'lead' | 'stardiz' | 'designer' — фиксируем на момент создания
+  createdByRole String
+  title         String
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  items         ChecklistItem[]
+
+  @@index([ownerId, sortOrder])
+  @@map("checklists")
+}
+
+model ChecklistItem {
+  id          Int      @id @default(autoincrement())
+  checklistId Int
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  text        String
+  checked     Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([checklistId, sortOrder])
+  @@map("checklist_items")
 }

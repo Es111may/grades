@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { redirect, notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
+import { canCreateChecklistFor } from '@/lib/checklistPermissions';
 import type { LeadReviewAggregates } from '@/lib/leadSurvey';
 import LeadReviewView from './LeadReviewView';
 
@@ -30,6 +31,9 @@ export default async function LeadReviewPage({
           avatarUrl: true,
           email: true,
           active: true,
+          // Нужно для расчёта прав на ИПР (canCreateChecklistFor).
+          leadId: true,
+          stardizId: true,
         },
       },
     },
@@ -76,9 +80,22 @@ export default async function LeadReviewPage({
       ? allReviews[currentIdx + 1]
       : null;
 
+  // Phase 17 — ИПР. Может ли me (зритель) создавать чек-листы на портрете target'а.
+  const canCreateChecklists = canCreateChecklistFor(
+    { id: me.id, role: me.role },
+    {
+      id: review.targetUser.id,
+      role: review.targetUser.role,
+      leadId: review.targetUser.leadId,
+      stardizId: review.targetUser.stardizId,
+    },
+  );
+
   return (
     <LeadReviewView
       meRole={me.role}
+      meUserId={me.id}
+      canCreateChecklists={canCreateChecklists}
       review={{
         id: review.id,
         period: review.period,
