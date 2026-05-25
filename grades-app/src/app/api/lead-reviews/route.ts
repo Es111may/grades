@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { parseLeadReviewCsv } from '@/lib/parseLeadReviewCsv';
 import { SURVEY_VERSION } from '@/lib/leadSurvey';
+import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
 
 const createSchema = z.object({
   targetUserId: z.number().int().positive(),
@@ -64,6 +65,18 @@ export async function POST(req: NextRequest) {
       createdById: me.id,
     },
     select: { id: true },
+  });
+
+  await writeAudit({
+    actorId: me.id,
+    action: AUDIT_ACTIONS.LEAD_REVIEW_IMPORTED,
+    targetType: 'lead_review',
+    targetId: review.id,
+    extra: {
+      targetUserId,
+      period: period.trim(),
+      responseCount: result.responseCount,
+    },
   });
 
   return NextResponse.json({

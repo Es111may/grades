@@ -15,6 +15,7 @@ import {
   canCreateChecklistFor,
   canViewChecklists,
 } from '@/lib/checklistPermissions';
+import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
 
 const CreateSchema = z.object({
   title: z.string().min(1).max(500),
@@ -132,6 +133,18 @@ export async function POST(
     include: {
       createdBy: { select: { id: true, fullName: true } },
       items: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
+    },
+  });
+
+  await writeAudit({
+    actorId: me.id,
+    action: AUDIT_ACTIONS.CHECKLIST_CREATED,
+    targetType: 'checklist',
+    targetId: created.id,
+    extra: {
+      ownerId,
+      title: created.title,
+      itemsCount: created.items.length,
     },
   });
 

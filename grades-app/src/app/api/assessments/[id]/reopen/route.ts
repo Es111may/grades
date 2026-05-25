@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { currentCycle } from '@/lib/cycle';
+import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
 
 /**
  * POST /api/assessments/[id]/reopen
@@ -71,6 +72,14 @@ export async function POST(
           }
         : undefined,
     },
+  });
+
+  await writeAudit({
+    actorId: me.id!,
+    action: AUDIT_ACTIONS.ASSESSMENT_REOPENED,
+    targetType: 'assessment',
+    targetId: newDraft.id,
+    extra: { designerId: ref.designerId, refAssessmentId: refId },
   });
 
   return NextResponse.json({ ok: true, newAssessmentId: newDraft.id });

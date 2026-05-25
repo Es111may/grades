@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
 
 const CATEGORIES = ['developer', 'project', 'ida_product', 'other'] as const;
 
@@ -84,5 +85,14 @@ export async function POST(req: NextRequest) {
     },
     select: { id: true, name: true, category: true },
   });
+
+  await writeAudit({
+    actorId: me.id,
+    action: AUDIT_ACTIONS.PROJECT_CREATED,
+    targetType: 'project',
+    targetId: project.id,
+    extra: { name: project.name, category: project.category },
+  });
+
   return NextResponse.json({ project, created: true });
 }

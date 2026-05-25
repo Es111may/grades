@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { calcGrade, type SkillSnapshot, type ScoreInput, type GradeThreshold } from '@/lib/grade';
+import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
 import type { BuildCode, GradeCode } from '@/lib/types';
 
 /** POST /api/assessments/[id]/publish */
@@ -100,6 +101,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     },
   });
 
+  await writeAudit({
+    actorId: me.id,
+    action: AUDIT_ACTIONS.ASSESSMENT_PUBLISHED,
+    targetType: 'assessment',
+    targetId: assessmentId,
+    extra: { designerId: assessment.designerId },
+    after: {
+      effectiveGrade: result.effectiveGrade,
+      calculatedGrade: result.calculatedGrade,
+      totalXp: result.totalXp,
+    },
+  });
+
   return NextResponse.json({ ok: true, result });
 }
 
@@ -134,7 +148,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     }
   }
 
-  if (assessment.status === 'published') {
+  const wasPublished = assessment.status === 'published';
+  if (wasPublished) {
     await prisma.assessment.update({
       where: { id: assessmentId },
       data: { status: 'archived' },
@@ -142,6 +157,20 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   } else {
     await prisma.assessment.delete({ where: { id: assessmentId } });
   }
+
+  await writeAudit({
+    actorId: me.id,
+    action: AUDIT_ACTIONS.ASSESSMENT_DELETED,
+    targetType: 'assessment',
+    targetId: assessmentId,
+    extra: { designerId: assessment.designerId },
+    before: {
+      status: assessment.status,
+      effectiveGrade: assessment.effectiveGrade,
+      totalXp: assessment.totalXp,
+    },
+    reason: wasPublished ? 'soft-delete (archived)' : 'hard-delete (draft)',
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { canEditChecklist } from '@/lib/checklistPermissions';
+import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
 
 const PatchSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -120,6 +121,21 @@ export async function PATCH(
     },
   });
 
+  await writeAudit({
+    actorId: me.id,
+    action: AUDIT_ACTIONS.CHECKLIST_UPDATED,
+    targetType: 'checklist',
+    targetId: checklistId,
+    extra: {
+      ownerId: checklist.ownerId,
+      // Не пишем полный set items — много шума. Только список полей-изменений.
+      changedFields: [
+        ...(title !== undefined ? ['title'] : []),
+        ...(items !== undefined ? ['items'] : []),
+      ],
+    },
+  });
+
   return NextResponse.json({ checklist: fresh });
 }
 
@@ -147,6 +163,22 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Сохраняем title до удаления — для аудита.
+  const full = await prisma.checklist.findUnique({
+    where: { id: checklistId },
+    select: { id: true, ownerId: true, title: true },
+  });
   await prisma.checklist.delete({ where: { id: checklistId } });
+
+  if (full) {
+    await writeAudit({
+      actorId: me.id,
+      action: AUDIT_ACTIONS.CHECKLIST_DELETED,
+      targetType: 'checklist',
+      targetId: checklistId,
+      extra: { ownerId: full.ownerId, title: full.title },
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }

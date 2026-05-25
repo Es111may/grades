@@ -34,7 +34,17 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.23.0 (Phase 17 — ИПР: чек-листы на портрете в стиле Telegram).
+**Версия в `package.json`:** 0.24.0 (Phase 19 — расширенный аудит-лог: страница + покрытие ключевых мутаций).
+
+**Phase 19 закрыто (0.24.0):**
+- `src/lib/audit.ts` — единый хелпер `writeAudit({actor, action, target, before?, after?, reason?, extra?})`. Падение записи не валит основной запрос. Словари `AUDIT_ACTIONS`, `AUDIT_ACTION_LABEL`, `AUDIT_TARGET_TYPE_LABEL` для UI.
+- Покрытие логированием в API: смена пароля, публикация/удаление/reopen оценки, импорт/правка/удаление 360-опроса, создание/правка/удаление чек-листа ИПР, создание проекта. Существующее логирование `grade_floor_*` оставлено как было.
+- `/admin/audit` (`page.tsx` + `AuditView.tsx`) — таблица с фильтрами (actor / action / targetType / диапазон дат), пагинация 50/стр + «Загрузить ещё», раскрытие details (JSON before/after).
+- `/api/audit` — endpoint для фильтрации и пагинации, со scope: admin видит всё, lead — свои действия + события про подопечных, остальные — Forbidden.
+- HeaderNav: пункт «Аудит» для admin и lead.
+- Не покрыто этим кругом: мутации матрицы (skills/weights/mastery/gates/grade-levels), team-matrix (9-Box), правки общих полей юзера в `/api/users/[id]` PATCH (кроме gradeFloor — это уже логировалось).
+
+
 
 **Phase 17 закрыто (0.23.0):**
 - Две Prisma-модели: `Checklist` (owner + createdBy + createdByRole snapshot) и `ChecklistItem` (text + checked + sortOrder).

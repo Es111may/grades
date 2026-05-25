@@ -5,6 +5,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
 
 const PostSchema = z.object({
   /** Если задан — используем этот пароль. Иначе сгенерируем сами. */
@@ -93,6 +94,15 @@ export async function POST(
   await prisma.user.update({
     where: { id: userId },
     data: { passwordHash },
+  });
+
+  await writeAudit({
+    actorId: me.id,
+    action: AUDIT_ACTIONS.USER_PASSWORD_CHANGED,
+    targetType: 'user',
+    targetId: userId,
+    // Сам пароль НЕ логируем — это пишется как «факт смены», а не значение.
+    reason: parsed.data.password ? 'manual' : 'generated',
   });
 
   return NextResponse.json({ ok: true, password });

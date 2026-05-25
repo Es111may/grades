@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
 
 const patchSchema = z.object({
   period: z.string().min(1).max(120).optional(),
@@ -46,6 +47,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     },
   });
 
+  // Логируем какие поля менялись — без полного текста, чтобы лог не пухал.
+  const changedFields = Object.keys(parsed.data).filter(
+    (k) => parsed.data[k as keyof typeof parsed.data] !== undefined,
+  );
+  await writeAudit({
+    actorId: me.id!,
+    action: AUDIT_ACTIONS.LEAD_REVIEW_UPDATED,
+    targetType: 'lead_review',
+    targetId: id,
+    extra: { targetUserId: existing.targetUserId, fields: changedFields },
+  });
+
   return NextResponse.json({ ok: true });
 }
 
@@ -63,6 +76,21 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
 
+  const existing = await prisma.leadReview.findUnique({
+    where: { id },
+    select: { id: true, targetUserId: true, period: true },
+  });
   await prisma.leadReview.delete({ where: { id } });
+
+  if (existing) {
+    await writeAudit({
+      actorId: me.id!,
+      action: AUDIT_ACTIONS.LEAD_REVIEW_DELETED,
+      targetType: 'lead_review',
+      targetId: id,
+      extra: { targetUserId: existing.targetUserId, period: existing.period },
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }
