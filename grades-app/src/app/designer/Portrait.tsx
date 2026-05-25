@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Chart as ChartJS,
@@ -19,9 +19,9 @@ import { ChevronDownIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
 import ProjectsField from '@/components/ProjectsField';
 import PerformanceDashboard from '@/components/performance/PerformanceDashboard';
-import OnTimeChip from '@/components/performance/OnTimeChip';
 import ChecklistsSection from '@/components/checklists/ChecklistsSection';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
+import PortraitStickyHeader from '@/components/PortraitStickyHeader';
 import type { Role } from '@/lib/checklistPermissions';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
@@ -34,6 +34,30 @@ const TAXONOMY_COLOR: Record<string, string> = {
   IND: '#7c3aed',  // violet
   RES: '#f59e0b',  // amber
 };
+
+/**
+ * Палитра «заливки» большой grade-карточки в hero-блоке.
+ * Монохромная шкала от светлого (junior) до чёрного (senior) + senior
+ * акцентируется лаймовой подписью. На середине шкалы добавлена лёгкая
+ * сочность — premiddle/middle ловят серо-голубые оттенки.
+ */
+const GRADE_HERO_STYLE: Record<
+  string,
+  { bg: string; fg: string; subtle: string; accent?: string }
+> = {
+  junior:      { bg: '#f5f5f7', fg: '#1d1d1f', subtle: '#86857f' },
+  junior_plus: { bg: '#e9ebee', fg: '#1d1d1f', subtle: '#6e6e73' },
+  premiddle:   { bg: '#d6dae0', fg: '#1d1d1f', subtle: '#5b5d63' },
+  middle:      { bg: '#929298', fg: '#ffffff', subtle: '#e9ebee' },
+  middle_plus: { bg: '#4f5358', fg: '#ffffff', subtle: '#c8cad0' },
+  senior:      { bg: '#1a1b1d', fg: '#d5ff0c', subtle: '#86857f', accent: '#d5ff0c' },
+  stardiz:     { bg: '#1a1b1d', fg: '#d5ff0c', subtle: '#86857f', accent: '#d5ff0c' },
+  lead:        { bg: '#1a1b1d', fg: '#d5ff0c', subtle: '#86857f', accent: '#d5ff0c' },
+};
+
+function getGradeHeroStyle(code: string) {
+  return GRADE_HERO_STYLE[code] ?? GRADE_HERO_STYLE.junior;
+}
 
 export type PortraitData = {
   assessmentId: number;
@@ -163,6 +187,47 @@ export default function Portrait({
   const showPerformanceForBuild =
     showPerformance && data.designer.buildCode !== 'creator';
 
+  // Skills collapsed по умолчанию — длинный список из 5 таксономий с
+  // 51+ навыками внутри был самым визуальным пожирателем места. Теперь
+  // только заголовки + индивидуальный или групповой разворот.
+  const [expandedTax, setExpandedTax] = useState<Set<string>>(new Set());
+  const allExpanded =
+    presentTaxonomies.length > 0 &&
+    expandedTax.size === presentTaxonomies.length;
+  function toggleTax(code: string) {
+    setExpandedTax((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }
+  function toggleAllTax() {
+    if (allExpanded) setExpandedTax(new Set());
+    else setExpandedTax(new Set(presentTaxonomies));
+  }
+  // Если юзер кликает на якорь #tax-XX в SectionNav — раскрываем
+  // соответствующую секцию автоматически. Иначе скролл уехал бы к
+  // заголовку, но пользователь видел бы тот же свёрнутый блок.
+  useEffect(() => {
+    function syncFromHash() {
+      const h = window.location.hash;
+      const m = /^#tax-(.+)$/.exec(h);
+      if (m) {
+        const code = m[1];
+        setExpandedTax((prev) => {
+          if (prev.has(code)) return prev;
+          const next = new Set(prev);
+          next.add(code);
+          return next;
+        });
+      }
+    }
+    syncFromHash();
+    window.addEventListener('hashchange', syncFromHash);
+    return () => window.removeEventListener('hashchange', syncFromHash);
+  }, []);
+
   const navSections: SectionNavItem[] = useMemo(
     () => [
       { id: 'stats', label: 'Статистика' },
@@ -259,7 +324,19 @@ export default function Portrait({
   }
 
   return (
-    <main className="max-w-[1400px] mx-auto px-8 pt-8 pb-16">
+    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
+      {/* Тонкая sticky-плашка наверху — появляется когда hero уезжает.
+          Контекст «кто это» всегда виден при чтении длинного портрета. */}
+      <PortraitStickyHeader
+        fullName={data.designer.fullName}
+        avatarUrl={data.designer.avatarUrl}
+        effectiveGrade={data.effectiveGrade}
+        totalXp={data.totalXp}
+        maxXp={data.maxXp}
+        onTimePercent={showPerformance ? onTimePercent : null}
+        buildCode={data.designer.buildCode}
+      />
+
       {breadcrumb && (
         <div className="text-xs text-stone mb-3">
           <Link href={breadcrumb.href} className="hover:text-ink transition-colors">
@@ -279,31 +356,22 @@ export default function Portrait({
         buildCode={data.designer.buildCode}
       /> */}
 
-      {/* Hero: аватар слева от имени и мета-инфо */}
-      <div className="mb-6 flex items-center gap-4">
+      {/* Hero: аватар + имя + мета-строка (без визуально-громких чипов).
+          Дата грейдирования переехала внутрь grade-карты ниже — там она
+          смотрится «зачем» а не «для красоты». */}
+      <div className="mb-8 flex items-center gap-5">
         <Avatar
           name={data.designer.fullName}
           avatarUrl={data.designer.avatarUrl}
-          size={64}
+          size={80}
         />
         <div className="min-w-0">
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
+          <h1 className="font-display text-[44px] font-semibold tracking-tight leading-[1.05] mb-1.5">
             {data.designer.fullName}
           </h1>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Дата грейдирования — первым чипом, чёрная: ключевая
-                метка «когда зафиксирован этот портрет». */}
-            {data.publishedAt && (
-              <span className="chip bg-ink text-snow">
-                {new Date(data.publishedAt).toLocaleDateString('ru-RU', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </span>
-            )}
+          <div className="flex items-center gap-2 text-sm text-stone flex-wrap">
             {data.designer.buildCode && (
-              <span className="chip-neutral">
+              <span className="inline-flex items-center gap-1.5">
                 <span
                   className="w-1.5 h-1.5 rounded-full"
                   style={{
@@ -318,10 +386,11 @@ export default function Portrait({
                 {data.designer.buildName}
               </span>
             )}
-            {/* Чип `department` убран: после переименования билдов в названия
-                отделов он дублирует данные buildName. */}
             {data.designer.leadName && (
-              <span className="chip-neutral">Лид: {data.designer.leadName}</span>
+              <>
+                <span className="text-ash">·</span>
+                <span>Лид: {data.designer.leadName}</span>
+              </>
             )}
           </div>
         </div>
@@ -339,59 +408,22 @@ export default function Portrait({
         </div>
       )}
 
-      {/* === Статистика: grade-card, taxonomy-cards, radar, next-gate === */}
+      {/* === Статистика: grade-stats, taxonomy-cards, radar, next-gate === */}
       <section id="stats" className="scroll-mt-24">
 
-      {/* Grade card. Третья колонка — чип «В срок (6 мес)», рендерится только
-          если у дизайнера непустая выборка и билд не creator (Инхаус).
-          OnTimeChip сам решает что показывать — мы просто кладём его в grid. */}
-      <div className="card p-7 mb-6">
-        <div className="grid grid-cols-[auto_1fr_auto] gap-10 items-end">
-          <div>
-            <div className="text-[11px]  text-stone mb-2">
-              {isFloorActive ? 'Эффективный грейд' : 'Грейд'}
-            </div>
-            <div className="font-display text-6xl font-semibold tracking-tight leading-none">
-              {GRADE_NAMES[data.effectiveGrade]}
-            </div>
-            {isFloorActive && (
-              <div className="text-xs text-sunset mt-2">
-                Зафиксирован — расчёт дал {GRADE_NAMES[data.calculatedGrade]}
-              </div>
-            )}
-          </div>
-          <div>
-            <div className="flex items-baseline justify-between mb-2">
-              <span className="text-[11px]  text-stone">
-                Общий XP
-              </span>
-              <span className="font-display text-3xl font-semibold tabular-nums">
-                {data.totalXp}
-                <span className="text-base text-stone font-normal ml-1.5">
-                  из {data.maxXp}
-                </span>
-              </span>
-            </div>
-            <div className="h-1.5 bg-cloud rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald rounded-full transition-all"
-                style={{ width: `${Math.min(xpProgress, 100)}%` }}
-              />
-            </div>
-            <div className="text-xs text-stone mt-1.5">{xpProgress}% от максимума</div>
-          </div>
-          {/* Третья колонка: чип «В срок (6 мес)». Сам рисует null если
-              creator или нет данных — поэтому grid в этом случае
-              схлопывается до 2 видимых колонок. */}
-          {showPerformance && (
-            <OnTimeChip
-              onTimePercent={onTimePercent}
-              totalTasks={onTimeTotalTasks}
-              buildCode={data.designer.buildCode}
-            />
-          )}
-        </div>
-      </div>
+      {/* Hero stats: одна гигантская grade-карта с заливкой по уровню +
+          satellite-карты XP и On-Time. Дата грейдирования внутри grade-карты.
+          Grid 2fr/1fr/1fr; если On-Time скрывается (creator / нет данных),
+          satellite-колонка просто пропадает — grid сам перестраивается.
+          На мобильных колонки складываются столбиком. */}
+      <HeroStats
+        data={data}
+        xpProgress={xpProgress}
+        isFloorActive={isFloorActive}
+        showPerformance={showPerformance}
+        onTimePercent={onTimePercent}
+        onTimeTotalTasks={onTimeTotalTasks}
+      />
 
       {/* Taxonomy progress cards (hovering anywhere reveals the full group breakdown row) */}
       <div
@@ -604,37 +636,77 @@ export default function Portrait({
         </section>
       )}
 
-      {/* Skills grouped — accordions, стиль как у формы оценки */}
+      {/* Skills grouped — accordions. Collapsed по умолчанию: видны только
+          заголовки таксономий. Pavel: «избавиться от перегруза» — навыков
+          51 шт., раскрытый список занимал 2-3 экрана прокрутки. Раскрытие:
+          клик на заголовок таксономии, либо общая кнопка «Развернуть все»,
+          либо переход по якорю #tax-XX (тогда раскрывается автоматически). */}
       <div className="space-y-5">
-        <h2 className="font-display text-2xl font-semibold tracking-tight">Навыки</h2>
+        <div className="flex items-end justify-between gap-4">
+          <h2 className="font-display text-2xl font-semibold tracking-tight">Навыки</h2>
+          {presentTaxonomies.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleAllTax}
+              className="text-xs text-stone hover:text-ink transition-colors"
+            >
+              {allExpanded ? 'Свернуть все' : 'Развернуть все'}
+            </button>
+          )}
+        </div>
         {TAXONOMY_ORDER.filter((code) => grouped.has(code)).map((code) => {
           const taxMap = grouped.get(code)!;
           const taxName =
             data.skills.find((s) => s.taxonomyCode === code)?.taxonomyName ?? code;
           const taxXp = data.xpByTaxonomy[code] ?? 0;
+          const isOpen = expandedTax.has(code);
+          // Сколько навыков в таксономии — короткий счётчик в свёрнутом
+          // состоянии, чтобы понимать масштаб без раскрытия.
+          const skillsCount = Array.from(taxMap.values()).reduce(
+            (sum, arr) => sum + arr.length,
+            0,
+          );
           return (
             <section
               key={code}
               id={`tax-${code}`}
               className="card overflow-hidden scroll-mt-24"
             >
-              <div className="px-6 py-3.5 border-b border-cloud bg-canvas/60 flex items-baseline justify-between">
-                <div className="text-base font-semibold text-ink">{taxName}</div>
-                <div className="text-xs text-stone tabular-nums">{taxXp} XP</div>
-              </div>
-              {Array.from(taxMap.entries()).map(([groupName, skills], gIdx) => (
-                <div
-                  key={groupName}
-                  className={gIdx > 0 ? 'border-t border-cloud' : ''}
-                >
-                  <div className="px-6 pt-5 pb-2 text-sm font-medium text-stone">
-                    {groupName}
-                  </div>
-                  {skills.map((s) => (
-                    <SkillAccordion key={s.id} skill={s} />
-                  ))}
+              <button
+                type="button"
+                onClick={() => toggleTax(code)}
+                className="w-full px-6 py-4 border-b border-cloud bg-canvas/60 flex items-baseline justify-between gap-4 hover:bg-canvas/80 transition-colors text-left"
+                aria-expanded={isOpen}
+              >
+                <div className="flex items-baseline gap-3 min-w-0">
+                  <span className="text-base font-semibold text-ink">{taxName}</span>
+                  <span className="text-xs text-stone tabular-nums">
+                    {skillsCount} {pluralizeSkills(skillsCount)}
+                  </span>
                 </div>
-              ))}
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs text-stone tabular-nums">{taxXp} XP</span>
+                  <ChevronDownIcon
+                    className={`w-4 h-4 text-stone transition-transform ${
+                      isOpen ? '' : '-rotate-90'
+                    }`}
+                  />
+                </div>
+              </button>
+              {isOpen &&
+                Array.from(taxMap.entries()).map(([groupName, skills], gIdx) => (
+                  <div
+                    key={groupName}
+                    className={gIdx > 0 ? 'border-t border-cloud' : ''}
+                  >
+                    <div className="px-6 pt-5 pb-2 text-sm font-medium text-stone">
+                      {groupName}
+                    </div>
+                    {skills.map((s) => (
+                      <SkillAccordion key={s.id} skill={s} />
+                    ))}
+                  </div>
+                ))}
             </section>
           );
         })}
@@ -905,4 +977,143 @@ function SkillAccordion({
       )}
     </article>
   );
+}
+
+// ============================================================
+// Hero stats — гигантская grade-карта + сателлиты XP / On-time
+// ============================================================
+
+function HeroStats({
+  data,
+  xpProgress,
+  isFloorActive,
+  showPerformance,
+  onTimePercent,
+  onTimeTotalTasks,
+}: {
+  data: PortraitData;
+  xpProgress: number;
+  isFloorActive: boolean;
+  showPerformance: boolean;
+  onTimePercent: number | null;
+  onTimeTotalTasks: number;
+}) {
+  const gradeStyle = getGradeHeroStyle(data.effectiveGrade);
+  const showOnTime =
+    showPerformance &&
+    onTimePercent != null &&
+    onTimeTotalTasks > 0 &&
+    data.designer.buildCode !== 'creator';
+
+  // Сетка строится динамически — без сателлитов grade-карта занимает всю
+  // ширину; с одним — 2fr/1fr; с двумя — 2fr/1fr/1fr.
+  const gridCols = showOnTime ? 'lg:grid-cols-[2fr_1fr_1fr]' : 'lg:grid-cols-[2fr_1fr]';
+
+  return (
+    <div className={`grid grid-cols-1 ${gridCols} gap-4 mb-10`}>
+      {/* === Grade card === */}
+      <div
+        className="rounded-card p-8 relative overflow-hidden"
+        style={{ background: gradeStyle.bg, color: gradeStyle.fg }}
+      >
+        <div
+          className="text-[11px] mb-3 uppercase tracking-[0.06em]"
+          style={{ color: gradeStyle.subtle }}
+        >
+          {isFloorActive ? 'Эффективный грейд' : 'Грейд'}
+        </div>
+        <div className="font-display text-[80px] font-semibold tracking-[-0.02em] leading-[0.95] mb-3">
+          {GRADE_NAMES[data.effectiveGrade]}
+        </div>
+        <div className="text-sm" style={{ color: gradeStyle.subtle }}>
+          {data.publishedAt && (
+            <>Зафиксирован {formatPublishedDate(data.publishedAt)}</>
+          )}
+          {isFloorActive && (
+            <span className="block mt-1.5">
+              Расчёт по матрице — {GRADE_NAMES[data.calculatedGrade]}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* === XP card === */}
+      <div className="card p-7 flex flex-col justify-between">
+        <div>
+          <div className="text-[11px] text-stone mb-3 uppercase tracking-[0.06em]">
+            Общий XP
+          </div>
+          <div className="font-display text-[44px] font-semibold tabular-nums tracking-tight leading-none">
+            {data.totalXp}
+            <span className="text-lg text-stone font-normal ml-2">
+              / {data.maxXp}
+            </span>
+          </div>
+        </div>
+        <div className="mt-5">
+          <div className="h-1.5 bg-cloud rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald rounded-full transition-all"
+              style={{ width: `${Math.min(xpProgress, 100)}%` }}
+            />
+          </div>
+          <div className="text-xs text-stone mt-2 tabular-nums">
+            {xpProgress}% от максимума билда
+          </div>
+        </div>
+      </div>
+
+      {/* === On-Time card === */}
+      {showOnTime && (
+        <div className="card p-7 flex flex-col justify-between">
+          <div>
+            <div className="text-[11px] text-stone mb-3 uppercase tracking-[0.06em]">
+              В срок · 6 мес
+            </div>
+            <div
+              className={`font-display text-[44px] font-semibold tabular-nums tracking-tight leading-none ${
+                onTimePercent! >= 85
+                  ? 'text-emerald'
+                  : onTimePercent! >= 70
+                    ? 'text-amber-600'
+                    : 'text-blaze'
+              }`}
+            >
+              {Math.round(onTimePercent!)}%
+            </div>
+          </div>
+          <div className="mt-5 text-xs text-stone tabular-nums">
+            {onTimeTotalTasks} {pluralizeTasks(onTimeTotalTasks)} · цель 85%+
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Утилиты для hero-карты
+// ============================================================
+
+function formatPublishedDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getDate()} ${MONTHS_RU[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function pluralizeTasks(n: number): string {
+  const last = n % 10;
+  const lastTwo = n % 100;
+  if (lastTwo >= 11 && lastTwo <= 14) return 'задач';
+  if (last === 1) return 'задача';
+  if (last >= 2 && last <= 4) return 'задачи';
+  return 'задач';
+}
+
+function pluralizeSkills(n: number): string {
+  const last = n % 10;
+  const lastTwo = n % 100;
+  if (lastTwo >= 11 && lastTwo <= 14) return 'навыков';
+  if (last === 1) return 'навык';
+  if (last >= 2 && last <= 4) return 'навыка';
+  return 'навыков';
 }
