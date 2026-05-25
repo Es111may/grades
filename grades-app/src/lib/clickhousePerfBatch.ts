@@ -55,11 +55,8 @@ function getClient(): ClickHouseClient {
 // Константы — те же, что в clickhousePerf.ts для совместимости
 // ============================================================
 
-const DESIGN_JOB_TYPE_IDS = [5, 17, 23, 31, 35] as const;
+/** Колонка в manage.worklog_task с направленной оценкой дизайна. */
 const MANAGE_ESTIMATE_COL = 'estimate_design';
-const ESTIMATE_REGEX =
-  '(?si)(?:оценка|эстимирование)\\\\s*:.*?(?:design|дизайн)\\\\s*(?:-|—|:)?\\\\s*(\\\\d+(?:[.,]\\\\d+)?)';
-const JOB_TYPE_IDS_SQL = DESIGN_JOB_TYPE_IDS.join(', ');
 
 // ============================================================
 // Типы
@@ -89,101 +86,16 @@ export type OnTimeStatsByEmail = Map<string, OnTimeStat>;
  * где юзер участвовал в задаче, она прошла все фильтры и попадает в окно.
  */
 function buildOnTimeBatchSQL(): string {
+  // Pavel: «всё в manage» — и ActiveCollab, и Яндекс Трекер летят в
+  // manage.worklog_task. Запрос к collab.* убран (он только дублировал
+  // данные), фильтр по t.source убран (он отрезал collab-задачи внутри
+  // manage). Источник — единственный.
   return `
     SELECT
       user_email,
       count() AS total_tasks,
       countIf(push_ratio <= 10) AS on_time_tasks
     FROM (
-      -- ─────── COLLAB ───────
-      SELECT
-        pu.user_email AS user_email,
-        ((pu.pushed_by_dev - tm.estimate) / tm.estimate * 100) AS push_ratio
-      FROM (
-        SELECT
-          tr.parent_id AS task_id,
-          lowerUTF8(tr.user_email) AS user_email,
-          sum(tr.value) AS pushed_by_dev
-        FROM collab.time_records tr
-        WHERE tr.is_trashed = 0
-          AND lowerUTF8(tr.user_email) IN ({emails:Array(String)})
-        GROUP BY tr.parent_id, lowerUTF8(tr.user_email)
-      ) AS pu
-      INNER JOIN (
-        SELECT
-          t.id AS task_id,
-          -- Эстимейт: парсим секцию «дизайн: N» в body, фолбек на t.estimate
-          if(
-            extract(replaceRegexpAll(assumeNotNull(t.body), '<[^>]*>', ' '), '${ESTIMATE_REGEX}') = '',
-            toFloat64(t.estimate),
-            ifNull(
-              toFloat64OrNull(replaceAll(
-                extract(replaceRegexpAll(assumeNotNull(t.body), '<[^>]*>', ' '), '${ESTIMATE_REGEX}'),
-                ',', '.'
-              )),
-              toFloat64(t.estimate)
-            )
-          ) AS estimate
-        FROM collab.tasks t
-        INNER JOIN collab.task_lists tl ON tl.id = t.task_list_id
-        WHERE
-          -- completed_only: список содержит done/готово/...
-          (
-            isNotNull(t.completed_on)
-            OR positionCaseInsensitiveUTF8(tl.name, 'done') != 0
-            OR positionCaseInsensitiveUTF8(tl.name, 'закрыто') != 0
-            OR positionCaseInsensitiveUTF8(tl.name, 'сделано') != 0
-            OR positionCaseInsensitiveUTF8(tl.name, 'на бою') != 0
-            OR positionCaseInsensitiveUTF8(tl.name, 'завершен') != 0
-            OR positionCaseInsensitiveUTF8(tl.name, 'готов') != 0
-            OR positionCaseInsensitiveUTF8(tl.name, 'готово') != 0
-            OR positionCaseInsensitiveUTF8(tl.name, 'archiv') != 0
-            OR positionCaseInsensitiveUTF8(tl.name, 'архив') != 0
-            OR positionCaseInsensitiveUTF8(tl.name, 'выполнен') != 0
-          )
-          -- noise-фильтры по имени задачи (как в основном запросе)
-          AND positionCaseInsensitiveUTF8(t.name, 'разворот') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'знакомство') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'LEAD') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'TEAMLEAD') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'дейлик') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'дейли') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'daily') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'calls') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'коллы') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'митап') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'созвон') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'обсуждение') = 0
-          AND positionCaseInsensitiveUTF8(t.name, 'оценка') = 0
-          AND positionCaseInsensitiveUTF8(tl.name, 'периодич.') = 0
-          AND positionCaseInsensitiveUTF8(tl.name, 'цикличные') = 0
-          AND positionCaseInsensitiveUTF8(tl.name, 'day') = 0
-          AND positionCaseInsensitiveUTF8(tl.name, 'оффтоп') = 0
-      ) AS tm ON tm.task_id = pu.task_id
-      INNER JOIN (
-        SELECT
-          tr.parent_id AS task_id,
-          sum(tr.value) AS total_push,
-          maxIf(tr.record_date, tr.job_type_id IN (${JOB_TYPE_IDS_SQL})) AS last_date_direction
-        FROM collab.time_records tr
-        WHERE tr.is_trashed = 0
-        GROUP BY tr.parent_id
-      ) AS tt ON tt.task_id = pu.task_id
-      WHERE
-        tm.estimate > 0
-        AND pu.pushed_by_dev > 0
-        AND tt.last_date_direction >= subtractMonths(today(), 6)
-        -- worked_hard: вклад дизайнера ≥ 50% от командного пуша
-        AND ifNull(
-          if(ABS(tt.total_push) > 0,
-             round(ABS(pu.pushed_by_dev) / ABS(tt.total_push) * 100),
-             0),
-          0
-        ) >= 50
-
-      UNION ALL
-
-      -- ─────── MANAGE (Яндекс Трекер через manage.*) ───────
       SELECT
         pu.user_email AS user_email,
         ((pu.pushed_by_dev - tm.estimate) / tm.estimate * 100) AS push_ratio
@@ -208,7 +120,6 @@ function buildOnTimeBatchSQL(): string {
           ) AS estimate,
           t.is_completed AS is_completed
         FROM manage.worklog_task t
-        WHERE t.source = 'yandex_tracker'
       ) AS tm ON tm.task_id = pu.task_id
       INNER JOIN (
         SELECT

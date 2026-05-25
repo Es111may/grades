@@ -449,8 +449,10 @@ function buildManageTrackerTasksSQL(p: FetchTasksParams): string {
     ) wl_agg ON wl_agg.task_id = t.id
 
     WHERE
-      t.source = 'yandex_tracker'
-      AND wl_agg.last_date > toDate('2024-01-01')
+      -- Pavel: «всё в manage» — и ActiveCollab, и Яндекс Трекер
+      -- сагрегированы в manage.worklog_task. Фильтр по t.source убран,
+      -- иначе режутся collab-задачи, которые тоже сюда летят.
+      wl_agg.last_date > toDate('2024-01-01')
       ${periodFilter}
       AND t.id IN (
         SELECT DISTINCT tr0.task_id
@@ -613,31 +615,30 @@ export async function fetchDesignerTasks(
     }
   };
 
-  // Основные запросы с пользовательскими фильтрами и «сырые» (без фильтров)
-  // запускаем параллельно — чтобы дебаг не удваивал латенси.
+  // Pavel: «всё в manage» — collab.* больше не запрашиваем. Запрос к нему
+  // дублировал бы данные и упирался в ACCESS_DENIED (collab.* права не
+  // выдавали и не надо). Оставляем только manage-запрос + сырой (без
+  // фильтров) для дебага.
   const rawParams: FetchTasksParams = {
     ...p,
     hasEstimate: false,
     completedOnly: false,
     workedHardOnly: false,
   };
-  const [collabRows, trackerRows, collabRaw, trackerRaw] = await Promise.all([
-    safeRun(buildCollabTasksSQL(p), 'collab filtered'),
+  const [trackerRows, trackerRaw] = await Promise.all([
     safeRun(buildManageTrackerTasksSQL(p), 'manage filtered'),
-    safeRun(buildCollabTasksSQL(rawParams), 'collab raw'),
     safeRun(buildManageTrackerTasksSQL(rawParams), 'manage raw'),
   ]);
 
   return {
-    tasks: [
-      ...collabRows.map((r) => mapRow(r, 'collab')),
-      ...trackerRows.map((r) => mapRow(r, 'tracker')),
-    ],
+    tasks: trackerRows.map((r) => mapRow(r, 'tracker')),
     diagnostics: {
       email,
-      collabCount: collabRows.length,
+      // Поля collabCount/collabRawCount остались в diagnostics для обратной
+      // совместимости с UI-дебагом — теперь они всегда 0.
+      collabCount: 0,
       trackerCount: trackerRows.length,
-      collabRawCount: collabRaw.length,
+      collabRawCount: 0,
       trackerRawCount: trackerRaw.length,
       errors,
     },
