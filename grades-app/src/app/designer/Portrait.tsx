@@ -1095,10 +1095,8 @@ function HeroStats({
 // Утилиты для hero-карты
 // ============================================================
 
-function formatPublishedDate(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getDate()} ${MONTHS_RU[d.getMonth()]} ${d.getFullYear()}`;
-}
+// formatPublishedDate — определена выше в файле (используется в
+// CyclesSwitcher). Дубль убран, чтобы не падал билд.
 
 function pluralizeTasks(n: number): string {
   const last = n % 10;
