@@ -29,6 +29,7 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import { InfoIcon } from '@/components/icons';
+import Tooltip from '@/components/Tooltip';
 import type { PeriodSummary } from '@/lib/performanceAggregation';
 
 ChartJS.register(
@@ -248,12 +249,11 @@ function ChartCard({
         <div className="flex items-center gap-1.5">
           <div className="text-sm font-semibold text-ink">{title}</div>
           {info && (
-            <span
-              title={info}
-              className="text-ash hover:text-stone cursor-help transition-colors"
-            >
-              <InfoIcon className="w-3.5 h-3.5" />
-            </span>
+            <Tooltip text={info}>
+              <span className="text-ash hover:text-stone cursor-help transition-colors">
+                <InfoIcon className="w-3.5 h-3.5" />
+              </span>
+            </Tooltip>
           )}
         </div>
         {hint && <div className="text-[11px] text-stone mt-0.5">{hint}</div>}
