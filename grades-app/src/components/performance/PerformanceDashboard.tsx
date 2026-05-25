@@ -118,6 +118,8 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
 
   // Список доступных периодов — извлекаем из filteredTasks (без фильтра по
   // выбранному периоду — иначе после выбора список схлопнётся в одну точку).
+  // Первая опция называется «Дата» по запросу Pavel'a — это и приглашение
+  // «выбери», и «все периоды» одновременно. value='' сбрасывает фильтр.
   const periodOptions = useMemo(() => {
     const set = new Set<string>();
     for (const t of filteredTasks) {
@@ -125,7 +127,7 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
       if (key) set.add(key);
     }
     const list = [...set].sort().reverse();
-    return [{ label: 'Все', value: '' }, ...list.map((v) => ({ label: v, value: v }))];
+    return [{ label: 'Дата', value: '' }, ...list.map((v) => ({ label: v, value: v }))];
   }, [filteredTasks, periodType]);
 
   // ============================================================
@@ -153,8 +155,9 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
       </div>
 
       <div className="px-6 py-5 space-y-5">
-        {/* Период: тип (сегмент) + значение (дропдаун) + поповер с
-            фильтрами. Все три контрола одной высоты, в одну линию. */}
+        {/* Период (тип + значение) + фильтры слева, табы Сводка/Задачи —
+            справа той же строкой (по запросу Pavel'a). Все контролы
+            одной высоты h-9. */}
         <div className="flex flex-wrap items-center gap-3">
           <Segment
             value={periodType}
@@ -168,26 +171,49 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
             }}
           />
 
-          <select
-            value={periodValue}
-            onChange={(e) => setPeriodValue(e.target.value)}
-            className="bg-snow border border-cloud rounded-card h-9 px-3 text-xs text-ink
-                       focus:outline-none focus:border-sky focus:ring-4 focus:ring-sky/15
-                       disabled:opacity-50 max-w-[180px]"
-            disabled={state !== 'ready'}
-          >
-            {periodOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          {/* Дропдаун периода. appearance-none убирает родную стрелку
+              браузера (её отступы были кривые), своя ChevronDownIcon
+              справа абсолютным позиционированием. */}
+          <div className="relative">
+            <select
+              value={periodValue}
+              onChange={(e) => setPeriodValue(e.target.value)}
+              className="appearance-none bg-snow border border-cloud rounded-card
+                         h-9 pl-3 pr-8 text-xs text-ink
+                         focus:outline-none focus:border-sky focus:ring-4 focus:ring-sky/15
+                         disabled:opacity-50 max-w-[180px]"
+              disabled={state !== 'ready'}
+            >
+              {periodOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDownIcon
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone pointer-events-none"
+            />
+          </div>
 
           <FiltersPopover
             filters={filters}
             defaults={DEFAULT_FILTERS}
             onChange={setFilters}
           />
+
+          {/* Табы — в правую часть той же строки */}
+          {state === 'ready' && periods.length > 0 && (
+            <div className="ml-auto">
+              <Segment
+                value={activeTab}
+                options={[
+                  { label: 'Сводка', value: 'summary' },
+                  { label: 'Задачи', value: 'tasks' },
+                ]}
+                onChange={(v) => setActiveTab(v as 'summary' | 'tasks')}
+              />
+            </div>
+          )}
         </div>
 
         {/* Состояния */}
@@ -210,16 +236,6 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
 
         {state === 'ready' && periods.length > 0 && (
           <>
-            {/* Табы Сводка / Задачи */}
-            <Segment
-              value={activeTab}
-              options={[
-                { label: 'Сводка', value: 'summary' },
-                { label: 'Задачи', value: 'tasks' },
-              ]}
-              onChange={(v) => setActiveTab(v as 'summary' | 'tasks')}
-            />
-
             {activeTab === 'summary' && (
               <div className="space-y-6">
                 <PerformanceSummaryTable periods={periods} periodType={periodType} />

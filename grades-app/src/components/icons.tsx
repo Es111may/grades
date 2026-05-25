@@ -63,3 +63,18 @@ export function CloseIcon({ className = 'w-4 h-4' }: IconProps) {
     </svg>
   );
 }
+
+export function InfoIcon({ className = 'w-4 h-4' }: IconProps) {
+  // Кружок с «i» — для информеров рядом с заголовками графиков и метрик.
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M12 11v5M12 8.5v.01"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}

@@ -28,6 +28,7 @@ import {
   type ChartOptions,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
+import { InfoIcon } from '@/components/icons';
 import type { PeriodSummary } from '@/lib/performanceAggregation';
 
 ChartJS.register(
@@ -45,6 +46,11 @@ export default function PerformanceCharts({ periods }: { periods: PeriodSummary[
   // На графиках хронологический порядок (старые слева) — наоборот таблице.
   const chronological = useMemo(() => [...periods].reverse(), [periods]);
   const labels = chronological.map((p) => p.period);
+  // Распределение перформанса — горизонтальный бар по последним 5 периодам.
+  // Старые периоды в самом верху, новые внизу — естественный «лестничный»
+  // порядок чтения сверху-вниз.
+  const distributionPeriods = useMemo(() => chronological.slice(-5), [chronological]);
+  const distributionLabels = distributionPeriods.map((p) => p.period);
 
   // ---------------- КПД ----------------
   const efficiencyData = {
@@ -126,43 +132,44 @@ export default function PerformanceCharts({ periods }: { periods: PeriodSummary[
     plugins: { legend: { display: false } },
   };
 
-  // ---------------- Распределение по уровням оверпуша (stacked Bar) ----------------
+  // ---------------- Распределение перформанса (horizontal stacked Bar) ----------------
+  // По запросу Pavel'a: горизонтально, максимум 5 кварталов, новое название.
   const gradeData = {
-    labels,
+    labels: distributionLabels,
     datasets: [
       {
         label: 'В срок',
-        data: chronological.map((p) => p.gradeDistribution.onTime),
+        data: distributionPeriods.map((p) => p.gradeDistribution.onTime),
         backgroundColor: '#22c55e',
         stack: 'grade',
       },
       {
         label: '≤10%',
-        data: chronological.map((p) => p.gradeDistribution.overPush10),
+        data: distributionPeriods.map((p) => p.gradeDistribution.overPush10),
         backgroundColor: '#86efac',
         stack: 'grade',
       },
       {
         label: '≤20%',
-        data: chronological.map((p) => p.gradeDistribution.overPush20),
+        data: distributionPeriods.map((p) => p.gradeDistribution.overPush20),
         backgroundColor: '#fbbf24',
         stack: 'grade',
       },
       {
         label: '≤30%',
-        data: chronological.map((p) => p.gradeDistribution.overPush30),
+        data: distributionPeriods.map((p) => p.gradeDistribution.overPush30),
         backgroundColor: '#f97316',
         stack: 'grade',
       },
       {
         label: '≤40%',
-        data: chronological.map((p) => p.gradeDistribution.overPush40),
+        data: distributionPeriods.map((p) => p.gradeDistribution.overPush40),
         backgroundColor: '#fb7185',
         stack: 'grade',
       },
       {
         label: '>40%',
-        data: chronological.map((p) => p.gradeDistribution.overPushAbove40),
+        data: distributionPeriods.map((p) => p.gradeDistribution.overPushAbove40),
         backgroundColor: '#ef4444',
         stack: 'grade',
       },
@@ -171,15 +178,16 @@ export default function PerformanceCharts({ periods }: { periods: PeriodSummary[
   const gradeOptions: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
+    indexAxis: 'y' as const, // ← горизонтальный bar
     plugins: { legend: { position: 'bottom' as const, labels: { boxWidth: 12 } } },
     scales: {
-      x: { stacked: true },
-      y: {
+      x: {
         stacked: true,
         min: 0,
         max: 100,
         ticks: { callback: (v) => `${v}%` },
       },
+      y: { stacked: true },
     },
   };
 
@@ -188,14 +196,16 @@ export default function PerformanceCharts({ periods }: { periods: PeriodSummary[
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ChartCard
           title="КПД"
-          hint="Доля задач, не превысивших эстимейт. 1.0 — идеально."
+          hint="Доля задач без оверпуша. Чем ближе к 1, тем точнее ты попадаешь в эстимейт."
+          info="КПД = эстимейт ÷ факт, медиана по задачам периода. Показывает, насколько точно ты укладываешься в свои оценки. 1 — задача закрыта ровно по эстимейту, ниже 1 — есть оверпуш. Считается по тем же задачам, что и «% в срок»."
         >
           <Line data={efficiencyData} options={efficiencyOptions} />
         </ChartCard>
 
         <ChartCard
           title="В срок"
-          hint="Процент задач, где оверпуш не больше 10%."
+          hint="% задач, где оверпуш не больше 10%. Цель — 85% и выше."
+          info="Главная метрика перформанса. Считается так: задача «в срок», если факт превысил эстимейт не больше чем на 10%. Берётся доля таких задач от всех задач периода в %."
         >
           <Line data={onTimeData} options={onTimeOptions} />
         </ChartCard>
@@ -203,14 +213,16 @@ export default function PerformanceCharts({ periods }: { periods: PeriodSummary[
 
       <ChartCard
         title="Оверпуш в часах"
-        hint="Сумма превышения эстимейта по всем задачам периода."
+        hint="Сумма часов сверх эстимейта по всем задачам периода. Чем меньше — тем лучше."
+        info="Сумма часов, потраченных сверх эстимейта, по всем учитываемым задачам периода (факт − эстимейт, только для задач с превышением). Помогает понять масштаб переработки в часах, а не в процентах."
       >
         <Line data={overpushData} options={overpushOptions} />
       </ChartCard>
 
       <ChartCard
-        title="Распределение задач по корзинам оверпуша"
-        hint="Доли задач, попавших в каждую корзину превышения эстимейта."
+        title="Распределение перформанса"
+        hint="Объём попадания в эстимейт или его превышения по последним 5 периодам."
+        info="Каждая полоса — один период. Зелёный сегмент — задачи в срок (оверпуш ≤ 10%). Дальше идут корзины оверпуша по 10% шагу. Красный = >40%."
       >
         <Bar data={gradeData} options={gradeOptions} />
       </ChartCard>
@@ -221,16 +233,29 @@ export default function PerformanceCharts({ periods }: { periods: PeriodSummary[
 function ChartCard({
   title,
   hint,
+  info,
   children,
 }: {
   title: string;
   hint?: string;
+  /** Расширенный текст для информера ⓘ — раскрывается при hover. */
+  info?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="rounded-card border border-cloud bg-snow p-4">
       <div className="mb-2">
-        <div className="text-sm font-semibold text-ink">{title}</div>
+        <div className="flex items-center gap-1.5">
+          <div className="text-sm font-semibold text-ink">{title}</div>
+          {info && (
+            <span
+              title={info}
+              className="text-ash hover:text-stone cursor-help transition-colors"
+            >
+              <InfoIcon className="w-3.5 h-3.5" />
+            </span>
+          )}
+        </div>
         {hint && <div className="text-[11px] text-stone mt-0.5">{hint}</div>}
       </div>
       <div className="relative h-[240px]">{children}</div>
