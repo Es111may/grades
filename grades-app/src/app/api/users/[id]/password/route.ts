@@ -28,14 +28,14 @@ function generatePassword(length = 12): string {
 /**
  * POST /api/users/[id]/password
  *
- * Кто может выдавать пароли:
- *   - admin    — любому пользователю
- *   - lead     — только дизайнеру, которого он ведёт (target.leadId === me.id)
- *   - stardiz  — только дизайнеру, у которого он стардиз (target.stardizId === me.id),
- *                либо если он формальный лид (target.leadId === me.id)
+ * Кто может выдавать пароли (синхронизировано с правами на ИПР —
+ * lib/checklistPermissions.ts):
+ *   - admin    — любому
+ *   - lead     — designer'у или stardiz'у, у которого leadId/stardizId = me.id
+ *   - stardiz  — designer'у, у которого stardizId или leadId = me.id
  *
- * Лиды и стардизы НЕ могут выдавать пароли другим лидам/стардизам/админам —
- * только своим подопечным-дизайнерам. Иначе это эскалация привилегий.
+ * Лиды и стардизы НЕ могут выдавать пароли другим лидам/админам и самим
+ * себе — только своим подопечным. Иначе это эскалация привилегий.
  *
  * Body: { password? }. Если password не передан — генерим случайный.
  * Ответ: { password } — открытый текст показываем один раз, чтобы выдающий
@@ -68,12 +68,19 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const isAdmin = me.role === 'admin';
-  // Лид/стардиз могут только своим подопечным-дизайнерам. Это закрывает
-  // лазейку «лид выдаёт пароль другому лиду и заходит под ним».
-  const isManaging =
-    (me.role === 'lead' || me.role === 'stardiz') &&
-    user.role === 'designer' &&
-    (user.leadId === me.id || user.stardizId === me.id);
+  // Лид: designer+stardiz из его scope. Стардиз: только designer из его scope.
+  // Логика идентична `canCreateChecklistFor` из checklistPermissions.ts,
+  // только без «себе» — пароль самому себе через эту ручку не выдашь.
+  let isManaging = false;
+  if (me.role === 'lead') {
+    isManaging =
+      (user.role === 'designer' || user.role === 'stardiz') &&
+      (user.leadId === me.id || user.stardizId === me.id);
+  } else if (me.role === 'stardiz') {
+    isManaging =
+      user.role === 'designer' &&
+      (user.stardizId === me.id || user.leadId === me.id);
+  }
 
   if (!isAdmin && !isManaging) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

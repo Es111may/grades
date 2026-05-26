@@ -104,15 +104,25 @@ export default function UserModal({
   onDeleted: (id: number) => void;
 }) {
   const isAdmin = meRole === 'admin';
-  // Лид/стардиз могут выдавать пароль ТОЛЬКО своему подопечному-дизайнеру.
-  // Логика идентична серверной в /api/users/[id]/password — иначе UI
-  // покажет кнопку, а API не пустит.
-  const isManagingThisDesigner =
-    (meRole === 'lead' || meRole === 'stardiz') &&
-    user?.role === 'designer' &&
-    meId !== null &&
-    (user.leadId === meId || user.stardizId === meId);
-  const canManagePassword = !isNew && (isAdmin || isManagingThisDesigner);
+  // Кто может выдать пароль этому пользователю — синхронизировано с
+  // серверной логикой /api/users/[id]/password:
+  //   - admin: всем
+  //   - lead: designer+stardiz из своего scope (leadId/stardizId === meId)
+  //   - stardiz: designer из своего scope
+  // Себе пароль не выдашь — это закрыто намеренно (см. сервер).
+  let isManagingTarget = false;
+  if (meId !== null && user) {
+    if (meRole === 'lead') {
+      isManagingTarget =
+        (user.role === 'designer' || user.role === 'stardiz') &&
+        (user.leadId === meId || user.stardizId === meId);
+    } else if (meRole === 'stardiz') {
+      isManagingTarget =
+        user.role === 'designer' &&
+        (user.stardizId === meId || user.leadId === meId);
+    }
+  }
+  const canManagePassword = !isNew && (isAdmin || isManagingTarget);
   const [form, setForm] = useState({
     fullName: user?.fullName ?? '',
     email: user?.email ?? '',

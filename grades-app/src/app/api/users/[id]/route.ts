@@ -179,6 +179,11 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
           // Если был автором заметок (designer обычно не пишет, но мало ли) —
           // заметки нужно убрать, иначе FK блокнёт удаление.
           await tx.designerNote.deleteMany({ where: { authorId: userId } });
+          // Phase 17: чек-листы, которые дизайнер создал себе. Поле
+          // `Checklist.createdById` без cascade — нужно явно почистить,
+          // иначе FK блокнёт удаление пользователя. Owner-чек-листы уйдут
+          // каскадом по ChecklistOwner (схема).
+          await tx.checklist.deleteMany({ where: { createdById: userId } });
         } else if (isLeadOrStardiz) {
           if (!reassignTo) {
             throw new Error('NEEDS_REASSIGN');
@@ -218,6 +223,26 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
           await tx.matrixVersion.updateMany({
             where: { createdBy: userId },
             data: { createdBy: reassignTo },
+          });
+          // Phase 17/19/24 — три FK с createdById, у которых onDelete не
+          // cascade. Если лид/стардиз что-то создавал — без явного reassign
+          // FK блокнул бы delete user. Поэтому переносим авторство:
+          //   - Checklist.createdById  (ИПР, который он ставил подопечным)
+          //   - Project.createdById    (если он создал проект через UI)
+          //   - LeadReview.createdById (impose: только admin, но на всякий)
+          // Сам owner-чек-листов уходит каскадом по ChecklistOwner — это
+          // нормально, ИПР про удалённого человека больше не нужен.
+          await tx.checklist.updateMany({
+            where: { createdById: userId },
+            data: { createdById: reassignTo },
+          });
+          await tx.project.updateMany({
+            where: { createdById: userId },
+            data: { createdById: reassignTo },
+          });
+          await tx.leadReview.updateMany({
+            where: { createdById: userId },
+            data: { createdById: reassignTo },
           });
         }
         await tx.user.delete({ where: { id: userId } });

@@ -341,8 +341,31 @@ export default function AssessmentForm({
 
   async function handlePublish() {
     if (published) return;
-    // Save pending first
-    if (pendingScores.current.length > 0) await doSave();
+    // Сначала добиваем все pending-правки. Если автосейв провалился —
+    // pendingScores не очищается. В этом случае публиковать с неактуальными
+    // scores нельзя (юзер потеряет последние клики), поэтому показываем
+    // ошибку и возвращаем управление.
+    if (pendingScores.current.length > 0) {
+      await doSave();
+      if (pendingScores.current.length > 0) {
+        alert(
+          'Не удалось сохранить последние правки оценок — публикация отменена. ' +
+            'Проверь интернет и нажми «Опубликовать» ещё раз.',
+        );
+        return;
+      }
+    }
+    // То же для leadComment — иначе свежий текст «мнения лида» не попадёт.
+    if (leadCommentDirty.current) {
+      await saveLeadComment();
+      if (leadCommentDirty.current) {
+        alert(
+          'Не удалось сохранить «Мнение лида» — публикация отменена. ' +
+            'Попробуй ещё раз.',
+        );
+        return;
+      }
+    }
 
     setPublishing(true);
     const res = await fetch(`/api/assessments/${assessmentId}`, { method: 'POST' });
