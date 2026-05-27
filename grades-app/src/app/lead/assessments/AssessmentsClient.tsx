@@ -19,6 +19,20 @@ export type AssessmentRow = {
   totalXp: number | null;
 };
 
+export type DraftRow = {
+  id: number;
+  designerId: number;
+  designerName: string;
+  designerEmail: string;
+  designerAvatarUrl: string | null;
+  buildCode: string | null;
+  buildName: string | null;
+  leadName: string | null;
+  leadId: number | null;
+  updatedAt: string;
+  createdAt: string;
+};
+
 const GRADE_NAMES: Record<string, string> = {
   junior: 'Джун',
   junior_plus: 'Джун+',
@@ -42,10 +56,14 @@ function formatDate(iso: string | null) {
 
 export default function AssessmentsClient({
   rows,
+  drafts,
   meRole,
+  meId,
 }: {
   rows: AssessmentRow[];
+  drafts: DraftRow[];
   meRole: string;
+  meId: number | null;
 }) {
   const router = useRouter();
   const showLead = meRole === 'admin';
@@ -55,6 +73,109 @@ export default function AssessmentsClient({
       <div className="mb-6">
         <h1 className="font-display text-4xl font-semibold tracking-tight">Оценки</h1>
       </div>
+
+      {/* Черновики — показываем сверху, если есть. Открытый draft хочется
+          видеть и продолжить, а не зарываться в табе. Для лида тут его
+          собственные и чужие по подопечным; для стардиза — по подопечным;
+          для админа — все. Skoupe строится на сервере (page.tsx). */}
+      {drafts.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="font-display text-xl font-semibold tracking-tight">
+              Черновики
+              <span className="ml-2 text-sm text-stone font-normal tabular-nums">
+                {drafts.length}
+              </span>
+            </h2>
+            <p className="text-xs text-stone">
+              Незаконченные оценки — можно продолжить любой
+            </p>
+          </div>
+          <div className="card overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-canvas border-b border-cloud">
+                  <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                    Дизайнер
+                  </th>
+                  <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                    Последнее изменение
+                  </th>
+                  <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                    Билд
+                  </th>
+                  <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                    Автор черновика
+                  </th>
+                  <th className="text-right py-2.5 px-4 font-medium text-[11px] text-stone w-40">
+                    Действие
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-cloud">
+                {drafts.map((d) => {
+                  const isOwnDraft = d.leadId === meId;
+                  return (
+                    <tr
+                      key={d.id}
+                      className="hover:bg-canvas/60 transition-colors"
+                    >
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar
+                            name={d.designerName}
+                            avatarUrl={d.designerAvatarUrl}
+                            size={32}
+                          />
+                          <div className="min-w-0">
+                            <div className="font-medium leading-tight">
+                              {d.designerName}
+                            </div>
+                            <div className="text-xs text-stone leading-tight mt-0.5 truncate">
+                              {d.designerEmail}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-stone tabular-nums whitespace-nowrap">
+                        {formatDate(d.updatedAt)}
+                      </td>
+                      <td className="py-3 px-4">
+                        {d.buildCode && d.buildName ? (
+                          <span className="chip-build">
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ background: buildColor(d.buildCode) }}
+                            />
+                            {d.buildName}
+                          </span>
+                        ) : (
+                          <span className="text-ash">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-stone">
+                        {isOwnDraft ? (
+                          <span className="text-ink font-medium">Я</span>
+                        ) : (
+                          d.leadName ?? '—'
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <a
+                          href={`/lead/assess?id=${d.designerId}`}
+                          className="btn-accent btn-sm"
+                        >
+                          Продолжить
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {rows.length === 0 ? (
         <div className="card p-10 text-center">
