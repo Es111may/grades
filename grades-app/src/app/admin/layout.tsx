@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/session';
 import { ensureBuildNames, ensureProjectsSeeded } from '@/lib/oneTimeMigrations';
 import AppHeader from '@/components/AppHeader';
 import AssessmentReminder from '@/components/AssessmentReminder';
+import DraftsReminder from '@/components/DraftsReminder';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Phase 10: stardiz получает доступ к /admin/users — пускаем его
@@ -37,6 +38,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <>
       <AssessmentReminder />
+      {/* DraftsReminder — асинхронный server-component, сам fetch'ит
+          зависшие черновики для текущего пользователя. Возвращает null,
+          если черновиков нет — поэтому держим его рядом с
+          AssessmentReminder без условий по роли. */}
+      <DraftsReminder />
       <AppHeader
         user={{ id: user.id, fullName: user.name ?? user.email ?? '—', role: user.role }}
         navItems={navItems}
