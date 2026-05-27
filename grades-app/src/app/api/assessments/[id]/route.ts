@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
@@ -114,6 +115,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     },
   });
 
+  // Сбрасываем кэш страниц, где этот грейд должен появиться. Без этого
+  // admin/lead, открыв `/admin/users` после публикации, мог продолжать
+  // видеть stale-данные из Router Cache до hard refresh'а.
+  revalidatePath('/admin/users');
+  revalidatePath('/lead/assessments');
+  revalidatePath(`/lead/portrait`);
+  revalidatePath(`/designer`);
+
   return NextResponse.json({ ok: true, result });
 }
 
@@ -171,6 +180,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     },
     reason: wasPublished ? 'soft-delete (archived)' : 'hard-delete (draft)',
   });
+
+  revalidatePath('/admin/users');
+  revalidatePath('/lead/assessments');
+  revalidatePath(`/lead/portrait`);
+  revalidatePath(`/designer`);
 
   return NextResponse.json({ ok: true });
 }
