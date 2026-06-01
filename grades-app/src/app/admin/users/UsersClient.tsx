@@ -112,11 +112,16 @@ export default function UsersClient({
 
   // Счётчики ролей считаем с учётом scope (но без поиска и роле-фильтра),
   // чтобы цифры в чипах были согласованы с тем, что увидит пользователь.
+  // Деактивированных в счётчики не включаем — Pavel: «у нас деактивирован
+  // Ваня Перов, значит счётчик Все должен стать 26, а не 27».
+  // Сами карточки деактивированных продолжаем показывать (с opacity-50
+  // и в конце списка) — это уже логика отображения, отдельно от счётчиков.
   const counts = useMemo(() => {
-    const base =
+    const scoped =
       showScopeSwitcher && scopeFilter === 'mine' && meId !== null
         ? users.filter((u) => u.leadId === meId || u.stardizId === meId)
         : users;
+    const base = scoped.filter((u) => u.active);
     const c = { all: base.length, designer: 0, stardiz: 0, lead: 0, admin: 0 };
     base.forEach((u) => {
       if (u.role === 'designer') c.designer++;
