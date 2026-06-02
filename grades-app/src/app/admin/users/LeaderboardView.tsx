@@ -321,7 +321,7 @@ function TopCell({ score, rank }: { score: number | null; rank: number }) {
   if (score == null) {
     return (
       <div className="flex flex-col items-center">
-        <span className="text-ash text-lg tabular-nums">—</span>
+        <span className="text-ash text-base tabular-nums">—</span>
         <span className="text-ash text-[10px] tabular-nums mt-0.5">#{rank}</span>
       </div>
     );
@@ -338,7 +338,7 @@ function TopCell({ score, rank }: { score: number | null; rank: number }) {
   return (
     <div className="flex flex-col items-center">
       <span
-        className={`font-display text-xl font-semibold tabular-nums leading-none ${colorClass}`}
+        className={`font-display text-base font-semibold tabular-nums leading-none ${colorClass}`}
       >
         {pct}
       </span>
