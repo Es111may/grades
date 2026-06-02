@@ -19,8 +19,13 @@
  * «Проблемный гений» (Pot=high, Perf=low) = 0.25 — низко.
  * «Звезда без потенциала» (Pot=low, Perf=high) = 0.75 — высоко.
  *
- * Перенормализация при отсутствии компонент:
- *   - нет perf (creator/no-data) и нет 9-Box → score = xpNorm
+ * Особый кейс Инхаус (`creator`): трекаемых задач у них нет, но Pavel
+ * не хочет, чтобы они выпадали из перф-компонента. Подставляем
+ * `CREATOR_DEFAULT_ON_TIME_NORM = 0.85` (целевой уровень) — Инхаус
+ * остаётся в основной формуле 40/40/20.
+ *
+ * Перенормализация при отсутствии компонент (для не-creator):
+ *   - нет perf (no-data/low-sample) и нет 9-Box → score = xpNorm
  *   - нет perf, есть 9-Box → 0.67·xpNorm + 0.33·nineBoxNorm
  *   - нет 9-Box, есть perf → 0.5·xpNorm + 0.5·perfNorm
  *   - все три есть → 0.4·xpNorm + 0.4·perfNorm + 0.2·nineBoxNorm
@@ -46,6 +51,14 @@ export const NINE_BOX_WEIGHT = 0.2;
  * 100% on-time, что нерепрезентативно).
  */
 export const MIN_TASKS_FOR_PERF = 5;
+
+/**
+ * Дефолтный перформанс для Инхаус (`creator`) — у них нет данных в
+ * трекерах, и Pavel решил не штрафовать их «нулём», а назначить
+ * условные 85% (целевой уровень из тултипа перформанса).
+ * Так Инхаус остаётся в основной формуле 40/40/20.
+ */
+export const CREATOR_DEFAULT_ON_TIME_NORM = 0.85;
 
 // ============================================================
 // Типы
@@ -108,18 +121,24 @@ export function computeScore(input: PerfScoreInput): PerfScoreResult {
     maxXp > 0 && xp != null && xp > 0 ? Math.min(1, xp / maxXp) : 0;
 
   // Решаем, применим ли перф.
+  // Инхаус (`creator`) — особый кейс: трекаемых задач у них нет, но Pavel
+  // решил не штрафовать их выпадением из формулы. Вместо этого даём им
+  // фиксированный «таргетный» уровень 85% (см. CREATOR_DEFAULT_ON_TIME_NORM).
+  // perfApplicable остаётся true — они идут по основной формуле 40/40/20.
   let perfSkipReason: PerfScoreResult['perfSkipReason'] = null;
+  let perfNorm: number;
   if (buildCode === 'creator') {
-    perfSkipReason = 'creator';
+    perfNorm = CREATOR_DEFAULT_ON_TIME_NORM;
   } else if (onTimePercent == null) {
     perfSkipReason = 'no-data';
+    perfNorm = xpNorm; // ставим равным xpNorm — не используется в формуле, но шкалирует
   } else if (totalTasks < MIN_TASKS_FOR_PERF) {
     perfSkipReason = 'low-sample';
+    perfNorm = xpNorm;
+  } else {
+    perfNorm = Math.min(1, onTimePercent / 100);
   }
   const perfApplicable = perfSkipReason === null;
-  const perfNorm = perfApplicable
-    ? Math.min(1, (onTimePercent ?? 0) / 100)
-    : xpNorm;
 
   // 9-Box применим, если есть ячейка. Формула вариант «А»:
   //   ((perf-1) * 3 + (pot-1)) / 8
