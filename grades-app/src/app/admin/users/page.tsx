@@ -160,16 +160,16 @@ export default async function AdminUsersPage() {
     const onTimeTotalTasks = perfStat?.totalTasks ?? 0;
 
     // Composite score считаем только для дизайнеров (стардизы не
-    // ранжируются в лидерборде). Передаём buildCode + 9-Box в формулу —
-    // она сама отключает компоненты, если данных нет, и перенормализует
-    // веса так, что шкала остаётся 0..1.
+    // ранжируются в лидерборде). Если у дизайнера нет ни одной
+    // опубликованной оценки (XP=null) — оставляем score=null,
+    // чтобы UI показал «—» серым вместо 0.
     let compositeScore: number | null = null;
-    if (u.role === 'designer') {
+    if (u.role === 'designer' && last?.totalXp != null) {
       const cell = cellByUserId.get(u.id);
       const nineBoxPerf = nineBoxLevelFromString(cell?.performanceLevel);
       const nineBoxPot = nineBoxLevelFromString(cell?.potentialLevel);
       const r = computeScore({
-        xp: last?.totalXp ?? null,
+        xp: last.totalXp,
         maxXp,
         buildCode: (u.build?.code as BuildCode) ?? null,
         onTimePercent,

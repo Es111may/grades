@@ -209,10 +209,6 @@ export default function LeaderboardView({
         </thead>
         <tbody className="divide-y divide-cloud">
           {sorted.map((u, index) => {
-            // Номер строки в текущем порядке. Когда активна composite-сортировка,
-            // подсвечиваем его как «настоящий ранг». При других сортировках —
-            // серым, потому что номер всё ещё валиден, но он не «рейтинг».
-            const isRankActive = sortKey === 'composite';
             return (
               <tr
                 key={u.id}
@@ -222,13 +218,10 @@ export default function LeaderboardView({
                 }`}
               >
                 <td className="py-3 px-4 text-center">
-                  <span
-                    className={`tabular-nums ${
-                      isRankActive ? 'font-semibold text-ink' : 'text-stone'
-                    }`}
-                  >
-                    {index + 1}
-                  </span>
+                  <TopCell
+                    score={u.compositeScore ?? null}
+                    rank={index + 1}
+                  />
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-3">
@@ -307,6 +300,49 @@ export default function LeaderboardView({
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * Ячейка «Топ» — composite score 0..100 крупно и в цвете, под ним мелкая
+ * серая позиция в текущей сортировке.
+ *
+ * Цветовые зоны для score (Pavel):
+ *   90–100  → emerald (зелёный)
+ *   70–89   → light emerald (светло-зелёный)
+ *   50–69   → amber (жёлтый)
+ *    0–49   → blaze (красный)
+ *
+ * Если у дизайнера ещё нет ни одной опубликованной оценки (score=null) —
+ * вместо числа показываем «—» серым, чтобы не путать с реальным 0.
+ */
+function TopCell({ score, rank }: { score: number | null; rank: number }) {
+  if (score == null) {
+    return (
+      <div className="flex flex-col items-center">
+        <span className="text-ash text-lg tabular-nums">—</span>
+        <span className="text-ash text-[10px] tabular-nums mt-0.5">#{rank}</span>
+      </div>
+    );
+  }
+  const pct = Math.round(score * 100);
+  const colorClass =
+    pct >= 90
+      ? 'text-emerald'
+      : pct >= 70
+        ? 'text-emerald/70'
+        : pct >= 50
+          ? 'text-amber-600'
+          : 'text-blaze';
+  return (
+    <div className="flex flex-col items-center">
+      <span
+        className={`font-display text-xl font-semibold tabular-nums leading-none ${colorClass}`}
+      >
+        {pct}
+      </span>
+      <span className="text-ash text-[10px] tabular-nums mt-0.5">#{rank}</span>
     </div>
   );
 }
