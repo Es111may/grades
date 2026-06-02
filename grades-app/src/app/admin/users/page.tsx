@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { canAccessUsers } from '@/lib/permissions';
 import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
-import { computeScore } from '@/lib/perfScore';
+import { computeScore, nineBoxLevelFromString } from '@/lib/perfScore';
 import type { BuildCode } from '@/lib/types';
 import UsersClient from './UsersClient';
 
@@ -126,6 +126,13 @@ export default async function AdminUsersPage() {
     xpThresholds: g.xpThresholds as Record<string, number>,
   }));
 
+  // Phase 16.2: позиция в 9-Box матрице потенциала. Используется как
+  // третья компонента composite score (вес 20%).
+  const matrixCells = await prisma.teamMatrixCell.findMany({
+    select: { userId: true, potentialLevel: true, performanceLevel: true },
+  });
+  const cellByUserId = new Map(matrixCells.map((c) => [c.userId, c]));
+
   // Phase 16: батч-агрегат «% попадания в срок за 6 мес». Тянем сразу
   // для всех дизайнеров — один CH-запрос, потом кэш 15 мин.
   // Инхаус (creator) тоже отправляем — внутри запроса они отфильтруются
@@ -153,16 +160,24 @@ export default async function AdminUsersPage() {
     const onTimeTotalTasks = perfStat?.totalTasks ?? 0;
 
     // Composite score считаем только для дизайнеров (стардизы не
-    // ранжируются в лидерборде). Передаём buildCode в формулу — она сама
-    // отключит perf-компонент для creator/без данных/малой выборки.
+    // ранжируются в лидерборде). Передаём buildCode + 9-Box в формулу —
+    // она сама отключает компоненты, если данных нет, и перенормализует
+    // веса так, что шкала остаётся 0..1.
     let compositeScore: number | null = null;
     if (u.role === 'designer') {
+      const cell = cellByUserId.get(u.id);
+      const nineBoxPerf = nineBoxLevelFromString(cell?.performanceLevel);
+      const nineBoxPot = nineBoxLevelFromString(cell?.potentialLevel);
       const r = computeScore({
         xp: last?.totalXp ?? null,
         maxXp,
         buildCode: (u.build?.code as BuildCode) ?? null,
         onTimePercent,
         totalTasks: onTimeTotalTasks,
+        nineBox:
+          nineBoxPerf && nineBoxPot
+            ? { performance: nineBoxPerf, potential: nineBoxPot }
+            : null,
       });
       compositeScore = r.score;
     }
