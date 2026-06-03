@@ -12,7 +12,13 @@ import type { BuildCode, GradeCode } from '@/lib/types';
 /** POST /api/assessments/[id]/publish */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
-  if (!me || (me.role !== 'lead' && me.role !== 'admin')) {
+  // Stardiz тоже может оценивать своих дизайнеров (UserCard360.canAssess),
+  // значит должен мочь и публиковать. Scope-проверка ниже (assessment.designer
+  // leadId/stardizId === me.id) уже разрешает корректно.
+  if (
+    !me ||
+    (me.role !== 'lead' && me.role !== 'admin' && me.role !== 'stardiz')
+  ) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -136,7 +142,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
  */
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
-  if (!me || (me.role !== 'lead' && me.role !== 'admin')) {
+  // Stardiz: тот же scope что lead. Раньше пускались только lead/admin —
+  // stardiz получал 403 на нажатии «Удалить черновик» хотя сам и был автором.
+  if (
+    !me ||
+    (me.role !== 'lead' && me.role !== 'admin' && me.role !== 'stardiz')
+  ) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

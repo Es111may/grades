@@ -16,6 +16,14 @@ export default async function AssessPage({
   const user = await getCurrentUser();
   if (!user?.id) redirect('/auth/signin');
 
+  // Доступ только тем, кто реально может оценивать (admin/lead/stardiz).
+  // Иначе любой designer мог зайти `/lead/assess?id=сосед` и создать
+  // мусорный пустой draft (API не пускал бы сохранять scores, но draft
+  // уже был бы в БД).
+  if (user.role !== 'admin' && user.role !== 'lead' && user.role !== 'stardiz') {
+    redirect('/admin/users');
+  }
+
   const designerId = parseInt(searchParams.id ?? '', 10);
   if (isNaN(designerId)) redirect('/admin/users');
 
@@ -25,6 +33,13 @@ export default async function AssessPage({
   });
 
   if (!designer || !designer.build) redirect('/admin/users');
+
+  // lead/stardiz могут оценивать только своих подопечных. admin — всех.
+  if (user.role === 'lead' || user.role === 'stardiz') {
+    const isMine =
+      designer.leadId === user.id || designer.stardizId === user.id;
+    if (!isMine) redirect('/admin/users');
+  }
 
   const buildCode = designer.build.code as BuildCode;
 

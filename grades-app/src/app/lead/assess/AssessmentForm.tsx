@@ -476,7 +476,7 @@ export default function AssessmentForm({
                 onClick={armDiscard}
                 className="btn-ghost-danger"
               >
-                Отменить черновик
+                Удалить черновик
               </button>
             ) : (
               <button
@@ -484,7 +484,7 @@ export default function AssessmentForm({
                 onClick={handleDiscard}
                 className="btn-danger"
               >
-                Точно отменить?
+                Точно удалить?
               </button>
             )}
             <button
@@ -671,7 +671,7 @@ export default function AssessmentForm({
                     onClick={armDiscard}
                     className="btn-ghost-danger"
                   >
-                    Отменить черновик
+                    Удалить черновик
                   </button>
                 ) : (
                   <button
@@ -679,7 +679,7 @@ export default function AssessmentForm({
                     onClick={handleDiscard}
                     className="btn-danger"
                   >
-                    Точно отменить?
+                    Точно удалить?
                   </button>
                 )}
                 <button

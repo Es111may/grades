@@ -48,15 +48,27 @@ export default async function DraftsReminder() {
     };
   }
 
-  const drafts = await prisma.assessment.findMany({
-    where,
-    orderBy: { updatedAt: 'asc' }, // самый старый — первым
-    select: {
-      id: true,
-      updatedAt: true,
-      designer: { select: { fullName: true } },
-    },
-  });
+  // Прячемся за try/catch — если БД недоступна / запрос упал, плашка
+  // просто не нарисуется. Layout жить должен в любом случае.
+  let drafts: Array<{
+    id: number;
+    updatedAt: Date;
+    designer: { fullName: string };
+  }> = [];
+  try {
+    drafts = await prisma.assessment.findMany({
+      where,
+      orderBy: { updatedAt: 'asc' }, // самый старый — первым
+      select: {
+        id: true,
+        updatedAt: true,
+        designer: { select: { fullName: true } },
+      },
+    });
+  } catch (err) {
+    console.error('[DraftsReminder] failed:', err);
+    return null;
+  }
 
   if (drafts.length === 0) return null;
 
