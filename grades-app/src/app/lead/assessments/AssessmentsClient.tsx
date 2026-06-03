@@ -107,7 +107,7 @@ export default function AssessmentsClient({
                   <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
                     Автор черновика
                   </th>
-                  <th className="text-right py-2.5 px-4 font-medium text-[11px] text-stone w-40">
+                  <th className="text-right py-2.5 px-4 font-medium text-[11px] text-stone w-56">
                     Действие
                   </th>
                 </tr>
@@ -161,12 +161,18 @@ export default function AssessmentsClient({
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <a
-                          href={`/lead/assess?id=${d.designerId}`}
-                          className="btn-accent btn-sm"
-                        >
-                          Продолжить
-                        </a>
+                        <div className="inline-flex items-center gap-2">
+                          <DeleteButton
+                            assessmentId={d.id}
+                            designerName={d.designerName}
+                          />
+                          <a
+                            href={`/lead/assess?id=${d.designerId}`}
+                            className="btn-accent btn-sm"
+                          >
+                            Продолжить
+                          </a>
+                        </div>
                       </td>
                     </tr>
                   );
