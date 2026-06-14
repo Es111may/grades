@@ -42,7 +42,7 @@ export default function GradesClient({
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="mb-6">
-        <h1 className="font-display text-4xl font-semibold tracking-tight mb-1.5">
+        <h1 className="font-display text-4xl font-medium tracking-tight mb-1.5">
           Грейды
         </h1>
         <p className="text-stone max-w-2xl">
@@ -133,7 +133,7 @@ function GradeRow({
               setName(e.target.value);
               setEdited(true);
             }}
-            className="font-display text-xl font-semibold tracking-tight bg-transparent w-full
+            className="font-display text-xl font-medium tracking-tight bg-transparent w-full
                        border-b border-transparent hover:border-cloud focus:border-sky
                        focus:outline-none transition-colors"
           />
@@ -157,7 +157,7 @@ function GradeRow({
                   min={0}
                   value={thresholds[b.code] ?? ''}
                   onChange={(e) => setThreshold(b.code, e.target.value)}
-                  className="font-display text-2xl font-semibold bg-transparent w-20
+                  className="font-display text-2xl font-medium bg-transparent w-20
                              border-b border-cloud focus:border-sky focus:outline-none
                              transition-colors"
                 />

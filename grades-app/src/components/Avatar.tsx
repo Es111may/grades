@@ -43,7 +43,7 @@ export default function Avatar({
   return (
     <div
       style={style}
-      className={`rounded-pill bg-cloud flex items-center justify-center font-semibold tracking-tight text-graphite shrink-0 ${className}`}
+      className={`rounded-pill bg-cloud flex items-center justify-center font-medium tracking-tight text-graphite shrink-0 ${className}`}
     >
       {initials(name)}
     </div>

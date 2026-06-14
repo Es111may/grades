@@ -249,7 +249,7 @@ function ChartCard({
     <div className="rounded-card border border-cloud bg-snow p-4">
       <div className="mb-2">
         <div className="flex items-center gap-1.5">
-          <div className="text-sm font-semibold text-ink">{title}</div>
+          <div className="text-sm font-medium text-ink">{title}</div>
           {info && (
             <InfoTooltip text={info}>
               <span className="text-ash hover:text-stone cursor-help transition-colors">

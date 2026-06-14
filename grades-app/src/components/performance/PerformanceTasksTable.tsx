@@ -33,7 +33,7 @@ const COLUMNS: ColumnDef[] = [
     key: 'source',
     label: 'Источник',
     render: (t) => (
-      <span className={t.source === 'tracker' ? 'font-semibold text-ink' : 'text-stone'}>
+      <span className={t.source === 'tracker' ? 'font-medium text-ink' : 'text-stone'}>
         {t.source === 'tracker' ? 'Трекер' : 'Collab'}
       </span>
     ),
@@ -59,7 +59,7 @@ const COLUMNS: ColumnDef[] = [
     label: 'Эстимейт',
     render: (t) =>
       t.estimate === 0 ? (
-        <span className="text-blaze font-semibold">Не задан</span>
+        <span className="text-blaze font-medium">Не задан</span>
       ) : (
         formatHoursToTime(t.estimate)
       ),
@@ -85,7 +85,7 @@ const COLUMNS: ColumnDef[] = [
     label: '% от эстимейта',
     render: (t) => (
       <span
-        className="inline-block px-2 py-0.5 rounded-pill text-[11px] font-semibold"
+        className="inline-block px-2 py-0.5 rounded-pill text-[11px] font-medium"
         style={getPushRatioStyle(t.pushRatio)}
       >
         {formatDecimal(t.pushRatio)}%

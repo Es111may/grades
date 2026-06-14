@@ -71,7 +71,7 @@ export default async function LeadReviewsLandingPage({
       <div className="flex items-center gap-4 mb-8">
         <Avatar name={target.fullName} avatarUrl={target.avatarUrl} size={64} />
         <div>
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
+          <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
             {target.fullName}
           </h1>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -84,7 +84,7 @@ export default async function LeadReviewsLandingPage({
       </div>
 
       <div className="card p-10 text-center">
-        <div className="font-display text-2xl font-semibold tracking-tight mb-2">
+        <div className="font-display text-2xl font-medium tracking-tight mb-2">
           Портрет ещё не сформирован
         </div>
         <p className="text-sm text-stone max-w-md mx-auto mb-6 leading-relaxed">

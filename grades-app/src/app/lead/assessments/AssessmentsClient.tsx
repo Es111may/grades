@@ -71,7 +71,7 @@ export default function AssessmentsClient({
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="mb-6">
-        <h1 className="font-display text-4xl font-semibold tracking-tight">Оценки</h1>
+        <h1 className="font-display text-4xl font-medium tracking-tight">Оценки</h1>
       </div>
 
       {/* Черновики — показываем сверху, если есть. Открытый draft хочется
@@ -81,7 +81,7 @@ export default function AssessmentsClient({
       {drafts.length > 0 && (
         <section className="mb-8">
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="font-display text-xl font-semibold tracking-tight">
+            <h2 className="font-display text-xl font-medium tracking-tight">
               Черновики
               <span className="ml-2 text-sm text-stone font-normal tabular-nums">
                 {drafts.length}
@@ -257,7 +257,7 @@ export default function AssessmentsClient({
                     {showLead ? r.leadName ?? '—' : r.department ?? '—'}
                   </td>
                   <td className="py-3 px-4 text-right">
-                    <span className="font-display text-base font-semibold tracking-tight">
+                    <span className="font-display text-base font-medium tracking-tight">
                       {GRADE_NAMES[r.effectiveGrade ?? 'junior'] ??
                         r.effectiveGrade ??
                         '—'}

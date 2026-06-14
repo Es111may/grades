@@ -53,12 +53,12 @@ export default async function LeadPortraitPage({
           <span>{result.designer.fullName}</span>
         </div>
         <div className="mb-8">
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
+          <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
             {result.designer.fullName}
           </h1>
         </div>
         <div className="card p-10 text-center">
-          <div className="font-display text-2xl font-semibold tracking-tight mb-2">
+          <div className="font-display text-2xl font-medium tracking-tight mb-2">
             Оценка не опубликована
           </div>
           <p className="text-stone mb-6">

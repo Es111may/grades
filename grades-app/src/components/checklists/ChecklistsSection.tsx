@@ -109,7 +109,7 @@ export default function ChecklistsSection({
     return (
       <section className="card mb-6 overflow-hidden">
         <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-ink leading-tight">ИПР</h3>
+          <h3 className="text-base font-medium text-ink leading-tight">ИПР</h3>
         </div>
         <div className="px-6 py-5 text-sm text-stone italic">Загрузка…</div>
       </section>
@@ -121,7 +121,7 @@ export default function ChecklistsSection({
   return (
     <section className="card mb-6 overflow-hidden">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-ink leading-tight">ИПР</h3>
+        <h3 className="text-base font-medium text-ink leading-tight">ИПР</h3>
         {canCreate && !creating && (
           <button
             type="button"

@@ -408,7 +408,7 @@ export default function UserModal({
             <div className="text-[11px]  text-stone mb-0.5">
               {isNew ? 'Новый пользователь' : roleLabel}
             </div>
-            <h2 className="font-display text-xl font-semibold tracking-tight truncate">
+            <h2 className="font-display text-xl font-medium tracking-tight truncate">
               {isNew ? 'Новый пользователь' : form.fullName || '—'}
             </h2>
           </div>

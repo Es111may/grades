@@ -103,7 +103,7 @@ export default function NewLeadReviewForm({ target }: { target: Target }) {
       <div className="flex items-center gap-4 mb-8">
         <Avatar name={target.fullName} avatarUrl={target.avatarUrl} size={56} />
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight mb-2">
+          <h1 className="font-display text-3xl font-medium tracking-tight mb-2">
             Новая 360-оценка
           </h1>
           <div className="flex items-center gap-1.5 flex-wrap">

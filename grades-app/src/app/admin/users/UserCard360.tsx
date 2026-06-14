@@ -176,7 +176,7 @@ export default function UserCard360({
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="font-display text-2xl font-semibold tracking-tight leading-tight truncate">
+                  <h2 className="font-display text-2xl font-medium tracking-tight leading-tight truncate">
                     {user.fullName}
                   </h2>
                   <div className="text-sm text-stone mt-0.5 truncate">{user.email}</div>

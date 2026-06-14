@@ -137,7 +137,7 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
   return (
     <section className="card mb-6 overflow-hidden">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/30">
-        <h3 className="text-base font-semibold text-ink leading-tight">
+        <h3 className="text-base font-medium text-ink leading-tight">
           Перформанс
         </h3>
         <p className="text-xs text-stone mt-1.5 leading-relaxed">
@@ -371,7 +371,7 @@ function FiltersPopover({
                     ${open ? 'border-ash' : 'border-cloud'}`}
       >
         <span>Фильтры</span>
-        <span className={`tabular-nums ${isDefault ? 'text-stone' : 'text-ink font-semibold'}`}>
+        <span className={`tabular-nums ${isDefault ? 'text-stone' : 'text-ink font-medium'}`}>
           {active}/{total}
         </span>
         <ChevronDownIcon

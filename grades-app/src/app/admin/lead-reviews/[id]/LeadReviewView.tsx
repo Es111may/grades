@@ -162,7 +162,7 @@ export default function LeadReviewView({
       <div className="mb-6 flex items-center gap-4">
         <Avatar name={target.fullName} avatarUrl={target.avatarUrl} size={64} />
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
+          <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
             {target.fullName}
           </h1>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -223,7 +223,7 @@ export default function LeadReviewView({
               <div className="text-[11px] text-stone mb-2">
                 Готовность работать с лидом
               </div>
-              <div className="font-display text-5xl font-semibold tracking-tight leading-none tabular-nums">
+              <div className="font-display text-5xl font-medium tracking-tight leading-none tabular-nums">
                 {agg.enps.average !== null ? agg.enps.average.toFixed(1) : '—'}
                 <span className="text-xl text-stone font-normal ml-1.5">/ 10</span>
               </div>
@@ -286,7 +286,7 @@ export default function LeadReviewView({
 
       {/* Открытые вопросы */}
       <section id="questions" className="space-y-4 mb-8 scroll-mt-24">
-        <h2 className="font-display text-2xl font-semibold tracking-tight">
+        <h2 className="font-display text-2xl font-medium tracking-tight">
           Открытые вопросы
         </h2>
         {agg.openQuestions.map((oq) => (
@@ -446,7 +446,7 @@ function DiffWithPreviousCard({
     <section className="card overflow-hidden mb-6">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/60 flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-base font-semibold text-ink">
+          <h2 className="text-base font-medium text-ink">
             Изменение с прошлого цикла
           </h2>
           <p className="text-xs text-stone mt-0.5">
@@ -619,8 +619,8 @@ function CategoryCard({
   return (
     <section id={anchorId} className="card overflow-hidden scroll-mt-24">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/60 flex items-center justify-between gap-4">
-        <h3 className="text-base font-semibold text-ink leading-tight">{category.label}</h3>
-        <div className="font-display text-2xl font-semibold tracking-tight tabular-nums shrink-0">
+        <h3 className="text-base font-medium text-ink leading-tight">{category.label}</h3>
+        <div className="font-display text-2xl font-medium tracking-tight tabular-nums shrink-0">
           {category.average !== null ? category.average.toFixed(2) : '—'}
           <span className="text-sm text-stone font-normal ml-1">/ 5</span>
         </div>
@@ -633,7 +633,7 @@ function CategoryCard({
               <div className="flex-1 min-w-0 text-graphite leading-snug">
                 {item.question}
               </div>
-              <span className="tabular-nums shrink-0 w-12 text-right font-semibold">
+              <span className="tabular-nums shrink-0 w-12 text-right font-medium">
                 {item.average !== null ? item.average.toFixed(2) : '—'}
               </span>
             </div>
@@ -710,7 +710,7 @@ function RoleComparisonTable({
   return (
     <section className="card overflow-hidden mb-8">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/60">
-        <h2 className="text-base font-semibold text-ink">Сравнение оценок по ролям</h2>
+        <h2 className="text-base font-medium text-ink">Сравнение оценок по ролям</h2>
         <p className="text-xs text-stone mt-1">
           Средняя по категории, разбивка по тем, кто отвечал.
         </p>

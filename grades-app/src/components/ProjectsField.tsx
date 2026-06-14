@@ -109,7 +109,7 @@ export default function ProjectsField({
   return (
     <section className="card mb-6 overflow-hidden">
       <div className="px-6 py-4 border-b border-cloud bg-canvas/30 flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-ink leading-tight">
+        <h3 className="text-base font-medium text-ink leading-tight">
           Проекты
         </h3>
         {canEdit && (

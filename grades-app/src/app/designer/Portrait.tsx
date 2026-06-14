@@ -240,7 +240,7 @@ export default function Portrait({
         grid: { color: '#e5e3dc' },
         angleLines: { color: '#e5e3dc' },
         pointLabels: {
-          font: { size: 14, family: 'Manrope', weight: 600 as const },
+          font: { size: 14, family: 'Aeonik Pro', weight: 500 as const },
           color: '#1a1a1a',
         },
       },
@@ -287,7 +287,7 @@ export default function Portrait({
           size={64}
         />
         <div className="min-w-0">
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
+          <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
             {data.designer.fullName}
           </h1>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -351,7 +351,7 @@ export default function Portrait({
             <div className="text-[11px]  text-stone mb-2">
               {isFloorActive ? 'Эффективный грейд' : 'Грейд'}
             </div>
-            <div className="font-display text-6xl font-semibold tracking-tight leading-none">
+            <div className="font-display text-6xl font-medium tracking-tight leading-none">
               {GRADE_NAMES[data.effectiveGrade]}
             </div>
             {isFloorActive && (
@@ -365,7 +365,7 @@ export default function Portrait({
               <span className="text-[11px]  text-stone">
                 Общий XP
               </span>
-              <span className="font-display text-3xl font-semibold tabular-nums">
+              <span className="font-display text-3xl font-medium tabular-nums">
                 {data.totalXp}
                 <span className="text-base text-stone font-normal ml-1.5">
                   из {data.maxXp}
@@ -417,7 +417,7 @@ export default function Portrait({
                 <div className="text-[11px]  text-stone mb-1.5">
                   {code}
                 </div>
-                <div className="font-display text-2xl font-semibold tabular-nums mb-2">
+                <div className="font-display text-2xl font-medium tabular-nums mb-2">
                   {got}
                   <span className="text-sm text-stone font-normal ml-1">из {max}</span>
                 </div>
@@ -497,7 +497,7 @@ export default function Portrait({
       {data.nextGrade && (
         <div className="card p-7 mb-8">
           <div className="flex items-baseline justify-between mb-5">
-            <h2 className="font-display text-xl font-semibold tracking-tight">
+            <h2 className="font-display text-xl font-medium tracking-tight">
               До грейда «{GRADE_NAMES[data.nextGrade.code]}»
             </h2>
             {data.nextGrade.xpNeeded > 0 && (
@@ -606,7 +606,7 @@ export default function Portrait({
 
       {/* Skills grouped — accordions, стиль как у формы оценки */}
       <div className="space-y-5">
-        <h2 className="font-display text-2xl font-semibold tracking-tight">Навыки</h2>
+        <h2 className="font-display text-2xl font-medium tracking-tight">Навыки</h2>
         {TAXONOMY_ORDER.filter((code) => grouped.has(code)).map((code) => {
           const taxMap = grouped.get(code)!;
           const taxName =
@@ -619,7 +619,7 @@ export default function Portrait({
               className="card overflow-hidden scroll-mt-24"
             >
               <div className="px-6 py-3.5 border-b border-cloud bg-canvas/60 flex items-baseline justify-between">
-                <div className="text-base font-semibold text-ink">{taxName}</div>
+                <div className="text-base font-medium text-ink">{taxName}</div>
                 <div className="text-xs text-stone tabular-nums">{taxXp} XP</div>
               </div>
               {Array.from(taxMap.entries()).map(([groupName, skills], gIdx) => (
@@ -771,7 +771,7 @@ function GroupBreakdown({
         grid: { color: '#e5e3dc' },
         angleLines: { color: '#e5e3dc' },
         pointLabels: {
-          font: { size: compact ? 9 : 11, family: 'Manrope' },
+          font: { size: compact ? 9 : 11, family: 'Aeonik Pro' },
           color: '#1a1a1a',
         },
       },

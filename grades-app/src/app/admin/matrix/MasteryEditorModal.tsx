@@ -104,7 +104,7 @@ export default function MasteryEditorModal({
             <div className="text-[11px]  text-stone mb-0.5">
               Уровни мастерства
             </div>
-            <h2 className="font-display text-xl font-semibold tracking-tight truncate">
+            <h2 className="font-display text-xl font-medium tracking-tight truncate">
               {skillName}
             </h2>
           </div>
@@ -122,7 +122,7 @@ export default function MasteryEditorModal({
           {levels.map((l, idx) => (
             <div key={l.level} className="bg-canvas border border-cloud rounded-card p-4">
               <div className="flex items-center justify-between mb-3">
-                <div className="font-display text-sm font-semibold tracking-tight">
+                <div className="font-display text-sm font-medium tracking-tight">
                   Уровень {l.level}
                 </div>
                 {levels.length > 1 &&

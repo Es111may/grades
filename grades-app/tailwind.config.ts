@@ -25,25 +25,26 @@ const config: Config = {
         sky: '#007aff',
         emerald: '#34c759',
       },
+      // Phase шрифты: единый Aeonik Pro (Regular + Medium) для display и sans.
+      // Системный fallback на случай если файл не загрузился. Mono оставлен
+      // на SF Mono — он только для чисел/кода, и Aeonik Pro в комплекте
+      // моно-варианта не имеет.
       fontFamily: {
         display: [
+          '"Aeonik Pro"',
           '-apple-system',
           'BlinkMacSystemFont',
-          '"SF Pro Display"',
-          'Manrope',
-          'Inter',
           'system-ui',
           'sans-serif',
         ],
         sans: [
+          '"Aeonik Pro"',
           '-apple-system',
           'BlinkMacSystemFont',
-          '"SF Pro Text"',
-          'Inter',
           'system-ui',
           'sans-serif',
         ],
-        mono: ['"SF Mono"', '"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        mono: ['"SF Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
         soft: '0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 0.5px rgba(0, 0, 0, 0.05)',

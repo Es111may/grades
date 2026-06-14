@@ -27,7 +27,7 @@ export default async function DesignerHistoryPage() {
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="mb-6">
-        <h1 className="font-display text-4xl font-semibold tracking-tight">
+        <h1 className="font-display text-4xl font-medium tracking-tight">
           История оценок
         </h1>
       </div>
@@ -74,7 +74,7 @@ export default async function DesignerHistoryPage() {
                       {a.lead?.fullName ?? '—'}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <span className="font-display text-base font-semibold tracking-tight">
+                      <span className="font-display text-base font-medium tracking-tight">
                         {GRADE_NAMES[(a.effectiveGrade ?? 'junior') as GradeCode] ??
                           a.effectiveGrade ??
                           '—'}

@@ -39,7 +39,7 @@ export default function OnTimeChip({
     <div className="text-right">
       <div className="text-[11px] text-stone mb-2">В срок (6 мес)</div>
       <div
-        className={`font-display text-4xl font-semibold tracking-tight tabular-nums ${ZONE_COLOR[zone]}`}
+        className={`font-display text-4xl font-medium tracking-tight tabular-nums ${ZONE_COLOR[zone]}`}
       >
         {Math.round(onTimePercent)}%
       </div>

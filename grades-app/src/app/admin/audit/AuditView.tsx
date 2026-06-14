@@ -129,7 +129,7 @@ export default function AuditView({
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="flex items-end justify-between mb-6 gap-4">
-        <h1 className="font-display text-4xl font-semibold tracking-tight">Аудит</h1>
+        <h1 className="font-display text-4xl font-medium tracking-tight">Аудит</h1>
       </div>
 
       {/* Фильтры */}

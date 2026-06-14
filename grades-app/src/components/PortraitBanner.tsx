@@ -97,7 +97,7 @@ export default function PortraitBanner({
     >
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-6 px-8 py-10 min-h-[200px]">
         {/* Имя — слева */}
-        <div className="font-display font-semibold tracking-tight leading-none text-3xl lg:text-5xl">
+        <div className="font-display font-medium tracking-tight leading-none text-3xl lg:text-5xl">
           @{first.toUpperCase()}
         </div>
 
@@ -105,7 +105,7 @@ export default function PortraitBanner({
         <div aria-hidden className="w-[280px] h-[140px] hidden md:block" />
 
         {/* Фамилия — справа */}
-        <div className="font-display font-semibold tracking-tight leading-none text-3xl lg:text-5xl text-right">
+        <div className="font-display font-medium tracking-tight leading-none text-3xl lg:text-5xl text-right">
           {last.toUpperCase()}
         </div>
       </div>

@@ -43,7 +43,7 @@ export default async function DesignerPortraitPage({
     return (
       <main className="max-w-[1000px] mx-auto px-8 pt-8 pb-16">
         <div className="mb-8">
-          <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
+          <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
             {me?.fullName}
           </h1>
           <p className="text-stone text-sm">
@@ -52,7 +52,7 @@ export default async function DesignerPortraitPage({
         </div>
 
         <div className="card p-10 text-center mb-5">
-          <div className="font-display text-2xl font-semibold tracking-tight mb-2">
+          <div className="font-display text-2xl font-medium tracking-tight mb-2">
             Оценка ещё не проводилась
           </div>
           <p className="text-stone leading-relaxed max-w-md mx-auto">

@@ -15,11 +15,23 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Aeonik Pro грузится локально через @font-face в globals.css.
+            Preload — чтобы шрифт начал тянуться параллельно HTML и не было
+            «вспышки» fallback'а. Только Regular + Medium — больше не
+            используем по решению Pavel'a. */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap"
-          rel="stylesheet"
+          rel="preload"
+          href="/fonts/aeonik-pro/AeonikPro-Regular.ttf"
+          as="font"
+          type="font/ttf"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/aeonik-pro/AeonikPro-Medium.ttf"
+          as="font"
+          type="font/ttf"
+          crossOrigin="anonymous"
         />
       </head>
       <body>

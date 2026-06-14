@@ -135,7 +135,7 @@ export default function NewSkillModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-7 pt-6 pb-3 flex items-baseline justify-between border-b border-cloud">
-          <h2 className="font-display text-xl font-semibold tracking-tight">
+          <h2 className="font-display text-xl font-medium tracking-tight">
             Новый навык
           </h2>
           <button
@@ -287,7 +287,7 @@ export default function NewSkillModal({
                       onChange={(e) =>
                         setWeights((w) => ({ ...w, [b.id]: e.target.value }))
                       }
-                      className="font-display text-xl font-semibold bg-transparent w-full
+                      className="font-display text-xl font-medium bg-transparent w-full
                                  border-b border-transparent hover:border-cloud
                                  focus:border-sky focus:outline-none transition-colors"
                     />

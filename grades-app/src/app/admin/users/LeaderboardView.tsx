@@ -248,7 +248,7 @@ export default function LeaderboardView({
                 </td>
                 <td className="py-3 px-4">
                   {u.effectiveGrade ? (
-                    <span className="font-display text-sm font-semibold tracking-tight">
+                    <span className="font-display text-sm font-medium tracking-tight">
                       {GRADE_LABELS[u.effectiveGrade] ?? u.effectiveGrade}
                     </span>
                   ) : (
@@ -338,7 +338,7 @@ function TopCell({ score, rank }: { score: number | null; rank: number }) {
   return (
     <div className="flex flex-col items-center">
       <span
-        className={`font-display text-base font-semibold tabular-nums leading-none ${colorClass}`}
+        className={`font-display text-base font-medium tabular-nums leading-none ${colorClass}`}
       >
         {pct}
       </span>
@@ -368,7 +368,7 @@ function OnTimeCell({
   const colorClass =
     zone === 'emerald' ? 'text-emerald' : zone === 'amber' ? 'text-amber-600' : 'text-blaze';
   return (
-    <span className={`tabular-nums font-semibold ${colorClass}`}>
+    <span className={`tabular-nums font-medium ${colorClass}`}>
       {Math.round(onTimePercent)}%
     </span>
   );

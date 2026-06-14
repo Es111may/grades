@@ -52,7 +52,7 @@ export function MarkdownContent({ text }: { text: string }) {
     flushBullets();
 
     // Один формат заголовка — точь-в-точь как «Блок CDO» в шапке карточки
-    // (text-base font-semibold text-ink). Поддерживаем все четыре уровня
+    // (text-base font-medium text-ink). Поддерживаем все четыре уровня
     // решётки одинаково: чтобы не думать какой уровень — любая `#`/`##`/
     // `###`/`####` строка становится одинаковым заголовком.
     const headingMatch = trimmed.match(/^#{1,4}\s+(.*)$/);
@@ -60,7 +60,7 @@ export function MarkdownContent({ text }: { text: string }) {
       blocks.push(
         <h3
           key={key++}
-          className="text-base font-semibold text-ink leading-tight mt-4 mb-2"
+          className="text-base font-medium text-ink leading-tight mt-4 mb-2"
         >
           {renderInline(headingMatch[1])}
         </h3>,
@@ -249,7 +249,7 @@ export function EditableMarkdownBlock({
         <div className="flex items-center gap-3 min-w-0">
           {badge && <span className="chip-build shrink-0">{badge}</span>}
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-ink leading-tight">{title}</h3>
+            <h3 className="text-base font-medium text-ink leading-tight">{title}</h3>
             {hint && <p className="text-xs text-stone mt-0.5 truncate">{hint}</p>}
           </div>
         </div>

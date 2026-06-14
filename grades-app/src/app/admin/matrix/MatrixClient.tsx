@@ -113,7 +113,7 @@ export default function MatrixClient({
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       <div className="flex items-end justify-between mb-6 gap-4">
-        <h1 className="font-display text-4xl font-semibold tracking-tight">Скиллы</h1>
+        <h1 className="font-display text-4xl font-medium tracking-tight">Скиллы</h1>
         <button onClick={() => setShowNewModal(true)} className="btn-accent">
           Новый навык
         </button>
@@ -130,7 +130,7 @@ export default function MatrixClient({
               />
               {b.name}
             </div>
-            <div className="font-display text-2xl font-semibold tracking-tight">
+            <div className="font-display text-2xl font-medium tracking-tight">
               {buildTotals[b.id]?.toFixed(0) ?? 0}
               <span className="text-sm text-stone font-normal ml-1.5">сумма весов</span>
             </div>

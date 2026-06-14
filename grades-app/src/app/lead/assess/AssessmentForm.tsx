@@ -423,7 +423,7 @@ export default function AssessmentForm({
             size={64}
           />
           <div className="min-w-0">
-            <h1 className="font-display text-4xl font-semibold tracking-tight mb-2">
+            <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
               {designer.fullName}
             </h1>
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -561,7 +561,7 @@ export default function AssessmentForm({
               Заполнено
             </div>
             <div className="flex items-baseline gap-1.5 mb-2">
-              <span className="font-display text-3xl font-semibold tabular-nums">
+              <span className="font-display text-3xl font-medium tabular-nums">
                 {calc.filled}
               </span>
               <span className="text-sm text-stone">из {skills.length}</span>
@@ -587,7 +587,7 @@ export default function AssessmentForm({
                 className="card overflow-hidden"
               >
                 <div className="px-6 py-3.5 border-b border-cloud bg-canvas/60">
-                  <div className="text-base font-semibold text-ink">
+                  <div className="text-base font-medium text-ink">
                     {tax.taxName}
                   </div>
                 </div>
@@ -623,7 +623,7 @@ export default function AssessmentForm({
               <div className="px-6 py-3.5 border-b border-cloud bg-canvas/30 flex items-center gap-3">
                 <span className="chip-build shrink-0">Лид</span>
                 <div className="min-w-0">
-                  <div className="text-base font-semibold text-ink leading-tight">
+                  <div className="text-base font-medium text-ink leading-tight">
                     Мнение дизайн-лида / стардиза
                   </div>
                   <div className="text-xs text-stone mt-0.5">
@@ -702,7 +702,7 @@ export default function AssessmentForm({
               <div className="text-[11px]  text-stone mb-1.5">
                 Прогноз грейда
               </div>
-              <div className="font-display text-4xl font-semibold tracking-tight mb-2">
+              <div className="font-display text-4xl font-medium tracking-tight mb-2">
                 {GRADE_NAMES[calc.effectiveGrade]}
               </div>
               {calc.nextGrade && (
@@ -720,7 +720,7 @@ export default function AssessmentForm({
               )}
               <hr className="border-cloud mb-4" />
               <div className="flex items-baseline gap-1.5 mb-2">
-                <span className="font-display text-3xl font-semibold tabular-nums">
+                <span className="font-display text-3xl font-medium tabular-nums">
                   {calc.total}
                 </span>
                 <span className="text-sm text-stone">из {maxXp} XP</span>

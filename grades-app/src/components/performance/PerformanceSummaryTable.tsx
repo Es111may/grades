@@ -92,6 +92,6 @@ function ImprovementCell({ value }: { value: number | null }) {
   if (value === null) return <span className="text-ash">—</span>;
   const sign = value > 0 ? '+' : '';
   const cls =
-    value > 0 ? 'text-emerald font-semibold' : value < 0 ? 'text-blaze font-semibold' : '';
+    value > 0 ? 'text-emerald font-medium' : value < 0 ? 'text-blaze font-medium' : '';
   return <span className={cls}>{`${sign}${value.toFixed(1)}%`}</span>;
 }

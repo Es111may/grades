@@ -158,7 +158,7 @@ function MatrixCell({
             : 'border-cloud bg-snow'
       }`}
     >
-      <div className="text-[10px]  font-semibold text-stone mb-2 leading-tight">
+      <div className="text-[10px]  font-medium text-stone mb-2 leading-tight">
         {meta.title}
       </div>
       <div className="flex flex-col gap-1.5 flex-1">
@@ -186,7 +186,7 @@ function UnassignedZone({
       }`}
     >
       <div className="flex items-baseline justify-between mb-2.5">
-        <span className="text-[11px]  font-semibold text-stone">
+        <span className="text-[11px]  font-medium text-stone">
           Не размещены
         </span>
         <span className="text-xs text-ash font-medium tabular-nums">{users.length}</span>
@@ -211,7 +211,7 @@ function AboutAccordion() {
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-canvas/60 transition-colors"
       >
-        <span className="text-sm font-semibold text-ink">О матрице 9-Box</span>
+        <span className="text-sm font-medium text-ink">О матрице 9-Box</span>
         <ChevronDownIcon
           className={`w-4 h-4 text-stone transition-transform duration-200 ${
             open ? 'rotate-180' : ''
@@ -228,7 +228,7 @@ function AboutAccordion() {
           </p>
 
           <div>
-            <div className="font-semibold text-ink mb-2">Структура</div>
+            <div className="font-medium text-ink mb-2">Структура</div>
             <p className="mb-2">9 клеток образованы двумя осями:</p>
             <div className="space-y-2 pl-1">
               <div>
@@ -251,7 +251,7 @@ function AboutAccordion() {
           </div>
 
           <div>
-            <div className="font-semibold text-ink mb-2">Как использовать</div>
+            <div className="font-medium text-ink mb-2">Как использовать</div>
             <ul className="space-y-1.5">
               <li>
                 <span className="font-medium">Звёзды</span> (высокий потенциал + высокая
@@ -269,7 +269,7 @@ function AboutAccordion() {
           </div>
 
           <div>
-            <div className="font-semibold text-ink mb-2">Зачем это нужно</div>
+            <div className="font-medium text-ink mb-2">Зачем это нужно</div>
             <ul className="space-y-1.5">
               <li>
                 <span className="font-medium">Ясность в оценке.</span> Чёткое разделение
@@ -462,7 +462,7 @@ export default function MatrixView({ users }: { users: UserRow[] }) {
         <div className="flex-1 flex gap-2.5">
           {/* Y-ось: Потенциал */}
           <div className="flex flex-col items-center justify-center w-7 shrink-0">
-            <div className="text-[10px]  text-stone font-semibold whitespace-nowrap"
+            <div className="text-[10px]  text-stone font-medium whitespace-nowrap"
                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
               Потенциал ↑
             </div>
@@ -481,7 +481,7 @@ export default function MatrixView({ users }: { users: UserRow[] }) {
               ))}
             </div>
             {/* X-ось: Производительность */}
-            <div className="text-center text-[10px]  text-stone font-semibold pt-1">
+            <div className="text-center text-[10px]  text-stone font-medium pt-1">
               Производительность →
             </div>
           </div>

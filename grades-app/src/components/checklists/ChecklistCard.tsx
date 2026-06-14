@@ -223,7 +223,7 @@ export default function ChecklistCard({
           ) : (
             <h4
               onClick={() => canEdit && setEditingTitle(true)}
-              className={`text-sm font-semibold text-ink leading-tight ${
+              className={`text-sm font-medium text-ink leading-tight ${
                 canEdit ? 'cursor-pointer hover:text-stone' : ''
               }`}
             >
