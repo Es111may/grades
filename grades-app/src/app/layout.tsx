@@ -17,18 +17,10 @@ export default function RootLayout({
       <head>
         {/* Aeonik Pro грузится локально через @font-face в globals.css.
             Preload — чтобы шрифт начал тянуться параллельно HTML и не было
-            «вспышки» fallback'а. Только Regular + Medium — больше не
-            используем по решению Pavel'a. */}
+            «вспышки» fallback'а. Один вариативный файл покрывает все веса. */}
         <link
           rel="preload"
-          href="/fonts/aeonik-pro/AeonikPro-Regular.ttf"
-          as="font"
-          type="font/ttf"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="preload"
-          href="/fonts/aeonik-pro/AeonikPro-Medium.ttf"
+          href="/fonts/aeonik-pro/AeonikPro-Variable.ttf"
           as="font"
           type="font/ttf"
           crossOrigin="anonymous"

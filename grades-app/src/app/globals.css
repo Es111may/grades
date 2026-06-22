@@ -2,22 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-/* === Aeonik Pro === */
-/* Pavel: единый Aeonik Pro (Regular + Medium), без alternate stylistic
-   sets. Файлы лежат в public/fonts/aeonik-pro/. font-display: swap —
-   чтобы текст отрендерился сразу системным шрифтом и поменялся, когда
-   подъедет настоящий, без «невидимой» паузы. */
+/* === Aeonik Pro (Variable) === */
+/* Pavel: единый Aeonik Pro. Используем вариативный файл (wght 100–900, с
+   кириллицей) — тот же, что стоит на rating.idaproject.com.
+
+   Это не только ради произвольных весов. У статичных TTF (Regular/Medium),
+   которые стояли раньше, были несбалансированные вертикальные метрики:
+   typoAscender 750 / typoDescender −250. Из-за этого baseline уезжал вверх,
+   и текст вставал примерно на 10% кегля ВЫШЕ центра — в кнопках, чипах,
+   полях, свитчерах. Причём при любом line-height (смещение зашито в метрики
+   шрифта, а не в CSS — поэтому leading-none его не лечил).
+
+   У вариативного файла метрики сбалансированы (930 / −210), и текст
+   центрируется ровно в любом боксе.
+
+   font-weight: 100 500 — диапазон намеренно обрезан сверху на Medium (500).
+   Браузер клампит любой запрос тяжелее 500 к 500, так что «максимум Medium»
+   гарантирован на уровне шрифта. */
 @font-face {
   font-family: 'Aeonik Pro';
-  src: url('/fonts/aeonik-pro/AeonikPro-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Aeonik Pro';
-  src: url('/fonts/aeonik-pro/AeonikPro-Medium.ttf') format('truetype');
-  font-weight: 500;
+  src: url('/fonts/aeonik-pro/AeonikPro-Variable.ttf') format('truetype-variations');
+  font-weight: 100 500;
   font-style: normal;
   font-display: swap;
 }
