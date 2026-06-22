@@ -185,15 +185,15 @@
      Используется в шапках, карточках, таблицах. */
   .chip-build {
     @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill
-           bg-cloud/60 text-[10px] font-medium font-mono leading-none text-stone;
+           bg-cloud/60 text-[10px] font-medium text-stone;
   }
 
   /* === Чипы (бэйджи статусов / ролей) === */
-  /* font-mono — теги/бэйджи набраны моноширинным (просьба Pavel'a «теги может
-     быть»). Регистр НЕ трогаем — «Дизайнер»/«Лид» в caps читались бы хуже. */
+  /* Шрифт — Aeonik Pro (как и весь интерфейс). JetBrains Mono пробовали, но
+     Pavel откатил: теги остаются в основном шрифте. */
   .chip {
     @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill
-           text-[11px] font-medium font-mono leading-none;
+           text-[11px] font-medium tracking-tight;
   }
   .chip-neutral {
     @apply chip bg-cloud/60 text-stone;
