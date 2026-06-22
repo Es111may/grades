@@ -95,19 +95,19 @@ export default function AssessmentsClient({
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-canvas border-b border-cloud">
-                  <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                  <th className="label-mono text-left py-2.5 px-4 text-stone">
                     Дизайнер
                   </th>
-                  <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                  <th className="label-mono text-left py-2.5 px-4 text-stone">
                     Последнее изменение
                   </th>
-                  <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                  <th className="label-mono text-left py-2.5 px-4 text-stone">
                     Билд
                   </th>
-                  <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                  <th className="label-mono text-left py-2.5 px-4 text-stone">
                     Автор черновика
                   </th>
-                  <th className="text-right py-2.5 px-4 font-medium text-[11px] text-stone w-56">
+                  <th className="label-mono text-right py-2.5 px-4 text-stone w-56">
                     Действие
                   </th>
                 </tr>
@@ -192,22 +192,22 @@ export default function AssessmentsClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-canvas border-b border-cloud">
-                <th className="label-mono text-left py-2.5 px-4 text-[11px] text-stone">
+                <th className="label-mono text-left py-2.5 px-4 text-stone">
                   Имя
                 </th>
-                <th className="label-mono text-left py-2.5 px-4 text-[11px] text-stone">
+                <th className="label-mono text-left py-2.5 px-4 text-stone">
                   Опубликовано
                 </th>
-                <th className="label-mono text-left py-2.5 px-4 text-[11px] text-stone">
+                <th className="label-mono text-left py-2.5 px-4 text-stone">
                   Билд
                 </th>
-                <th className="label-mono text-left py-2.5 px-4 text-[11px] text-stone">
+                <th className="label-mono text-left py-2.5 px-4 text-stone">
                   {showLead ? 'Лид' : 'Отдел'}
                 </th>
-                <th className="label-mono text-right py-2.5 px-4 text-[11px] text-stone">
+                <th className="label-mono text-right py-2.5 px-4 text-stone">
                   Грейд
                 </th>
-                <th className="label-mono text-right py-2.5 px-4 text-[11px] text-stone">
+                <th className="label-mono text-right py-2.5 px-4 text-stone">
                   XP
                 </th>
                 <th className="w-28" />

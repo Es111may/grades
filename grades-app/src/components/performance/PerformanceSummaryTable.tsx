@@ -76,7 +76,7 @@ export default function PerformanceSummaryTable({
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="label-mono px-3 py-2 text-left text-[11px] text-stone whitespace-nowrap">
+    <th className="label-mono px-3 py-2 text-left text-stone whitespace-nowrap">
       {children}
     </th>
   );

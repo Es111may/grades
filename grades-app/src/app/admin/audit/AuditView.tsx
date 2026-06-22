@@ -222,19 +222,19 @@ export default function AuditView({
         <table className="w-full text-sm">
           <thead>
             <tr className="label-mono bg-canvas border-b border-cloud">
-              <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone w-[140px]">
+              <th className="text-left py-2.5 px-4 font-medium text-stone w-[140px]">
                 Когда
               </th>
-              <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone w-[200px]">
+              <th className="text-left py-2.5 px-4 font-medium text-stone w-[200px]">
                 Кто
               </th>
-              <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+              <th className="text-left py-2.5 px-4 font-medium text-stone">
                 Действие
               </th>
-              <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone w-[220px]">
+              <th className="text-left py-2.5 px-4 font-medium text-stone w-[220px]">
                 Объект
               </th>
-              <th className="text-center py-2.5 px-4 font-medium text-[11px] text-stone w-[80px]">
+              <th className="text-center py-2.5 px-4 font-medium text-stone w-[80px]">
                 Детали
               </th>
             </tr>

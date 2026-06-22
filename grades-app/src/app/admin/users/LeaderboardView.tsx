@@ -152,7 +152,7 @@ export default function LeaderboardView({
       <th
         onClick={() => toggleSort(keyId)}
         title={tooltip}
-        className={`label-mono py-2.5 px-4 text-[11px] text-stone cursor-pointer select-none hover:text-ink transition-colors ${alignClass}`}
+        className={`label-mono py-2.5 px-4 text-stone cursor-pointer select-none hover:text-ink transition-colors ${alignClass}`}
       >
         <span className="inline-flex items-center gap-1">
           {children}
@@ -184,7 +184,7 @@ export default function LeaderboardView({
               Топ
             </Th>
             <Th keyId="name">Имя</Th>
-            <th className="label-mono text-left py-2.5 px-4 text-[11px] text-stone">
+            <th className="label-mono text-left py-2.5 px-4 text-stone">
               Билд
             </th>
             <Th keyId="grade">Грейд</Th>
@@ -202,7 +202,7 @@ export default function LeaderboardView({
             <Th keyId="tenure" align="center">
               Стаж
             </Th>
-            <th className="label-mono text-center py-2.5 px-4 text-[11px] text-stone">
+            <th className="label-mono text-center py-2.5 px-4 text-stone">
               Активен
             </th>
           </tr>

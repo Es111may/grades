@@ -41,19 +41,19 @@ export default async function DesignerHistoryPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="label-mono bg-canvas border-b border-cloud">
-                <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                <th className="text-left py-2.5 px-4 font-medium text-stone">
                   Опубликовано
                 </th>
-                <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
+                <th className="text-left py-2.5 px-4 font-medium text-stone">
                   Оценил
                 </th>
-                <th className="text-right py-2.5 px-4 font-medium text-[11px] text-stone">
+                <th className="text-right py-2.5 px-4 font-medium text-stone">
                   Грейд
                 </th>
-                <th className="text-right py-2.5 px-4 font-medium text-[11px] text-stone">
+                <th className="text-right py-2.5 px-4 font-medium text-stone">
                   XP
                 </th>
-                <th className="text-right py-2.5 px-4 font-medium text-[11px] text-stone w-20">
+                <th className="text-right py-2.5 px-4 font-medium text-stone w-20">
                   Δ XP
                 </th>
               </tr>
