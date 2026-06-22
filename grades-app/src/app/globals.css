@@ -89,14 +89,14 @@
 
 @layer components {
   /* === Моно-лейбл (eyebrow) === */
-  /* JetBrains Mono + uppercase + разрядка 0.05em + размер 10.5px — один в один
-     как .thead на rating.idaproject.com (заголовки таблиц). Класс — единый
-     источник размера лейблов, поэтому на самих элементах text-[11px] больше
-     не нужен. leading-none — у моноширинного «жирные» метрики, фиксируем
-     высоту строки. */
+  /* JetBrains Mono + uppercase + разрядка 0.05em + размер 9.5px (по вкусу
+     Pavel'a; на rating.idaproject.com .thead — 10.5px, мы взяли мельче).
+     Класс — единый источник размера лейблов, поэтому на самих элементах
+     text-[11px] больше не нужен. leading-none — у моноширинного «жирные»
+     метрики, фиксируем высоту строки. */
   .label-mono {
     @apply font-mono font-medium uppercase leading-none;
-    font-size: 10.5px;
+    font-size: 9.5px;
     letter-spacing: 0.05em;
   }
 
