@@ -40,7 +40,7 @@ export default async function DesignerHistoryPage() {
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-canvas border-b border-cloud">
+              <tr className="label-mono bg-canvas border-b border-cloud">
                 <th className="text-left py-2.5 px-4 font-medium text-[11px] text-stone">
                   Опубликовано
                 </th>

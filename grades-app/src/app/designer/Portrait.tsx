@@ -414,7 +414,7 @@ export default function Portrait({
                     : 'border-cloud shadow-soft'
                 }`}
               >
-                <div className="text-[11px]  text-stone mb-1.5">
+                <div className="label-mono text-[11px] text-stone mb-1.5">
                   {code}
                 </div>
                 <div className="font-display text-2xl font-medium tabular-nums mb-2">
@@ -454,7 +454,7 @@ export default function Portrait({
                       className="w-1.5 h-1.5 rounded-full"
                       style={{ background: TAXONOMY_COLOR[code] }}
                     />
-                    <span className="text-[11px]  text-stone">
+                    <span className="label-mono text-[11px] text-stone">
                       {code}
                     </span>
                   </div>

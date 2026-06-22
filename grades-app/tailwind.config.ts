@@ -25,10 +25,10 @@ const config: Config = {
         sky: '#007aff',
         emerald: '#34c759',
       },
-      // Phase шрифты: единый Aeonik Pro (Regular + Medium) для display и sans.
-      // Системный fallback на случай если файл не загрузился. Mono оставлен
-      // на SF Mono — он только для чисел/кода, и Aeonik Pro в комплекте
-      // моно-варианта не имеет.
+      // Шрифты: Aeonik Pro (Variable, max Medium) для display и sans.
+      // mono — JetBrains Mono: лейблы колонок, названия характеристик, теги,
+      // а также код/числа (auth-коды, grade.code, audit-JSON). SF Mono —
+      // системный fallback. Системный fallback на оба случая загрузки.
       fontFamily: {
         display: [
           '"Aeonik Pro"',
@@ -44,7 +44,7 @@ const config: Config = {
           'system-ui',
           'sans-serif',
         ],
-        mono: ['"SF Mono"', 'ui-monospace', 'monospace'],
+        mono: ['"JetBrains Mono"', '"SF Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
         soft: '0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 0.5px rgba(0, 0, 0, 0.05)',
@@ -54,10 +54,14 @@ const config: Config = {
           '0 12px 32px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.05)',
         focus: '0 0 0 4px rgba(0, 122, 255, 0.18)',
       },
+      // Скругления — подтянуты ближе к rating.idaproject.com (там карточки
+      // 22px, мелкие элементы 11px). Берём чуть мягче исходного, но без
+      // перегиба для плотного светлого UI. Поля ввода вынесены из card на
+      // фиксированные 11px (см. .input в globals.css), чтобы не «раздувались».
       borderRadius: {
-        card: '12px',
-        prominent: '14px',
-        modal: '20px',
+        card: '16px',
+        prominent: '18px',
+        modal: '22px',
         pill: '999px',
       },
       transitionTimingFunction: {

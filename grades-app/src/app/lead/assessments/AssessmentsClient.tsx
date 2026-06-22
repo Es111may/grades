@@ -192,22 +192,22 @@ export default function AssessmentsClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-canvas border-b border-cloud">
-                <th className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone">
+                <th className="label-mono text-left py-2.5 px-4 text-[11px] text-stone">
                   Имя
                 </th>
-                <th className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone">
+                <th className="label-mono text-left py-2.5 px-4 text-[11px] text-stone">
                   Опубликовано
                 </th>
-                <th className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone">
+                <th className="label-mono text-left py-2.5 px-4 text-[11px] text-stone">
                   Билд
                 </th>
-                <th className="text-left py-2.5 px-4 font-medium text-[11px]  text-stone">
+                <th className="label-mono text-left py-2.5 px-4 text-[11px] text-stone">
                   {showLead ? 'Лид' : 'Отдел'}
                 </th>
-                <th className="text-right py-2.5 px-4 font-medium text-[11px]  text-stone">
+                <th className="label-mono text-right py-2.5 px-4 text-[11px] text-stone">
                   Грейд
                 </th>
-                <th className="text-right py-2.5 px-4 font-medium text-[11px]  text-stone">
+                <th className="label-mono text-right py-2.5 px-4 text-[11px] text-stone">
                   XP
                 </th>
                 <th className="w-28" />

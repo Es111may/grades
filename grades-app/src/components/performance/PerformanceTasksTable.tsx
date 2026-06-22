@@ -152,7 +152,7 @@ export default function PerformanceTasksTable({ tasks }: { tasks: TaskDetail[] }
               <th
                 key={c.key}
                 onClick={() => toggleSort(c.key)}
-                className={`px-3 py-2 text-left text-[11px] font-medium whitespace-nowrap cursor-pointer select-none transition-colors ${
+                className={`label-mono px-3 py-2 text-left text-[11px] whitespace-nowrap cursor-pointer select-none transition-colors ${
                   sortKey === c.key ? 'text-ink' : 'text-stone hover:text-ink'
                 }`}
               >

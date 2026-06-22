@@ -27,6 +27,25 @@
   font-display: swap;
 }
 
+/* === JetBrains Mono === */
+/* Моноширинный — для лейблов колонок, названий характеристик и тегов
+   (тот же приём, что на rating.idaproject.com: .thead там набран mono +
+   uppercase). Полная кириллица. Только Regular + Medium — тяжелее не нужно. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     color-scheme: light;
@@ -69,6 +88,17 @@
 }
 
 @layer components {
+  /* === Моно-лейбл (eyebrow) === */
+  /* JetBrains Mono + uppercase + разрядка — приём с rating.idaproject.com,
+     где .thead (заголовки таблиц) набраны именно так. Размер НЕ задаём:
+     наследуется от элемента (text-[11px] и т.п.), чтобы класс был
+     универсальным для заголовков таблиц и подписей карточек. leading-none —
+     у моноширинного «жирные» вертикальные метрики, фиксируем высоту строки. */
+  .label-mono {
+    @apply font-mono font-medium uppercase leading-none;
+    letter-spacing: 0.05em;
+  }
+
   /* === Кнопки === */
   .btn {
     @apply inline-flex items-center justify-center gap-2 whitespace-nowrap
@@ -109,7 +139,7 @@
      вниз относительно бокса. leading-none + симметричный py-2.5 — гарантия
      вертикального центрирования. */
   .input {
-    @apply w-full bg-snow border border-cloud rounded-card px-3.5 py-2.5
+    @apply w-full bg-snow border border-cloud rounded-[11px] px-3.5 py-2.5
            text-sm leading-none text-ink placeholder:text-stone
            transition-colors duration-150
            focus:outline-none focus:border-sky focus:ring-4 focus:ring-sky/15;
@@ -154,13 +184,15 @@
      Используется в шапках, карточках, таблицах. */
   .chip-build {
     @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill
-           bg-cloud/60 text-[10px] font-medium text-stone;
+           bg-cloud/60 text-[10px] font-medium font-mono leading-none text-stone;
   }
 
   /* === Чипы (бэйджи статусов / ролей) === */
+  /* font-mono — теги/бэйджи набраны моноширинным (просьба Pavel'a «теги может
+     быть»). Регистр НЕ трогаем — «Дизайнер»/«Лид» в caps читались бы хуже. */
   .chip {
     @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill
-           text-[11px] font-medium tracking-tight;
+           text-[11px] font-medium font-mono leading-none;
   }
   .chip-neutral {
     @apply chip bg-cloud/60 text-stone;

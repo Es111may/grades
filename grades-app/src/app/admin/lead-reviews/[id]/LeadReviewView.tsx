@@ -455,7 +455,7 @@ function DiffWithPreviousCard({
         </div>
       </div>
       <table className="w-full text-sm">
-        <thead className="text-[11px] text-stone bg-canvas/40">
+        <thead className="label-mono text-[11px] text-stone bg-canvas/40">
           <tr>
             <th className="text-left px-6 py-3 font-medium">Категория</th>
             <th className="text-right px-4 py-3 font-medium w-28 whitespace-nowrap">
@@ -528,7 +528,7 @@ function DiffWithPreviousCard({
           {expanded && (
             <div className="border-t border-cloud overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-[11px] text-stone bg-canvas/40">
+                <thead className="label-mono text-[11px] text-stone bg-canvas/40">
                   <tr>
                     <th className="text-left px-6 py-3 font-medium">Блок</th>
                     {presentRoles.flatMap((role) => [
@@ -716,7 +716,7 @@ function RoleComparisonTable({
         </p>
       </div>
       <table className="w-full text-sm">
-        <thead className="text-[11px] text-stone bg-canvas/40">
+        <thead className="label-mono text-[11px] text-stone bg-canvas/40">
           <tr>
             <th className="text-left px-6 py-3 font-medium">Категория</th>
             {presentRoles.map((r) => (
