@@ -32,13 +32,20 @@
     font-family: 'Aeonik Pro', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    letter-spacing: -0.005em;
-    /* Aeonik Pro: только дефолтные глифы. Без stylistic sets — Pavel
-       просил без alternate'ов. liga 1 = стандартные лигатуры, calt 1 =
-       контекстуальные альтернативы (мелкие fix'ы кернинга), остальное —
-       выключено. */
-    font-feature-settings: 'liga' 1, 'calt' 1, 'ss01' 0, 'ss02' 0, 'ss03' 0,
-      'ss04' 0, 'ss05' 0, 'ss06' 0, 'ss07' 0;
+    text-rendering: optimizeLegibility;
+    /* Aeonik Pro оптически воспринимается чуть просторнее системного шрифта —
+       компенсируем небольшим отрицательным трекингом (как на rating.idaproject.com). */
+    letter-spacing: -0.011em;
+    /* Aeonik Pro: только дефолтные глифы. tnum — табличные цифры (ровные
+       колонки чисел во всех таблицах). liga + calt — стандартные лигатуры
+       и контекстуальные альтернативы. Stylistic sets явно выключены —
+       Pavel просил без alternate'ов. */
+    font-feature-settings: 'tnum' 1, 'liga' 1, 'calt' 1, 'ss01' 0, 'ss02' 0,
+      'ss03' 0, 'ss04' 0, 'ss05' 0, 'ss06' 0, 'ss07' 0;
+    /* font-synthesis: none — браузеру запрещаем «синтезировать» bold/italic
+       из Regular, если попросили weight, которого нет в загруженных файлах.
+       Без этого 600+ давал бы faux-bold с искажёнными формами. */
+    font-synthesis: none;
   }
   /* Чуть более компактная типографика — ближе к Apple */
   h1, h2, h3, h4 {
@@ -92,14 +99,18 @@
   }
 
   /* === Поля ввода === */
+  /* leading-none — Aeonik Pro в TTF имеет «жирные» ascent/descent в OS/2
+     метриках, и без явного line-height текст в input смещается вверх или
+     вниз относительно бокса. leading-none + симметричный py-2.5 — гарантия
+     вертикального центрирования. */
   .input {
     @apply w-full bg-snow border border-cloud rounded-card px-3.5 py-2.5
-           text-sm text-ink placeholder:text-stone
+           text-sm leading-none text-ink placeholder:text-stone
            transition-colors duration-150
            focus:outline-none focus:border-sky focus:ring-4 focus:ring-sky/15;
   }
   .input-sm {
-    @apply px-3 py-1.5 text-xs rounded-[8px];
+    @apply px-3 py-1.5 text-xs rounded-[8px] leading-none;
   }
   textarea.input {
     @apply leading-relaxed py-2.5;
