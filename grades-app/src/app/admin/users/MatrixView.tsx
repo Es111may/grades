@@ -534,6 +534,14 @@ function AboutAccordion() {
       </button>
       {open && (
         <div className="px-5 pb-6 pt-6 border-t border-cloud">
+          {/* Выделенное саммари — связка четырёх элементов оценки. */}
+          <div className="mb-6 rounded-[12px] bg-lime-dim border border-lime/30 px-4 py-3.5 text-sm leading-relaxed text-graphite">
+            <strong className="font-medium text-ink">Критерии</strong> дают оценку,{' '}
+            <strong className="font-medium text-ink">9-Box</strong> показывает положение
+            сотрудника, <strong className="font-medium text-ink">A/B/C</strong> определяет
+            управленческое решение, <strong className="font-medium text-ink">PIP</strong> —
+            действие при просадке.
+          </div>
           <MarkdownContent text={NINE_BOX_DOC} />
         </div>
       )}
