@@ -60,9 +60,22 @@ export async function GET() {
       active: true,
       leadId: true,
       stardizId: true,
+      build: { select: { code: true, name: true } },
     },
     orderBy: [{ active: 'desc' }, { fullName: 'asc' }],
   });
+
+  // По каждому дизайнеру — ещё и статусы его оценок (draft/published/...),
+  // чтобы сразу видеть: грейд не виден, потому что оценка не опубликована.
+  const allAssessments = await prisma.assessment.findMany({
+    select: { designerId: true, status: true, effectiveGrade: true },
+  });
+  const statusesByDesigner = new Map<number, string[]>();
+  for (const a of allAssessments) {
+    const arr = statusesByDesigner.get(a.designerId) ?? [];
+    arr.push(a.effectiveGrade ? `${a.status}(${a.effectiveGrade})` : a.status);
+    statusesByDesigner.set(a.designerId, arr);
+  }
 
   const rows = designers.map((d) => {
     const g = gradeByDesignerId.get(d.id);
@@ -71,12 +84,15 @@ export async function GET() {
       fullName: d.fullName,
       role: d.role,
       active: d.active,
+      build: d.build?.name ?? null,
+      buildCode: d.build?.code ?? null,
       leadId: d.leadId,
       stardizId: d.stardizId,
       hasPublishedGrade: !!g,
       effectiveGrade: g?.effectiveGrade ?? null,
       totalXp: g?.totalXp ?? null,
       publishedAt: g?.publishedAt?.toISOString() ?? null,
+      allAssessmentStatuses: statusesByDesigner.get(d.id) ?? [],
     };
   });
 
