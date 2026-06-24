@@ -48,19 +48,84 @@ type CellMeta = {
   potential: Level;
   performance: Level;
   title: string;
+  description: string;
   highlighted: boolean;
 };
 
+// Описания совпадают с разделом «Девять позиций» в методике (AboutAccordion).
 const CELLS: CellMeta[] = [
-  { potential: 'high', performance: 'low', title: 'Проблемные гении', highlighted: true },
-  { potential: 'high', performance: 'mid', title: 'Высокий потенциал', highlighted: false },
-  { potential: 'high', performance: 'high', title: 'Звёзды', highlighted: false },
-  { potential: 'mid', performance: 'low', title: 'Зона особого внимания', highlighted: false },
-  { potential: 'mid', performance: 'mid', title: 'Основа команды', highlighted: true },
-  { potential: 'mid', performance: 'high', title: 'Высокая производительность', highlighted: false },
-  { potential: 'low', performance: 'low', title: 'Ошибка подбора', highlighted: false },
-  { potential: 'low', performance: 'mid', title: 'Зона особого внимания', highlighted: false },
-  { potential: 'low', performance: 'high', title: 'Рабочие лошадки', highlighted: true },
+  {
+    potential: 'high',
+    performance: 'low',
+    title: 'Проблемные гении',
+    description:
+      'Способности есть, но они не превращаются в результат. Важно разобраться в причинах: неверная роль, недостаток опыта, низкая мотивация, слабое управление или личная ответственность. Нужен короткий и конкретный план улучшения.',
+    highlighted: true,
+  },
+  {
+    potential: 'high',
+    performance: 'mid',
+    title: 'Высокий потенциал',
+    description:
+      'Имеют способности для перехода на следующий уровень, но пока не показывают достаточно стабильного результата. Нуждаются в фокусе, наставничестве и проверке на более сложных задачах.',
+    highlighted: false,
+  },
+  {
+    potential: 'high',
+    performance: 'high',
+    title: 'Звёзды',
+    description:
+      'Ключевые кандидаты на карьерный рост, лидерские роли и участие в кадровом резерве. Их важно удерживать, развивать и постепенно увеличивать масштаб ответственности.',
+    highlighted: false,
+  },
+  {
+    potential: 'mid',
+    performance: 'low',
+    title: 'Зона особого внимания',
+    description:
+      'Сотрудник не соответствует ожиданиям, а возможность дальнейшего роста пока не подтверждена. Требуются честная обратная связь, конкретные цели и ограниченный срок на исправление ситуации.',
+    highlighted: false,
+  },
+  {
+    potential: 'mid',
+    performance: 'mid',
+    title: 'Основа команды',
+    description:
+      'Соответствуют ожиданиям и обеспечивают устойчивую работу. Могут перейти в более сильную категорию через развитие конкретных навыков и повышение автономности.',
+    highlighted: true,
+  },
+  {
+    potential: 'mid',
+    performance: 'high',
+    title: 'Высокая производительность',
+    description:
+      'Стабильно дают сильный результат и могут продолжать расти в своей профессиональной или управленческой роли. Требуют индивидуального плана развития и удержания.',
+    highlighted: false,
+  },
+  {
+    potential: 'low',
+    performance: 'low',
+    title: 'Ошибка подбора',
+    description:
+      'Сотрудник не даёт необходимого результата и не демонстрирует способности к росту в текущей роли. Стоит рассмотреть перевод на более подходящую позицию или прекращение сотрудничества.',
+    highlighted: false,
+  },
+  {
+    potential: 'low',
+    performance: 'mid',
+    title: 'Зона особого внимания',
+    description:
+      'Надёжно выполняют понятные задачи в рамках текущей роли. Основная задача руководителя — поддерживать качество, мотивацию и соответствие роли потребностям команды.',
+    highlighted: false,
+  },
+  {
+    potential: 'low',
+    performance: 'high',
+    title: 'Рабочие лошадки',
+    description:
+      'Сильны в текущей роли и приносят компании значительную пользу. Необязательно должны становиться руководителями. Для них важны экспертный рост, признание, деньги и интересные задачи.',
+    highlighted: true,
+  },
 ];
 
 const UNASSIGNED_ID = 'unassigned';
@@ -159,8 +224,13 @@ function MatrixCell({
             : 'border-cloud bg-snow'
       }`}
     >
-      <div className="text-[10px]  font-medium text-stone mb-2 leading-tight">
-        {meta.title}
+      <div className="mb-2.5">
+        <div className="text-[11px] font-medium text-ink leading-tight">
+          {meta.title}
+        </div>
+        <p className="text-[10px] text-stone leading-snug mt-1">
+          {meta.description}
+        </p>
       </div>
       <div className="flex flex-col gap-1.5 flex-1">
         {users.map((u) => (
