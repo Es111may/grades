@@ -46,12 +46,15 @@ const config: Config = {
         ],
         mono: ['"JetBrains Mono"', '"SF Mono"', 'ui-monospace', 'monospace'],
       },
+      // Многослойные тени с холодным ink-оттенком (не чистый чёрный) — дают
+      // более «дорогую», реалистичную глубину. Хайралайн 0.5px остаётся как
+      // чёткая граница карточки на светлом фоне.
       boxShadow: {
-        soft: '0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 0.5px rgba(0, 0, 0, 0.05)',
+        soft: '0 1px 1px rgba(17,24,39,0.04), 0 2px 6px rgba(17,24,39,0.04), 0 0 0 0.5px rgba(17,24,39,0.04)',
         'soft-md':
-          '0 4px 12px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.05)',
+          '0 2px 4px rgba(17,24,39,0.04), 0 10px 24px rgba(17,24,39,0.07), 0 0 0 0.5px rgba(17,24,39,0.05)',
         'soft-lg':
-          '0 12px 32px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.05)',
+          '0 6px 12px rgba(17,24,39,0.05), 0 24px 56px rgba(17,24,39,0.12), 0 0 0 0.5px rgba(17,24,39,0.05)',
         focus: '0 0 0 4px rgba(0, 122, 255, 0.18)',
       },
       // Скругления — подтянуты ближе к rating.idaproject.com (там карточки
@@ -66,6 +69,29 @@ const config: Config = {
       },
       transitionTimingFunction: {
         'apple-out': 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+        // Выразительный «выезд» для появлений — быстрый старт, мягкое
+        // торможение. Хорош для fade-up / scale-in.
+        'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
+      // Появления контента. Используются точечно (страницы, модалки, ряды).
+      keyframes: {
+        'fade-up': {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        'scale-in': {
+          '0%': { opacity: '0', transform: 'scale(0.97)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+      },
+      animation: {
+        'fade-up': 'fade-up 0.45s cubic-bezier(0.16,1,0.3,1) both',
+        'fade-in': 'fade-in 0.3s ease-out both',
+        'scale-in': 'scale-in 0.2s cubic-bezier(0.16,1,0.3,1) both',
       },
     },
   },

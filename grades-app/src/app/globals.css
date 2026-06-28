@@ -51,7 +51,18 @@
     color-scheme: light;
   }
   body {
-    background: #f5f5f7;
+    background-color: #f5f5f7;
+    /* Лёгкая атмосфера вместо плоской заливки: мягкий световой акцент сверху-
+       по-центру добавляет глубину. Очень сдержанно, нейтрально. fixed — чтобы
+       «свет» не уезжал при скролле длинных списков. */
+    background-image: radial-gradient(
+      1100px 520px at 50% -8%,
+      rgba(255, 255, 255, 0.85),
+      rgba(255, 255, 255, 0) 62%
+    );
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    min-height: 100vh;
     color: #1d1d1f;
     font-family: 'Aeonik Pro', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -84,6 +95,28 @@
   /* Стандартный selection */
   ::selection {
     background: #c9e6ff;
+  }
+  /* Тонкий современный скроллбар — спокойнее системного, в тон ink. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(17, 24, 39, 0.18) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(17, 24, 39, 0.18);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(17, 24, 39, 0.32);
+    background-clip: padding-box;
   }
 }
 
@@ -177,7 +210,8 @@
     @apply bg-snow border border-cloud rounded-card shadow-soft;
   }
   .card-hover {
-    @apply card transition-all duration-200 ease-apple-out hover:shadow-soft-md hover:border-ash;
+    @apply card transition-all duration-200 ease-apple-out
+           hover:shadow-soft-md hover:border-ash hover:-translate-y-px;
   }
 
   /* Чип билда: точка + название. Заливка чуть серее обычного фона,
@@ -221,5 +255,19 @@
   }
   .segmented-item-active {
     @apply bg-snow text-ink shadow-soft;
+  }
+}
+
+/* Уважаем системную настройку «уменьшить движение»: глушим анимации и
+   переходы для тех, кому они мешают (вестибулярные расстройства и пр.).
+   Вынесено из @layer — !important должен победить любые utility-переходы. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
