@@ -280,7 +280,7 @@ export default function Portrait({
       /> */}
 
       {/* Hero: аватар слева от имени и мета-инфо */}
-      <div className="mb-6 flex items-center gap-4">
+      <div className="mb-6 flex items-center gap-4 animate-fade-up">
         <Avatar
           name={data.designer.fullName}
           avatarUrl={data.designer.avatarUrl}
@@ -345,10 +345,13 @@ export default function Portrait({
       {/* Grade card. Третья колонка — чип «В срок (6 мес)», рендерится только
           если у дизайнера непустая выборка и билд не creator (Инхаус).
           OnTimeChip сам решает что показывать — мы просто кладём его в grid. */}
-      <div className="card p-7 mb-6">
+      <div
+        className="card p-7 mb-6 shadow-soft-md animate-fade-up"
+        style={{ animationDelay: '80ms' }}
+      >
         <div className="grid grid-cols-[auto_1fr_auto] gap-10 items-end">
           <div>
-            <div className="text-[11px]  text-stone mb-2">
+            <div className="label-mono text-stone mb-2">
               {isFloorActive ? 'Эффективный грейд' : 'Грейд'}
             </div>
             <div className="font-display text-6xl font-medium tracking-tight leading-none">
@@ -362,7 +365,7 @@ export default function Portrait({
           </div>
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <span className="text-[11px]  text-stone">
+              <span className="label-mono text-stone">
                 Общий XP
               </span>
               <span className="font-display text-3xl font-medium tabular-nums">
@@ -397,7 +400,8 @@ export default function Portrait({
       <div
         onMouseEnter={() => setRowHovered(true)}
         onMouseLeave={() => setRowHovered(false)}
-        className="mb-3"
+        className="mb-3 animate-fade-up"
+        style={{ animationDelay: '140ms' }}
       >
         <div className="grid grid-cols-5 gap-3">
           {TAXONOMY_ORDER.map((code) => {
