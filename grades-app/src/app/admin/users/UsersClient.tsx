@@ -185,7 +185,7 @@ export default function UsersClient({
 
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
-      <div className="flex items-end justify-between mb-6 gap-4">
+      <div className="flex items-end justify-between mb-6 gap-4 animate-fade-up">
         <h1 className="font-display text-4xl font-medium tracking-tight">Команда</h1>
         {(meRole === 'admin' || meRole === 'lead') && (
           <button onClick={openNew} className="btn-accent">
@@ -195,7 +195,10 @@ export default function UsersClient({
       </div>
 
       {/* Объединённый тулбар: scope + роль + view + поиск */}
-      <div className="flex items-center gap-1.5 mb-5 flex-wrap">
+      <div
+        className="flex items-center gap-1.5 mb-5 flex-wrap animate-fade-up"
+        style={{ animationDelay: '70ms' }}
+      >
         {showScopeSwitcher && (
           <div className="segmented">
             {(['all', 'mine'] as ScopeFilter[]).map((s) => (
@@ -270,29 +273,34 @@ export default function UsersClient({
         </span>
       </div>
 
-      {view === 'matrix' ? (
-        <MatrixView users={filtered} />
-      ) : view === 'leaderboard' ? (
-        <LeaderboardView
-          users={filtered}
-          gradeThresholds={gradeThresholds}
-          onRowClick={open360}
-          onToggleActive={handleToggleActive}
-        />
-      ) : (
-        <KanbanView
-          users={filtered}
-          leads={leads}
-          groupBy={
-            view === 'kanban-dept'
-              ? 'department'
-              : view === 'kanban-lead'
-                ? 'lead'
-                : 'grade'
-          }
-          onCardClick={(u) => open360(u as UserRow)}
-        />
-      )}
+      {/* key={view} — при переключении вкладки контейнер пересоздаётся, и
+          новый контент плавно «въезжает» (fade-up). Лёгкий переход между
+          представлениями вместо резкой подмены. */}
+      <div key={view} className="animate-fade-up">
+        {view === 'matrix' ? (
+          <MatrixView users={filtered} />
+        ) : view === 'leaderboard' ? (
+          <LeaderboardView
+            users={filtered}
+            gradeThresholds={gradeThresholds}
+            onRowClick={open360}
+            onToggleActive={handleToggleActive}
+          />
+        ) : (
+          <KanbanView
+            users={filtered}
+            leads={leads}
+            groupBy={
+              view === 'kanban-dept'
+                ? 'department'
+                : view === 'kanban-lead'
+                  ? 'lead'
+                  : 'grade'
+            }
+            onCardClick={(u) => open360(u as UserRow)}
+          />
+        )}
+      </div>
 
       {modalOpen && (
         <UserModal
