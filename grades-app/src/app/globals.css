@@ -60,7 +60,9 @@
       rgba(255, 255, 255, 0.85),
       rgba(255, 255, 255, 0) 62%
     );
-    background-attachment: fixed;
+    /* Без background-attachment: fixed — он заставлял браузер перерисовывать
+       градиент на каждый кадр скролла и давал лаги анимаций. Световой акцент
+       остаётся у верха страницы — там, где основной контент. */
     background-repeat: no-repeat;
     min-height: 100vh;
     color: #1d1d1f;

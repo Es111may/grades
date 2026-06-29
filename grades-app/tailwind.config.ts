@@ -88,10 +88,14 @@ const config: Config = {
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
       },
+      // easeOutCubic — плавная задержка без резкого «снэпа» в начале (expo
+      // давал рывок). backwards — держит стартовый кадр во время delay, но
+      // после анимации НЕ оставляет transform на элементе (чище, не ломает
+      // позиционирование fixed-потомков).
       animation: {
-        'fade-up': 'fade-up 0.45s cubic-bezier(0.16,1,0.3,1) both',
-        'fade-in': 'fade-in 0.3s ease-out both',
-        'scale-in': 'scale-in 0.2s cubic-bezier(0.16,1,0.3,1) both',
+        'fade-up': 'fade-up 0.5s cubic-bezier(0.33, 1, 0.68, 1) backwards',
+        'fade-in': 'fade-in 0.4s cubic-bezier(0.33, 1, 0.68, 1) backwards',
+        'scale-in': 'scale-in 0.26s cubic-bezier(0.33, 1, 0.68, 1) backwards',
       },
     },
   },
