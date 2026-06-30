@@ -312,6 +312,68 @@ export default function UserCard360({
   );
 }
 
+/**
+ * Спарклайн динамики XP по циклам оценки (Phase 15). Лёгкий SVG, без chart.js.
+ * `assessments` приходят DESC (свежие сверху) — разворачиваем в хронологию.
+ * Рисуем только при ≥2 точках. preserveAspectRatio=none + non-scaling-stroke:
+ * линия тянется на всю ширину карточки, но остаётся ровной 1.75px (не толстеет).
+ */
+function XpSparkline({ assessments }: { assessments: AssessmentHistoryRow[] }) {
+  const points = [...assessments].reverse().map((a) => a.totalXp ?? 0);
+  if (points.length < 2) return null;
+
+  const W = 300;
+  const H = 36;
+  const pad = 4;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const coords = points.map((v, i) => ({
+    x: pad + (i / (points.length - 1)) * (W - pad * 2),
+    y: H - pad - ((v - min) / range) * (H - pad * 2),
+  }));
+  const line = coords
+    .map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`)
+    .join(' ');
+  const area = `${line} L ${coords[coords.length - 1].x.toFixed(1)} ${H} L ${coords[0].x.toFixed(1)} ${H} Z`;
+  const totalDelta = points[points.length - 1] - points[0];
+
+  return (
+    <div className="mb-2">
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="label-mono text-stone">Динамика XP</span>
+        {totalDelta !== 0 && (
+          <span
+            className={`label-mono ${totalDelta > 0 ? 'text-emerald' : 'text-blaze'}`}
+          >
+            {totalDelta > 0 ? '+' : ''}
+            {totalDelta} XP
+          </span>
+        )}
+      </div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        height={H}
+        preserveAspectRatio="none"
+        className="block"
+        aria-hidden="true"
+      >
+        <path d={area} fill="rgba(52,199,89,0.10)" />
+        <path
+          d={line}
+          fill="none"
+          stroke="#34c759"
+          strokeWidth={1.75}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    </div>
+  );
+}
+
 function HistoryBlock({
   user,
   history,
@@ -347,6 +409,7 @@ function HistoryBlock({
     <div className="px-7 py-4 border-t border-cloud space-y-3">
       {hasAssessments && (
         <div className="space-y-1">
+          <XpSparkline assessments={history.assessments} />
           {history.assessments.slice(0, 5).map((a, idx) => {
             const next = history.assessments[idx + 1];
             const delta =
