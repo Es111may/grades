@@ -415,7 +415,7 @@ export default function AssessmentForm({
         <span className="text-ash mx-1.5">/</span>
         <span>{designer.fullName}</span>
       </div>
-      <div className="flex items-end justify-between gap-8 mb-6">
+      <div className="flex items-end justify-between gap-8 mb-6 animate-fade-up">
         <div className="flex items-center gap-4 min-w-0">
           <Avatar
             name={designer.fullName}

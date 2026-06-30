@@ -70,7 +70,7 @@ export default function AssessmentsClient({
 
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
-      <div className="mb-6">
+      <div className="mb-6 animate-fade-up">
         <h1 className="font-display text-4xl font-medium tracking-tight">Оценки</h1>
       </div>
 
@@ -79,7 +79,7 @@ export default function AssessmentsClient({
           собственные и чужие по подопечным; для стардиза — по подопечным;
           для админа — все. Skoupe строится на сервере (page.tsx). */}
       {drafts.length > 0 && (
-        <section className="mb-8">
+        <section className="mb-8 animate-fade-up" style={{ animationDelay: '70ms' }}>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="font-display text-xl font-medium tracking-tight">
               Черновики
@@ -184,11 +184,11 @@ export default function AssessmentsClient({
       )}
 
       {rows.length === 0 ? (
-        <div className="card p-10 text-center">
+        <div className="card p-10 text-center animate-fade-up" style={{ animationDelay: '110ms' }}>
           <p className="text-stone">Опубликованных оценок пока нет.</p>
         </div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden animate-fade-up" style={{ animationDelay: '110ms' }}>
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-canvas border-b border-cloud">
