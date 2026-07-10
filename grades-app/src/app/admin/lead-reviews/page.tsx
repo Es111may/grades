@@ -59,7 +59,7 @@ export default async function LeadReviewsLandingPage({
   // Empty state
   const canImport = me.role === 'admin' && target.active;
   return (
-    <main className="max-w-[1400px] mx-auto px-8 pt-12 pb-16">
+    <main className="max-w-[1240px] mx-auto px-8 pt-12 pb-16">
       <div className="text-xs text-stone mb-3">
         <Link href="/admin/users" className="hover:text-ink transition-colors">
           Команда

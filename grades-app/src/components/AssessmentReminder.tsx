@@ -50,7 +50,7 @@ export default function AssessmentReminder() {
         highlighted ? 'bg-lime text-black' : 'bg-cloud/60 text-graphite'
       }`}
     >
-      <div className="max-w-[1400px] mx-auto px-6 py-2 text-sm font-medium text-center">
+      <div className="max-w-[1240px] mx-auto px-6 py-2 text-sm font-medium text-center">
         Сезон оценок — до {deadline} назначь даты грейдирования подопечным
       </div>
     </div>

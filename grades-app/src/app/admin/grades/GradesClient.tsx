@@ -40,7 +40,7 @@ export default function GradesClient({
   skills: Skill[];
 }) {
   return (
-    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
+    <main className="max-w-[1240px] mx-auto px-8 pt-10 pb-16">
       <div className="mb-6">
         <h1 className="font-display text-4xl font-medium tracking-tight mb-1.5">
           Грейды

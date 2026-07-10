@@ -71,7 +71,7 @@ export default function PageSkeleton({
   variant?: 'list' | 'grid';
 }) {
   return (
-    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
+    <main className="max-w-[1240px] mx-auto px-8 pt-10 pb-16">
       <HeaderSkeleton />
       <ToolbarSkeleton />
       {variant === 'grid' ? <GridCardsSkeleton /> : <CardListSkeleton />}

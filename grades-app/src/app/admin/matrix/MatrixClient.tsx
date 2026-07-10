@@ -111,7 +111,7 @@ export default function MatrixClient({
   }
 
   return (
-    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
+    <main className="max-w-[1240px] mx-auto px-8 pt-10 pb-16">
       <div className="flex items-end justify-between mb-6 gap-4">
         <h1 className="font-display text-4xl font-medium tracking-tight">Скиллы</h1>
         <button onClick={() => setShowNewModal(true)} className="btn-accent">

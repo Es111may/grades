@@ -69,7 +69,7 @@ export default function AssessmentsClient({
   const showLead = meRole === 'admin';
 
   return (
-    <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
+    <main className="max-w-[1240px] mx-auto px-8 pt-10 pb-16">
       <div className="mb-6 animate-fade-up">
         <h1 className="font-display text-4xl font-medium tracking-tight">Оценки</h1>
       </div>

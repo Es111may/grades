@@ -57,7 +57,7 @@ export default function DraftsReminderBanner({
       href="/lead/assessments"
       className={`block w-full transition-colors duration-1000 ease-out hover:brightness-95 ${cls}`}
     >
-      <div className="max-w-[1400px] mx-auto px-6 py-2 text-sm font-medium text-center">
+      <div className="max-w-[1240px] mx-auto px-6 py-2 text-sm font-medium text-center">
         {message}
         <span className="ml-2 opacity-75">→</span>
       </div>

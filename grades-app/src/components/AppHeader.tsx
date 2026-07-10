@@ -35,7 +35,7 @@ export default async function AppHeader({
 
   return (
     <header className="sticky top-0 z-30 border-b border-cloud/80 bg-snow/85 backdrop-blur-md">
-      <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between gap-6">
+      <div className="max-w-[1240px] mx-auto px-6 h-14 flex items-center justify-between gap-6">
         <div className="flex items-center gap-8 min-w-0">
           <Link
             href="/"
