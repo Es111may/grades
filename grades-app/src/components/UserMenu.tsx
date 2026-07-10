@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { signOut } from 'next-auth/react';
-import { ChevronDownIcon } from './icons';
 import Avatar from './Avatar';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -35,35 +34,39 @@ export default function UserMenu({
   }, []);
 
   return (
-    <div className="relative" ref={wrapRef}>
+    // В Dynamic Island-хедере — только аватарка; меню раскрывается по
+    // ховеру (и по клику — для тача/клавиатуры).
+    <div
+      className="relative"
+      ref={wrapRef}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-pill hover:bg-cloud/50 transition-colors"
+        className="block p-1 rounded-pill hover:bg-cloud/50 transition-colors"
+        aria-label={`${fullName} — меню`}
+        aria-expanded={open}
       >
-        <Avatar name={fullName} avatarUrl={avatarUrl} size={32} />
-        <span className="text-sm leading-tight text-left">
-          <span className="block font-medium text-ink">{fullName}</span>
-          <span className="block text-[11px] text-stone">{ROLE_LABEL[role] ?? role}</span>
-        </span>
-        <ChevronDownIcon
-          className={`w-3.5 h-3.5 text-stone transition-transform duration-150 ${
-            open ? 'rotate-180' : ''
-          }`}
-        />
+        <Avatar name={fullName} avatarUrl={avatarUrl} size={36} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-56 rounded-card bg-snow border border-cloud shadow-soft-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-cloud">
-            <div className="text-sm font-medium text-ink truncate">{fullName}</div>
-            <div className="text-xs text-stone mt-0.5">{ROLE_LABEL[role] ?? role}</div>
+        // pt-2 — «мостик»: зазор между аватаркой и меню входит в hover-зону,
+        // курсор не роняет меню по пути к нему.
+        <div className="absolute right-0 top-full pt-2 w-56">
+          <div className="rounded-card bg-snow border border-cloud shadow-soft-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-cloud">
+              <div className="text-sm font-medium text-ink truncate">{fullName}</div>
+              <div className="text-xs text-stone mt-0.5">{ROLE_LABEL[role] ?? role}</div>
+            </div>
+            <button
+              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+              className="w-full text-left px-4 py-2.5 text-sm text-ink hover:bg-cloud/50 transition-colors"
+            >
+              Выйти
+            </button>
           </div>
-          <button
-            onClick={() => signOut({ callbackUrl: '/auth/signin' })}
-            className="w-full text-left px-4 py-2.5 text-sm text-ink hover:bg-cloud/50 transition-colors"
-          >
-            Выйти
-          </button>
         </div>
       )}
     </div>

@@ -31,12 +31,13 @@ export default async function LeadLayout({ children }: { children: React.ReactNo
       ];
   return (
     <>
-      <AssessmentReminder />
-      <DraftsReminder />
       <AppHeader
         user={{ id: user.id, fullName: user.name ?? user.email ?? '—', role: user.role }}
         navItems={navItems}
       />
+      {/* Капсулы-уведомления — под Dynamic Island-хедером */}
+      <AssessmentReminder />
+      <DraftsReminder />
       {children}
     </>
   );

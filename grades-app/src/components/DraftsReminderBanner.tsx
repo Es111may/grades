@@ -53,15 +53,18 @@ export default function DraftsReminderBanner({
       : `${total} ${pluralizeDrafts(total)} в работе`;
 
   return (
-    <Link
-      href="/lead/assessments"
-      className={`block w-full transition-colors duration-1000 ease-out hover:brightness-95 ${cls}`}
-    >
-      <div className="max-w-[1240px] mx-auto px-6 py-2 text-sm font-medium text-center">
+    // Капсула в стиле Dynamic Island — центрированная пилюля под хедером
+    <div className="px-4 mt-2.5">
+      <Link
+        href="/lead/assessments"
+        className={`block w-fit max-w-full mx-auto rounded-pill px-5 py-2 text-sm
+                    font-medium text-center transition-colors duration-1000 ease-out
+                    hover:brightness-95 ${cls}`}
+      >
         {message}
         <span className="ml-2 opacity-75">→</span>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }
 

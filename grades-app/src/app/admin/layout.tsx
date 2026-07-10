@@ -37,16 +37,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ];
   return (
     <>
-      <AssessmentReminder />
-      {/* DraftsReminder — асинхронный server-component, сам fetch'ит
-          зависшие черновики для текущего пользователя. Возвращает null,
-          если черновиков нет — поэтому держим его рядом с
-          AssessmentReminder без условий по роли. */}
-      <DraftsReminder />
       <AppHeader
         user={{ id: user.id, fullName: user.name ?? user.email ?? '—', role: user.role }}
         navItems={navItems}
       />
+      {/* Капсулы-уведомления живут ПОД Dynamic Island-хедером.
+          DraftsReminder — асинхронный server-component, сам fetch'ит
+          зависшие черновики; возвращает null, если их нет. */}
+      <AssessmentReminder />
+      <DraftsReminder />
       {children}
     </>
   );

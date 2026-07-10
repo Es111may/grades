@@ -45,12 +45,16 @@ export default function AssessmentReminder() {
   const deadline = period === 'spring' ? '15 апреля' : '15 октября';
 
   return (
-    <div
-      className={`w-full transition-colors duration-1000 ease-out ${
-        highlighted ? 'bg-lime text-black' : 'bg-cloud/60 text-graphite'
-      }`}
-    >
-      <div className="max-w-[1240px] mx-auto px-6 py-2 text-sm font-medium text-center">
+    // Капсула в стиле Dynamic Island — центрированная пилюля под хедером
+    <div className="px-4 mt-2.5">
+      <div
+        className={`w-fit max-w-full mx-auto rounded-pill px-5 py-2 text-sm font-medium
+                    text-center transition-colors duration-1000 ease-out ${
+                      highlighted
+                        ? 'bg-lime text-black shadow-[0_0_24px_rgba(213,255,12,.2)]'
+                        : 'bg-snow/75 text-graphite border border-cloud/60 backdrop-blur-xl'
+                    }`}
+      >
         Сезон оценок — до {deadline} назначь даты грейдирования подопечным
       </div>
     </div>
