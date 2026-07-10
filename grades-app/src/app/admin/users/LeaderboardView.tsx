@@ -387,7 +387,6 @@ function Ring({ percent }: { percent: number | null }) {
       className="relative w-[92px] h-[92px] rounded-full shrink-0"
       style={{
         background: `conic-gradient(rgb(var(--c-lime)) ${p}%, rgb(var(--c-cloud)) 0)`,
-        boxShadow: '0 0 24px rgba(213,255,12,.2)',
       }}
     >
       <div className="absolute inset-[7px] rounded-full bg-snow flex items-center justify-center">
@@ -399,16 +398,43 @@ function Ring({ percent }: { percent: number | null }) {
   );
 }
 
+/** Спарклайн «в срок» команды по месяцам (стиль концепта: зелёная линия
+ *  с заливкой, прижат к низу карточки). */
+function OnTimeSparkline({ points }: { points: number[] }) {
+  const W = 200;
+  const H = 34;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const X = (i: number) => (i / (points.length - 1)) * W;
+  const Y = (v: number) => H - 4 - ((v - min) / range) * (H - 8);
+  const line = points
+    .map((v, i) => `${i ? 'L' : 'M'} ${X(i).toFixed(1)} ${Y(v).toFixed(1)}`)
+    .join(' ');
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className="w-full h-[34px] mt-auto pt-1 block"
+      aria-hidden="true"
+    >
+      <path
+        d={`${line} L ${W} ${H} L 0 ${H} Z`}
+        fill="rgba(48,209,88,.12)"
+      />
+      <path
+        d={line}
+        fill="none"
+        stroke="#30d158"
+        strokeWidth={2}
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
 /** Строка агрегатов команды над лидербордом. */
 function TeamBento({ stats }: { stats: TeamStats }) {
-  const otZone =
-    stats.onTimeMedian == null
-      ? 'text-ash'
-      : stats.onTimeMedian >= 85
-        ? 'text-emerald'
-        : stats.onTimeMedian >= 70
-          ? 'text-sunset'
-          : 'text-blaze';
   const growth =
     stats.growthMedian == null
       ? '—'
@@ -430,22 +456,23 @@ function TeamBento({ stats }: { stats: TeamStats }) {
         <div className="label-mono text-stone relative">Dream Team Index · NIPC</div>
         <div className="flex items-center gap-4 mt-3.5 relative">
           <Ring percent={stats.nipcPercent} />
-          <div className="min-w-0">
-            <div className="text-xs text-stone leading-relaxed">
-              звёзды + потенциал + производительность − зоны риска
-            </div>
-            <div className="text-[11px] text-ash mt-1">{stats.nineBoxPlaced} в 9-Box</div>
+          <div className="min-w-0 text-xs text-stone leading-relaxed">
+            (звёзды {stats.nipcStars} + потенциал {stats.nipcHpot} + производительность{' '}
+            {stats.nipcHperf} − зоны риска {stats.nipcRisk}) из {stats.totalDesigners}
           </div>
         </div>
       </div>
       <div className="card p-5 flex flex-col">
         <div className="label-mono text-stone">В срок · команда</div>
-        <div className={`font-display text-[44px] leading-none font-medium tracking-tight mt-3 ${otZone}`}>
+        {/* Цифра белая, как в концепте (семантика цвета — в колонке таблицы) */}
+        <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
           {stats.onTimeMedian == null ? '—' : `${stats.onTimeMedian}%`}
         </div>
-        <div className="text-xs text-stone mt-auto pt-2">
-          медиана 6 мес · {stats.onTimeSample} с данными
-        </div>
+        <div className="text-xs text-stone mt-2">медиана за 6 месяцев</div>
+        {/* Живой спарклайн — месячная динамика из ClickHouse */}
+        {stats.onTimeSpark.length >= 2 && (
+          <OnTimeSparkline points={stats.onTimeSpark} />
+        )}
       </div>
       <div className="card p-5 flex flex-col">
         <div className="label-mono text-stone">Скорость роста · медиана</div>
@@ -531,7 +558,6 @@ function PodiumCard({
           className="relative w-[64px] h-[64px] rounded-full shrink-0"
           style={{
             background: `conic-gradient(rgb(var(--c-lime)) ${score}%, rgb(var(--c-cloud)) 0)`,
-            boxShadow: '0 0 22px rgba(213,255,12,.22)',
           }}
         >
           <div className="absolute inset-[4px] rounded-full bg-snow flex items-center justify-center overflow-hidden">

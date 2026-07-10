@@ -47,9 +47,15 @@ export type UserRow = {
 /** Агрегаты команды для bento-строки лидерборда (концепт v4). */
 export type TeamStats = {
   nipcPercent: number | null;
+  nipcStars: number;
+  nipcHpot: number;
+  nipcHperf: number;
+  nipcRisk: number;
   nineBoxPlaced: number;
   onTimeMedian: number | null;
   onTimeSample: number;
+  /** Месячная динамика «в срок» команды (проценты, по возрастанию месяца). */
+  onTimeSpark: number[];
   growthMedian: number | null;
   growthSample: number;
   readyCount: number;

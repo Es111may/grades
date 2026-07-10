@@ -146,6 +146,110 @@ function buildOnTimeBatchSQL(): string {
   `;
 }
 
+/**
+ * SQL месячной динамики «в срок» ПО ВСЕЙ КОМАНДЕ — для спарклайна в bento
+ * «Команды». Та же выборка задач, что в batch-агрегате, но группировка по
+ * месяцу последней записи времени вместо email.
+ */
+function buildMonthlyOnTimeSQL(): string {
+  return `
+    SELECT
+      toStartOfMonth(last_date) AS month,
+      count() AS total_tasks,
+      countIf(push_ratio <= 10) AS on_time_tasks
+    FROM (
+      SELECT
+        pu.user_email AS user_email,
+        tt.last_date AS last_date,
+        ((pu.pushed_by_dev - tm.estimate) / tm.estimate * 100) AS push_ratio
+      FROM (
+        SELECT
+          tr.task_id AS task_id,
+          lowerUTF8(u.email) AS user_email,
+          sum(tr.value) AS pushed_by_dev
+        FROM manage.worklog_timerecord tr
+        INNER JOIN manage.users_user u ON u.id = tr.user_id
+        WHERE tr.is_deleted = 0
+          AND lowerUTF8(u.email) IN ({emails:Array(String)})
+        GROUP BY tr.task_id, lowerUTF8(u.email)
+      ) AS pu
+      INNER JOIN (
+        SELECT
+          t.id AS task_id,
+          if(
+            ifNull(t.${MANAGE_ESTIMATE_COL}, 0) > 0,
+            toFloat64(t.${MANAGE_ESTIMATE_COL}),
+            toFloat64(ifNull(t.estimate, 0))
+          ) AS estimate,
+          t.is_completed AS is_completed
+        FROM manage.worklog_task t
+      ) AS tm ON tm.task_id = pu.task_id
+      INNER JOIN (
+        SELECT
+          task_id,
+          sum(value) AS total_push,
+          max(date) AS last_date
+        FROM manage.worklog_timerecord
+        WHERE is_deleted = 0
+        GROUP BY task_id
+      ) AS tt ON tt.task_id = pu.task_id
+      WHERE
+        tm.is_completed = 1
+        AND tm.estimate > 0
+        AND pu.pushed_by_dev > 0
+        AND tt.last_date >= subtractMonths(today(), 6)
+        AND ifNull(
+          if(ABS(tt.total_push) > 0,
+             round(ABS(pu.pushed_by_dev) / ABS(tt.total_push) * 100),
+             0),
+          0
+        ) >= 50
+    ) AS per_user_task
+    GROUP BY month
+    ORDER BY month
+  `;
+}
+
+/**
+ * Месячная динамика «в срок» по команде (спарклайн). Возвращает проценты
+ * по месяцам за 6-мес окно, по возрастанию месяца. Кэш 15 мин.
+ */
+export async function fetchTeamMonthlyOnTime(
+  emails: string[],
+): Promise<number[]> {
+  const unique = Array.from(
+    new Set(
+      emails.map((e) => e.trim().toLowerCase()).filter((e) => e && e.includes('@')),
+    ),
+  );
+  if (unique.length === 0) return [];
+
+  const cacheKey = makeEmailsCacheKey('perf-on-time-monthly', unique);
+  return getOrCompute(
+    cacheKey,
+    async () => {
+      const client = getClient();
+      const result = await client.query({
+        query: buildMonthlyOnTimeSQL(),
+        query_params: { emails: unique },
+        format: 'JSONEachRow',
+      });
+      type Row = {
+        month: string;
+        total_tasks: number | string;
+        on_time_tasks: number | string;
+      };
+      const rows = (await result.json()) as Row[];
+      return rows
+        .filter((r) => Number(r.total_tasks) > 0)
+        .map((r) =>
+          Math.round((Number(r.on_time_tasks) / Number(r.total_tasks)) * 100),
+        );
+    },
+    DEFAULT_TTL_MS,
+  );
+}
+
 // ============================================================
 // Публичная функция
 // ============================================================

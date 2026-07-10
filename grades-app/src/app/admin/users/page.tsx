@@ -4,7 +4,10 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { canAccessUsers } from '@/lib/permissions';
-import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
+import {
+  fetchOnTimeStatsByEmail,
+  fetchTeamMonthlyOnTime,
+} from '@/lib/clickhousePerfBatch';
 import { computeScore, nineBoxLevelFromString } from '@/lib/perfScore';
 import type { BuildCode } from '@/lib/types';
 import UsersClient from './UsersClient';
@@ -194,12 +197,19 @@ export default async function AdminUsersPage() {
     .filter((u) => (u.role === 'designer' || u.role === 'stardiz') && u.active && u.email)
     .map((u) => u.email);
   let onTimeByEmail = new Map<string, { onTimePercent: number | null; totalTasks: number }>();
+  let onTimeSpark: number[] = [];
   if (designerEmails.length > 0) {
     try {
       onTimeByEmail = await fetchOnTimeStatsByEmail(designerEmails);
     } catch (err) {
       console.error('[/admin/users] fetchOnTimeStatsByEmail failed:', err);
       // Fall through: всем onTime = null, composite опустится в xpNorm.
+    }
+    try {
+      // Спарклайн «в срок» по месяцам — для bento-карточки
+      onTimeSpark = await fetchTeamMonthlyOnTime(designerEmails);
+    } catch (err) {
+      console.error('[/admin/users] fetchTeamMonthlyOnTime failed:', err);
     }
   }
 
@@ -300,9 +310,14 @@ export default async function AdminUsersPage() {
 
   const teamStats = {
     nipcPercent,
+    nipcStars: nb('high_high'),
+    nipcHpot: nb('high_mid'),
+    nipcHperf: nb('mid_high'),
+    nipcRisk: nb('mid_low') + nb('low_mid') + nb('low_low'),
     nineBoxPlaced: Object.values(nineBox).reduce((s, n) => s + n, 0),
     onTimeMedian: median(onTimeValues),
     onTimeSample: onTimeValues.length,
+    onTimeSpark,
     growthMedian: median(growthDeltas),
     growthSample: growthDeltas.length,
     readyCount: readyRows.length,
