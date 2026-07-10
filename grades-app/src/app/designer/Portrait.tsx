@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Chart as ChartJS,
@@ -19,7 +19,6 @@ import { ChevronDownIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
 import ProjectsField from '@/components/ProjectsField';
 import PerformanceDashboard from '@/components/performance/PerformanceDashboard';
-import OnTimeChip from '@/components/performance/OnTimeChip';
 import ChecklistsSection from '@/components/checklists/ChecklistsSection';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import type { Role } from '@/lib/checklistPermissions';
@@ -105,6 +104,8 @@ export default function Portrait({
   meRole,
   meUserId,
   canCreateChecklists = false,
+  nineBoxTitle = null,
+  teamGrowthMedian = null,
 }: {
   data: PortraitData;
   breadcrumb?: { href: string; label: string };
@@ -142,6 +143,12 @@ export default function Portrait({
    *  на портрете owner'а. Рассчитано на сервере по
    *  `canCreateChecklistFor(me, target)`. */
   canCreateChecklists?: boolean;
+  /** Редизайн v6: подпись позиции 9-Box («Звёзды» и т.п.). Сервер передаёт
+   *  ТОЛЬКО когда зритель admin/lead — стардиз и дизайнер её не видят. */
+  nineBoxTitle?: string | null;
+  /** Медиана прироста XP за цикл по команде. Сервер передаёт только
+   *  admin/lead/stardiz — для сравнения скорости роста с командой. */
+  teamGrowthMedian?: number | null;
 }) {
   const [rowHovered, setRowHovered] = useState(false);
   // Цвета осей радара зависят от темы (CSS до опций chart.js не дотягивается).
@@ -202,6 +209,21 @@ export default function Portrait({
   const isFloorActive =
     !!data.designer.gradeFloor && data.calculatedGrade !== data.effectiveGrade;
 
+  // Хронология published-циклов (для дельты «+N за цикл» и графика роста).
+  const sortedSibs = useMemo(
+    () =>
+      [...data.siblings]
+        .filter((s) => s.publishedAt)
+        .sort((a, b) => (a.publishedAt! < b.publishedAt! ? -1 : 1)),
+    [data.siblings],
+  );
+  const cycleDelta = useMemo(() => {
+    const idx = sortedSibs.findIndex((s) => s.id === data.assessmentId);
+    if (idx <= 0) return null;
+    const prev = sortedSibs[idx - 1].totalXp;
+    return prev == null ? null : data.totalXp - prev;
+  }, [sortedSibs, data.assessmentId, data.totalXp]);
+
   // Main radar — absolute XP per taxonomy, current + max overlay
   const labels = TAXONOMY_ORDER;
   const currentValues = TAXONOMY_ORDER.map((c) => data.xpByTaxonomy[c] ?? 0);
@@ -226,11 +248,11 @@ export default function Portrait({
       {
         label: `Текущий (${data.designer.fullName.split(' ')[0]})`,
         data: currentValues,
-        backgroundColor: 'rgba(48,209,88,0.18)',
-        borderColor: '#30d158',
+        backgroundColor: 'rgba(213,255,12,0.16)',
+        borderColor: '#d5ff0c',
         borderWidth: 2,
-        pointBackgroundColor: '#30d158',
-        pointBorderColor: '#30d158',
+        pointBackgroundColor: '#d5ff0c',
+        pointBorderColor: '#d5ff0c',
         pointRadius: 4,
       },
     ],
@@ -283,119 +305,193 @@ export default function Portrait({
         buildCode={data.designer.buildCode}
       /> */}
 
-      {/* Hero: аватар слева от имени и мета-инфо */}
-      <div className="mb-6 flex items-center gap-4 animate-fade-up">
+      {/* Hero по центру (концепт v6): аватар → имя → чипы. Грейд — первый
+          белый чип, выбор цикла — дропдаун-чип в том же ряду. Дата публикации
+          переехала в XP-плашку bento. */}
+      <div className="mb-8 flex flex-col items-center text-center animate-fade-up">
         <Avatar
           name={data.designer.fullName}
           avatarUrl={data.designer.avatarUrl}
-          size={64}
+          size={84}
         />
-        <div className="min-w-0">
-          <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
-            {data.designer.fullName}
-          </h1>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Дата грейдирования — первым чипом, чёрная: ключевая
-                метка «когда зафиксирован этот портрет». */}
-            {data.publishedAt && (
-              <span className="chip bg-ink text-snow">
-                {new Date(data.publishedAt).toLocaleDateString('ru-RU', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </span>
-            )}
-            {data.designer.buildCode && (
-              <span className="chip-neutral">
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{
-                    background:
-                      data.designer.buildCode === 'creator'
-                        ? '#00ca48'
-                        : data.designer.buildCode === 'visioner'
-                          ? '#7c3aed'
-                          : '#0ea5e9',
-                  }}
-                />
-                {data.designer.buildName}
-              </span>
-            )}
-            {/* Чип `department` убран: после переименования билдов в названия
-                отделов он дублирует данные buildName. */}
-            {data.designer.leadName && (
-              <span className="chip-neutral">Лид: {data.designer.leadName}</span>
-            )}
-          </div>
+        <h1 className="font-display text-4xl font-medium tracking-tight mt-5">
+          {data.designer.fullName}
+        </h1>
+        <div className="flex items-center justify-center gap-1.5 flex-wrap mt-3.5">
+          <span className="chip bg-ink text-snow">
+            {GRADE_NAMES[data.effectiveGrade]}
+          </span>
+          {/* Позиция 9-Box — сервер передаёт только admin/lead */}
+          {nineBoxTitle && (
+            <span className="chip-accent">{nineBoxTitle} · 9-Box</span>
+          )}
+          {data.designer.buildCode && (
+            <span className="chip-neutral">
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{
+                  background:
+                    data.designer.buildCode === 'creator'
+                      ? '#00ca48'
+                      : data.designer.buildCode === 'visioner'
+                        ? '#7c3aed'
+                        : '#0ea5e9',
+                }}
+              />
+              {data.designer.buildName}
+            </span>
+          )}
+          {data.designer.leadName && (
+            <span className="chip-neutral">Лид: {data.designer.leadName}</span>
+          )}
+          {data.siblings.length > 1 && (
+            <CyclesSwitcher
+              siblings={data.siblings}
+              currentId={data.assessmentId}
+              hrefPrefix={siblingHrefPrefix}
+            />
+          )}
         </div>
       </div>
-
-      {/* Переключатель циклов — inline в шапке (floating-копию убрали в
-          пользу SectionNav). */}
-      {data.siblings.length > 1 && (
-        <div className="mb-6">
-          <CyclesSwitcher
-            siblings={data.siblings}
-            currentId={data.assessmentId}
-            hrefPrefix={siblingHrefPrefix}
-          />
-        </div>
-      )}
 
       {/* === Статистика: grade-card, taxonomy-cards, radar, next-gate === */}
       <section id="stats" className="scroll-mt-24">
 
-      {/* Grade card. Третья колонка — чип «В срок (6 мес)», рендерится только
-          если у дизайнера непустая выборка и билд не creator (Инхаус).
-          OnTimeChip сам решает что показывать — мы просто кладём его в grid. */}
+      {/* Bento (концепт v6): XP · В срок · 9-Box (admin/lead) / Скорость
+          роста (stardiz/designer) · Гейты. Заменяет прежнюю grade-карточку —
+          сам грейд теперь чипом в hero. */}
       <div
-        className="card p-7 mb-6 shadow-soft-md animate-fade-up"
+        className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6 animate-fade-up"
         style={{ animationDelay: '80ms' }}
       >
-        <div className="grid grid-cols-[auto_1fr_auto] gap-10 items-end">
-          <div>
-            <div className="label-mono text-stone mb-2">
-              {isFloorActive ? 'Эффективный грейд' : 'Грейд'}
-            </div>
-            <div className="font-display text-6xl font-medium tracking-tight leading-none">
-              {GRADE_NAMES[data.effectiveGrade]}
-            </div>
-            {isFloorActive && (
-              <div className="text-xs text-sunset mt-2">
-                Зафиксирован — расчёт дал {GRADE_NAMES[data.calculatedGrade]}
-              </div>
+        {/* XP: цифра, дельта за цикл, до следующего грейда, бар, дата публикации */}
+        <div className="card p-5 flex flex-col">
+          <div className="label-mono text-stone">Общий XP</div>
+          <div className="font-display text-4xl font-medium tracking-tight mt-3">
+            {data.totalXp}
+            <span className="text-lg text-ash font-normal"> / {data.maxXp}</span>
+          </div>
+          <div className="text-xs text-stone mt-1.5">
+            {cycleDelta !== null && (
+              <span
+                className={
+                  cycleDelta >= 0 ? 'text-emerald font-medium' : 'text-blaze font-medium'
+                }
+              >
+                {cycleDelta >= 0 ? '+' : ''}
+                {cycleDelta} за цикл
+              </span>
+            )}
+            {cycleDelta !== null && data.nextGrade && ' · '}
+            {data.nextGrade && (
+              <>
+                до {GRADE_NAMES[data.nextGrade.code]} ещё{' '}
+                <b className="text-ink font-medium">{data.nextGrade.xpNeeded} XP</b>
+              </>
             )}
           </div>
-          <div>
-            <div className="flex items-baseline justify-between mb-2">
-              <span className="label-mono text-stone">
-                Общий XP
-              </span>
-              <span className="font-display text-3xl font-medium tabular-nums">
-                {data.totalXp}
-                <span className="text-base text-stone font-normal ml-1.5">
-                  из {data.maxXp}
-                </span>
-              </span>
-            </div>
-            <div className="h-1.5 bg-cloud rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald rounded-full transition-all"
-                style={{ width: `${Math.min(xpProgress, 100)}%` }}
-              />
-            </div>
-            <div className="text-xs text-stone mt-1.5">{xpProgress}% от максимума</div>
-          </div>
-          {/* Третья колонка: чип «В срок (6 мес)». Сам рисует null если
-              creator или нет данных — поэтому grid в этом случае
-              схлопывается до 2 видимых колонок. */}
-          {showPerformance && (
-            <OnTimeChip
-              onTimePercent={onTimePercent}
-              totalTasks={onTimeTotalTasks}
-              buildCode={data.designer.buildCode}
+          <div className="h-1.5 bg-cloud rounded-full overflow-hidden mt-3">
+            <div
+              className="h-full bg-lime rounded-full transition-all"
+              style={{ width: `${Math.min(xpProgress, 100)}%` }}
             />
+          </div>
+          <div className="text-[11px] text-ash mt-auto pt-3">
+            {data.publishedAt
+              ? `Опубликован ${formatPublishedDate(data.publishedAt)}`
+              : 'Черновик'}
+            {data.designer.leadName ? ` · ${data.designer.leadName}` : ''}
+          </div>
+          {isFloorActive && (
+            <div className="text-[11px] text-sunset mt-1">
+              Грейд зафиксирован — расчёт дал {GRADE_NAMES[data.calculatedGrade]}
+            </div>
+          )}
+        </div>
+
+        {/* В срок — кольцо в цвете зоны */}
+        <div className="card p-5 flex flex-col">
+          <div className="label-mono text-stone">В срок · 6 мес</div>
+          {showPerformanceForBuild && onTimePercent !== null ? (
+            <div className="flex items-center gap-4 mt-3">
+              <PercentRing percent={Math.round(onTimePercent)} />
+              <div className="text-xs text-stone leading-relaxed">
+                {onTimeTotalTasks} задач в выборке
+                <br />
+                <span
+                  className={
+                    onTimePercent >= 85
+                      ? 'text-emerald font-medium'
+                      : onTimePercent >= 70
+                        ? 'text-sunset font-medium'
+                        : 'text-blaze font-medium'
+                  }
+                >
+                  цель 85%{onTimePercent >= 85 ? ' — есть' : ''}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-ash mt-3">
+              {data.designer.buildCode === 'creator'
+                ? 'Инхаус — задачи не трекаются'
+                : 'нет данных по задачам'}
+            </div>
+          )}
+        </div>
+
+        {/* 9-Box (только admin/lead) либо «Скорость роста» */}
+        {nineBoxTitle ? (
+          <div className="card p-5 flex flex-col">
+            <div className="label-mono text-stone">Позиция · 9-Box</div>
+            <div className="font-display text-2xl font-medium tracking-tight mt-3">
+              {nineBoxTitle}
+            </div>
+            <div className="text-[11px] text-ash mt-auto pt-2">только лид и админ</div>
+          </div>
+        ) : (
+          <GrowthCell sibs={sortedSibs} />
+        )}
+
+        {/* Гейты следующего грейда */}
+        <div className="card p-5 flex flex-col">
+          <div className="label-mono text-stone">
+            {data.nextGrade ? `Гейты до «${GRADE_NAMES[data.nextGrade.code]}»` : 'Гейты'}
+          </div>
+          {data.nextGrade ? (
+            data.nextGrade.failedGates.length === 0 ? (
+              <div className="text-sm text-emerald mt-3 font-medium">
+                Все гейты пройдены
+              </div>
+            ) : (
+              <div className="mt-3 space-y-2.5">
+                {data.nextGrade.failedGates.slice(0, 2).map((g) => (
+                  <div key={g.skillId} className="text-xs">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-stone truncate">{g.skillName}</span>
+                      <span className="text-ash whitespace-nowrap">
+                        {g.currentMastery} → {g.requiredMastery}
+                      </span>
+                    </div>
+                    <div className="h-1 bg-cloud rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-sunset rounded-full"
+                        style={{
+                          width: `${Math.round((g.currentMastery / g.requiredMastery) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {data.nextGrade.failedGates.length > 2 && (
+                  <div className="text-[11px] text-ash">
+                    + ещё {data.nextGrade.failedGates.length - 2} в разборе навыков ниже
+                  </div>
+                )}
+              </div>
+            )
+          ) : (
+            <div className="text-sm text-ash mt-3">Максимальный грейд</div>
           )}
         </div>
       </div>
@@ -482,68 +578,39 @@ export default function Portrait({
         </div>
       </div>
 
-      {/* Main radar */}
-      <div className="card p-7 mb-8">
-        <div className="flex items-center gap-5 mb-4 text-xs">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm bg-emerald" />
-            <span className="text-ink font-medium">
-              {data.designer.fullName.split(' ')[0]}
+      {/* Профиль навыков + динамика роста (концепт v6, duo) */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 mb-8">
+        <div className="card p-6">
+          <div className="text-base font-medium">Профиль навыков</div>
+          <div className="text-xs text-stone mt-0.5 mb-4">
+            текущий уровень против потолка билда
+          </div>
+          <div className="flex items-center gap-5 mb-3 text-xs">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-lime" />
+              <span className="text-ink font-medium">
+                {data.designer.fullName.split(' ')[0]}
+              </span>
             </span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm border border-dashed border-ash bg-ash/20" />
-            <span className="text-stone">Максимум ({data.designer.buildName})</span>
-          </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm border border-dashed border-ash bg-ash/20" />
+              <span className="text-stone">Максимум ({data.designer.buildName})</span>
+            </span>
+          </div>
+          <div style={{ height: 320 }}>
+            <Radar data={chartData} options={chartOptions} />
+          </div>
         </div>
-        <div style={{ height: 360 }}>
-          <Radar data={chartData} options={chartOptions} />
-        </div>
+        <GrowthPanel
+          sibs={sortedSibs}
+          currentId={data.assessmentId}
+          firstName={data.designer.fullName.split(' ')[0]}
+          teamGrowthMedian={teamGrowthMedian}
+        />
       </div>
 
-      {/* Next grade gates */}
-      {data.nextGrade && (
-        <div className="card p-7 mb-8">
-          <div className="flex items-baseline justify-between mb-5">
-            <h2 className="font-display text-xl font-medium tracking-tight">
-              До грейда «{GRADE_NAMES[data.nextGrade.code]}»
-            </h2>
-            {data.nextGrade.xpNeeded > 0 && (
-              <span className="text-sm text-stone">
-                ещё{' '}
-                <strong className="text-ink tabular-nums">
-                  {data.nextGrade.xpNeeded} XP
-                </strong>
-              </span>
-            )}
-          </div>
-
-          {data.nextGrade.failedGates.length === 0 && data.nextGrade.xpNeeded === 0 ? (
-            <p className="text-sm text-stone">
-              Все условия пройдены — но грейд ещё не назначен.
-            </p>
-          ) : data.nextGrade.failedGates.length === 0 ? (
-            <p className="text-sm text-stone">Гейты пройдены, нужно добрать XP.</p>
-          ) : (
-            <div className="space-y-2">
-              <div className="text-[11px]  text-stone mb-2">
-                Непройденные обязательные навыки
-              </div>
-              {data.nextGrade.failedGates.map((g) => (
-                <div
-                  key={g.skillId}
-                  className="flex items-center justify-between py-2.5 px-4 bg-canvas rounded-card"
-                >
-                  <span className="text-sm">{g.skillName}</span>
-                  <span className="text-xs text-stone tabular-nums">
-                    {g.currentMastery} → {g.requiredMastery}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Отдельная карточка «До грейда» упразднена (v6): XP-плашка и ячейка
+          «Гейты» в bento покрывают её содержимое. */}
 
       </section>
       {/* /Статистика */}
@@ -677,6 +744,10 @@ function formatPublishedDate(iso: string): string {
   return `${d.getDate()} ${MONTHS_RU[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/**
+ * Выбор цикла — дропдаун-чип в ряду тегов hero (концепт v6, раньше был
+ * сегмент-баром). Закрывается по клику вне и по переходу.
+ */
 function CyclesSwitcher({
   siblings,
   currentId,
@@ -686,21 +757,269 @@ function CyclesSwitcher({
   currentId: number;
   hrefPrefix: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+  const current = siblings.find((s) => s.id === currentId);
   return (
-    <div className="segmented">
-      {siblings.map((s) => (
-        <Link
-          key={s.id}
-          href={`${hrefPrefix}${s.id}`}
-          className={`segmented-item whitespace-nowrap ${
-            s.id === currentId ? 'segmented-item-active' : ''
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="chip-neutral cursor-pointer hover:bg-cloud transition-colors"
+      >
+        {current?.publishedAt ? formatPublishedDate(current.publishedAt) : `#${currentId}`}
+        <ChevronDownIcon
+          className={`w-3 h-3 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 card p-1.5 min-w-[210px] shadow-soft-lg animate-scale-in text-left">
+          {siblings.map((s) => (
+            <Link
+              key={s.id}
+              href={`${hrefPrefix}${s.id}`}
+              className={`flex items-center justify-between gap-3 px-3 py-2 rounded-[10px] text-xs transition-colors ${
+                s.id === currentId
+                  ? 'bg-cloud/60 text-ink font-medium'
+                  : 'text-stone hover:bg-canvas hover:text-ink'
+              }`}
+            >
+              <span className="whitespace-nowrap">
+                {s.publishedAt ? formatPublishedDate(s.publishedAt) : `#${s.id}`}
+              </span>
+              <span className="text-ash whitespace-nowrap">
+                {s.effectiveGrade ? GRADE_NAMES[s.effectiveGrade] : ''}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Conic-кольцо процента (ячейка «В срок»). Цвет — по зоне 85/70. */
+function PercentRing({ percent }: { percent: number }) {
+  const colorVar =
+    percent >= 85 ? '--c-emerald' : percent >= 70 ? '--c-sunset' : '--c-blaze';
+  const p = Math.max(0, Math.min(100, percent));
+  return (
+    <div
+      className="relative w-[68px] h-[68px] rounded-full shrink-0"
+      style={{
+        background: `conic-gradient(rgb(var(${colorVar})) ${p}%, rgb(var(--c-cloud)) 0)`,
+      }}
+    >
+      <div className="absolute inset-[5px] rounded-full bg-snow flex items-center justify-center">
+        <span className="font-display text-base font-medium tracking-tight">{percent}%</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Ячейка «Скорость роста» — вместо 9-Box для стардиза и самого дизайнера.
+ * Циклы, путь по грейдам и длительность.
+ */
+function GrowthCell({ sibs }: { sibs: PortraitData['siblings'] }) {
+  const n = sibs.length;
+  if (n === 0) {
+    // Просмотр черновика — published-циклов ещё нет
+    return (
+      <div className="card p-5 flex flex-col">
+        <div className="label-mono text-stone">Скорость роста</div>
+        <div className="text-sm text-ash mt-3">появится после первой публикации</div>
+      </div>
+    );
+  }
+  const first = sibs[0];
+  const last = sibs[n - 1];
+  let months: number | null = null;
+  if (n >= 2 && first.publishedAt && last.publishedAt) {
+    const a = new Date(first.publishedAt);
+    const b = new Date(last.publishedAt);
+    months =
+      (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  }
+  const cyclesWord = n === 1 ? 'цикл' : n < 5 ? 'цикла' : 'циклов';
+  return (
+    <div className="card p-5 flex flex-col">
+      <div className="label-mono text-stone">Скорость роста</div>
+      <div className="font-display text-2xl font-medium tracking-tight mt-3">
+        {n} {cyclesWord}
+      </div>
+      <div className="text-xs text-stone mt-1.5 leading-relaxed">
+        {n >= 2 && first.effectiveGrade && last.effectiveGrade ? (
+          <>
+            {GRADE_NAMES[first.effectiveGrade]} → {GRADE_NAMES[last.effectiveGrade]}
+            {months !== null && months > 0 && <> за {months} мес</>}
+          </>
+        ) : (
+          'первый цикл оценки'
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Панель «Динамика роста»: XP по published-циклам (SVG, рукописный, как
+ * спарклайн в карточке 360). Для admin/lead/stardiz — плашка сравнения
+ * с медианой команды (teamGrowthMedian приходит с сервера только им).
+ */
+function GrowthPanel({
+  sibs,
+  currentId,
+  firstName,
+  teamGrowthMedian,
+}: {
+  sibs: PortraitData['siblings'];
+  currentId: number;
+  firstName: string;
+  teamGrowthMedian: number | null;
+}) {
+  const pts = sibs.filter((s) => s.totalXp != null);
+  // Средний прирост за цикл — для сравнения с медианой команды
+  const myAvg =
+    pts.length >= 2
+      ? Math.round((pts[pts.length - 1].totalXp! - pts[0].totalXp!) / (pts.length - 1))
+      : null;
+  const vsMedian =
+    myAvg !== null && teamGrowthMedian !== null && teamGrowthMedian > 0
+      ? Math.round((myAvg / teamGrowthMedian - 1) * 100)
+      : null;
+
+  // Геометрия графика
+  const W = 480;
+  const H = 240;
+  const padL = 36;
+  const padR = 24;
+  const padT = 26;
+  const padB = 40;
+  const vmax = Math.max(...pts.map((p) => p.totalXp!), 1) * 1.2;
+  const X = (i: number) =>
+    pts.length === 1
+      ? W / 2
+      : padL + (i * (W - padL - padR)) / (pts.length - 1);
+  const Y = (v: number) => H - padB - (v / vmax) * (H - padT - padB);
+  const line = pts
+    .map((p, i) => `${i ? 'L' : 'M'} ${X(i).toFixed(1)} ${Y(p.totalXp!).toFixed(1)}`)
+    .join(' ');
+
+  return (
+    <div className="card p-6 flex flex-col">
+      <div className="text-base font-medium">Динамика роста</div>
+      <div className="text-xs text-stone mt-0.5 mb-4">
+        XP по опубликованным циклам оценки
+      </div>
+      {vsMedian !== null && (
+        <div
+          className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-card border mb-4 ${
+            vsMedian >= 0
+              ? 'bg-emerald/10 border-emerald/25'
+              : 'bg-sunset/10 border-sunset/25'
           }`}
         >
-          {s.publishedAt
-            ? formatPublishedDate(s.publishedAt)
-            : `#${s.id}`}
-        </Link>
-      ))}
+          <span
+            className={`font-display text-lg font-medium ${
+              vsMedian >= 0 ? 'text-emerald' : 'text-sunset'
+            }`}
+          >
+            {vsMedian >= 0 ? '+' : ''}
+            {vsMedian}%
+          </span>
+          <span className="text-xs text-stone">
+            к медиане команды ·{' '}
+            <b className="text-ink font-medium">
+              {myAvg! >= 0 ? '+' : ''}
+              {myAvg} XP/цикл
+            </b>{' '}
+            против +{teamGrowthMedian}
+          </span>
+        </div>
+      )}
+      {pts.length < 2 ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-ash italic py-10">
+          График появится после второго цикла оценки
+        </div>
+      ) : (
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="w-full block mt-auto"
+          aria-label={`Динамика XP — ${firstName}`}
+        >
+          {[0.25, 0.5, 0.75, 1].map((f) => (
+            <line
+              key={f}
+              x1={padL}
+              y1={Y(vmax * f)}
+              x2={W - padR}
+              y2={Y(vmax * f)}
+              stroke="rgb(var(--c-cloud))"
+              strokeWidth={1}
+            />
+          ))}
+          <path
+            d={`${line} L ${X(pts.length - 1).toFixed(1)} ${H - padB} L ${X(0).toFixed(1)} ${H - padB} Z`}
+            fill="rgba(213,255,12,0.10)"
+          />
+          <path
+            d={line}
+            fill="none"
+            stroke="#d5ff0c"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {pts.map((p, i) => (
+            <g key={p.id}>
+              <circle
+                cx={X(i)}
+                cy={Y(p.totalXp!)}
+                r={p.id === currentId ? 5 : 3.5}
+                fill="#d5ff0c"
+                stroke={p.id === currentId ? 'rgb(var(--c-snow))' : 'none'}
+                strokeWidth={2}
+              />
+              <text
+                x={X(i)}
+                y={Y(p.totalXp!) - 11}
+                textAnchor="middle"
+                fontSize={11}
+                fontWeight={500}
+                fill="rgb(var(--c-ink))"
+              >
+                {p.totalXp}
+              </text>
+              <text
+                x={X(i)}
+                y={H - padB + 16}
+                textAnchor="middle"
+                fontSize={9.5}
+                fill="rgb(var(--c-ash))"
+              >
+                {p.publishedAt ? formatPublishedDate(p.publishedAt).replace(/ \d{4}$/, '') : ''}
+              </text>
+              <text
+                x={X(i)}
+                y={H - padB + 29}
+                textAnchor="middle"
+                fontSize={9}
+                fill="rgb(var(--c-stone))"
+              >
+                {p.effectiveGrade ? GRADE_NAMES[p.effectiveGrade] : ''}
+              </text>
+            </g>
+          ))}
+        </svg>
+      )}
     </div>
   );
 }

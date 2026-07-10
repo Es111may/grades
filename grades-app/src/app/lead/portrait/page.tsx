@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/session';
 import { loadPortraitData } from '@/lib/portrait';
 import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
 import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
+import { getNineBoxTitle, getTeamGrowthMedian } from '@/lib/teamMetrics';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
 import Portrait from '@/app/designer/Portrait';
@@ -123,6 +124,17 @@ export default async function LeadPortraitPage({
     }
   }
 
+  // Редизайн v6: позиция 9-Box — ТОЛЬКО для admin/lead (стардиз не видит,
+  // решение Pavel). Медиана роста команды — admin/lead/stardiz.
+  const viewerRole = user.role ?? '';
+  const nineBoxTitle =
+    viewerRole === 'admin' || viewerRole === 'lead'
+      ? await getNineBoxTitle(designerId)
+      : null;
+  const teamGrowthMedian = ['admin', 'lead', 'stardiz'].includes(viewerRole)
+    ? await getTeamGrowthMedian()
+    : null;
+
   // Phase 17 — ИПР: можно ли мне (зрителю) создавать чек-листы на портрете
   // target'а (designer).
   const canCreateChecklists = canCreateChecklistFor(
@@ -160,6 +172,8 @@ export default async function LeadPortraitPage({
         meRole={(user.role ?? 'designer') as Role}
         meUserId={user.id}
         canCreateChecklists={canCreateChecklists}
+        nineBoxTitle={nineBoxTitle}
+        teamGrowthMedian={teamGrowthMedian}
       />
     </>
   );
