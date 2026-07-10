@@ -199,6 +199,14 @@ export default function LeaderboardView({
       {/* Агрегаты команды (концепт v4) */}
       <TeamBento stats={teamStats} />
 
+      {/* Заголовок секции + формула рейтинга (концепт) */}
+      <div className="flex items-baseline justify-between pt-2">
+        <h2 className="text-[19px] font-medium tracking-tight">Лидерборд</h2>
+        <span className="text-[12.5px] text-ash">
+          рейтинг: XP 40% · перформанс 40% · 9-Box 20%
+        </span>
+      </div>
+
       {/* Подиум топ-3 по composite */}
       {podium.length > 0 && (
         <div
@@ -410,7 +418,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
     : 0;
   return (
     <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-      <div className="card p-5 flex items-center gap-4 relative overflow-hidden">
+      <div className="card p-5 flex flex-col relative overflow-hidden">
         {/* лаймовый глоу снизу — как у NIPC-ячейки концепта */}
         <div
           className="absolute -bottom-14 -left-8 -right-8 h-28 pointer-events-none"
@@ -419,13 +427,15 @@ function TeamBento({ stats }: { stats: TeamStats }) {
               'radial-gradient(ellipse at 50% 100%, rgba(213,255,12,.14), transparent 65%)',
           }}
         />
-        <Ring percent={stats.nipcPercent} />
-        <div className="min-w-0 relative">
-          <div className="label-mono text-stone mb-1.5">Dream Team · NIPC</div>
-          <div className="text-xs text-stone leading-relaxed">
-            звёзды + потенциал + производительность − зоны риска
+        <div className="label-mono text-stone relative">Dream Team Index · NIPC</div>
+        <div className="flex items-center gap-4 mt-3.5 relative">
+          <Ring percent={stats.nipcPercent} />
+          <div className="min-w-0">
+            <div className="text-xs text-stone leading-relaxed">
+              звёзды + потенциал + производительность − зоны риска
+            </div>
+            <div className="text-[11px] text-ash mt-1">{stats.nineBoxPlaced} в 9-Box</div>
           </div>
-          <div className="text-[11px] text-ash mt-1">{stats.nineBoxPlaced} в 9-Box</div>
         </div>
       </div>
       <div className="card p-5 flex flex-col">
@@ -445,9 +455,20 @@ function TeamBento({ stats }: { stats: TeamStats }) {
             <span className="text-sm text-ash font-normal ml-1.5">XP/цикл</span>
           )}
         </div>
-        <div className="text-xs text-stone mt-auto pt-2">
-          <span className="text-emerald font-medium">{stats.readyCount}</span> в ≤20 XP от
-          повышения
+        <div className="text-xs text-stone mt-2">
+          <span className="text-emerald font-medium">
+            {stats.readyCount}{' '}
+            {plural(stats.readyCount, ['дизайнер', 'дизайнера', 'дизайнеров'])}
+          </span>{' '}
+          в ≤20 XP от повышения
+        </div>
+        <div className="h-1 bg-cloud rounded-full overflow-hidden mt-auto">
+          <div
+            className="h-full bg-emerald rounded-full"
+            style={{
+              width: `${stats.totalDesigners ? Math.round((stats.readyCount / stats.totalDesigners) * 100) : 0}%`,
+            }}
+          />
         </div>
       </div>
       <div className="card p-5 flex flex-col">
@@ -460,7 +481,11 @@ function TeamBento({ stats }: { stats: TeamStats }) {
           <div className="h-full bg-lime rounded-full" style={{ width: `${seasonPct}%` }} />
         </div>
         <div className="text-xs text-stone mt-auto pt-2">
-          {stats.draftCount} черновиков ждут публикации
+          {stats.draftCount}{' '}
+          {plural(stats.draftCount, ['черновик ждёт', 'черновика ждут', 'черновиков ждут'])}{' '}
+          публикации
+          {stats.totalDesigners - stats.gradedCount - stats.draftCount > 0 &&
+            ` · ${stats.totalDesigners - stats.gradedCount - stats.draftCount} без оценки`}
         </div>
       </div>
     </div>
@@ -667,7 +692,7 @@ function ScoreBar({ score, hasDraft }: { score: number | null; hasDraft: boolean
   }
   const pct = Math.round(score * 100);
   const bar =
-    pct >= 70 ? 'bg-lime' : pct >= 60 ? 'bg-emerald' : pct >= 50 ? 'bg-sunset' : 'bg-blaze';
+    pct >= 80 ? 'bg-lime' : pct >= 60 ? 'bg-emerald' : pct >= 50 ? 'bg-sunset' : 'bg-blaze';
   return (
     <span className="flex items-center gap-2.5">
       <span className="flex-1 h-1 rounded-pill bg-ink/10 overflow-hidden">
@@ -681,15 +706,25 @@ function ScoreBar({ score, hasDraft }: { score: number | null; hasDraft: boolean
   );
 }
 
-/** Зоны скор-цифр — как в концептах: 70+ лайм, 60+ зелёный, 50+ оранжевый. */
+/** Зоны скор-цифр — как в концептах: 80+ лайм, 60+ зелёный, 50+ оранжевый. */
 function scoreZoneClass(pct: number): string {
-  return pct >= 70
+  return pct >= 80
     ? 'text-score-hi'
     : pct >= 60
       ? 'text-emerald'
       : pct >= 50
         ? 'text-sunset'
         : 'text-blaze';
+}
+
+/** Склонение существительных: plural(3, ['день','дня','дней']). */
+function plural(n: number, forms: [string, string, string]): string {
+  const last = n % 10;
+  const lastTwo = n % 100;
+  if (lastTwo >= 11 && lastTwo <= 14) return forms[2];
+  if (last === 1) return forms[0];
+  if (last >= 2 && last <= 4) return forms[1];
+  return forms[2];
 }
 
 function TopCell({ score, rank }: { score: number | null; rank: number }) {

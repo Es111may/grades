@@ -162,6 +162,17 @@ export default function UsersClient({
     return c;
   }, [users, scopeFilter, showScopeSwitcher, meId]);
 
+  // Счётчик «Мои» — подопечные текущего пользователя (для сегмента скоупа).
+  const mineCount = useMemo(
+    () =>
+      meId === null
+        ? 0
+        : users.filter(
+            (u) => u.active && (u.leadId === meId || u.stardizId === meId),
+          ).length,
+    [users, meId],
+  );
+
   function openNew() {
     setModalUser(null);
     setIsNew(true);
@@ -238,6 +249,9 @@ export default function UsersClient({
                 }`}
               >
                 {s === 'all' ? 'Все' : 'Мои'}
+                <span className="ml-1.5 text-ash text-xs">
+                  {s === 'all' ? counts.all : mineCount}
+                </span>
               </button>
             ))}
           </div>
