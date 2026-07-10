@@ -42,13 +42,24 @@ export default async function AppHeader({
             className="block hover:opacity-80 transition-opacity"
             aria-label="Грейды"
           >
+            {/* Два варианта логотипа: тёмный текст+лайм для светлой темы и
+                белый текст+лайм для тёмной (asset сгенерирован из оригинала,
+                лаймовая иконка сохранена). Показ переключает CSS. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/grades-logo.png"
               alt="Ида Грейдс"
               width={158}
               height={22}
-              className="app-logo"
+              className="light-only"
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/grades-logo-dark.png"
+              alt="Ида Грейдс"
+              width={158}
+              height={22}
+              className="dark-only"
             />
           </Link>
           {navItems.length > 0 && <HeaderNav items={navItems} />}

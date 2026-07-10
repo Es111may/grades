@@ -76,9 +76,6 @@
     --seg-active-bg: rgba(255, 255, 255, 0.1);
     --scrollbar-rgb: 255 255 255;
     --selection-bg: rgba(10, 132, 255, 0.35);
-    /* Логотип чёрный+лайм (нарисован под светлую тему) — на тёмной делаем
-       его монохромно-белым. Будет фирменный тёмный asset — уберём фильтр. */
-    --logo-filter: brightness(0) invert(1);
   }
   html[data-theme='light'] {
     color-scheme: light;
@@ -112,7 +109,6 @@
     --seg-active-bg: rgb(255 255 255);
     --scrollbar-rgb: 17 24 39;
     --selection-bg: #c9e6ff;
-    --logo-filter: none;
   }
   body {
     background-color: rgb(var(--c-page));
@@ -125,9 +121,11 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     letter-spacing: -0.011em;
-    /* tnum — табличные цифры (ровные колонки чисел; у Onest фича есть).
-       Stylistic sets явно выключены — Pavel просил без alternate'ов. */
-    font-feature-settings: 'tnum' 1, 'liga' 1, 'calt' 1, 'ss01' 0, 'ss02' 0;
+    /* У Onest табличные цифры (tnum) заметно шире пропорциональных —
+       Pavel: «пространство между цифрами странное». Поэтому цифры везде
+       пропорциональные (tnum выключен). Stylistic sets выключены —
+       Pavel просил без alternate'ов. */
+    font-feature-settings: 'liga' 1, 'calt' 1, 'ss01' 0, 'ss02' 0;
     /* Запрет faux-bold: файл обрезан на Medium, синтезировать жирнее нельзя. */
     font-synthesis: none;
   }
@@ -166,12 +164,9 @@
     background: rgb(var(--scrollbar-rgb) / 0.32);
     background-clip: padding-box;
   }
-  /* Логотип в шапке (см. --logo-filter) */
-  .app-logo {
-    filter: var(--logo-filter);
-  }
-  /* Хелперы для контента, живущего только в одной теме (иконки тумблера).
-     CSS-переключение вместо JS — ноль проблем с гидрацией. */
+  /* Хелперы для контента, живущего только в одной теме (иконки тумблера,
+     варианты логотипа). CSS-переключение вместо JS — ноль проблем с
+     гидрацией. */
   html[data-theme='light'] .dark-only {
     display: none;
   }
@@ -321,6 +316,14 @@
     @apply text-ink shadow-soft;
     background: var(--seg-active-bg);
   }
+}
+
+/* Onest: табличные цифры слишком широкие — «дырки» между цифрами.
+   Утилита tabular-nums (стоит на числах в таблицах по всему коду)
+   нейтрализована в одной точке. Захотим вернуть ровные колонки —
+   просто удалить этот блок. Вне @layer — чтобы победить utility. */
+.tabular-nums {
+  font-variant-numeric: normal;
 }
 
 /* Уважаем системную настройку «уменьшить движение»: глушим анимации и
