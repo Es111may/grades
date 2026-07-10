@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { ChevronDownIcon } from '@/components/icons';
 import UserModal from './UserModal';
 import KanbanView from './KanbanView';
 import MatrixView from './MatrixView';
@@ -39,6 +40,29 @@ export type UserRow = {
   onTimeTotalTasks?: number;
   /** Composite score 0..1 (0.6·xpNorm + 0.4·perfNorm). Пред-рассчитан на сервере. */
   compositeScore?: number | null;
+  /** Есть незакрытый черновик оценки (для статус-чипа в лидерборде). */
+  hasDraft?: boolean;
+};
+
+/** Агрегаты команды для bento-строки лидерборда (концепт v4). */
+export type TeamStats = {
+  nipcPercent: number | null;
+  nineBoxPlaced: number;
+  onTimeMedian: number | null;
+  onTimeSample: number;
+  growthMedian: number | null;
+  growthSample: number;
+  readyCount: number;
+  gradedCount: number;
+  draftCount: number;
+  totalDesigners: number;
+};
+
+/** Сигнал для ленты «Требует внимания». */
+export type AttentionItem = {
+  tone: 'danger' | 'warn' | 'info';
+  title: string;
+  detail: string;
 };
 
 export type GradeThreshold = {
@@ -66,6 +90,9 @@ export default function UsersClient({
   gradeThresholds,
   meId,
   meRole,
+  teamStats,
+  nineBox,
+  attention,
 }: {
   initialUsers: UserRow[];
   builds: Build[];
@@ -74,6 +101,9 @@ export default function UsersClient({
   gradeThresholds: GradeThreshold[];
   meId: number | null;
   meRole: string;
+  teamStats: TeamStats;
+  nineBox: Record<string, number>;
+  attention: AttentionItem[];
 }) {
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
@@ -185,16 +215,12 @@ export default function UsersClient({
 
   return (
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
-      <div className="flex items-end justify-between mb-6 gap-4 animate-fade-up">
-        <h1 className="font-display text-4xl font-medium tracking-tight">Команда</h1>
-        {(meRole === 'admin' || meRole === 'lead') && (
-          <button onClick={openNew} className="btn-accent">
-            Добавить пользователя
-          </button>
-        )}
+      {/* Заголовок — по центру, крупно, без лишних подписей (концепт v3) */}
+      <div className="text-center mb-8 animate-fade-up">
+        <h1 className="font-display text-6xl font-medium tracking-tight">Команда</h1>
       </div>
 
-      {/* Объединённый тулбар: scope + роль + view + поиск */}
+      {/* Один ряд контролов: скоуп · роль (дропдаун) · вью · поиск · добавить */}
       <div
         className="flex items-center gap-1.5 mb-5 flex-wrap animate-fade-up"
         style={{ animationDelay: '70ms' }}
@@ -215,34 +241,7 @@ export default function UsersClient({
           </div>
         )}
 
-        <div className="segmented">
-          {(['all', 'designer', 'stardiz', 'lead', 'admin'] as RoleFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setRoleFilter(f)}
-              className={`segmented-item ${
-                roleFilter === f ? 'segmented-item-active' : ''
-              }`}
-            >
-              {f === 'all'
-                ? 'Все'
-                : f === 'designer'
-                  ? 'Дизайнеры'
-                  : f === 'stardiz'
-                    ? 'Стардизы'
-                    : f === 'lead'
-                      ? 'Лиды'
-                      : 'Админы'}
-              <span
-                className={`ml-1.5 ${
-                  roleFilter === f ? 'text-stone' : 'text-ash'
-                }`}
-              >
-                {counts[f]}
-              </span>
-            </button>
-          ))}
-        </div>
+        <RoleDropdown value={roleFilter} counts={counts} onChange={setRoleFilter} />
 
         <div className="segmented">
           {([
@@ -262,7 +261,7 @@ export default function UsersClient({
           ))}
         </div>
 
-        <span className="ml-auto w-[280px]">
+        <span className="ml-auto w-[240px]">
           <input
             type="text"
             placeholder="Поиск по имени или email"
@@ -271,6 +270,11 @@ export default function UsersClient({
             className="input"
           />
         </span>
+        {(meRole === 'admin' || meRole === 'lead') && (
+          <button onClick={openNew} className="btn-accent">
+            Добавить
+          </button>
+        )}
       </div>
 
       {/* key={view} — при переключении вкладки контейнер пересоздаётся, и
@@ -285,6 +289,9 @@ export default function UsersClient({
             gradeThresholds={gradeThresholds}
             onRowClick={open360}
             onToggleActive={handleToggleActive}
+            teamStats={teamStats}
+            nineBox={nineBox}
+            attention={attention}
           />
         ) : (
           <KanbanView
@@ -338,5 +345,79 @@ export default function UsersClient({
         />
       )}
     </main>
+  );
+}
+
+/**
+ * Дропдаун фильтра по ролям (концепт v3: сегменты ролей схлопнуты).
+ * Закрывается по клику вне и по выбору.
+ */
+function RoleDropdown({
+  value,
+  counts,
+  onChange,
+}: {
+  value: RoleFilter;
+  counts: { all: number; designer: number; stardiz: number; lead: number; admin: number };
+  onChange: (r: RoleFilter) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const LABEL: Record<RoleFilter, string> = {
+    all: 'Все',
+    designer: 'Дизайнеры',
+    stardiz: 'Стардизы',
+    lead: 'Лиды',
+    admin: 'Админы',
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 bg-cloud/70 rounded-pill px-4 py-2
+                   text-xs font-medium text-ink hover:bg-cloud transition-colors"
+      >
+        <span className="text-stone font-normal">Роль:</span>
+        {LABEL[value]}
+        <span className="text-ash">{counts[value]}</span>
+        <ChevronDownIcon
+          className={`w-3 h-3 text-stone transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-2 z-30 card p-1.5 min-w-[190px] shadow-soft-lg animate-scale-in">
+          {(Object.keys(LABEL) as RoleFilter[]).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => {
+                onChange(r);
+                setOpen(false);
+              }}
+              className={`w-full flex items-center justify-between gap-4 px-3 py-2 rounded-[10px]
+                          text-xs transition-colors ${
+                            value === r
+                              ? 'bg-cloud/60 text-ink font-medium'
+                              : 'text-stone hover:bg-canvas hover:text-ink'
+                          }`}
+            >
+              {LABEL[r]}
+              <span className="text-ash">{counts[r]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
