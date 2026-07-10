@@ -28,7 +28,7 @@ export default async function DesignerPortraitPage({
   if (result.kind === 'not_found') {
     return (
       <main className="max-w-[800px] mx-auto px-8 pt-12 pb-16">
-        <div className="bg-white border border-cloud rounded-card p-8 shadow-soft text-center">
+        <div className="bg-snow border border-cloud rounded-card p-8 shadow-soft text-center">
           <p className="text-stone">Профиль не найден.</p>
         </div>
       </main>

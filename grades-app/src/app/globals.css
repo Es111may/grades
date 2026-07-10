@@ -2,26 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* === Aeonik Pro (Variable) === */
-/* Pavel: единый Aeonik Pro. Используем вариативный файл (wght 100–900, с
-   кириллицей) — тот же, что стоит на rating.idaproject.com.
-
-   Это не только ради произвольных весов. У статичных TTF (Regular/Medium),
-   которые стояли раньше, были несбалансированные вертикальные метрики:
-   typoAscender 750 / typoDescender −250. Из-за этого baseline уезжал вверх,
-   и текст вставал примерно на 10% кегля ВЫШЕ центра — в кнопках, чипах,
-   полях, свитчерах. Причём при любом line-height (смещение зашито в метрики
-   шрифта, а не в CSS — поэтому leading-none его не лечил).
-
-   У вариативного файла метрики сбалансированы (930 / −210), и текст
-   центрируется ровно в любом боксе.
+/* === Onest (Variable) === */
+/* Pavel: переход на Onest (как на ida-ai-report). Вариативный файл из
+   официального репозитория Google Fonts, полная кириллица, сбалансированные
+   метрики (typoAscender 970 / typoDescender −305, USE_TYPO_METRICS) — текст
+   центрируется в кнопках/полях/чипах без костылей.
 
    font-weight: 100 500 — диапазон намеренно обрезан сверху на Medium (500).
    Браузер клампит любой запрос тяжелее 500 к 500, так что «максимум Medium»
    гарантирован на уровне шрифта. */
 @font-face {
-  font-family: 'Aeonik Pro';
-  src: url('/fonts/aeonik-pro/AeonikPro-Variable.ttf') format('truetype-variations');
+  font-family: 'Onest';
+  src: url('/fonts/onest/Onest-Variable.ttf') format('truetype-variations');
   font-weight: 100 500;
   font-style: normal;
   font-display: swap;
@@ -48,60 +40,49 @@
 
 @layer base {
   :root {
-    color-scheme: light;
+    color-scheme: dark;
   }
   body {
-    background-color: #f5f5f7;
-    /* Лёгкая атмосфера вместо плоской заливки: мягкий световой акцент сверху-
-       по-центру добавляет глубину. Очень сдержанно, нейтрально. fixed — чтобы
-       «свет» не уезжал при скролле длинных списков. */
+    /* Тёмная Apple-тема (референс — ida-ai-report): чистый чёрный фон +
+       холодный синий световой радиал сверху. */
+    background-color: #000000;
     background-image: radial-gradient(
-      1100px 520px at 50% -8%,
-      rgba(255, 255, 255, 0.85),
-      rgba(255, 255, 255, 0) 62%
+      ellipse 60% 55% at 50% 8%,
+      rgba(10, 132, 255, 0.14),
+      transparent 62%
     );
-    /* Без background-attachment: fixed — он заставлял браузер перерисовывать
-       градиент на каждый кадр скролла и давал лаги анимаций. Световой акцент
-       остаётся у верха страницы — там, где основной контент. */
     background-repeat: no-repeat;
     min-height: 100vh;
-    color: #1d1d1f;
-    font-family: 'Aeonik Pro', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    color: #f5f5f7;
+    font-family: 'Onest', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    /* Aeonik Pro оптически воспринимается чуть просторнее системного шрифта —
-       компенсируем небольшим отрицательным трекингом (как на rating.idaproject.com). */
     letter-spacing: -0.011em;
-    /* Aeonik Pro: только дефолтные глифы. tnum — табличные цифры (ровные
-       колонки чисел во всех таблицах). liga + calt — стандартные лигатуры
-       и контекстуальные альтернативы. Stylistic sets явно выключены —
-       Pavel просил без alternate'ов. */
-    font-feature-settings: 'tnum' 1, 'liga' 1, 'calt' 1, 'ss01' 0, 'ss02' 0,
-      'ss03' 0, 'ss04' 0, 'ss05' 0, 'ss06' 0, 'ss07' 0;
-    /* font-synthesis: none — браузеру запрещаем «синтезировать» bold/italic
-       из Regular, если попросили weight, которого нет в загруженных файлах.
-       Без этого 600+ давал бы faux-bold с искажёнными формами. */
+    /* tnum — табличные цифры (ровные колонки чисел; у Onest фича есть).
+       Stylistic sets явно выключены — Pavel просил без alternate'ов. */
+    font-feature-settings: 'tnum' 1, 'liga' 1, 'calt' 1, 'ss01' 0, 'ss02' 0;
+    /* Запрет faux-bold: файл обрезан на Medium, синтезировать жирнее нельзя. */
     font-synthesis: none;
   }
   /* Чуть более компактная типографика — ближе к Apple */
   h1, h2, h3, h4 {
     letter-spacing: -0.02em;
   }
-  /* Базовый focus-стиль для всех интерактивных элементов */
+  /* Базовый focus-стиль для всех интерактивных элементов (iOS dark blue) */
   :focus-visible {
-    outline: 2px solid #007aff;
+    outline: 2px solid #0a84ff;
     outline-offset: 2px;
     border-radius: 6px;
   }
-  /* Стандартный selection */
+  /* Selection в тон акценту */
   ::selection {
-    background: #c9e6ff;
+    background: rgba(10, 132, 255, 0.35);
   }
-  /* Тонкий современный скроллбар — спокойнее системного, в тон ink. */
+  /* Тонкий скроллбар — светлый на тёмном */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(17, 24, 39, 0.18) transparent;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -111,13 +92,13 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(17, 24, 39, 0.18);
+    background: rgba(255, 255, 255, 0.18);
     border-radius: 999px;
     border: 3px solid transparent;
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(17, 24, 39, 0.32);
+    background: rgba(255, 255, 255, 0.32);
     background-clip: padding-box;
   }
 }
@@ -145,8 +126,10 @@
   .btn-primary {
     @apply btn bg-ink text-snow hover:bg-graphite active:scale-[0.98];
   }
+  /* На ярком лайме текст всегда чёрный (text-black, не text-ink — ink в
+     тёмной теме светлый и на лайме нечитаем). */
   .btn-accent {
-    @apply btn bg-lime text-ink border border-lime hover:brightness-95 active:scale-[0.98];
+    @apply btn bg-lime text-black border border-lime hover:brightness-95 active:scale-[0.98];
   }
   .btn-secondary {
     @apply btn bg-snow text-ink border border-transparent hover:bg-canvas active:scale-[0.98];
@@ -188,7 +171,7 @@
   }
   select.input {
     @apply pr-8 cursor-pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='%236e6e73'%3E%3Cpath d='M11.9999 13.1714L16.9497 8.22168L18.3639 9.63589L11.9999 15.9999L5.63599 9.63589L7.0502 8.22168L11.9999 13.1714Z'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='%23a1a1a6'%3E%3Cpath d='M11.9999 13.1714L16.9497 8.22168L18.3639 9.63589L11.9999 15.9999L5.63599 9.63589L7.0502 8.22168L11.9999 13.1714Z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 10px center;
     appearance: none;
@@ -198,7 +181,7 @@
      opacity, чтобы native picker всё равно открывался по клику. */
   input[type='date'].input {
     @apply pr-8;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='%236e6e73'%3E%3Cpath d='M9 1V3H15V1H17V3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H7V1H9ZM20 11H4V19H20V11ZM7 5H4V9H20V5H17V7H15V5H9V7H7V5Z'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='%23a1a1a6'%3E%3Cpath d='M9 1V3H15V1H17V3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3H7V1H9ZM20 11H4V19H20V11ZM7 5H4V9H20V5H17V7H15V5H9V7H7V5Z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 10px center;
   }
@@ -255,8 +238,10 @@
     @apply px-3.5 py-1.5 text-xs font-medium text-stone rounded-pill cursor-pointer
            transition-colors duration-150 hover:text-ink;
   }
+  /* Активный сегмент в тёмной теме — светлее трека (iOS dark), а не bg-snow
+     (карточка темнее трека — выглядело бы «вдавленным»). */
   .segmented-item-active {
-    @apply bg-snow text-ink shadow-soft;
+    @apply bg-white/10 text-ink shadow-soft;
   }
 }
 

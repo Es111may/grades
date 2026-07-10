@@ -47,7 +47,7 @@ export default function AssessmentReminder() {
   return (
     <div
       className={`w-full transition-colors duration-1000 ease-out ${
-        highlighted ? 'bg-lime text-ink' : 'bg-cloud/60 text-graphite'
+        highlighted ? 'bg-lime text-black' : 'bg-cloud/60 text-graphite'
       }`}
     >
       <div className="max-w-[1400px] mx-auto px-6 py-2 text-sm font-medium text-center">

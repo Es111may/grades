@@ -15,12 +15,12 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <head>
-        {/* Aeonik Pro грузится локально через @font-face в globals.css.
+        {/* Onest грузится локально через @font-face в globals.css.
             Preload — чтобы шрифт начал тянуться параллельно HTML и не было
             «вспышки» fallback'а. Один вариативный файл покрывает все веса. */}
         <link
           rel="preload"
-          href="/fonts/aeonik-pro/AeonikPro-Variable.ttf"
+          href="/fonts/onest/Onest-Variable.ttf"
           as="font"
           type="font/ttf"
           crossOrigin="anonymous"

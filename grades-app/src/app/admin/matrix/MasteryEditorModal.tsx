@@ -92,7 +92,7 @@ export default function MasteryEditorModal({
 
   return (
     <div
-      className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-50 flex items-start justify-center pt-12 pb-12 overflow-y-auto"
+      className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-50 flex items-start justify-center pt-12 pb-12 overflow-y-auto"
       onClick={onClose}
     >
       <div

@@ -182,7 +182,7 @@ export default function MatrixClient({
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="bg-white border border-cloud rounded-card p-10 text-center shadow-soft">
+        <div className="bg-snow border border-cloud rounded-card p-10 text-center shadow-soft">
           <p className="text-stone">Ничего не найдено.</p>
         </div>
       ) : (
@@ -198,7 +198,7 @@ export default function MatrixClient({
                   {Array.from(taxMap.entries()).map(([groupName, skills]) => (
                     <div
                       key={groupName}
-                      className="bg-white border border-cloud rounded-card shadow-soft overflow-hidden"
+                      className="bg-snow border border-cloud rounded-card shadow-soft overflow-hidden"
                     >
                       <div className="px-6 py-3 border-b border-cloud bg-canvas">
                         <div className="text-xs  text-stone">

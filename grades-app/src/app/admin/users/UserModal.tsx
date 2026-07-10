@@ -358,7 +358,7 @@ export default function UserModal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-10 pb-10">
       <div
-        className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
         onClick={onClose}
       />
       <div className="relative w-full max-w-2xl overflow-y-auto max-h-[calc(100vh-80px)] bg-snow rounded-modal shadow-soft-lg">
@@ -702,7 +702,7 @@ export default function UserModal({
                 {newNote.trim() && (
                   <button
                     onClick={handleAddNote}
-                    className="px-3 py-1.5 text-xs rounded-pill bg-ink text-white hover:bg-graphite transition"
+                    className="px-3 py-1.5 text-xs rounded-pill bg-ink text-snow hover:bg-graphite transition"
                   >
                     Добавить заметку
                   </button>

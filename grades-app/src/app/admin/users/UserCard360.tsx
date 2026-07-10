@@ -36,9 +36,9 @@ const ROLE_LABEL: Record<string, string> = {
 // Цветовые токены для чипа роли — используем поверх базового `.chip`
 // (одинаковый размер и шрифт, отличается только фон/текст).
 const ROLE_TONE: Record<string, string> = {
-  admin: 'bg-[#fff7e6] text-sunset',
+  admin: 'bg-sunset/15 text-sunset',
   lead: 'bg-lime-light text-graphite border border-lime/30',
-  stardiz: 'bg-[#ede9fe] text-[#6d28d9]',
+  stardiz: 'bg-[#bf5af2]/15 text-[#bf5af2]',
   designer: 'bg-cloud/60 text-stone',
 };
 
@@ -163,7 +163,7 @@ export default function UserCard360({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16 pb-10">
       <div
-        className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
         onClick={onClose}
       />
       <div className="relative w-full max-w-xl bg-snow rounded-modal shadow-soft-lg overflow-hidden">
@@ -359,11 +359,11 @@ function XpSparkline({ assessments }: { assessments: AssessmentHistoryRow[] }) {
         className="block"
         aria-hidden="true"
       >
-        <path d={area} fill="rgba(52,199,89,0.10)" />
+        <path d={area} fill="rgba(48,209,88,0.10)" />
         <path
           d={line}
           fill="none"
-          stroke="#34c759"
+          stroke="#30d158"
           strokeWidth={1.75}
           strokeLinejoin="round"
           strokeLinecap="round"

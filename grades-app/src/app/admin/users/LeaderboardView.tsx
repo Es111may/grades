@@ -333,7 +333,7 @@ function TopCell({ score, rank }: { score: number | null; rank: number }) {
       : pct >= 70
         ? 'text-emerald/70'
         : pct >= 50
-          ? 'text-amber-600'
+          ? 'text-sunset'
           : 'text-blaze';
   return (
     <div className="flex flex-col items-center">
@@ -366,7 +366,7 @@ function OnTimeCell({
   }
   const zone = getOnTimeZone(onTimePercent);
   const colorClass =
-    zone === 'emerald' ? 'text-emerald' : zone === 'amber' ? 'text-amber-600' : 'text-blaze';
+    zone === 'emerald' ? 'text-emerald' : zone === 'amber' ? 'text-sunset' : 'text-blaze';
   return (
     <span className={`tabular-nums font-medium ${colorClass}`}>
       {Math.round(onTimePercent)}%

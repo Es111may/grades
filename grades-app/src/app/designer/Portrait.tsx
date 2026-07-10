@@ -25,10 +25,13 @@ import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import type { Role } from '@/lib/checklistPermissions';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+// Дефолты chart.js под тёмную тему — светлые подписи и сетка.
+ChartJS.defaults.color = '#a1a1a6';
+ChartJS.defaults.borderColor = 'rgba(255,255,255,0.10)';
 
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
 const TAXONOMY_COLOR: Record<string, string> = {
-  UI: '#34c759',   // green
+  UI: '#30d158',   // green
   UX: '#0ea5e9',   // sky blue
   PRD: '#ef4444',  // red
   IND: '#7c3aed',  // violet
@@ -211,22 +214,22 @@ export default function Portrait({
         data: maxValues,
         // Светло-серая заливка под пунктиром, чтобы силуэт «потолка»
         // читался без необходимости упирать взгляд в линию.
-        backgroundColor: 'rgba(200, 197, 187, 0.2)',
-        borderColor: '#c8c5bb',
+        backgroundColor: 'rgba(110,110,115,0.18)',
+        borderColor: '#6e6e73',
         borderWidth: 1.5,
         borderDash: [4, 4],
-        pointBackgroundColor: '#c8c5bb',
-        pointBorderColor: '#c8c5bb',
+        pointBackgroundColor: '#6e6e73',
+        pointBorderColor: '#6e6e73',
         pointRadius: 2,
       },
       {
         label: `Текущий (${data.designer.fullName.split(' ')[0]})`,
         data: currentValues,
-        backgroundColor: 'rgba(52, 199, 89, 0.18)',
-        borderColor: '#34c759',
+        backgroundColor: 'rgba(48,209,88,0.18)',
+        borderColor: '#30d158',
         borderWidth: 2,
-        pointBackgroundColor: '#34c759',
-        pointBorderColor: '#34c759',
+        pointBackgroundColor: '#30d158',
+        pointBorderColor: '#30d158',
         pointRadius: 4,
       },
     ],
@@ -236,12 +239,12 @@ export default function Portrait({
     scales: {
       r: {
         suggestedMin: 0,
-        ticks: { color: '#86857f', backdropColor: 'transparent', font: { size: 10 } },
-        grid: { color: '#e5e3dc' },
-        angleLines: { color: '#e5e3dc' },
+        ticks: { color: '#6e6e73', backdropColor: 'transparent', font: { size: 10 } },
+        grid: { color: 'rgba(255,255,255,0.10)' },
+        angleLines: { color: 'rgba(255,255,255,0.10)' },
         pointLabels: {
           font: { size: 14, family: 'Aeonik Pro', weight: 500 as const },
-          color: '#1a1a1a',
+          color: '#f5f5f7',
         },
       },
     },
@@ -772,11 +775,11 @@ function GroupBreakdown({
         suggestedMin: 0,
         suggestedMax: 100,
         ticks: { display: false },
-        grid: { color: '#e5e3dc' },
-        angleLines: { color: '#e5e3dc' },
+        grid: { color: 'rgba(255,255,255,0.10)' },
+        angleLines: { color: 'rgba(255,255,255,0.10)' },
         pointLabels: {
           font: { size: compact ? 9 : 11, family: 'Aeonik Pro' },
-          color: '#1a1a1a',
+          color: '#f5f5f7',
         },
       },
     },

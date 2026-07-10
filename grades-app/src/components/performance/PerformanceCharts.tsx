@@ -44,6 +44,9 @@ ChartJS.register(
   Tooltip,
   Legend,
 );
+// Дефолты chart.js под тёмную тему — светлые подписи и сетка.
+ChartJS.defaults.color = '#a1a1a6';
+ChartJS.defaults.borderColor = 'rgba(255,255,255,0.10)';
 
 export default function PerformanceCharts({ periods }: { periods: PeriodSummary[] }) {
   // На графиках хронологический порядок (старые слева) — наоборот таблице.

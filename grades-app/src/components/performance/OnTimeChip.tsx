@@ -17,7 +17,7 @@ import { getOnTimeZone } from '@/lib/perfScore';
 
 const ZONE_COLOR: Record<ReturnType<typeof getOnTimeZone>, string> = {
   emerald: 'text-emerald',
-  amber: 'text-amber-600',
+  amber: 'text-sunset',
   blaze: 'text-blaze',
 };
 

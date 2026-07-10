@@ -4,41 +4,43 @@ const config: Config = {
   content: ['./src/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {
+      // === ТЁМНАЯ ТЕМА (Apple dark, референс — ida-ai-report) ===
+      // Семантика токенов сохранена, значения инвертированы. Благодаря этому
+      // весь UI переключился без правки классов в компонентах:
+      //   canvas — «фон-подложка» (в тёмной теме СВЕТЛЕЕ карточки: hover строк,
+      //   thead, вложенные области), snow — поверхность карточки, ink — основной
+      //   текст, stone/ash — вторичный/третичный текст (поменялись местами
+      //   относительно светлой темы), cloud — бордеры и заливки чипов.
       colors: {
-        // App-wide background — мягкий off-white в духе Apple
-        canvas: '#f5f5f7',
-        snow: '#ffffff',
-        // Текст
-        ink: '#1d1d1f',
-        graphite: '#2c2c2e',
-        stone: '#6e6e73',
-        // Бордеры и разделители. ash используется и для текста-«подписей»
-        // (счётчики, «—», «· опционально», «нет данных») — берём оттенок
-        // потемнее, чтобы такой текст был читаемым на белом фоне.
-        ash: '#a1a1a6',
-        cloud: '#e5e5ea',
-        // Бренд — основной зелёный + производные оттенки в той же тональности
-        lime: { DEFAULT: '#d5ff0c', light: '#ebff8a', dim: '#f8ffcc', dark: '#a8cd00' },
-        // Системные акценты Apple-style
-        sunset: '#ff9500',
-        blaze: '#ff3b30',
-        sky: '#007aff',
-        emerald: '#34c759',
+        canvas: '#1c1c1e',
+        snow: '#151517',
+        ink: '#f5f5f7',
+        graphite: '#d1d1d6',
+        stone: '#a1a1a6',
+        ash: '#6e6e73',
+        cloud: '#2c2c2e',
+        // Бренд-лайм остаётся. light/dim стали тёмными лаймовыми подложками
+        // (на них светлый текст), dark — светлый лайм для текста на тёмном.
+        lime: { DEFAULT: '#d5ff0c', light: '#31380a', dim: '#20250a', dark: '#e4ff5c' },
+        // Системные акценты — iOS dark варианты (ярче под тёмный фон)
+        sunset: '#ff9f0a',
+        blaze: '#ff453a',
+        sky: '#0a84ff',
+        emerald: '#30d158',
       },
-      // Шрифты: Aeonik Pro (Variable, max Medium) для display и sans.
-      // mono — JetBrains Mono: лейблы колонок, названия характеристик, теги,
-      // а также код/числа (auth-коды, grade.code, audit-JSON). SF Mono —
-      // системный fallback. Системный fallback на оба случая загрузки.
+      // Шрифты: Onest (Variable, max Medium — как на ida-ai-report) для
+      // display и sans. mono — JetBrains Mono: лейблы колонок, названия
+      // характеристик, код/числа. SF Mono — системный fallback.
       fontFamily: {
         display: [
-          '"Aeonik Pro"',
+          'Onest',
           '-apple-system',
           'BlinkMacSystemFont',
           'system-ui',
           'sans-serif',
         ],
         sans: [
-          '"Aeonik Pro"',
+          'Onest',
           '-apple-system',
           'BlinkMacSystemFont',
           'system-ui',
@@ -46,16 +48,17 @@ const config: Config = {
         ],
         mono: ['"JetBrains Mono"', '"SF Mono"', 'ui-monospace', 'monospace'],
       },
-      // Многослойные тени с холодным ink-оттенком (не чистый чёрный) — дают
-      // более «дорогую», реалистичную глубину. Хайралайн 0.5px остаётся как
-      // чёткая граница карточки на светлом фоне.
+      // Тени для тёмной темы: чёрные тени на чёрном почти не видны, поэтому
+      // глубина строится на светлом hairline (0.5px rgba(255,255,255,…)) —
+      // «подсвеченная кромка» карточки, как в реф. --line. Плюс чёрная тень
+      // для отрыва на средних/крупных уровнях.
       boxShadow: {
-        soft: '0 1px 1px rgba(17,24,39,0.04), 0 2px 6px rgba(17,24,39,0.04), 0 0 0 0.5px rgba(17,24,39,0.04)',
+        soft: '0 1px 2px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(255,255,255,0.07)',
         'soft-md':
-          '0 2px 4px rgba(17,24,39,0.04), 0 10px 24px rgba(17,24,39,0.07), 0 0 0 0.5px rgba(17,24,39,0.05)',
+          '0 4px 12px rgba(0,0,0,0.45), 0 0 0 0.5px rgba(255,255,255,0.09)',
         'soft-lg':
-          '0 6px 12px rgba(17,24,39,0.05), 0 24px 56px rgba(17,24,39,0.12), 0 0 0 0.5px rgba(17,24,39,0.05)',
-        focus: '0 0 0 4px rgba(0, 122, 255, 0.18)',
+          '0 12px 40px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.10)',
+        focus: '0 0 0 4px rgba(10, 132, 255, 0.25)',
       },
       // Скругления — подтянуты ближе к rating.idaproject.com (там карточки
       // 22px, мелкие элементы 11px). Берём чуть мягче исходного, но без
