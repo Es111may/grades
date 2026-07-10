@@ -47,6 +47,8 @@ export type UserRow = {
 /** Агрегаты команды для bento-строки лидерборда (концепт v4). */
 export type TeamStats = {
   nipcPercent: number | null;
+  /** Знаменатель NIPC: активные дизайнеры + стардизы. */
+  nipcTotal: number;
   nipcStars: number;
   nipcHpot: number;
   nipcHperf: number;

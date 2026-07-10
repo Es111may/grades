@@ -274,14 +274,18 @@ export default async function AdminUsersPage() {
 
   // === Агрегаты команды для bento + сигналов (концепт v4) ============
   const activeDesigners = users.filter((u) => u.role === 'designer' && u.active);
-  const activeIds = new Set(activeDesigners.map((u) => u.id));
 
-  // 9-Box: счётчики по ячейкам (только активные дизайнеры) + NIPC по формуле
-  // Pavel: (звёзды + выс.потенциал + выс.производительность − обе зоны
-  // внимания − ошибка подбора) / все активные дизайнеры.
+  // 9-Box: счётчики по ячейкам + NIPC. Pavel: в Dream Team Index считаем
+  // и дизайнеров, И СТАРДИЗОВ (как в самой матрице 9-Box, где размещаются
+  // обе роли). Формула: (звёзды + выс.потенциал + выс.производительность −
+  // обе зоны внимания − ошибка подбора) / все размещаемые (дизайнеры+стардизы).
+  const nineBoxEligible = users.filter(
+    (u) => (u.role === 'designer' || u.role === 'stardiz') && u.active,
+  );
+  const nineBoxIds = new Set(nineBoxEligible.map((u) => u.id));
   const nineBox: Record<string, number> = {};
   for (const c of matrixCells) {
-    if (!activeIds.has(c.userId)) continue;
+    if (!nineBoxIds.has(c.userId)) continue;
     const key = `${c.potentialLevel}_${c.performanceLevel}`;
     nineBox[key] = (nineBox[key] ?? 0) + 1;
   }
@@ -289,8 +293,8 @@ export default async function AdminUsersPage() {
   const nipcNumerator =
     nb('high_high') + nb('high_mid') + nb('mid_high')
     - nb('mid_low') - nb('low_mid') - nb('low_low');
-  const nipcPercent = activeDesigners.length
-    ? Math.round((nipcNumerator / activeDesigners.length) * 100)
+  const nipcPercent = nineBoxEligible.length
+    ? Math.round((nipcNumerator / nineBoxEligible.length) * 100)
     : null;
 
   // Медиана «в срок» по дизайнерам с достаточной выборкой
@@ -310,6 +314,7 @@ export default async function AdminUsersPage() {
 
   const teamStats = {
     nipcPercent,
+    nipcTotal: nineBoxEligible.length,
     nipcStars: nb('high_high'),
     nipcHpot: nb('high_mid'),
     nipcHperf: nb('mid_high'),

@@ -458,7 +458,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
           <Ring percent={stats.nipcPercent} />
           <div className="min-w-0 text-xs text-stone leading-relaxed">
             (звёзды {stats.nipcStars} + потенциал {stats.nipcHpot} + производительность{' '}
-            {stats.nipcHperf} − зоны риска {stats.nipcRisk}) из {stats.totalDesigners}
+            {stats.nipcHperf} − зоны риска {stats.nipcRisk}) из {stats.nipcTotal}
           </div>
         </div>
       </div>
