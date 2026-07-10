@@ -202,17 +202,8 @@ export default function UsersClient({
     openEdit(user);
   }
 
-  async function handleToggleActive(user: UserRow) {
-    const res = await fetch(`/api/users/${user.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: !user.active }),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-    }
-  }
+  // Тумблер «Активен» из лидерборда убран (Pavel, v0.41) — управление
+  // активностью осталось в модалке редактирования и карточке 360.
 
   function handleSaved(saved: UserRow) {
     setUsers((prev) => {
@@ -319,7 +310,6 @@ export default function UsersClient({
             users={filtered}
             gradeThresholds={gradeThresholds}
             onRowClick={open360}
-            onToggleActive={handleToggleActive}
             teamStats={teamStats}
             nineBox={nineBox}
             attention={attention}

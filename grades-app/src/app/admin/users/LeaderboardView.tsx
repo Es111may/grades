@@ -55,7 +55,6 @@ export default function LeaderboardView({
   users,
   gradeThresholds,
   onRowClick,
-  onToggleActive,
   teamStats,
   nineBox,
   attention,
@@ -63,7 +62,6 @@ export default function LeaderboardView({
   users: UserRow[];
   gradeThresholds: GradeThreshold[];
   onRowClick: (user: UserRow) => void;
-  onToggleActive: (user: UserRow) => void;
   teamStats: TeamStats;
   nineBox: Record<string, number>;
   attention: AttentionItem[];
@@ -260,12 +258,6 @@ export default function LeaderboardView({
             <Th keyId="tenure" align="center">
               Стаж
             </Th>
-            <th className="label-mono text-left py-2.5 px-4 text-stone w-[150px]">
-              Рейтинг
-            </th>
-            <th className="label-mono text-center py-2.5 px-4 text-stone">
-              Активен
-            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-cloud">
@@ -312,8 +304,10 @@ export default function LeaderboardView({
                     <span className="font-display text-sm font-medium tracking-tight">
                       {GRADE_LABELS[u.effectiveGrade] ?? u.effectiveGrade}
                     </span>
+                  ) : u.hasDraft ? (
+                    <span className="chip-warn whitespace-nowrap">черновик</span>
                   ) : (
-                    <span className="text-ash">—</span>
+                    <span className="chip-neutral whitespace-nowrap">не оценена</span>
                   )}
                 </td>
                 <td className="py-3 px-4 text-center">
@@ -337,29 +331,6 @@ export default function LeaderboardView({
                 ))}
                 <td className="py-3 px-4 text-center text-stone whitespace-nowrap">
                   {formatTenure(tenureMonths(u.hiredAt))}
-                </td>
-                {/* «Рейтинг» — бар со скором (концепт); для неоценённых —
-                    статус-чип «черновик» / «не оценена» */}
-                <td className="py-3 px-4">
-                  <ScoreBar score={u.compositeScore ?? null} hasDraft={!!u.hasDraft} />
-                </td>
-                <td className="py-3 px-4 text-center">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleActive(u);
-                    }}
-                    className={`relative w-9 h-5 rounded-full transition-colors ${
-                      u.active ? 'bg-emerald' : 'bg-cloud'
-                    }`}
-                    aria-label={u.active ? 'Деактивировать' : 'Активировать'}
-                  >
-                    <span
-                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                        u.active ? 'left-[18px]' : 'left-0.5'
-                      }`}
-                    />
-                  </button>
                 </td>
               </tr>
             );
@@ -704,34 +675,6 @@ function AttentionFeed({ items }: { items: AttentionItem[] }) {
  * Если у дизайнера ещё нет ни одной опубликованной оценки (score=null) —
  * вместо числа показываем «—» серым, чтобы не путать с реальным 0.
  */
-/**
- * Ячейка «Рейтинг» — прогресс-бар со скором (концепт v4). Для неоценённых
- * дизайнеров — статус-чип «черновик» / «не оценена».
- */
-function ScoreBar({ score, hasDraft }: { score: number | null; hasDraft: boolean }) {
-  if (score == null) {
-    return hasDraft ? (
-      <span className="chip-warn whitespace-nowrap">черновик · ждёт публикации</span>
-    ) : (
-      <span className="chip-neutral whitespace-nowrap">не оценена</span>
-    );
-  }
-  const pct = Math.round(score * 100);
-  const bar =
-    pct >= 80 ? 'bg-lime' : pct >= 60 ? 'bg-emerald' : pct >= 50 ? 'bg-sunset' : 'bg-blaze';
-  return (
-    <span className="flex items-center gap-2.5">
-      <span className="flex-1 h-1 rounded-pill bg-ink/10 overflow-hidden">
-        <span
-          className={`block h-full rounded-pill ${bar}`}
-          style={{ width: `${pct}%` }}
-        />
-      </span>
-      <b className="text-sm font-medium w-7 text-right">{pct}</b>
-    </span>
-  );
-}
-
 /** Зоны скор-цифр — как в концептах: 80+ лайм, 60+ зелёный, 50+ оранжевый. */
 function scoreZoneClass(pct: number): string {
   return pct >= 80
