@@ -4,29 +4,29 @@ const config: Config = {
   content: ['./src/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {
-      // === ТЁМНАЯ ТЕМА (Apple dark, референс — ida-ai-report) ===
-      // Семантика токенов сохранена, значения инвертированы. Благодаря этому
-      // весь UI переключился без правки классов в компонентах:
-      //   canvas — «фон-подложка» (в тёмной теме СВЕТЛЕЕ карточки: hover строк,
-      //   thead, вложенные области), snow — поверхность карточки, ink — основной
-      //   текст, stone/ash — вторичный/третичный текст (поменялись местами
-      //   относительно светлой темы), cloud — бордеры и заливки чипов.
+      // === ДВУХТЕМНАЯ ПАЛИТРА ===
+      // Значения токенов живут в CSS-переменных (globals.css): :root — тёмная
+      // тема (дефолт), html[data-theme='light'] — светлая. Формат
+      // rgb(var(--x) / <alpha-value>) сохраняет работу alpha-модификаторов
+      // (bg-cloud/60, text-blaze/10 и т.п.) в обеих темах.
       colors: {
-        canvas: '#1c1c1e',
-        snow: '#151517',
-        ink: '#f5f5f7',
-        graphite: '#d1d1d6',
-        stone: '#a1a1a6',
-        ash: '#6e6e73',
-        cloud: '#2c2c2e',
-        // Бренд-лайм остаётся. light/dim стали тёмными лаймовыми подложками
-        // (на них светлый текст), dark — светлый лайм для текста на тёмном.
-        lime: { DEFAULT: '#d5ff0c', light: '#31380a', dim: '#20250a', dark: '#e4ff5c' },
-        // Системные акценты — iOS dark варианты (ярче под тёмный фон)
-        sunset: '#ff9f0a',
-        blaze: '#ff453a',
-        sky: '#0a84ff',
-        emerald: '#30d158',
+        canvas: 'rgb(var(--c-canvas) / <alpha-value>)',
+        snow: 'rgb(var(--c-snow) / <alpha-value>)',
+        ink: 'rgb(var(--c-ink) / <alpha-value>)',
+        graphite: 'rgb(var(--c-graphite) / <alpha-value>)',
+        stone: 'rgb(var(--c-stone) / <alpha-value>)',
+        ash: 'rgb(var(--c-ash) / <alpha-value>)',
+        cloud: 'rgb(var(--c-cloud) / <alpha-value>)',
+        lime: {
+          DEFAULT: 'rgb(var(--c-lime) / <alpha-value>)',
+          light: 'rgb(var(--c-lime-light) / <alpha-value>)',
+          dim: 'rgb(var(--c-lime-dim) / <alpha-value>)',
+          dark: 'rgb(var(--c-lime-dark) / <alpha-value>)',
+        },
+        sunset: 'rgb(var(--c-sunset) / <alpha-value>)',
+        blaze: 'rgb(var(--c-blaze) / <alpha-value>)',
+        sky: 'rgb(var(--c-sky) / <alpha-value>)',
+        emerald: 'rgb(var(--c-emerald) / <alpha-value>)',
       },
       // Шрифты: Onest (Variable, max Medium — как на ida-ai-report) для
       // display и sans. mono — JetBrains Mono: лейблы колонок, названия
@@ -48,17 +48,13 @@ const config: Config = {
         ],
         mono: ['"JetBrains Mono"', '"SF Mono"', 'ui-monospace', 'monospace'],
       },
-      // Тени для тёмной темы: чёрные тени на чёрном почти не видны, поэтому
-      // глубина строится на светлом hairline (0.5px rgba(255,255,255,…)) —
-      // «подсвеченная кромка» карточки, как в реф. --line. Плюс чёрная тень
-      // для отрыва на средних/крупных уровнях.
+      // Тени — тоже per-theme (см. --shadow-* в globals.css): тёмная тема
+      // строит глубину на светлом hairline, светлая — на слоистых серых тенях.
       boxShadow: {
-        soft: '0 1px 2px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(255,255,255,0.07)',
-        'soft-md':
-          '0 4px 12px rgba(0,0,0,0.45), 0 0 0 0.5px rgba(255,255,255,0.09)',
-        'soft-lg':
-          '0 12px 40px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.10)',
-        focus: '0 0 0 4px rgba(10, 132, 255, 0.25)',
+        soft: 'var(--shadow-soft)',
+        'soft-md': 'var(--shadow-soft-md)',
+        'soft-lg': 'var(--shadow-soft-lg)',
+        focus: '0 0 0 4px rgb(var(--c-sky) / 0.22)',
       },
       // Скругления — подтянуты ближе к rating.idaproject.com (там карточки
       // 22px, мелкие элементы 11px). Берём чуть мягче исходного, но без

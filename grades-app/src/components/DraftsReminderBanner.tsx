@@ -38,7 +38,7 @@ export default function DraftsReminderBanner({
   // - не stale + faded       → светло-серый
   const cls = hasStale
     ? highlighted
-      ? 'bg-blaze text-snow'
+      ? 'bg-blaze text-white'
       : 'bg-blaze/10 text-blaze'
     : highlighted
       ? 'bg-cloud/60 text-graphite'

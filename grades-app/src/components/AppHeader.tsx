@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import UserMenu from './UserMenu';
 import HeaderNav from './HeaderNav';
+import ThemeToggle from './ThemeToggle';
 
 type NavItem = { href: string; label: string };
 
@@ -47,11 +48,15 @@ export default async function AppHeader({
               alt="Ида Грейдс"
               width={158}
               height={22}
+              className="app-logo"
             />
           </Link>
           {navItems.length > 0 && <HeaderNav items={navItems} />}
         </div>
-        <UserMenu fullName={fullName} role={user.role} avatarUrl={avatarUrl} />
+        <div className="flex items-center gap-1.5">
+          <ThemeToggle />
+          <UserMenu fullName={fullName} role={user.role} avatarUrl={avatarUrl} />
+        </div>
       </div>
     </header>
   );

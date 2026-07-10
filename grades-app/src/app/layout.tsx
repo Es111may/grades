@@ -13,8 +13,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru">
+    // suppressHydrationWarning: инлайн-скрипт ниже ставит data-theme ДО
+    // гидрации — React не должен ругаться на «лишний» атрибут.
+    <html lang="ru" suppressHydrationWarning>
       <head>
+        {/* Восстановление темы до первой отрисовки — без вспышки тёмной.
+            Дефолт — тёмная (без атрибута), 'light' в localStorage — светлая. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}",
+          }}
+        />
         {/* Onest грузится локально через @font-face в globals.css.
             Preload — чтобы шрифт начал тянуться параллельно HTML и не было
             «вспышки» fallback'а. Один вариативный файл покрывает все веса. */}

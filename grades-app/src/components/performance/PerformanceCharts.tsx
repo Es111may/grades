@@ -33,6 +33,7 @@ import { InfoIcon } from '@/components/icons';
 // chart.js'овским Tooltip (он регистрируется как plugin).
 import InfoTooltip from '@/components/Tooltip';
 import type { PeriodSummary } from '@/lib/performanceAggregation';
+import { useTheme, CHART_AXIS } from '@/lib/theme';
 
 ChartJS.register(
   CategoryScale,
@@ -44,11 +45,14 @@ ChartJS.register(
   Tooltip,
   Legend,
 );
-// Дефолты chart.js под тёмную тему — светлые подписи и сетка.
-ChartJS.defaults.color = '#a1a1a6';
-ChartJS.defaults.borderColor = 'rgba(255,255,255,0.10)';
-
 export default function PerformanceCharts({ periods }: { periods: PeriodSummary[] }) {
+  // Оси/легенды chart.js не умеют CSS-переменные — цвета зависят от темы.
+  // Дефолты выставляются на рендере, а key={theme} на чартах пересоздаёт их
+  // при переключении (defaults читаются в момент создания чарта).
+  const theme = useTheme();
+  ChartJS.defaults.color = CHART_AXIS[theme].tick;
+  ChartJS.defaults.borderColor = CHART_AXIS[theme].grid;
+
   // На графиках хронологический порядок (старые слева) — наоборот таблице.
   const chronological = useMemo(() => [...periods].reverse(), [periods]);
   const labels = chronological.map((p) => p.period);
@@ -205,7 +209,7 @@ export default function PerformanceCharts({ periods }: { periods: PeriodSummary[
           hint="Доля задач без оверпуша. Чем ближе к 1, тем точнее ты попадаешь в эстимейт."
           info="КПД = эстимейт ÷ факт, медиана по задачам периода. Показывает, насколько точно ты укладываешься в свои оценки. 1 — задача закрыта ровно по эстимейту, ниже 1 — есть оверпуш. Считается по тем же задачам, что и «% в срок»."
         >
-          <Line data={efficiencyData} options={efficiencyOptions} />
+          <Line key={theme} data={efficiencyData} options={efficiencyOptions} />
         </ChartCard>
 
         <ChartCard
@@ -213,7 +217,7 @@ export default function PerformanceCharts({ periods }: { periods: PeriodSummary[
           hint="% задач, где оверпуш не больше 10%. Цель — 85% и выше."
           info="Главная метрика перформанса. Считается так: задача «в срок», если факт превысил эстимейт не больше чем на 10%. Берётся доля таких задач от всех задач периода в %."
         >
-          <Line data={onTimeData} options={onTimeOptions} />
+          <Line key={theme} data={onTimeData} options={onTimeOptions} />
         </ChartCard>
       </div>
 
@@ -222,7 +226,7 @@ export default function PerformanceCharts({ periods }: { periods: PeriodSummary[
         hint="Сумма часов сверх эстимейта по всем задачам периода. Чем меньше — тем лучше."
         info="Сумма часов, потраченных сверх эстимейта, по всем учитываемым задачам периода (факт − эстимейт, только для задач с превышением). Помогает понять масштаб переработки в часах, а не в процентах."
       >
-        <Line data={overpushData} options={overpushOptions} />
+        <Line key={theme} data={overpushData} options={overpushOptions} />
       </ChartCard>
 
       <ChartCard
@@ -230,7 +234,7 @@ export default function PerformanceCharts({ periods }: { periods: PeriodSummary[
         hint="Объём попадания в эстимейт или его превышения по последним 5 периодам."
         info="Каждая полоса — один период. Зелёный сегмент — задачи в срок (оверпуш ≤ 10%). Дальше идут корзины оверпуша по 10% шагу. Красный = >40%."
       >
-        <Bar data={gradeData} options={gradeOptions} />
+        <Bar key={theme} data={gradeData} options={gradeOptions} />
       </ChartCard>
     </div>
   );

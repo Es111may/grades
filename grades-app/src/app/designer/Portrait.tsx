@@ -23,11 +23,9 @@ import OnTimeChip from '@/components/performance/OnTimeChip';
 import ChecklistsSection from '@/components/checklists/ChecklistsSection';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import type { Role } from '@/lib/checklistPermissions';
+import { useTheme, CHART_AXIS } from '@/lib/theme';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
-// Дефолты chart.js под тёмную тему — светлые подписи и сетка.
-ChartJS.defaults.color = '#a1a1a6';
-ChartJS.defaults.borderColor = 'rgba(255,255,255,0.10)';
 
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
 const TAXONOMY_COLOR: Record<string, string> = {
@@ -146,6 +144,9 @@ export default function Portrait({
   canCreateChecklists?: boolean;
 }) {
   const [rowHovered, setRowHovered] = useState(false);
+  // Цвета осей радара зависят от темы (CSS до опций chart.js не дотягивается).
+  const theme = useTheme();
+  const axis = CHART_AXIS[theme];
 
   // Локальное состояние «Мнения лида» — нужно для оптимистичного
   // обновления карточки после сохранения. Иначе пришлось бы делать
@@ -239,12 +240,12 @@ export default function Portrait({
     scales: {
       r: {
         suggestedMin: 0,
-        ticks: { color: '#6e6e73', backdropColor: 'transparent', font: { size: 10 } },
-        grid: { color: 'rgba(255,255,255,0.10)' },
-        angleLines: { color: 'rgba(255,255,255,0.10)' },
+        ticks: { color: axis.tick, backdropColor: 'transparent', font: { size: 10 } },
+        grid: { color: axis.grid },
+        angleLines: { color: axis.grid },
         pointLabels: {
-          font: { size: 14, family: 'Aeonik Pro', weight: 500 as const },
-          color: '#f5f5f7',
+          font: { size: 14, family: 'Onest', weight: 500 as const },
+          color: axis.label,
         },
       },
     },
@@ -714,6 +715,9 @@ function GroupBreakdown({
   compact?: boolean;
 }) {
   const entries = Object.entries(groups);
+  // Тема — для цветов осей мини-радара. Хук ДО раннего return (rules-of-hooks).
+  const theme = useTheme();
+  const axis = CHART_AXIS[theme];
   if (entries.length < 3) {
     // Не радар — горизонтальные бары
     return (
@@ -775,11 +779,11 @@ function GroupBreakdown({
         suggestedMin: 0,
         suggestedMax: 100,
         ticks: { display: false },
-        grid: { color: 'rgba(255,255,255,0.10)' },
-        angleLines: { color: 'rgba(255,255,255,0.10)' },
+        grid: { color: axis.grid },
+        angleLines: { color: axis.grid },
         pointLabels: {
-          font: { size: compact ? 9 : 11, family: 'Aeonik Pro' },
-          color: '#f5f5f7',
+          font: { size: compact ? 9 : 11, family: 'Onest' },
+          color: axis.label,
         },
       },
     },
