@@ -68,6 +68,37 @@
     width: min(460px, 100%); margin-top: 26px; text-align: left;
   }
   .gp-pub { position: relative; font-size: 11.5px; color: var(--dim); margin-top: 12px; }
+
+  /* ---------- единый грейд-таймлайн: карточка-коллаут над текущей точкой --- */
+  .gradeline {
+    width: 100%; margin-top: 30px; border: 1px solid var(--line); border-radius: var(--r);
+    background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0) 60%), var(--srf);
+    padding: 20px 26px 54px; text-align: left; position: relative;
+  }
+  .gl-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .gl-track { position: relative; padding-top: 172px; }
+  .gl-rail { display: flex; align-items: center; }
+  /* коллаут, «висящий» над текущей точкой (60% = 4-я из 6 равномерных точек) */
+  .gl-callout {
+    position: absolute; top: 0; left: 60%; transform: translateX(-50%);
+    width: 340px; max-width: 90%;
+    background: linear-gradient(180deg, rgba(213,255,12,.06), rgba(213,255,12,0) 60%), var(--srf2);
+    border: 1px solid rgba(213,255,12,.28); border-radius: 18px; padding: 16px 18px;
+    box-shadow: 0 12px 34px rgba(0,0,0,.45);
+  }
+  .gl-callout::after { /* ножка к точке */
+    content: ''; position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
+    width: 2px; height: 22px; background: linear-gradient(180deg, rgba(213,255,12,.5), rgba(213,255,12,.15));
+  }
+  .gl-grade { font-size: 34px; font-weight: 500; letter-spacing: -.035em; line-height: 1; }
+  .gl-next { font-size: 12px; color: var(--mut); margin-top: 8px; }
+  .gl-next b { color: var(--text); font-weight: 500; }
+  .gl-pub { font-size: 11px; color: var(--dim); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+  @media (max-width: 900px) {
+    .gl-track { padding-top: 0; }
+    .gl-callout { position: static; transform: none; width: 100%; max-width: none; margin-bottom: 26px; }
+    .gl-callout::after { display: none; }
+  }
   .gradepanel::after { content: ''; position: absolute; inset: auto -25% -60% -25%; height: 110px;
     background: radial-gradient(ellipse at 50% 100%, rgba(213,255,12,.1), transparent 65%); pointer-events: none; }
   .gp-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -236,26 +267,29 @@
       <span class="pill">Стардиз: Полина Филькова</span>
       <span class="pill">1 год 9 мес. в команде</span>
     </div>
-    <div class="gradepanel rv">
-      <div class="gp-top">
-        <span class="eyebrow">Текущий грейд</span>
+    <!-- единый грейд-таймлайн: карточка-коллаут над текущей точкой пути,
+         прогресс к следующему грейду вшит в отрезок Мидл → Мидл+ -->
+    <div class="gradeline rv" aria-label="Грейд и путь">
+      <div class="gl-head">
+        <span class="eyebrow">Грейд и путь</span>
         <span class="cycsel">весна-2026</span>
       </div>
-      <div class="gp-grade">Мидл</div>
-      <div class="gradesub">
-        <span class="xp"><span data-count="162">0</span> XP <small>из 241</small></span>
-        <span class="up">+22 за цикл</span>
+      <div class="gl-track">
+        <div class="gl-callout">
+          <div class="gp-top">
+            <div class="gl-grade">Мидл</div>
+            <span class="up">+22 за цикл</span>
+          </div>
+          <div class="gradesub" style="margin-top:6px">
+            <span class="xp"><span data-count="162">0</span> XP <small>из 241</small></span>
+          </div>
+          <div class="gl-next">До <b>Мидл+</b> ещё <b>18 XP</b> · гейт Auto-layout 2→3</div>
+          <div class="gl-pub">Опубликован 4 июня 2026 · Полина Филькова</div>
+        </div>
+        <div class="gl-rail" aria-hidden="true">
+          <span class="knot"><span>Джун</span></span><span class="wire"></span><span class="knot"><span>Джун+</span></span><span class="wire"></span><span class="knot"><span>Пре-мидл</span></span><span class="wire"></span><span class="knot cur"><span>Мидл</span></span><span class="wire" style="background:linear-gradient(90deg,var(--lime) 60%,rgba(255,255,255,.1) 60%)"></span><span class="knot off"><span>Мидл+</span></span><span class="wire off"></span><span class="knot off"><span>Синьор</span></span>
+        </div>
       </div>
-      <div class="gp-bar"><i data-w="67"></i></div>
-      <div class="gp-pub">Опубликован 4 июня 2026 · Полина Филькова</div>
-    </div>
-    <div class="path rv" aria-label="Путь по грейдам" style="align-self:stretch;margin-top:40px">
-      <span class="step"><span class="knot"><span>Джун</span></span><span class="wire"></span></span>
-      <span class="step"><span class="knot"><span>Джун+</span></span><span class="wire"></span></span>
-      <span class="step"><span class="knot"><span>Пре-мидл</span></span><span class="wire"></span></span>
-      <span class="step"><span class="knot cur"><span>Мидл</span></span><span class="wire off"></span></span>
-      <span class="step"><span class="knot off"><span>Мидл+ · ещё 18 XP</span></span><span class="wire off"></span></span>
-      <span class="knot off"><span>Синьор</span></span>
     </div>
   </section>
 
