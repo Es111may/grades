@@ -248,6 +248,28 @@ export default function ChecklistCard({
         </div>
       </div>
 
+      {/* Прогресс чек-листа: лайм-бар + счётчик (концепт) */}
+      {checklist.items.length > 0 && (
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="flex-1 h-1 rounded-pill bg-cloud overflow-hidden">
+            <div
+              className="h-full bg-lime rounded-pill transition-all duration-300"
+              style={{
+                width: `${Math.round(
+                  (checklist.items.filter((it) => pending[it.id] ?? it.checked).length /
+                    checklist.items.length) *
+                    100,
+                )}%`,
+              }}
+            />
+          </div>
+          <span className="label-mono text-ash">
+            {checklist.items.filter((it) => pending[it.id] ?? it.checked).length}/
+            {checklist.items.length}
+          </span>
+        </div>
+      )}
+
       {/* Items */}
       <ul className="space-y-1">
         {checklist.items.map((it) => {

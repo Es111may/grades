@@ -128,8 +128,10 @@ export default function AuditView({
 
   return (
     <main className="max-w-[1240px] mx-auto px-8 pt-10 pb-16">
-      <div className="flex items-end justify-between mb-6 gap-4">
-        <h1 className="font-display text-4xl font-medium tracking-tight">Аудит</h1>
+      <div className="text-center mb-8 animate-fade-up">
+        <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
+          Аудит
+        </h1>
       </div>
 
       {/* Фильтры */}

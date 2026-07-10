@@ -112,9 +112,15 @@ export default function MatrixClient({
 
   return (
     <main className="max-w-[1240px] mx-auto px-8 pt-10 pb-16">
-      <div className="flex items-end justify-between mb-6 gap-4">
-        <h1 className="font-display text-4xl font-medium tracking-tight">Скиллы</h1>
-        <button onClick={() => setShowNewModal(true)} className="btn-accent">
+      <div className="relative text-center mb-8 animate-fade-up">
+        <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
+          Скиллы
+        </h1>
+        <button
+          onClick={() => setShowNewModal(true)}
+          className="btn-accent shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
+                     absolute right-0 top-1/2 -translate-y-1/2"
+        >
           Новый навык
         </button>
       </div>

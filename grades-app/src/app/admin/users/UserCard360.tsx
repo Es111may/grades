@@ -172,7 +172,21 @@ export default function UserCard360({
             и делает попап короче на ~100px. */}
         <div className="px-7 pt-6 pb-5 border-b border-cloud">
           <div className="flex items-start gap-4">
-            <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={56} />
+            {/* Аватар в conic-кольце composite-скора (как на подиуме) */}
+            {user.role === 'designer' && user.compositeScore != null ? (
+              <div
+                className="relative w-[60px] h-[60px] rounded-full shrink-0"
+                style={{
+                  background: `conic-gradient(rgb(var(--c-lime)) ${Math.round(user.compositeScore * 100)}%, rgb(var(--c-cloud)) 0)`,
+                }}
+              >
+                <div className="absolute inset-[3px] rounded-full bg-snow flex items-center justify-center overflow-hidden">
+                  <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={54} />
+                </div>
+              </div>
+            ) : (
+              <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={56} />
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -195,6 +209,25 @@ export default function UserCard360({
                   Все на базе `.chip` — одинаковый размер шрифта и паддинги,
                   меняется только цветовая палитра. */}
               <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+                {/* Composite-скор — первым чипом, число в цвете зоны */}
+                {user.role === 'designer' && user.compositeScore != null && (
+                  <span className="chip bg-ink/[0.07] text-stone">
+                    Топ{' '}
+                    <b
+                      className={
+                        Math.round(user.compositeScore * 100) >= 80
+                          ? 'text-score-hi'
+                          : Math.round(user.compositeScore * 100) >= 60
+                            ? 'text-emerald'
+                            : Math.round(user.compositeScore * 100) >= 50
+                              ? 'text-sunset'
+                              : 'text-blaze'
+                      }
+                    >
+                      {Math.round(user.compositeScore * 100)}
+                    </b>
+                  </span>
+                )}
                 <span className={`chip ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
                   {ROLE_LABEL[user.role] ?? user.role}
                 </span>
@@ -359,11 +392,11 @@ function XpSparkline({ assessments }: { assessments: AssessmentHistoryRow[] }) {
         className="block"
         aria-hidden="true"
       >
-        <path d={area} fill="rgba(48,209,88,0.10)" />
+        <path d={area} fill="rgba(213,255,12,0.12)" />
         <path
           d={line}
           fill="none"
-          stroke="#30d158"
+          stroke="#d5ff0c"
           strokeWidth={1.75}
           strokeLinejoin="round"
           strokeLinecap="round"

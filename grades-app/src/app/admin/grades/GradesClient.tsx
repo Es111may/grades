@@ -41,11 +41,11 @@ export default function GradesClient({
 }) {
   return (
     <main className="max-w-[1240px] mx-auto px-8 pt-10 pb-16">
-      <div className="mb-6">
-        <h1 className="font-display text-4xl font-medium tracking-tight mb-1.5">
+      <div className="text-center mb-8 animate-fade-up">
+        <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em] mb-3">
           Грейды
         </h1>
-        <p className="text-stone max-w-2xl">
+        <p className="text-stone max-w-2xl mx-auto text-sm">
           Пороги XP по билдам и обязательные навыки. Изменения применяются к будущим
           оценкам — опубликованные используют свой снапшот.
         </p>

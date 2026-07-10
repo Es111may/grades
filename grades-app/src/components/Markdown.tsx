@@ -300,7 +300,10 @@ export function EditableMarkdownBlock({
             </div>
           </div>
         ) : value ? (
-          <MarkdownContent text={value} />
+          // Просмотр — цитатой с лаймовой чертой (концепт «выводов»)
+          <div className="border-l-2 border-lime pl-4">
+            <MarkdownContent text={value} />
+          </div>
         ) : (
           <div className="text-sm text-ash italic">
             {emptyLabel ?? 'Ещё не заполнено'}

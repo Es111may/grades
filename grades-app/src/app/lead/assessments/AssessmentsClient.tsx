@@ -70,8 +70,10 @@ export default function AssessmentsClient({
 
   return (
     <main className="max-w-[1240px] mx-auto px-8 pt-10 pb-16">
-      <div className="mb-6 animate-fade-up">
-        <h1 className="font-display text-4xl font-medium tracking-tight">Оценки</h1>
+      <div className="text-center mb-8 animate-fade-up">
+        <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
+          Оценки
+        </h1>
       </div>
 
       {/* Черновики — показываем сверху, если есть. Открытый draft хочется
