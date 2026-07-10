@@ -367,7 +367,7 @@ export default function Portrait({
         {/* XP: цифра, дельта за цикл, до следующего грейда, бар, дата публикации */}
         <div className="card p-5 flex flex-col">
           <div className="label-mono text-stone">Общий XP</div>
-          <div className="font-display text-4xl font-medium tracking-tight mt-3">
+          <div className="font-display text-[42px] leading-none font-medium tracking-tight mt-3">
             {data.totalXp}
             <span className="text-lg text-ash font-normal"> / {data.maxXp}</span>
           </div>

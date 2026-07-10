@@ -416,7 +416,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
       </div>
       <div className="card p-5 flex flex-col">
         <div className="label-mono text-stone">В срок · команда</div>
-        <div className={`font-display text-4xl font-medium tracking-tight mt-3 ${otZone}`}>
+        <div className={`font-display text-[42px] leading-none font-medium tracking-tight mt-3 ${otZone}`}>
           {stats.onTimeMedian == null ? '—' : `${stats.onTimeMedian}%`}
         </div>
         <div className="text-xs text-stone mt-auto pt-2">
@@ -425,7 +425,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
       </div>
       <div className="card p-5 flex flex-col">
         <div className="label-mono text-stone">Скорость роста · медиана</div>
-        <div className="font-display text-4xl font-medium tracking-tight mt-3">
+        <div className="font-display text-[42px] leading-none font-medium tracking-tight mt-3">
           {growth}
           {stats.growthMedian != null && (
             <span className="text-sm text-ash font-normal ml-1.5">XP/цикл</span>
@@ -438,7 +438,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
       </div>
       <div className="card p-5 flex flex-col">
         <div className="label-mono text-stone">Сезон оценок</div>
-        <div className="font-display text-4xl font-medium tracking-tight mt-3">
+        <div className="font-display text-[42px] leading-none font-medium tracking-tight mt-3">
           {stats.gradedCount}
           <span className="text-lg text-ash font-normal"> / {stats.totalDesigners}</span>
         </div>
@@ -466,38 +466,42 @@ function PodiumCard({
   onClick: () => void;
 }) {
   const score = Math.round((user.compositeScore ?? 0) * 100);
-  // Те же зоны, что в TopCell — консистентная семантика цвета.
-  const zone =
-    score >= 90
-      ? 'text-emerald'
-      : score >= 70
-        ? 'text-emerald/70'
-        : score >= 50
-          ? 'text-sunset'
-          : 'text-blaze';
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`card card-hover p-5 text-left w-full relative ${
+      className={`card card-hover p-6 text-left w-full relative overflow-hidden ${
         place === 1 ? 'border-lime/40' : ''
       }`}
     >
-      <span className="label-mono text-ash absolute top-5 right-5">№{place}</span>
+      {/* Лаймовый глоу у №1 — как в концепте */}
+      {place === 1 && (
+        <div
+          className="absolute -bottom-16 -left-8 -right-8 h-32 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(ellipse at 50% 100%, rgba(213,255,12,.16), transparent 65%)',
+          }}
+        />
+      )}
+      <span className="label-mono text-ash absolute top-6 right-6">№{place}</span>
       <div className="flex items-center gap-4">
         <div
-          className="relative w-[62px] h-[62px] rounded-full shrink-0"
+          className="relative w-[64px] h-[64px] rounded-full shrink-0"
           style={{
             background: `conic-gradient(rgb(var(--c-lime)) ${score}%, rgb(var(--c-cloud)) 0)`,
+            boxShadow: '0 0 22px rgba(213,255,12,.22)',
           }}
         >
           <div className="absolute inset-[4px] rounded-full bg-snow flex items-center justify-center overflow-hidden">
-            <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={54} />
+            <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={56} />
           </div>
         </div>
-        <div className={`font-display text-4xl font-medium tracking-tight leading-none ${zone}`}>
+        <div
+          className={`font-display text-[52px] font-medium tracking-tight leading-none ${scoreZoneClass(score)}`}
+        >
           {score}
-          <span className="text-sm text-ash font-normal">/100</span>
+          <span className="text-sm text-ash font-normal tracking-normal">/100</span>
         </div>
       </div>
       <div className="font-medium mt-3.5 truncate">{user.fullName}</div>
@@ -633,6 +637,17 @@ function AttentionFeed({ items }: { items: AttentionItem[] }) {
  * Если у дизайнера ещё нет ни одной опубликованной оценки (score=null) —
  * вместо числа показываем «—» серым, чтобы не путать с реальным 0.
  */
+/** Зоны скор-цифр — как в концептах: 70+ лайм, 60+ зелёный, 50+ оранжевый. */
+function scoreZoneClass(pct: number): string {
+  return pct >= 70
+    ? 'text-score-hi'
+    : pct >= 60
+      ? 'text-emerald'
+      : pct >= 50
+        ? 'text-sunset'
+        : 'text-blaze';
+}
+
 function TopCell({ score, rank }: { score: number | null; rank: number }) {
   if (score == null) {
     return (
@@ -643,18 +658,10 @@ function TopCell({ score, rank }: { score: number | null; rank: number }) {
     );
   }
   const pct = Math.round(score * 100);
-  const colorClass =
-    pct >= 90
-      ? 'text-emerald'
-      : pct >= 70
-        ? 'text-emerald/70'
-        : pct >= 50
-          ? 'text-sunset'
-          : 'text-blaze';
   return (
     <div className="flex flex-col items-center">
       <span
-        className={`font-display text-base font-medium tabular-nums leading-none ${colorClass}`}
+        className={`font-display text-xl font-medium tabular-nums leading-none ${scoreZoneClass(pct)}`}
       >
         {pct}
       </span>

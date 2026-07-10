@@ -271,7 +271,10 @@ export default function UsersClient({
           />
         </span>
         {(meRole === 'admin' || meRole === 'lead') && (
-          <button onClick={openNew} className="btn-accent">
+          <button
+            onClick={openNew}
+            className="btn-accent shadow-[0_0_24px_rgba(213,255,12,.18)]"
+          >
             Добавить
           </button>
         )}

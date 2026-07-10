@@ -60,10 +60,11 @@ const config: Config = {
       // 22px, мелкие элементы 11px). Берём чуть мягче исходного, но без
       // перегиба для плотного светлого UI. Поля ввода вынесены из card на
       // фиксированные 11px (см. .input в globals.css), чтобы не «раздувались».
+      // Скругления — как в концептах (r22 у карточек)
       borderRadius: {
-        card: '16px',
-        prominent: '18px',
-        modal: '22px',
+        card: '22px',
+        prominent: '24px',
+        modal: '26px',
         pill: '999px',
       },
       transitionTimingFunction: {

@@ -188,6 +188,13 @@
     letter-spacing: 0.05em;
   }
 
+  /* Скор-цифры высшей зоны — лайм, как в концептах. Через --c-lime-dark:
+     в тёмной теме это светлый лайм (#e4ff5c), в светлой — тёмный (#a8cd00),
+     читается в обеих без доп. селекторов. */
+  .text-score-hi {
+    color: rgb(var(--c-lime-dark));
+  }
+
   /* === Кнопки === */
   .btn {
     @apply inline-flex items-center justify-center gap-2 whitespace-nowrap
