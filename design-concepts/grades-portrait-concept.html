@@ -158,7 +158,7 @@
   .wire.off { background: rgba(255,255,255,.1); }
 
   /* ---------- bento ---------- */
-  .bento { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 44px 0 14px; }
+  .bento { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 0 0 14px; }
   .cell {
     background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,0) 55%), var(--srf);
     border: 1px solid var(--line); border-radius: var(--r); padding: 20px;
@@ -261,35 +261,14 @@
   <section class="hero">
     <div class="heroava rv" data-p="67"><i>СТ</i><small>67% XP</small></div>
     <h1 class="rv">Саша Тимкина</h1>
+    <!-- грейд — первый (белый) чип; выбор цикла — в том же ряду -->
     <div class="chips rv">
-      <span class="pill dt mgmt-only">Звезда · 9-Box</span>
+      <span class="pill dt">Мидл</span>
+      <span class="pill mgmt-only">Звезда · 9-Box</span>
       <span class="pill"><span class="bdot"></span>Криэйт</span>
       <span class="pill">Стардиз: Полина Филькова</span>
       <span class="pill">1 год 9 мес. в команде</span>
-    </div>
-    <!-- единый грейд-таймлайн: карточка-коллаут над текущей точкой пути,
-         прогресс к следующему грейду вшит в отрезок Мидл → Мидл+ -->
-    <div class="gradeline rv" aria-label="Грейд и путь">
-      <div class="gl-head">
-        <span class="eyebrow">Грейд и путь</span>
-        <span class="cycsel">весна-2026</span>
-      </div>
-      <div class="gl-track">
-        <div class="gl-callout">
-          <div class="gp-top">
-            <div class="gl-grade">Мидл</div>
-            <span class="up">+22 за цикл</span>
-          </div>
-          <div class="gradesub" style="margin-top:6px">
-            <span class="xp"><span data-count="162">0</span> XP <small>из 241</small></span>
-          </div>
-          <div class="gl-next">До <b>Мидл+</b> ещё <b>18 XP</b> · гейт Auto-layout 2→3</div>
-          <div class="gl-pub">Опубликован 4 июня 2026 · Полина Филькова</div>
-        </div>
-        <div class="gl-rail" aria-hidden="true">
-          <span class="knot"><span>Джун</span></span><span class="wire"></span><span class="knot"><span>Джун+</span></span><span class="wire"></span><span class="knot"><span>Пре-мидл</span></span><span class="wire"></span><span class="knot cur"><span>Мидл</span></span><span class="wire" style="background:linear-gradient(90deg,var(--lime) 60%,rgba(255,255,255,.1) 60%)"></span><span class="knot off"><span>Мидл+</span></span><span class="wire off"></span><span class="knot off"><span>Синьор</span></span>
-        </div>
-      </div>
+      <span class="cycsel">весна-2026</span>
     </div>
   </section>
 
@@ -297,9 +276,12 @@
   <section class="bento" id="stats">
     <div class="cell rv">
       <span class="eyebrow">Общий XP</span>
-      <div class="big"><span data-count="162">0</span></div>
-      <div class="cap">67% от потолка билда</div>
+      <div class="big"><span data-count="162">0</span><small style="font-size:16px;color:var(--dim)"> из 241</small></div>
+      <div class="cap"><span class="up">+22 за цикл</span> · до Мидл+ ещё <b style="color:var(--text);font-weight:500">18 XP</b></div>
       <div class="prog"><i data-w="67"></i></div>
+      <div style="font-size:11px;color:var(--dim);margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft)">
+        Опубликован 4 июня 2026 · Полина Филькова
+      </div>
     </div>
     <div class="cell rv">
       <span class="eyebrow">В срок · 6 мес</span>
@@ -325,10 +307,10 @@
       <div class="cap">Джун → Мидл за 1 год 9 мес<br />быстрее медианы команды на 3 мес</div>
     </div>
     <div class="cell rv">
-      <span class="eyebrow">До «Мидл+»</span>
-      <div class="big" style="font-size:28px;margin-top:10px">+18 XP</div>
-      <div class="gate"><span>Гейт: Auto-layout</span><span class="gbar"><i data-w="66"></i></span><span>2→3</span></div>
-      <div class="gate"><span>Гейт: Ресёрч-интервью</span><span class="gbar"><i data-w="100" style="background:var(--green)"></i></span><span>✓</span></div>
+      <span class="eyebrow">Гейты до «Мидл+»</span>
+      <div class="cap" style="margin-top:10px">обязательные навыки следующего грейда</div>
+      <div class="gate" style="margin-top:14px"><span>Auto-layout</span><span class="gbar"><i data-w="66"></i></span><span>2→3</span></div>
+      <div class="gate"><span>Ресёрч-интервью</span><span class="gbar"><i data-w="100" style="background:var(--green)"></i></span><span>✓</span></div>
     </div>
   </section>
 
