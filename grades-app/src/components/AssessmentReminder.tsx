@@ -51,7 +51,7 @@ export default function AssessmentReminder() {
         className={`w-fit max-w-full mx-auto rounded-pill px-5 py-2 text-sm font-medium
                     text-center transition-colors duration-1000 ease-out ${
                       highlighted
-                        ? 'bg-lime text-black shadow-[0_0_24px_rgba(213,255,12,.2)]'
+                        ? 'bg-lime text-black shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.2)]'
                         : 'bg-snow/75 text-graphite border border-cloud/60 backdrop-blur-xl'
                     }`}
       >

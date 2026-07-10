@@ -315,7 +315,7 @@ export default function Portrait({
           className="relative w-[96px] h-[96px] rounded-full"
           style={{
             background: `conic-gradient(rgb(var(--c-lime)) ${Math.min(xpProgress, 100)}%, rgb(var(--c-cloud)) 0)`,
-            boxShadow: '0 0 26px rgba(213,255,12,.2)',
+            boxShadow: '0 0 26px rgb(var(--lime-glow-rgb) / 0.2)',
           }}
         >
           <div className="absolute inset-[6px] rounded-full bg-snow flex items-center justify-center overflow-hidden">

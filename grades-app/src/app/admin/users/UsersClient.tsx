@@ -297,8 +297,8 @@ export default function UsersClient({
         {(meRole === 'admin' || meRole === 'lead') && (
           <button
             onClick={openNew}
-            className="btn-accent shadow-[0_0_24px_rgba(213,255,12,.18)]
-                       hover:-translate-y-px hover:shadow-[0_0_34px_rgba(213,255,12,.3)]"
+            className="btn-accent shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
+                       hover:-translate-y-px hover:shadow-[0_0_34px_rgb(var(--lime-glow-rgb)_/_0.3)]"
           >
             <PlusIcon className="w-3.5 h-3.5" />
             Добавить

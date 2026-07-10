@@ -450,7 +450,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
           className="absolute -bottom-14 -left-8 -right-8 h-28 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse at 50% 100%, rgba(213,255,12,.14), transparent 65%)',
+              'radial-gradient(ellipse at 50% 100%, rgb(var(--lime-glow-rgb) / 0.14), transparent 65%)',
           }}
         />
         <div className="label-mono text-stone relative">Dream Team Index · NIPC</div>
@@ -548,7 +548,7 @@ function PodiumCard({
           className="absolute -bottom-16 -left-8 -right-8 h-32 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse at 50% 100%, rgba(213,255,12,.16), transparent 65%)',
+              'radial-gradient(ellipse at 50% 100%, rgb(var(--lime-glow-rgb) / 0.16), transparent 65%)',
           }}
         />
       )}
