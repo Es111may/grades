@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ChevronDownIcon } from '@/components/icons';
+import { ChevronDownIcon, SearchIcon, PlusIcon } from '@/components/icons';
 import UserModal from './UserModal';
 import KanbanView from './KanbanView';
 import MatrixView from './MatrixView';
@@ -217,7 +217,9 @@ export default function UsersClient({
     <main className="max-w-[1400px] mx-auto px-8 pt-10 pb-16">
       {/* Заголовок — по центру, крупно, без лишних подписей (концепт v3) */}
       <div className="text-center mb-8 animate-fade-up">
-        <h1 className="font-display text-6xl font-medium tracking-tight">Команда</h1>
+        <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
+          Команда
+        </h1>
       </div>
 
       {/* Один ряд контролов: скоуп · роль (дропдаун) · вью · поиск · добавить */}
@@ -261,20 +263,24 @@ export default function UsersClient({
           ))}
         </div>
 
-        <span className="ml-auto w-[240px]">
+        {/* Поиск — пилюля с иконкой, как в концепте */}
+        <span className="ml-auto relative w-[240px]">
+          <SearchIcon className="w-3.5 h-3.5 text-ash absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder="Поиск по имени или email"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input"
+            className="input rounded-pill pl-9"
           />
         </span>
         {(meRole === 'admin' || meRole === 'lead') && (
           <button
             onClick={openNew}
-            className="btn-accent shadow-[0_0_24px_rgba(213,255,12,.18)]"
+            className="btn-accent shadow-[0_0_24px_rgba(213,255,12,.18)]
+                       hover:-translate-y-px hover:shadow-[0_0_34px_rgba(213,255,12,.3)]"
           >
+            <PlusIcon className="w-3.5 h-3.5" />
             Добавить
           </button>
         )}

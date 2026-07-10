@@ -309,12 +309,31 @@ export default function Portrait({
           белый чип, выбор цикла — дропдаун-чип в том же ряду. Дата публикации
           переехала в XP-плашку bento. */}
       <div className="mb-8 flex flex-col items-center text-center animate-fade-up">
-        <Avatar
-          name={data.designer.fullName}
-          avatarUrl={data.designer.avatarUrl}
-          size={84}
-        />
-        <h1 className="font-display text-4xl font-medium tracking-tight mt-5">
+        {/* Аватар в conic-кольце прогресса XP + бейдж «N% XP» — как heroava
+            концепта */}
+        <div
+          className="relative w-[96px] h-[96px] rounded-full"
+          style={{
+            background: `conic-gradient(rgb(var(--c-lime)) ${Math.min(xpProgress, 100)}%, rgb(var(--c-cloud)) 0)`,
+            boxShadow: '0 0 26px rgba(213,255,12,.2)',
+          }}
+        >
+          <div className="absolute inset-[6px] rounded-full bg-snow flex items-center justify-center overflow-hidden">
+            <Avatar
+              name={data.designer.fullName}
+              avatarUrl={data.designer.avatarUrl}
+              size={84}
+            />
+          </div>
+          <span
+            className="label-mono absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap
+                       px-2 py-1 rounded-pill border border-lime/40 text-lime-dark"
+            style={{ background: 'rgb(var(--c-page))' }}
+          >
+            {xpProgress}% XP
+          </span>
+        </div>
+        <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6">
           {data.designer.fullName}
         </h1>
         <div className="flex items-center justify-center gap-1.5 flex-wrap mt-3.5">

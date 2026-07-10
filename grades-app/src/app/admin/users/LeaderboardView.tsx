@@ -220,7 +220,7 @@ export default function LeaderboardView({
       <div className="card overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-canvas border-b border-cloud">
+          <tr className="bg-ink/[0.03] border-b border-cloud">
             {/* «Топ» — место для номера ранга. Кликом возвращает к
                 composite-сортировке (дефолтному рейтингу XP+В срок).
                 Это и есть «кнопка сброса» — не нужна отдельная.
@@ -252,6 +252,9 @@ export default function LeaderboardView({
             <Th keyId="tenure" align="center">
               Стаж
             </Th>
+            <th className="label-mono text-left py-2.5 px-4 text-stone w-[150px]">
+              Рейтинг
+            </th>
             <th className="label-mono text-center py-2.5 px-4 text-stone">
               Активен
             </th>
@@ -301,11 +304,8 @@ export default function LeaderboardView({
                     <span className="font-display text-sm font-medium tracking-tight">
                       {GRADE_LABELS[u.effectiveGrade] ?? u.effectiveGrade}
                     </span>
-                  ) : u.hasDraft ? (
-                    // Оценка начата, но не опубликована — оранжевый статус
-                    <span className="chip-warn whitespace-nowrap">черновик</span>
                   ) : (
-                    <span className="chip-neutral whitespace-nowrap">не оценена</span>
+                    <span className="text-ash">—</span>
                   )}
                 </td>
                 <td className="py-3 px-4 text-center">
@@ -329,6 +329,11 @@ export default function LeaderboardView({
                 ))}
                 <td className="py-3 px-4 text-center text-stone whitespace-nowrap">
                   {formatTenure(tenureMonths(u.hiredAt))}
+                </td>
+                {/* «Рейтинг» — бар со скором (концепт); для неоценённых —
+                    статус-чип «черновик» / «не оценена» */}
+                <td className="py-3 px-4">
+                  <ScoreBar score={u.compositeScore ?? null} hasDraft={!!u.hasDraft} />
                 </td>
                 <td className="py-3 px-4 text-center">
                   <button
@@ -371,13 +376,14 @@ function Ring({ percent }: { percent: number | null }) {
   const p = Math.max(0, Math.min(100, percent ?? 0));
   return (
     <div
-      className="relative w-[76px] h-[76px] rounded-full shrink-0"
+      className="relative w-[92px] h-[92px] rounded-full shrink-0"
       style={{
         background: `conic-gradient(rgb(var(--c-lime)) ${p}%, rgb(var(--c-cloud)) 0)`,
+        boxShadow: '0 0 24px rgba(213,255,12,.2)',
       }}
     >
-      <div className="absolute inset-[6px] rounded-full bg-snow flex items-center justify-center">
-        <span className="font-display text-lg font-medium tracking-tight">
+      <div className="absolute inset-[7px] rounded-full bg-snow flex items-center justify-center">
+        <span className="font-display text-[22px] font-medium tracking-tight">
           {percent === null ? '—' : `${percent}%`}
         </span>
       </div>
@@ -404,9 +410,17 @@ function TeamBento({ stats }: { stats: TeamStats }) {
     : 0;
   return (
     <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-      <div className="card p-5 flex items-center gap-4">
+      <div className="card p-5 flex items-center gap-4 relative overflow-hidden">
+        {/* лаймовый глоу снизу — как у NIPC-ячейки концепта */}
+        <div
+          className="absolute -bottom-14 -left-8 -right-8 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(ellipse at 50% 100%, rgba(213,255,12,.14), transparent 65%)',
+          }}
+        />
         <Ring percent={stats.nipcPercent} />
-        <div className="min-w-0">
+        <div className="min-w-0 relative">
           <div className="label-mono text-stone mb-1.5">Dream Team · NIPC</div>
           <div className="text-xs text-stone leading-relaxed">
             звёзды + потенциал + производительность − зоны риска
@@ -416,7 +430,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
       </div>
       <div className="card p-5 flex flex-col">
         <div className="label-mono text-stone">В срок · команда</div>
-        <div className={`font-display text-[42px] leading-none font-medium tracking-tight mt-3 ${otZone}`}>
+        <div className={`font-display text-[44px] leading-none font-medium tracking-tight mt-3 ${otZone}`}>
           {stats.onTimeMedian == null ? '—' : `${stats.onTimeMedian}%`}
         </div>
         <div className="text-xs text-stone mt-auto pt-2">
@@ -425,7 +439,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
       </div>
       <div className="card p-5 flex flex-col">
         <div className="label-mono text-stone">Скорость роста · медиана</div>
-        <div className="font-display text-[42px] leading-none font-medium tracking-tight mt-3">
+        <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
           {growth}
           {stats.growthMedian != null && (
             <span className="text-sm text-ash font-normal ml-1.5">XP/цикл</span>
@@ -438,7 +452,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
       </div>
       <div className="card p-5 flex flex-col">
         <div className="label-mono text-stone">Сезон оценок</div>
-        <div className="font-display text-[42px] leading-none font-medium tracking-tight mt-3">
+        <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
           {stats.gradedCount}
           <span className="text-lg text-ash font-normal"> / {stats.totalDesigners}</span>
         </div>
@@ -470,9 +484,11 @@ function PodiumCard({
     <button
       type="button"
       onClick={onClick}
-      className={`card card-hover p-6 text-left w-full relative overflow-hidden ${
-        place === 1 ? 'border-lime/40' : ''
-      }`}
+      className={`card p-6 text-left w-full relative overflow-hidden
+                  transition-all duration-200 ease-apple-out
+                  hover:shadow-soft-md hover:-translate-y-1 hover:border-ash ${
+                    place === 1 ? 'border-lime/40' : ''
+                  }`}
     >
       {/* Лаймовый глоу у №1 — как в концепте */}
       {place === 1 && (
@@ -498,7 +514,7 @@ function PodiumCard({
           </div>
         </div>
         <div
-          className={`font-display text-[52px] font-medium tracking-tight leading-none ${scoreZoneClass(score)}`}
+          className={`font-display text-[58px] font-medium tracking-[-0.05em] leading-[0.95] ${scoreZoneClass(score)}`}
         >
           {score}
           <span className="text-sm text-ash font-normal tracking-normal">/100</span>
@@ -637,6 +653,34 @@ function AttentionFeed({ items }: { items: AttentionItem[] }) {
  * Если у дизайнера ещё нет ни одной опубликованной оценки (score=null) —
  * вместо числа показываем «—» серым, чтобы не путать с реальным 0.
  */
+/**
+ * Ячейка «Рейтинг» — прогресс-бар со скором (концепт v4). Для неоценённых
+ * дизайнеров — статус-чип «черновик» / «не оценена».
+ */
+function ScoreBar({ score, hasDraft }: { score: number | null; hasDraft: boolean }) {
+  if (score == null) {
+    return hasDraft ? (
+      <span className="chip-warn whitespace-nowrap">черновик · ждёт публикации</span>
+    ) : (
+      <span className="chip-neutral whitespace-nowrap">не оценена</span>
+    );
+  }
+  const pct = Math.round(score * 100);
+  const bar =
+    pct >= 70 ? 'bg-lime' : pct >= 60 ? 'bg-emerald' : pct >= 50 ? 'bg-sunset' : 'bg-blaze';
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className="flex-1 h-1 rounded-pill bg-ink/10 overflow-hidden">
+        <span
+          className={`block h-full rounded-pill ${bar}`}
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <b className="text-sm font-medium w-7 text-right">{pct}</b>
+    </span>
+  );
+}
+
 /** Зоны скор-цифр — как в концептах: 70+ лайм, 60+ зелёный, 50+ оранжевый. */
 function scoreZoneClass(pct: number): string {
   return pct >= 70
@@ -653,7 +697,7 @@ function TopCell({ score, rank }: { score: number | null; rank: number }) {
     return (
       <div className="flex flex-col items-center">
         <span className="text-ash text-base tabular-nums">—</span>
-        <span className="text-ash text-[10px] tabular-nums mt-0.5">#{rank}</span>
+        <span className="text-ash text-[10px] tabular-nums mt-0.5">№{rank}</span>
       </div>
     );
   }
@@ -665,7 +709,7 @@ function TopCell({ score, rank }: { score: number | null; rank: number }) {
       >
         {pct}
       </span>
-      <span className="text-ash text-[10px] tabular-nums mt-0.5">#{rank}</span>
+      <span className="text-ash text-[10px] tabular-nums mt-0.5">№{rank}</span>
     </div>
   );
 }
