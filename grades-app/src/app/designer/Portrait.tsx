@@ -208,8 +208,11 @@ export default function Portrait({
     };
   }, [userId]);
 
-  async function setSelfLevel(skillId: number, level: number | null) {
-    if (!isSelfOwner || !selfMap) return;
+  async function setSelfLevel(
+    skillId: number,
+    level: number | null,
+  ): Promise<'ok' | 'evidence_required' | 'error'> {
+    if (!isSelfOwner || !selfMap) return 'error';
     if (level === null) {
       const res = await fetch(`/api/users/${userId}/self-assessment/${skillId}`, {
         method: 'DELETE',
@@ -221,8 +224,14 @@ export default function Portrait({
           delete next[skillId];
           return next;
         });
+        return 'ok';
       }
-      return;
+      return 'error';
+    }
+    // Гейт: уровень 3+ требует хотя бы одну ссылку-подтверждение
+    // (пре-чек, сервер проверяет то же самое)
+    if (level >= 3 && !(evidenceMap[skillId]?.length)) {
+      return 'evidence_required';
     }
     const res = await fetch(`/api/users/${userId}/self-assessment/${skillId}`, {
       method: 'PUT',
@@ -232,7 +241,10 @@ export default function Portrait({
     if (res.ok) {
       const sa = await res.json();
       setSelfMap((m) => (m ? { ...m, [skillId]: sa } : m));
+      return 'ok';
     }
+    const j = await res.json().catch(() => ({}));
+    return j?.error === 'evidence_required' ? 'evidence_required' : 'error';
   }
 
   async function saveSelfComment(skillId: number, comment: string) {
@@ -837,22 +849,10 @@ export default function Portrait({
       <div id="skills" className="space-y-5 scroll-mt-24">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-2xl font-medium tracking-tight">Навыки</h2>
-          {/* Phase 14: прогресс самооценки + расхождения с оценкой лида */}
+          {/* Phase 14: тихий прогресс самооценки + информер-инструкция */}
           {selfMap && (isSelfOwner || Object.keys(selfMap).length > 0) && (
             <span className="inline-flex items-center gap-1.5 text-xs text-stone">
               Самооценка: {Object.keys(selfMap).length} из {data.skills.length}
-              {(() => {
-                const divergent = data.skills.filter((sk) => {
-                  const sf = selfMap[sk.id];
-                  return sf && sk.masteryLevel > 0 && sf.level !== sk.masteryLevel;
-                }).length;
-                return divergent > 0 ? (
-                  <span>
-                    {' '}· Расхождения:{' '}
-                    <span className="text-sunset font-medium">{divergent}</span>
-                  </span>
-                ) : null;
-              })()}
               <SelfAssessmentInfo />
             </span>
           )}
@@ -1298,7 +1298,7 @@ const SELF_ASSESSMENT_HINT = (
     </span>
     <span className="block mt-1">
       2. Приложи ссылки-подтверждения (Figma, Notion, Loom) кнопкой
-      «Добавить».
+      «Добавить» — для уровней 3+ обязательно.
     </span>
     <span className="block mt-1">
       3. Лид увидит самооценку и материалы в форме оценки, расхождения
@@ -1366,7 +1366,10 @@ function SkillAccordion({
   selfLoaded: boolean;
   evidences: EvidenceEntry[];
   canEditSelf: boolean;
-  onSetSelfLevel: (skillId: number, level: number | null) => void;
+  onSetSelfLevel: (
+    skillId: number,
+    level: number | null,
+  ) => Promise<'ok' | 'evidence_required' | 'error'>;
   onSaveSelfComment: (skillId: number, comment: string) => void;
   onAddEvidence: (
     skillId: number,
@@ -1378,6 +1381,8 @@ function SkillAccordion({
   // Phase 14: форма «Добавить ссылку» и индикатор автосейва комментария
   const [evidenceFormOpen, setEvidenceFormOpen] = useState(false);
   const [commentSaved, setCommentSaved] = useState(true);
+  // Гейт «уровень 3+ без подтверждений» — предупреждение под лестницей
+  const [evidenceWarn, setEvidenceWarn] = useState(false);
   const hasContent = skill.description || skill.levels.length > 0;
   const earnedXp = skill.masteryLevel * skill.weight;
   const maxXp = skill.maxMasteryLevel * skill.weight;
@@ -1455,7 +1460,18 @@ function SkillAccordion({
                   key={lvl.level}
                   onClick={
                     canEditSelf
-                      ? () => onSetSelfLevel(skill.id, isSelf ? null : lvl.level)
+                      ? async () => {
+                          const r = await onSetSelfLevel(
+                            skill.id,
+                            isSelf ? null : lvl.level,
+                          );
+                          if (r === 'evidence_required') {
+                            setEvidenceWarn(true);
+                            setEvidenceFormOpen(true);
+                          } else if (r === 'ok') {
+                            setEvidenceWarn(false);
+                          }
+                        }
                       : undefined
                   }
                   className={`flex items-start gap-3 p-4 rounded-card border transition-colors ${
@@ -1513,6 +1529,14 @@ function SkillAccordion({
               );
             })}
           </div>
+
+          {/* Гейт: высокий уровень требует подтверждений */}
+          {canEditSelf && evidenceWarn && (
+            <div className="text-xs text-sunset">
+              Для уровня 3+ приложи хотя бы одну ссылку-подтверждение — форма
+              ниже. После добавления кликни уровень ещё раз.
+            </div>
+          )}
 
           {/* Phase 14: комментарий к самооценке (владелец, если уровень отмечен) */}
           {canEditSelf && self && (

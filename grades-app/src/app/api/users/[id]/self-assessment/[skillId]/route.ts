@@ -76,6 +76,17 @@ export async function PUT(
     );
   }
 
+  // Высокие уровни (3+) — только с подтверждениями (решение Pavel 12.07):
+  // хотя бы одна ссылка на пару (дизайнер, навык).
+  if (parsed.data.level >= 3) {
+    const evCount = await prisma.skillEvidence.count({
+      where: { designerId: ownerId, skillId },
+    });
+    if (evCount === 0) {
+      return NextResponse.json({ error: 'evidence_required' }, { status: 400 });
+    }
+  }
+
   const sa = await prisma.selfAssessment.upsert({
     where: { designerId_skillId: { designerId: ownerId, skillId } },
     update: { level: parsed.data.level, comment: parsed.data.comment ?? null },

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { requireRole } from '@/lib/session';
 import AppHeader from '@/components/AppHeader';
+import SelfAssessmentReminder from '@/components/SelfAssessmentReminder';
 
 export default async function DesignerLayout({ children }: { children: React.ReactNode }) {
   const user = await requireRole(['designer', 'admin']);
@@ -14,6 +15,8 @@ export default async function DesignerLayout({ children }: { children: React.Rea
           { href: '/designer/history', label: 'История' },
         ]}
       />
+      {/* Phase 14: сезонная капсула дизайнеру — обнови самооценку */}
+      {user.role === 'designer' && <SelfAssessmentReminder />}
       {children}
     </>
   );
