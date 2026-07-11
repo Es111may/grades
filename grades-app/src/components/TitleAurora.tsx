@@ -3,10 +3,10 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Шейдерная «аврора» за заголовками страниц (референс — sui.io / Яндекс
- * Музыка): медленно плывущие органические волны в фирменных цветах
- * (лайм → изумруд → небесный) на WebGL fragment-шейдере с domain-warped
- * fbm-шумом.
+ * Шейдерный фон за заголовками страниц (референс — Яндекс Музыка):
+ * крупные мягкие «капли»-градиенты в чистых фирменных цветах (лайм,
+ * изумруд, небесный), дрейфующие по медленным орбитам. Взвешенная смесь
+ * чистых цветов — без мутного перемешивания шумовых туманов.
  *
  * Поведение:
  *  - тема: палитра и альфа переключаются живьём по data-theme (MutationObserver);
@@ -30,57 +30,43 @@ uniform vec3 u_c2;
 uniform vec3 u_c3;
 uniform float u_alpha;
 
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-}
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-    u.y
-  );
-}
-float fbm(vec2 p) {
-  float v = 0.0;
-  float a = 0.5;
-  for (int i = 0; i < 4; i++) {
-    v += a * noise(p);
-    p = p * 2.03 + vec2(17.3, 9.1);
-    a *= 0.5;
-  }
-  return v;
+// Мягкая гауссова «капля»
+float g(vec2 p, vec2 c, float r) {
+  vec2 d = p - c;
+  return exp(-dot(d, d) / (r * r));
 }
 
 void main() {
   vec2 frag = gl_FragCoord.xy / u_res;
   vec2 uv = (gl_FragCoord.xy - 0.5 * u_res) / u_res.y;
-  float t = u_t * 0.06;
+  float t = u_t * 0.6;
 
-  // Domain warping: шум, искажающий координаты другого шума — даёт
-  // «жидкие» переливающиеся формы (классика sui-подобных фонов).
-  vec2 q = vec2(
-    fbm(uv * 1.3 + vec2(0.0, t * 1.2)),
-    fbm(uv * 1.3 - vec2(t * 0.9, 0.0))
-  );
-  vec2 r = vec2(
-    fbm(uv * 1.3 + 2.6 * q + vec2(1.7, 9.2) + t * 0.7),
-    fbm(uv * 1.3 + 2.6 * q + vec2(8.3, 2.8) - t * 0.5)
-  );
-  float f = fbm(uv * 1.3 + 2.4 * r);
+  // Четыре крупные капли на медленных несоизмеримых орбитах —
+  // рисунок никогда не повторяется точь-в-точь.
+  vec2 p1 = vec2(sin(t * 0.30) * 0.85, cos(t * 0.23) * 0.28);
+  vec2 p2 = vec2(cos(t * 0.21) * 0.95, sin(t * 0.27) * 0.32);
+  vec2 p3 = vec2(sin(t * 0.17 + 2.1) * 0.70, cos(t * 0.33 + 1.3) * 0.30);
+  vec2 p4 = vec2(cos(t * 0.26 + 4.0) * 0.55, sin(t * 0.19 + 0.6) * 0.26);
 
-  vec3 col = mix(u_c1, u_c2, smoothstep(0.25, 0.85, f));
-  col = mix(col, u_c3, smoothstep(0.4, 0.95, q.y) * 0.55);
+  float w1 = g(uv, p1, 0.46);
+  float w2 = g(uv, p2, 0.42) * 0.9;
+  float w3 = g(uv, p3, 0.52) * 0.8;
+  float w4 = g(uv, p4, 0.38) * 0.85;
 
-  float glow = smoothstep(0.28, 0.95, f * 0.75 + 0.45 * r.x);
+  // Цвет — взвешенная смесь ЧИСТЫХ фирменных цветов: в зоне каждой капли
+  // доминирует её цвет, на стыках — чистые градиентные переходы
+  // (никакого мутного перемешивания, как у шумовых туманов).
+  vec3 col = (u_c1 * (w1 + w4 * 0.6) + u_c2 * w2 + u_c3 * w3)
+           / (w1 + w4 * 0.6 + w2 + w3 + 1e-4);
+
+  float total = w1 + w2 + w3 + w4;
+  float a = smoothstep(0.13, 0.8, total);
 
   // Эллиптическая виньетка — края канваса растворяются в фоне страницы
   vec2 m = (frag - 0.5) * vec2(2.0, 2.3);
-  float vig = 1.0 - smoothstep(0.45, 1.0, length(m));
+  float vig = 1.0 - smoothstep(0.42, 1.0, length(m));
 
-  gl_FragColor = vec4(col, glow * vig * u_alpha);
+  gl_FragColor = vec4(col, a * vig * u_alpha);
 }
 `;
 
@@ -90,18 +76,18 @@ function palette(): Palette {
   const light = document.documentElement.getAttribute('data-theme') === 'light';
   return light
     ? {
-        // светлая тема: те же фирменные цвета, но глуше — текст ink
-        // должен оставаться читабельным
-        c1: [0.66, 0.8, 0.0], // приглушённый лайм (--c-lime-dark)
-        c2: [0.13, 0.72, 0.3], // emerald
-        c3: [0.02, 0.62, 0.85], // sky
-        a: 0.34,
+        // светлая тема: цвета глубже и ПЛОТНЕЕ (Pavel: «плохо видна») —
+        // на белом пастельные капли в стиле Яндекс Музыки
+        c1: [0.62, 0.76, 0.0], // насыщенный лайм-дарк
+        c2: [0.1, 0.68, 0.28], // emerald глубже
+        c3: [0.0, 0.55, 0.8], // sky глубже
+        a: 0.5,
       }
     : {
         c1: [0.835, 1.0, 0.047], // лайм #d5ff0c
         c2: [0.19, 0.82, 0.35], // emerald
         c3: [0.05, 0.65, 0.91], // sky
-        a: 0.5,
+        a: 0.55,
       };
 }
 
