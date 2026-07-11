@@ -36,6 +36,16 @@ const TAXONOMY_COLOR: Record<string, string> = {
   RES: '#f59e0b',  // amber
 };
 
+// Phase 14: самооценка + подтверждения (см. design-concepts/phase-14-…md)
+type SelfEntry = { level: number; comment: string | null; updatedAt: string };
+type EvidenceEntry = {
+  id: number;
+  url: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+};
+
 export type PortraitData = {
   assessmentId: number;
   designer: {
@@ -161,6 +171,113 @@ export default function Portrait({
   // обновления карточки после сохранения. Иначе пришлось бы делать
   // router.refresh() и весь портрет перерисовывался бы.
   const [leadComment, setLeadComment] = useState<string>(data.leadComment ?? '');
+
+  // Phase 14: самооценка и подтверждения. null = ещё не загружено или
+  // нет прав (403) — UI просто не показывается. Правит только владелец.
+  const isSelfOwner = meUserId === userId && meRole === 'designer';
+  const [selfMap, setSelfMap] = useState<Record<number, SelfEntry> | null>(null);
+  const [evidenceMap, setEvidenceMap] = useState<Record<number, EvidenceEntry[]>>({});
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/users/${userId}/self-assessment`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        const sm: Record<number, SelfEntry> = {};
+        for (const sa of d.selfAssessments) {
+          sm[sa.skillId] = {
+            level: sa.level,
+            comment: sa.comment,
+            updatedAt: sa.updatedAt,
+          };
+        }
+        const em: Record<number, EvidenceEntry[]> = {};
+        for (const ev of d.evidences) {
+          (em[ev.skillId] ??= []).push(ev);
+        }
+        setSelfMap(sm);
+        setEvidenceMap(em);
+      })
+      .catch(() => {
+        // самооценка опциональна — портрет работает и без неё
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  async function setSelfLevel(skillId: number, level: number | null) {
+    if (!isSelfOwner || !selfMap) return;
+    if (level === null) {
+      const res = await fetch(`/api/users/${userId}/self-assessment/${skillId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setSelfMap((m) => {
+          if (!m) return m;
+          const next = { ...m };
+          delete next[skillId];
+          return next;
+        });
+      }
+      return;
+    }
+    const res = await fetch(`/api/users/${userId}/self-assessment/${skillId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level, comment: selfMap[skillId]?.comment ?? null }),
+    });
+    if (res.ok) {
+      const sa = await res.json();
+      setSelfMap((m) => (m ? { ...m, [skillId]: sa } : m));
+    }
+  }
+
+  async function saveSelfComment(skillId: number, comment: string) {
+    if (!isSelfOwner || !selfMap) return;
+    const cur = selfMap[skillId];
+    if (!cur) return;
+    const trimmed = comment.trim();
+    if ((cur.comment ?? '') === trimmed) return;
+    const res = await fetch(`/api/users/${userId}/self-assessment/${skillId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level: cur.level, comment: trimmed || null }),
+    });
+    if (res.ok) {
+      const sa = await res.json();
+      setSelfMap((m) => (m ? { ...m, [skillId]: sa } : m));
+    }
+  }
+
+  async function addEvidence(
+    skillId: number,
+    payload: { url: string; title: string; description?: string },
+  ): Promise<boolean> {
+    if (!isSelfOwner) return false;
+    const res = await fetch(`/api/users/${userId}/skill-evidence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ skillId, ...payload }),
+    });
+    if (!res.ok) return false;
+    const ev = await res.json();
+    setEvidenceMap((m) => ({ ...m, [skillId]: [ev, ...(m[skillId] ?? [])] }));
+    return true;
+  }
+
+  async function removeEvidence(skillId: number, evidenceId: number) {
+    if (!isSelfOwner) return;
+    const res = await fetch(`/api/skill-evidence/${evidenceId}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      setEvidenceMap((m) => ({
+        ...m,
+        [skillId]: (m[skillId] ?? []).filter((e) => e.id !== evidenceId),
+      }));
+    }
+  }
 
   // Список таксономий, по которым у дизайнера есть навыки — для меню
   // быстрой навигации внизу. Порядок фиксированный.
@@ -697,7 +814,15 @@ export default function Portrait({
 
       {/* Skills grouped — accordions, стиль как у формы оценки */}
       <div className="space-y-5">
-        <h2 className="font-display text-2xl font-medium tracking-tight">Навыки</h2>
+        <div className="flex items-baseline justify-between">
+          <h2 className="font-display text-2xl font-medium tracking-tight">Навыки</h2>
+          {/* Phase 14: тихий прогресс самооценки */}
+          {selfMap && (isSelfOwner || Object.keys(selfMap).length > 0) && (
+            <span className="text-xs text-stone">
+              Самооценка: {Object.keys(selfMap).length} из {data.skills.length}
+            </span>
+          )}
+        </div>
         {TAXONOMY_ORDER.filter((code) => grouped.has(code)).map((code) => {
           const taxMap = grouped.get(code)!;
           const taxName =
@@ -722,7 +847,18 @@ export default function Portrait({
                     {groupName}
                   </div>
                   {skills.map((s) => (
-                    <SkillAccordion key={s.id} skill={s} />
+                    <SkillAccordion
+                      key={s.id}
+                      skill={s}
+                      self={selfMap ? selfMap[s.id] ?? null : null}
+                      selfLoaded={selfMap !== null}
+                      evidences={evidenceMap[s.id] ?? []}
+                      canEditSelf={isSelfOwner}
+                      onSetSelfLevel={setSelfLevel}
+                      onSaveSelfComment={saveSelfComment}
+                      onAddEvidence={addEvidence}
+                      onRemoveEvidence={removeEvidence}
+                    />
                   ))}
                 </div>
               ))}
@@ -1123,6 +1259,14 @@ function GroupBreakdown({
 
 function SkillAccordion({
   skill,
+  self,
+  selfLoaded,
+  evidences,
+  canEditSelf,
+  onSetSelfLevel,
+  onSaveSelfComment,
+  onAddEvidence,
+  onRemoveEvidence,
 }: {
   skill: {
     id: number;
@@ -1135,6 +1279,19 @@ function SkillAccordion({
     levelTitle: string | null;
     levels: { level: number; title: string; criteria: string }[];
   };
+  /** Phase 14: самооценка владельца по этому навыку (null — не ставил). */
+  self: SelfEntry | null;
+  /** Данные самооценки загружены (иначе секции не рисуем вовсе). */
+  selfLoaded: boolean;
+  evidences: EvidenceEntry[];
+  canEditSelf: boolean;
+  onSetSelfLevel: (skillId: number, level: number | null) => void;
+  onSaveSelfComment: (skillId: number, comment: string) => void;
+  onAddEvidence: (
+    skillId: number,
+    payload: { url: string; title: string; description?: string },
+  ) => Promise<boolean>;
+  onRemoveEvidence: (skillId: number, evidenceId: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   const hasContent = skill.description || skill.levels.length > 0;
@@ -1159,6 +1316,12 @@ function SkillAccordion({
           <span className="chip-neutral shrink-0">{skill.levelTitle}</span>
         ) : (
           <span className="chip-neutral shrink-0 text-ash">Не оценено</span>
+        )}
+        {/* Phase 14: самооценка — glass-чип рядом с уровнем лида */}
+        {self && (
+          <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink shrink-0">
+            Я: {self.level}
+          </span>
         )}
         <span className="text-xs text-stone tabular-nums shrink-0 w-12 text-right">
           {earnedXp} / {maxXp}
@@ -1190,17 +1353,30 @@ function SkillAccordion({
               {skill.description}
             </div>
           )}
+          {/* Phase 14: подсказка владельцу */}
+          {canEditSelf && (
+            <p className="text-[11px] text-ash">
+              Кликни по уровню — отметишь «я считаю, что владею». Повторный
+              клик по своему уровню — снять отметку.
+            </p>
+          )}
           <div className="flex flex-col gap-2">
             {skill.levels.map((lvl) => {
               const selected = lvl.level === skill.masteryLevel;
+              const isSelf = self?.level === lvl.level;
               return (
                 <div
                   key={lvl.level}
-                  className={`flex items-start gap-3 p-4 rounded-card border ${
+                  onClick={
+                    canEditSelf
+                      ? () => onSetSelfLevel(skill.id, isSelf ? null : lvl.level)
+                      : undefined
+                  }
+                  className={`flex items-start gap-3 p-4 rounded-card border transition-colors ${
                     selected
                       ? 'border-ink bg-canvas/60'
                       : 'border-cloud bg-snow'
-                  }`}
+                  } ${canEditSelf ? 'cursor-pointer hover:border-ash' : ''}`}
                 >
                   <span
                     className={`shrink-0 w-4 h-4 mt-0.5 rounded-full border-2 flex items-center justify-center ${
@@ -1221,6 +1397,20 @@ function SkillAccordion({
                       </div>
                     )}
                   </div>
+                  {/* Phase 14: контурная метка самооценки */}
+                  {isSelf && (
+                    <span
+                      className="label-mono shrink-0 self-start mt-0.5 px-1.5 py-0.5 rounded-pill
+                                 border border-ink/50 text-ink"
+                      title={
+                        self?.updatedAt
+                          ? `Самооценка от ${formatPublishedDate(self.updatedAt)}`
+                          : 'Самооценка'
+                      }
+                    >
+                      Я
+                    </span>
+                  )}
                   <div className="shrink-0 text-xs text-stone tabular-nums self-start mt-0.5">
                     {lvl.level * skill.weight}
                   </div>
@@ -1228,8 +1418,166 @@ function SkillAccordion({
               );
             })}
           </div>
+
+          {/* Phase 14: комментарий к самооценке (владелец, если уровень отмечен) */}
+          {canEditSelf && self && (
+            <input
+              type="text"
+              defaultValue={self.comment ?? ''}
+              placeholder="Комментарий к самооценке (необязательно)"
+              maxLength={2000}
+              onBlur={(e) => onSaveSelfComment(skill.id, e.target.value)}
+              className="input text-xs"
+            />
+          )}
+          {/* Комментарий самооценки для зрителя-mgmt */}
+          {!canEditSelf && self?.comment && (
+            <div className="text-xs text-stone">
+              <span className="text-ash">Комментарий к самооценке:</span>{' '}
+              {self.comment}
+            </div>
+          )}
+
+          {/* Phase 14: подтверждения-ссылки */}
+          {selfLoaded && (canEditSelf || evidences.length > 0) && (
+            <div className="pt-3 border-t border-cloud/60 space-y-2">
+              <div className="text-xs font-medium text-stone">
+                {canEditSelf ? 'Мои подтверждения' : 'Подтверждения'}
+                {evidences.length > 0 && ` · ${evidences.length}`}
+              </div>
+              {evidences.map((ev) => (
+                <div key={ev.id} className="flex items-baseline gap-2 text-xs min-w-0">
+                  <a
+                    href={ev.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sky hover:underline truncate"
+                    title={ev.url}
+                  >
+                    {ev.title}
+                  </a>
+                  {ev.description && (
+                    <span className="text-stone truncate">— {ev.description}</span>
+                  )}
+                  <span className="text-ash whitespace-nowrap ml-auto shrink-0">
+                    {formatPublishedDate(ev.createdAt)}
+                  </span>
+                  {canEditSelf && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveEvidence(skill.id, ev.id)}
+                      className="text-ash hover:text-blaze shrink-0"
+                      aria-label="Удалить ссылку"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+              {canEditSelf && (
+                <EvidenceForm onAdd={(payload) => onAddEvidence(skill.id, payload)} />
+              )}
+            </div>
+          )}
         </div>
       )}
     </article>
+  );
+}
+
+/** Phase 14: inline-форма «+ ссылка» для подтверждений. */
+function EvidenceForm({
+  onAdd,
+}: {
+  onAdd: (payload: { url: string; title: string; description?: string }) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs text-stone hover:text-ink transition-colors"
+      >
+        + ссылка
+      </button>
+    );
+  }
+
+  async function submit() {
+    if (!url.trim() || !title.trim() || saving) return;
+    setSaving(true);
+    setError(false);
+    const ok = await onAdd({
+      url: url.trim(),
+      title: title.trim(),
+      description: description.trim() || undefined,
+    });
+    setSaving(false);
+    if (ok) {
+      setUrl('');
+      setTitle('');
+      setDescription('');
+      setOpen(false);
+    } else {
+      setError(true);
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <input
+        type="url"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="https://figma.com/…"
+        className="input text-xs"
+        autoFocus
+      />
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Название (например «Концепт лендинга X»)"
+        maxLength={200}
+        className="input text-xs"
+      />
+      <input
+        type="text"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Описание (необязательно)"
+        maxLength={1000}
+        className="input text-xs"
+      />
+      {error && (
+        <div className="text-[11px] text-blaze">
+          Не сохранилось — проверь, что ссылка начинается с http(s) и название заполнено.
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving || !url.trim() || !title.trim()}
+          className="btn-secondary btn-sm disabled:opacity-50"
+        >
+          {saving ? 'Сохраняю…' : 'Добавить'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-xs text-stone hover:text-ink"
+        >
+          Отмена
+        </button>
+      </div>
+    </div>
   );
 }
