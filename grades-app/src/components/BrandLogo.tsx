@@ -2,7 +2,7 @@
  * Фирменный логотип «ида ● грейдс» (logo-gr.svg): буквы — currentColor
  * (красятся под тему), в круге макета (rect x=61.39, w=28 из viewBox
  * 202×28) — живое видео лаймовой 3D-спирали. Размер задаётся className
- * (w-*/h-* с пропорцией 202:28).
+ * (ширина и высота в пропорции 202:28).
  */
 export default function BrandLogo({ className = '' }: { className?: string }) {
   return (
