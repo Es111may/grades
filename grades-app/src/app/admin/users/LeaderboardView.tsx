@@ -522,7 +522,8 @@ function PodiumCard({
           </span>
         )}
         {user.build && (
-          <span className={`${chipSm} bg-cloud/60 text-stone`}>
+          // Ровно тот же класс, что билд-тег в списке — гарантия совпадения
+          <span className="chip-build shrink-0">
             <span
               className="w-1.5 h-1.5 rounded-full"
               style={{ background: buildColor(user.build.code) }}
