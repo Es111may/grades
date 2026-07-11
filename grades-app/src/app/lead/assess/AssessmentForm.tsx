@@ -8,6 +8,7 @@ import Avatar from '@/components/Avatar';
 import { CheckIcon, FlagIcon, ChevronDownIcon } from '@/components/icons';
 import { MarkdownTextarea } from '@/components/Markdown';
 import Tooltip from '@/components/Tooltip';
+import { formatDateShort as formatSelfDate } from '@/lib/dates';
 
 type SkillData = {
   id: number;
@@ -1054,11 +1055,4 @@ function EvidenceDisclosure({ evidences }: { evidences: EvidenceInfo[] }) {
   );
 }
 
-/** «11 июля 2026» для дат самооценки/подтверждений. */
-function formatSelfDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
+

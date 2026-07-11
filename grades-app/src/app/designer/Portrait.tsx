@@ -895,33 +895,9 @@ export default function Portrait({
   );
 }
 
-// Дата публикации в переключателе циклов — в формате «13 мая 2026»
-// (без «г.», полный год). Стандартный toLocaleDateString'ru-RU всегда
-// прицепляет «г.» в конце, поэтому собираем строку вручную.
-const MONTHS_RU = [
-  'января',
-  'февраля',
-  'марта',
-  'апреля',
-  'мая',
-  'июня',
-  'июля',
-  'августа',
-  'сентября',
-  'октября',
-  'ноября',
-  'декабря',
-];
+// Единый формат дат сервиса — «4 июн. 2026» (см. src/lib/dates.ts)
+import { formatDateShort as formatPublishedDate } from '@/lib/dates';
 
-function formatPublishedDate(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getDate()} ${MONTHS_RU[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-/**
- * Выбор цикла — дропдаун-чип в ряду тегов hero (концепт v6, раньше был
- * сегмент-баром). Закрывается по клику вне и по переходу.
- */
 function CyclesSwitcher({
   siblings,
   currentId,

@@ -9,14 +9,7 @@ import TitleAurora from '@/components/TitleAurora';
 import EmptyState from '@/components/EmptyState';
 import { CheckIcon } from '@/components/icons';
 
-function formatDate(iso: Date | null) {
-  if (!iso) return '—';
-  return iso.toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+import { formatDateShort as formatDate } from '@/lib/dates';
 
 export default async function DesignerHistoryPage() {
   const user = await getCurrentUser();

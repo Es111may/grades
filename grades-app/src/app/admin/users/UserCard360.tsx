@@ -56,14 +56,7 @@ const GRADE_NAMES: Record<string, string> = {
 const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
-function formatDate(iso: string | null) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+import { formatDateShort as formatDate } from '@/lib/dates';
 
 export default function UserCard360({
   user,
@@ -162,9 +155,24 @@ export default function UserCard360({
     isLeadOrStardiz && user.active && (meRole === 'admin' || isSelf);
   const canImportLeadReview = isLeadOrStardiz && user.active && meRole === 'admin';
 
-  // Меню «⋯»: клик-вне закрывает
+  // Меню «⋯»: открывается по ховеру (грейс 160мс на уход) и по клику;
+  // клик-вне закрывает
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function menuEnter() {
+    if (menuTimer.current) clearTimeout(menuTimer.current);
+    setMenuOpen(true);
+  }
+  function menuLeave() {
+    if (menuTimer.current) clearTimeout(menuTimer.current);
+    menuTimer.current = setTimeout(() => setMenuOpen(false), 160);
+  }
+  useEffect(() => {
+    return () => {
+      if (menuTimer.current) clearTimeout(menuTimer.current);
+    };
+  }, []);
   useEffect(() => {
     if (!menuOpen) return;
     function onDoc(e: MouseEvent) {
@@ -221,7 +229,7 @@ export default function UserCard360({
 
   const canImpersonate = meRole === 'admin' && !isSelf && user.active;
   const canHardDelete = meRole === 'admin' && !isSelf;
-  const hasMenu = canEdit || canImpersonate || canImportLeadReview || canDeactivate || canHardDelete;
+  const hasMenu = canImpersonate || canImportLeadReview || canDeactivate || canHardDelete;
 
   async function handleHardDelete() {
     const res = await fetch(`/api/users/${user.id}?hard=true`, { method: 'DELETE' });
@@ -259,17 +267,20 @@ export default function UserCard360({
             >
               <CloseIcon className="w-4 h-4" />
             </button>
+            {/* Fade к низу — аврора растворяется, а не обрезается кромкой hero */}
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-snow pointer-events-none" />
             <div className="flex justify-center">
-              <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={96} />
+              <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={80} />
             </div>
             <h2 className="font-display text-2xl font-medium tracking-tight mt-4">
               {user.fullName}
             </h2>
             <div className="text-[13px] text-stone mt-0.5 truncate">{user.email}</div>
-            <div className="flex items-center justify-center gap-1.5 mt-4 flex-wrap">
+            {/* Ряд 1: номер · уровень · отдел (Pavel) */}
+            <div className="flex items-center justify-center gap-1 mt-4 flex-wrap">
               {user.role === 'designer' && user.compositeScore != null && (
                 <span
-                  className={`chip text-white ${
+                  className={`chip h-6 text-white ${
                     Math.round(user.compositeScore * 100) >= 60
                       ? 'bg-emerald'
                       : Math.round(user.compositeScore * 100) >= 50
@@ -282,12 +293,12 @@ export default function UserCard360({
                 </span>
               )}
               {user.role === 'designer' && user.effectiveGrade && (
-                <span className="chip bg-ink text-snow">
+                <span className="chip h-6 bg-ink text-snow">
                   {GRADE_NAMES[user.effectiveGrade] ?? user.effectiveGrade}
                 </span>
               )}
               {user.build && (
-                <span className="chip-neutral">
+                <span className="chip-neutral h-6">
                   <span
                     className="w-1.5 h-1.5 rounded-full"
                     style={{ background: buildColor(user.build.code) }}
@@ -295,27 +306,30 @@ export default function UserCard360({
                   {user.build.name}
                 </span>
               )}
-              <span className={`chip ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
+            </div>
+            {/* Ряд 2: роль · в срок · floor · неактивен */}
+            <div className="flex items-center justify-center gap-1 mt-1.5 flex-wrap">
+              <span className={`chip h-6 ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
                 {ROLE_LABEL[user.role] ?? user.role}
               </span>
               {user.role === 'designer' && user.onTimePercent != null && (
-                <span className="chip-neutral">
+                <span className="chip-neutral h-6">
                   {Math.round(user.onTimePercent)}% в срок
                 </span>
               )}
               {user.role === 'designer' &&
                 user.gradeFloor &&
                 user.gradeFloor !== user.effectiveGrade && (
-                  <span className="chip-warn">
+                  <span className="chip-warn h-6">
                     Floor: {GRADE_NAMES[user.gradeFloor] ?? user.gradeFloor}
                   </span>
                 )}
-              {!user.active && <span className="chip-danger">Неактивен</span>}
+              {!user.active && <span className="chip-danger h-6">Неактивен</span>}
             </div>
           </div>
 
           {/* ---------- Мета: лейбл слева, значение справа ---------- */}
-          <div className="px-6 pt-6 pb-5 flex flex-col gap-3 text-sm">
+          <div className="px-6 pt-[60px] pb-5 flex flex-col gap-3 text-sm">
             {user.lead && (
               <div className="flex items-center gap-3">
                 <span className="text-stone">Лид</span>
@@ -356,20 +370,23 @@ export default function UserCard360({
 
           {/* ---------- График роста + последняя оценка ---------- */}
           {history && history.assessments.length > 0 && user.role !== 'admin' && (
-            <div className="px-6 pt-5 pb-4 border-t border-cloud">
+            <>
+            {/* Разделитель — по ширине текстовых блоков, не в края */}
+            <div className="mx-6 h-px bg-cloud" />
+            <div className="px-6 pt-8 pb-7">
               <XpSparkline assessments={history.assessments} height={110} />
-              <div className="flex items-baseline gap-2.5 mt-3 text-sm">
+              <div className="flex items-baseline gap-2.5 mt-4 text-sm">
                 <span className="font-medium">
                   {lastA?.effectiveGrade
                     ? GRADE_NAMES[lastA.effectiveGrade] ?? lastA.effectiveGrade
                     : '—'}
                 </span>
-                <span className="text-stone text-xs tabular-nums">
+                <span className="text-stone tabular-nums">
                   {lastA?.totalXp ?? 0} XP
                 </span>
                 {lastDelta !== null && lastDelta !== 0 && (
                   <span
-                    className={`text-xs font-medium tabular-nums ${
+                    className={`font-medium tabular-nums ${
                       lastDelta > 0 ? 'text-emerald' : 'text-blaze'
                     }`}
                   >
@@ -377,11 +394,12 @@ export default function UserCard360({
                     {lastDelta}
                   </span>
                 )}
-                <span className="ml-auto text-stone text-xs tabular-nums">
+                <span className="ml-auto text-stone text-sm tabular-nums">
                   {formatDate(lastA?.publishedAt ?? null)}
                 </span>
               </div>
             </div>
+            </>
           )}
 
           {/* 360-опросы (лид/стардиз) — компактный список */}
@@ -434,17 +452,33 @@ export default function UserCard360({
                 Оценить
               </a>
             )}
-            {hasMenu && (
+            {canEdit && (
               <button
                 type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                className="ml-auto w-9 h-9 rounded-pill flex items-center justify-center
-                           text-stone hover:text-ink hover:bg-ink/5 transition-colors text-lg tracking-widest"
-                aria-label="Ещё действия"
-                aria-expanded={menuOpen}
+                onClick={() => onEdit(user)}
+                className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
               >
-                ⋯
+                Изменить
               </button>
+            )}
+            {hasMenu && (
+              /* Меню — по ховеру (грейс на уход), клик тоже работает */
+              <span
+                className="ml-auto"
+                onMouseEnter={menuEnter}
+                onMouseLeave={menuLeave}
+              >
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="w-9 h-9 rounded-pill flex items-center justify-center
+                             text-stone hover:text-ink hover:bg-ink/5 transition-colors text-lg tracking-widest"
+                  aria-label="Ещё действия"
+                  aria-expanded={menuOpen}
+                >
+                  ⋯
+                </button>
+              </span>
             )}
           </div>
         </div>
@@ -453,20 +487,10 @@ export default function UserCard360({
         {menuOpen && (
           <div
             ref={menuRef}
-            className="absolute right-3 bottom-[60px] min-w-[210px] z-20 card p-1.5 shadow-soft-lg animate-scale-in"
+            onMouseEnter={menuEnter}
+            onMouseLeave={menuLeave}
+            className="absolute right-3 bottom-[58px] w-max min-w-[150px] z-20 card p-1.5 shadow-soft-lg animate-scale-in"
           >
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onEdit(user);
-                }}
-                className="w-full text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
-              >
-                Изменить
-              </button>
-            )}
             {canImpersonate && (
               <button
                 type="button"

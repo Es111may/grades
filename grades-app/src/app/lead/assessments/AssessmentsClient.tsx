@@ -49,14 +49,7 @@ const GRADE_NAMES: Record<string, string> = {
 const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
-function formatDate(iso: string | null) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+import { formatDateShort as formatDate } from '@/lib/dates';
 
 export default function AssessmentsClient({
   rows,
