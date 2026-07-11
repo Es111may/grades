@@ -493,7 +493,7 @@ function computeScopedStats(list: UserRow[]): {
     attention.push({
       tone: 'danger',
       title: `${staleDrafts.length} ${plural(staleDrafts.length, ['черновик', 'черновика', 'черновиков'])} без публикации`,
-      detail: `старейший — ${staleDrafts[0].fullName.split(' ')[0]}, ${staleDrafts[0].draftAgeDays} дн.`,
+      detail: `Старейший — ${staleDrafts[0].fullName.split(' ')[0]}, ${staleDrafts[0].draftAgeDays} дн.`,
     });
   }
   activeDesigners

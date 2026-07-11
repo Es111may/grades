@@ -269,7 +269,7 @@ function UnassignedZone({
           <DraggableUser key={u.id} user={u} ghosting={saving.has(u.id)} />
         ))}
         {users.length === 0 && (
-          <div className="text-xs text-ash italic text-center py-3">все размещены</div>
+          <div className="text-xs text-ash italic text-center py-3">Все размещены</div>
         )}
       </div>
     </div>

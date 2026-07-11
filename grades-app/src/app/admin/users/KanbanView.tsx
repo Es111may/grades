@@ -264,7 +264,7 @@ export default function KanbanView({
                 </div>
               ))}
               {col.users.length === 0 && (
-                <div className="text-xs text-ash italic px-2 py-3 text-center">пусто</div>
+                <div className="text-xs text-ash italic px-2 py-3 text-center">Пусто</div>
               )}
             </div>
           </div>

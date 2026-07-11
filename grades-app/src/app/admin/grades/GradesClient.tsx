@@ -288,7 +288,7 @@ function GatesColumn({
       </div>
 
       {gates.length === 0 ? (
-        <div className="text-xs text-ash italic mb-3">нет гейтов</div>
+        <div className="text-xs text-ash italic mb-3">Нет гейтов</div>
       ) : (
         <ul className="space-y-0.5 mb-3">
           {gates.map((gate) => (

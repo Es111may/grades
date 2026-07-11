@@ -535,7 +535,7 @@ export default function Portrait({
             {cycleDelta !== null && data.nextGrade && ' · '}
             {data.nextGrade && (
               <>
-                до {GRADE_NAMES[data.nextGrade.code]} ещё{' '}
+                {cycleDelta !== null ? 'до' : 'До'} {GRADE_NAMES[data.nextGrade.code]} ещё{' '}
                 <b className="text-ink font-medium">{data.nextGrade.xpNeeded} XP</b>
               </>
             )}
@@ -592,7 +592,7 @@ export default function Portrait({
             <div className="text-sm text-ash mt-3">
               {data.designer.buildCode === 'creator'
                 ? 'Инхаус — задачи не трекаются'
-                : 'нет данных по задачам'}
+                : 'Нет данных по задачам'}
             </div>
           )}
         </div>
@@ -604,7 +604,7 @@ export default function Portrait({
             <div className="font-display text-2xl font-medium tracking-tight mt-3">
               {nineBoxTitle}
             </div>
-            <div className="text-xs text-stone mt-2">только лид и админ</div>
+            <div className="text-xs text-stone mt-2">Только лид и админ</div>
           </div>
         ) : (
           <GrowthCell sibs={sortedSibs} />
@@ -726,7 +726,7 @@ export default function Portrait({
                       compact
                     />
                   ) : (
-                    <div className="text-xs text-ash italic">нет данных</div>
+                    <div className="text-xs text-ash italic">Нет данных</div>
                   )}
                 </div>
               ))}
@@ -1027,7 +1027,7 @@ function GrowthCell({ sibs }: { sibs: PortraitData['siblings'] }) {
       </div>
       <div className="text-xs text-stone mt-2 leading-relaxed">
         {n === 0 ? (
-          'появится после первой публикации'
+          'Появится после первой публикации'
         ) : n >= 2 && first.effectiveGrade && last.effectiveGrade ? (
           <>
             {GRADE_NAMES[first.effectiveGrade]} → {GRADE_NAMES[last.effectiveGrade]}
@@ -1035,7 +1035,7 @@ function GrowthCell({ sibs }: { sibs: PortraitData['siblings'] }) {
             {cyclesWord}
           </>
         ) : (
-          'динамика появится со второго цикла'
+          'Динамика появится со второго цикла'
         )}
       </div>
     </div>
@@ -1541,7 +1541,7 @@ function SkillAccordion({
                                 : 'bg-ink/[0.07] text-ash'
                             }`}
               >
-                {commentSaved ? 'Сохранено' : 'сохранится само'}
+                {commentSaved ? 'Сохранено' : 'Сохранится само'}
               </span>
             </div>
           )}

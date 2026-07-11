@@ -312,7 +312,7 @@ export default function LeaderboardView({
                       {GRADE_LABELS[u.effectiveGrade] ?? u.effectiveGrade}
                     </span>
                   ) : u.hasDraft ? (
-                    <span className="chip-warn whitespace-nowrap">черновик</span>
+                    <span className="chip-warn whitespace-nowrap">Черновик</span>
                   ) : (
                     // Текстом в стиле грейда, серым — не чипом (Pavel)
                     <span className="font-display text-sm font-medium tracking-tight text-ash whitespace-nowrap">
@@ -470,7 +470,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
         <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
           {stats.onTimeMedian == null ? '—' : `${stats.onTimeMedian}%`}
         </div>
-        <div className="text-xs text-stone mt-2">медиана за 6 месяцев</div>
+        <div className="text-xs text-stone mt-2">Медиана за 6 месяцев</div>
         {/* Живой спарклайн — месячная динамика из ClickHouse */}
         {stats.onTimeSpark.length >= 2 && (
           <OnTimeSparkline points={stats.onTimeSpark} />
@@ -621,7 +621,7 @@ function PotentialMap({ nineBox }: { nineBox: Record<string, number> }) {
     <div className="card p-5 h-full flex flex-col">
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="text-base font-medium">Карта потенциала</h3>
-        <span className="text-[11px] text-ash">производительность → · потенциал ↑</span>
+        <span className="text-[11px] text-ash">Производительность → · потенциал ↑</span>
       </div>
       {/* auto-rows-fr + flex-1 — ячейки равномерно делят высоту карточки */}
       <div className="grid grid-cols-3 auto-rows-fr gap-2 flex-1">

@@ -422,7 +422,7 @@ export default async function AdminUsersPage() {
     attention.push({
       tone: 'danger',
       title: `${staleDrafts.length} ${staleDrafts.length === 1 ? 'черновик' : staleDrafts.length < 5 ? 'черновика' : 'черновиков'} без публикации`,
-      detail: `старейший — ${staleDrafts[0].u.fullName.split(' ')[0]}, ${days} дн.`,
+      detail: `Старейший — ${staleDrafts[0].u.fullName.split(' ')[0]}, ${days} дн.`,
     });
   }
   activeDesigners
