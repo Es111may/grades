@@ -61,6 +61,7 @@ export default function LeaderboardView({
   nineBox,
   attention,
   searching = false,
+  showPodium = true,
 }: {
   users: UserRow[];
   gradeThresholds: GradeThreshold[];
@@ -71,6 +72,9 @@ export default function LeaderboardView({
   /** Активен поисковый запрос — результаты показываем строками таблицы
    *  (подиум скрыт, топ-3 не выпадают из выдачи). */
   searching?: boolean;
+  /** false — подиум не показываем вовсе (стардиз: подопечных мало,
+   *  таблица информативнее карточек). */
+  showPodium?: boolean;
 }) {
   // На лидерборде сравниваем только дизайнеров — стардизы не грейдируются.
   const designers = useMemo(() => users.filter((u) => u.role === 'designer'), [users]);
@@ -142,12 +146,13 @@ export default function LeaderboardView({
         .slice(0, 3),
     [designers],
   );
+  const podiumVisible = showPodium && !searching;
   const rest = useMemo(() => {
-    // При поиске все результаты — в таблице (подиум скрыт)
-    if (searching) return sorted;
+    // При поиске / выключенном подиуме все результаты — в таблице
+    if (!podiumVisible) return sorted;
     const ids = new Set(podium.map((u) => u.id));
     return sorted.filter((u) => !ids.has(u.id));
-  }, [sorted, podium, searching]);
+  }, [sorted, podium, podiumVisible]);
   // Нормировка мини-баров навыков на подиуме: максимум по каждой таксономии
   // среди видимых дизайнеров.
   const skillMax = useMemo(() => {
@@ -212,8 +217,8 @@ export default function LeaderboardView({
       {/* Агрегаты команды (концепт v4) */}
       <TeamBento stats={teamStats} />
 
-      {/* Подиум топ-3 по composite (при поиске скрыт — результаты таблицей) */}
-      {!searching && podium.length > 0 && (
+      {/* Подиум топ-3 по composite (при поиске/у стардиза скрыт) */}
+      {podiumVisible && podium.length > 0 && (
         <div
           className="grid gap-3"
           style={{ gridTemplateColumns: `repeat(${podium.length}, minmax(0, 1fr))` }}
@@ -280,7 +285,7 @@ export default function LeaderboardView({
                 <td className="py-3 px-4 text-center">
                   <TopCell
                     score={u.compositeScore ?? null}
-                    rank={index + (searching ? 1 : podium.length + 1)}
+                    rank={index + (podiumVisible ? podium.length + 1 : 1)}
                   />
                 </td>
                 <td className="py-3 px-4">
@@ -557,8 +562,12 @@ function PodiumCard({
       </div>
       {/* Чипы одной строкой, подтянуты к имени (Pavel) */}
       <div className="flex items-center gap-1 mt-1.5 whitespace-nowrap overflow-hidden">
-        {/* Скор с № — насыщенный зелёный (Pavel) */}
-        <span className={`${chipSm} bg-emerald text-white`}>
+        {/* Скор с № — заливка цветом зоны перформанса (Pavel 12.07) */}
+        <span
+          className={`${chipSm} text-white ${
+            score >= 60 ? 'bg-emerald' : score >= 50 ? 'bg-sunset' : 'bg-blaze'
+          }`}
+        >
           <b className="font-medium">{score}</b>
           <span className="text-white/75">№{place}</span>
         </span>

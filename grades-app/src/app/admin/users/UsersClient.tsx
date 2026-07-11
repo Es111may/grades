@@ -343,6 +343,7 @@ export default function UsersClient({
             nineBox={scoped.nineBox}
             attention={scoped.attention}
             searching={search.trim().length > 0}
+            showPodium={meRole !== 'stardiz'}
           />
         ) : (
           <KanbanView
