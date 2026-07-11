@@ -49,28 +49,29 @@ export default async function AppHeader({
       >
         <Link
           href="/"
-          className="block hover:opacity-80 transition-opacity shrink-0"
+          className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity"
           aria-label="Грейды"
         >
-          {/* Два варианта логотипа: тёмный текст+лайм для светлой темы и
-              белый текст+лайм для тёмной (asset сгенерирован из оригинала,
-              лаймовая иконка сохранена). Показ переключает CSS. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/grades-logo.png"
-            alt="Ида Грейдс"
-            width={132}
-            height={18}
-            className="light-only"
-          />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/grades-logo-dark.png"
-            alt="Ида Грейдс"
-            width={132}
-            height={18}
-            className="dark-only"
-          />
+          {/* Живой логотип: «ида ● грейдс» текстом (Onest — сам красится
+              под тему), в кружке — зациклённое видео лаймовой 3D-спирали
+              (34KB, muted+playsInline — автоплеится и на iOS). */}
+          <span className="font-display text-[19px] font-medium tracking-tight leading-none lowercase">
+            ида
+          </span>
+          <span className="w-7 h-7 rounded-full overflow-hidden shrink-0">
+            <video
+              src="/logo-spiral.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              aria-hidden
+              className="w-full h-full object-cover"
+            />
+          </span>
+          <span className="font-display text-[19px] font-medium tracking-tight leading-none lowercase">
+            грейдс
+          </span>
         </Link>
         {/* Разделитель: логотип | контролы */}
         <span className="w-px h-5 bg-cloud/80 shrink-0" aria-hidden />
