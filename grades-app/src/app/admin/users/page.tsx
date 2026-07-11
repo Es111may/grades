@@ -317,6 +317,57 @@ export default async function AdminUsersPage() {
     ? Math.round((nipcNumerator / nineBoxEligible.length) * 100)
     : null;
 
+  // Phase 25: динамика NIPC «за цикл». Пишем дневной снапшот (upsert по
+  // дате) и сравниваем с самым ранним снапшотом текущего оценочного цикла
+  // (циклы: с 16 апреля и с 16 октября — после дедлайнов сезонов).
+  // История копится с момента деплоя фазы; ошибки не блокируют страницу.
+  let nipcDelta: number | null = null;
+  if (nipcPercent !== null) {
+    try {
+      const nowD = new Date();
+      const todayDate = new Date(
+        Date.UTC(nowD.getFullYear(), nowD.getMonth(), nowD.getDate()),
+      );
+      const y = nowD.getFullYear();
+      const apr16 = new Date(Date.UTC(y, 3, 16));
+      const oct16 = new Date(Date.UTC(y, 9, 16));
+      const cycleStart =
+        todayDate >= oct16 ? oct16 : todayDate >= apr16 ? apr16 : new Date(Date.UTC(y - 1, 9, 16));
+
+      await prisma.nipcSnapshot.upsert({
+        where: { date: todayDate },
+        update: {
+          percent: nipcPercent,
+          stars: nb('high_high'),
+          hpot: nb('high_mid'),
+          hperf: nb('mid_high'),
+          risk: nb('mid_low') + nb('low_mid') + nb('low_low'),
+          total: nineBoxEligible.length,
+        },
+        create: {
+          date: todayDate,
+          percent: nipcPercent,
+          stars: nb('high_high'),
+          hpot: nb('high_mid'),
+          hperf: nb('mid_high'),
+          risk: nb('mid_low') + nb('low_mid') + nb('low_low'),
+          total: nineBoxEligible.length,
+        },
+      });
+
+      const baseline = await prisma.nipcSnapshot.findFirst({
+        where: { date: { gte: cycleStart } },
+        orderBy: { date: 'asc' },
+      });
+      // Дельта осмысленна только когда база старше сегодняшнего снапшота
+      if (baseline && baseline.date.getTime() < todayDate.getTime()) {
+        nipcDelta = nipcPercent - baseline.percent;
+      }
+    } catch (err) {
+      console.error('[/admin/users] nipc snapshot failed:', err);
+    }
+  }
+
   // Медиана «в срок» по дизайнерам с достаточной выборкой
   const onTimeValues = activeDesigners
     .filter((u) => u.onTimePercent !== null && (u.onTimeTotalTasks ?? 0) >= 5)
@@ -334,6 +385,7 @@ export default async function AdminUsersPage() {
 
   const teamStats = {
     nipcPercent,
+    nipcDelta,
     nipcTotal: nineBoxEligible.length,
     nipcStars: nb('high_high'),
     nipcHpot: nb('high_mid'),

@@ -402,6 +402,17 @@ function TeamBento({ stats }: { stats: TeamStats }) {
         <div className="label-mono text-stone">Dream Team Index · NIPC</div>
         <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
           {stats.nipcPercent == null ? '—' : `${stats.nipcPercent}%`}
+          {/* Phase 25: динамика с начала оценочного цикла */}
+          {stats.nipcDelta != null && stats.nipcDelta !== 0 && (
+            <span
+              className={`text-sm font-normal tracking-normal ml-2 ${
+                stats.nipcDelta > 0 ? 'text-emerald' : 'text-blaze'
+              }`}
+            >
+              {stats.nipcDelta > 0 ? '+' : ''}
+              {stats.nipcDelta} п.п. за цикл
+            </span>
+          )}
         </div>
         <div className="text-xs text-stone mt-2 leading-relaxed">
           ({stats.nipcStars + stats.nipcHpot + stats.nipcHperf} сверху триады −{' '}

@@ -58,6 +58,9 @@ export type UserRow = {
 /** Агрегаты команды для bento-строки лидерборда (концепт v4). */
 export type TeamStats = {
   nipcPercent: number | null;
+  /** Изменение NIPC с начала оценочного цикла, п.п. (Phase 25).
+   *  null — истории ещё нет или скоуп «Мои» (история только командная). */
+  nipcDelta?: number | null;
   /** Знаменатель NIPC: активные дизайнеры + стардизы. */
   nipcTotal: number;
   nipcStars: number;
@@ -464,6 +467,7 @@ function computeScopedStats(list: UserRow[]): {
 
   const stats: TeamStats = {
     nipcPercent,
+    nipcDelta: null,
     nipcTotal: eligible.length,
     nipcStars: nb('high_high'),
     nipcHpot: nb('high_mid'),

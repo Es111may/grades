@@ -486,3 +486,21 @@ model ChecklistItem {
   @@index([checklistId, sortOrder])
   @@map("checklist_items")
 }
+
+// Phase 25: дневные снапшоты Dream Team Index (NIPC) — для динамики
+// «+N п.п. за цикл» в bento «Команды». Пишутся лениво при открытии
+// /admin/users (upsert по дате — одна строка в день, последнее значение).
+model NipcSnapshot {
+  id        Int      @id @default(autoincrement())
+  /// Дата снапшота (без времени) — один на день
+  date      DateTime @unique @db.Date
+  percent   Int
+  stars     Int
+  hpot      Int
+  hperf     Int
+  risk      Int
+  total     Int
+  createdAt DateTime @default(now())
+
+  @@map("nipc_snapshots")
+}
