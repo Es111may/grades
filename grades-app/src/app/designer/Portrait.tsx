@@ -1494,7 +1494,8 @@ function SkillAccordion({
                       </div>
                     )}
                   </div>
-                  {/* Phase 14: явная метка самооценки */}
+                  {/* Phase 14: метка самооценки — в линию с заголовком
+                      уровня и числом XP (компакт, 12px, leading-none) */}
                   {isSelf && (
                     <Tooltip
                       align="right"
@@ -1505,7 +1506,13 @@ function SkillAccordion({
                           : 'Самооценка'
                       }
                     >
-                      <span className="chip-accent">Моя оценка</span>
+                      <span
+                        className="inline-flex items-center px-2 py-[3px] rounded-pill
+                                   text-xs font-medium leading-none
+                                   bg-lime-light text-graphite border border-lime/30"
+                      >
+                        {canEditSelf ? 'Моя оценка' : 'Оценка дизайнера'}
+                      </span>
                     </Tooltip>
                   )}
                   <div className="shrink-0 text-xs text-stone tabular-nums self-start mt-0.5">
