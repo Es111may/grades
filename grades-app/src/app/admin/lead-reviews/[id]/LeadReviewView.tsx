@@ -167,7 +167,7 @@ export default function LeadReviewView({
           </span>
         </div>
         {isAdmin && (
-          <div className="flex items-center justify-center gap-2 mt-6">
+          <div className="flex items-center justify-center gap-1 mt-6">
             <Link
               href={`/admin/lead-reviews/new?userId=${target.id}`}
               className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink

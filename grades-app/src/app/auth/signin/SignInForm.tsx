@@ -66,12 +66,9 @@ export default function SignInForm({
   return (
     <div className="space-y-4">
       {/* Password form (always visible) */}
-      <form
-        onSubmit={handlePasswordLogin}
-        className="card p-6 space-y-4"
-      >
+      <form onSubmit={handlePasswordLogin} className="card p-7 space-y-4">
         <div>
-          <label className="text-xs font-medium text-stone block mb-1.5">Email</label>
+          <label className="label-mono text-stone block mb-2">Email</label>
           <input
             type="email"
             value={email}
@@ -83,7 +80,7 @@ export default function SignInForm({
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-stone block mb-1.5">Пароль</label>
+          <label className="label-mono text-stone block mb-2">Пароль</label>
           <input
             type="password"
             value={password}
@@ -94,7 +91,12 @@ export default function SignInForm({
           />
         </div>
         {error && <div className="text-xs text-blaze">{error}</div>}
-        <button type="submit" disabled={loading !== null} className="btn-accent w-full">
+        <button
+          type="submit"
+          disabled={loading !== null}
+          className="btn-accent w-full justify-center shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
+                     hover:-translate-y-px hover:shadow-[0_0_34px_rgb(var(--lime-glow-rgb)_/_0.3)]"
+        >
           {loading === 'password' ? 'Вхожу…' : 'Войти'}
         </button>
         <p className="text-xs text-stone text-center">

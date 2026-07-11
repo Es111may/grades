@@ -342,18 +342,22 @@ export default function Portrait({
               Лид: {data.designer.leadName}
             </span>
           )}
-          {data.siblings.length > 1 && (
+          {data.siblings.length > 1 ? (
             <CyclesSwitcher
               siblings={data.siblings}
               currentId={data.assessmentId}
               hrefPrefix={siblingHrefPrefix}
             />
+          ) : (
+            <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
+              {data.publishedAt ? formatPublishedDate(data.publishedAt) : 'Черновик'}
+            </span>
           )}
         </div>
         {/* Действия mgmt («Продолжить черновик», «Новый цикл», «Удалить») —
             органично под заголовком, а не в углу страницы */}
         {actions && (
-          <div className="flex items-center justify-center gap-2 mt-6">{actions}</div>
+          <div className="flex items-center justify-center mt-6">{actions}</div>
         )}
       </div>
 
@@ -394,12 +398,6 @@ export default function Portrait({
                 <b className="text-ink font-medium">{data.nextGrade.xpNeeded} XP</b>
               </>
             )}
-          </div>
-          <div className="text-[11px] text-ash mt-1.5">
-            {data.publishedAt
-              ? `Опубликован ${formatPublishedDate(data.publishedAt)}`
-              : 'Черновик'}
-            {data.designer.leadName ? ` · ${data.designer.leadName}` : ''}
           </div>
           {isFloorActive && (
             <div className="text-[11px] text-sunset mt-1">
