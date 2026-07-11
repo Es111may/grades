@@ -18,6 +18,7 @@ import {
   type ResponderRole,
   type OpenItemAggregate,
 } from '@/lib/leadSurvey';
+import TitleAurora from '@/components/TitleAurora';
 
 type Target = {
   id: number;
@@ -143,74 +144,62 @@ export default function LeadReviewView({
   );
 
   return (
-    <main className="max-w-[1240px] mx-auto px-8 pt-8 pb-16">
-      <div className="text-xs text-stone mb-3">
-        <Link href="/admin/users" className="hover:text-ink transition-colors">
-          Команда
-        </Link>
-        <span className="text-ash mx-1.5">/</span>
-        <span>{target.fullName}</span>
-      </div>
-
-      {/* Карточка-баннер временно скрыта — см. PRD §11.16. */}
-      {/* <PortraitBanner
-        fullName={target.fullName}
-        role={target.role === 'lead' ? 'lead' : 'stardiz'}
-      /> */}
-
-      {/* Hero */}
-      <div className="mb-6 flex items-center gap-4">
-        <Avatar name={target.fullName} avatarUrl={target.avatarUrl} size={64} />
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
-            {target.fullName}
-          </h1>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="chip bg-ink text-snow">{review.period}</span>
-            <span className="chip-neutral">
-              {target.role === 'lead' ? 'Лид' : 'Стардиз'}
-            </span>
-            <span className="chip-neutral">
-              {review.responseCount} {pluralRespondents(review.responseCount)}
-            </span>
-          </div>
-          {/* Действия — под заголовком, не в углу страницы (Pavel) */}
-          {isAdmin && (
-            <div className="flex items-center gap-2 mt-4">
-              <Link
-                href={`/admin/lead-reviews/new?userId=${target.id}`}
-                className="btn-secondary btn-sm"
-              >
-                Новый цикл
-              </Link>
-              {!deleteArmed ? (
-                <button
-                  onClick={armDelete}
-                  className="btn-ghost-danger btn-sm"
-                  title="Удалить эту оценку"
-                  type="button"
-                >
-                  Удалить
-                </button>
-              ) : (
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="btn-danger btn-sm"
-                  type="button"
-                >
-                  {deleting ? 'Удаляю…' : 'Точно удалить?'}
-                </button>
-              )}
-            </div>
-          )}
+    <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
+      {/* Hero по центру — как портрет дизайнера: аврора, аватар 96,
+          имя 44px, чипы и glass-кнопки под ним. Хлебные крошки убраны. */}
+      <div className="mb-[164px] flex flex-col items-center text-center animate-fade-up title-halo">
+        <TitleAurora />
+        <Avatar name={target.fullName} avatarUrl={target.avatarUrl} size={96} />
+        <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6">
+          {target.fullName}
+        </h1>
+        <div className="flex items-center justify-center gap-1.5 flex-wrap mt-3.5">
+          <span className="chip bg-ink text-snow">{review.period}</span>
+          <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
+            {target.role === 'lead' ? 'Лид' : 'Стардиз'}
+          </span>
+          <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
+            {review.responseCount} {pluralRespondents(review.responseCount)}
+          </span>
         </div>
+        {isAdmin && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <Link
+              href={`/admin/lead-reviews/new?userId=${target.id}`}
+              className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
+                         bg-snow/60 backdrop-blur-md border border-cloud/40
+                         hover:bg-snow/80 transition-colors"
+            >
+              Новый цикл
+            </Link>
+            {!deleteArmed ? (
+              <button
+                onClick={armDelete}
+                className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-blaze
+                           bg-snow/60 backdrop-blur-md border border-cloud/40
+                           hover:bg-snow/80 transition-colors"
+                title="Удалить эту оценку"
+                type="button"
+              >
+                Удалить
+              </button>
+            ) : (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="btn-danger btn-sm"
+                type="button"
+              >
+                {deleting ? 'Удаляю…' : 'Точно удалить?'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Переключатель циклов — inline в шапке (floating-копию убрали в
-          пользу SectionNav). */}
+      {/* Переключатель циклов — по центру, под hero */}
       {siblings.length > 1 && (
-        <div className="mb-6">
+        <div className="mb-6 flex justify-center">
           <CyclesSwitcher siblings={siblings} currentId={review.id} />
         </div>
       )}

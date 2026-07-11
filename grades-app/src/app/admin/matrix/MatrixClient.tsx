@@ -119,13 +119,6 @@ export default function MatrixClient({
         <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
           Скиллы
         </h1>
-        <button
-          onClick={() => setShowNewModal(true)}
-          className="btn-accent shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
-                     absolute right-0 top-1/2 -translate-y-1/2"
-        >
-          Новый навык
-        </button>
       </div>
 
       {/* Build totals */}
@@ -169,6 +162,13 @@ export default function MatrixClient({
           placeholder="Поиск по названию или группе"
           className="flex-1 min-w-[220px]"
         />
+        <button
+          onClick={() => setShowNewModal(true)}
+          className="btn-accent h-10 py-0 shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
+                     hover:-translate-y-px hover:shadow-[0_0_34px_rgb(var(--lime-glow-rgb)_/_0.3)]"
+        >
+          Новый навык
+        </button>
       </div>
 
       {showNewModal && (
@@ -216,11 +216,11 @@ export default function MatrixClient({
                       <table className="w-full">
                         <thead>
                           <tr className="text-xs  text-stone border-b border-cloud">
-                            <th className="text-left px-6 py-2 font-medium w-[40%]">Навык</th>
-                            <th className="text-center px-3 py-2 font-medium w-16">Тип</th>
-                            <th className="text-center px-3 py-2 font-medium w-12">Max</th>
+                            <th className="label-mono text-left px-6 py-2 text-stone w-[40%]">Навык</th>
+                            <th className="label-mono text-center px-3 py-2 text-stone w-16">Тип</th>
+                            <th className="label-mono text-center px-3 py-2 text-stone w-12">Max</th>
                             {builds.map((b) => (
-                              <th key={b.id} className="text-center px-3 py-2 font-medium">
+                              <th key={b.id} className="label-mono text-center px-3 py-2 text-stone">
                                 <span className="flex items-center justify-center gap-1">
                                   <span
                                     className="w-2 h-2 rounded-full"
@@ -230,7 +230,7 @@ export default function MatrixClient({
                                 </span>
                               </th>
                             ))}
-                            <th className="text-right px-6 py-2 font-medium w-32"></th>
+                            <th className="label-mono text-right px-6 py-2 text-stone w-32"></th>
                           </tr>
                         </thead>
                         <tbody>

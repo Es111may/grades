@@ -46,7 +46,7 @@ export default function AssessmentReminder() {
 
   return (
     // Капсула в стиле Dynamic Island — центрированная пилюля под хедером
-    <div className="px-4 mt-2">
+    <div className="relative z-10 px-4 mt-5">
       <div
         className={`w-fit max-w-full mx-auto rounded-pill px-5 py-2 text-sm font-medium
                     text-center transition-colors duration-1000 ease-out ${

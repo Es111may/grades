@@ -76,12 +76,12 @@ function palette(): Palette {
   const light = document.documentElement.getAttribute('data-theme') === 'light';
   return light
     ? {
-        // светлая тема: цвета глубже и ПЛОТНЕЕ (Pavel: «плохо видна») —
-        // на белом пастельные капли в стиле Яндекс Музыки
-        c1: [0.62, 0.76, 0.0], // насыщенный лайм-дарк
-        c2: [0.1, 0.68, 0.28], // emerald глубже
-        c3: [0.0, 0.55, 0.8], // sky глубже
-        a: 0.5,
+        // светлая тема: чистая тёплая гамма без синего (синий на белом
+        // серел и грязнил) — лайм, изумруд, мята поверх white→#F3F3F3
+        c1: [0.76, 0.9, 0.08], // лайм
+        c2: [0.2, 0.78, 0.35], // emerald
+        c3: [0.45, 0.83, 0.68], // мята
+        a: 0.42,
       }
     : {
         c1: [0.835, 1.0, 0.047], // лайм #d5ff0c
@@ -227,7 +227,7 @@ export default function TitleAurora({ className = '' }: { className?: string }) 
       ref={ref}
       aria-hidden
       className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -z-10
-                  pointer-events-none w-[min(1680px,98vw)] h-[680px] ${className}`}
+                  pointer-events-none w-[min(1920px,100vw)] h-[964px] ${className}`}
     />
   );
 }

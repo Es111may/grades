@@ -201,21 +201,17 @@ export default function UserCard360({
               <div className="flex items-center gap-1.5 mt-3 flex-wrap">
                 {/* Composite-скор — как на подиуме: «83 №1», число в цвете зоны */}
                 {user.role === 'designer' && user.compositeScore != null && (
-                  <span className="chip bg-ink/[0.07] text-stone">
-                    <b
-                      className={
-                        Math.round(user.compositeScore * 100) >= 80
-                          ? 'text-score-hi'
-                          : Math.round(user.compositeScore * 100) >= 60
-                            ? 'text-emerald'
-                            : Math.round(user.compositeScore * 100) >= 50
-                              ? 'text-sunset'
-                              : 'text-blaze'
-                      }
-                    >
-                      {Math.round(user.compositeScore * 100)}
-                    </b>
-                    {rank != null && <span className="text-ash">№{rank}</span>}
+                  <span
+                    className={`chip text-white ${
+                      Math.round(user.compositeScore * 100) >= 60
+                        ? 'bg-emerald'
+                        : Math.round(user.compositeScore * 100) >= 50
+                          ? 'bg-sunset'
+                          : 'bg-blaze'
+                    }`}
+                  >
+                    <b className="font-medium">{Math.round(user.compositeScore * 100)}</b>
+                    {rank != null && <span className="text-white/75">№{rank}</span>}
                   </span>
                 )}
                 <span className={`chip ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>

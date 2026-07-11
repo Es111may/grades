@@ -53,7 +53,7 @@ export default function DraftsReminderBanner({
     // Обычный блок под островом (не sticky) — при скролле уезжает вверх.
     // Зазор до соседней капсулы 8px; компенсацию sticky-сдвига острова
     // даёт обёртка в layout.
-    <div className="px-4 mt-2">
+    <div className="relative z-10 px-4 mt-5">
       <Link
         href="/lead/assessments"
         className={`block w-fit max-w-full mx-auto rounded-pill px-5 py-2 text-sm

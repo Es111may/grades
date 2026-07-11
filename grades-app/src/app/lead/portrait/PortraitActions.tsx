@@ -52,7 +52,9 @@ export default function PortraitActions({
       {hasDraft && (
         <Link
           href={`/lead/assess?id=${designerId}`}
-          className="btn-secondary btn-sm"
+          className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
+                     bg-snow/60 backdrop-blur-md border border-cloud/40
+                     hover:bg-snow/80 transition-colors"
         >
           Продолжить черновик
         </Link>
@@ -62,7 +64,9 @@ export default function PortraitActions({
           scores из последней опубликованной как стартовую точку. */}
       <Link
         href={`/lead/assess?id=${designerId}&new=1`}
-        className="btn-secondary btn-sm"
+        className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
+                   bg-snow/60 backdrop-blur-md border border-cloud/40
+                   hover:bg-snow/80 transition-colors"
       >
         Новый цикл
       </Link>
@@ -70,7 +74,9 @@ export default function PortraitActions({
         <button
           type="button"
           onClick={armDelete}
-          className="btn-ghost-danger btn-sm"
+          className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-blaze
+                     bg-snow/60 backdrop-blur-md border border-cloud/40
+                     hover:bg-snow/80 transition-colors"
         >
           Удалить
         </button>

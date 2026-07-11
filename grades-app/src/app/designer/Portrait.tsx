@@ -305,20 +305,11 @@ export default function Portrait({
         <TitleAurora />
         {/* Аватар без кольца (Pavel: обводки вокруг аватарок убраны везде),
             бейдж «N% XP» остаётся */}
-        <div className="relative w-[96px] h-[96px]">
-          <Avatar
-            name={data.designer.fullName}
-            avatarUrl={data.designer.avatarUrl}
-            size={96}
-          />
-          <span
-            className="label-mono absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap
-                       px-2 py-1 rounded-pill border border-lime/40 text-lime-dark"
-            style={{ background: 'rgb(var(--c-page))' }}
-          >
-            {xpProgress}% XP
-          </span>
-        </div>
+        <Avatar
+          name={data.designer.fullName}
+          avatarUrl={data.designer.avatarUrl}
+          size={96}
+        />
         <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6">
           {data.designer.fullName}
         </h1>
@@ -331,7 +322,7 @@ export default function Portrait({
             <span className="chip bg-lime text-black">{nineBoxTitle} · 9-Box</span>
           )}
           {data.designer.buildCode && (
-            <span className="chip-neutral">
+            <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
               <span
                 className="w-1.5 h-1.5 rounded-full"
                 style={{
@@ -347,7 +338,9 @@ export default function Portrait({
             </span>
           )}
           {data.designer.leadName && (
-            <span className="chip-neutral">Лид: {data.designer.leadName}</span>
+            <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
+              Лид: {data.designer.leadName}
+            </span>
           )}
           {data.siblings.length > 1 && (
             <CyclesSwitcher
@@ -415,7 +408,7 @@ export default function Portrait({
           )}
           <div className="h-1 bg-cloud rounded-full overflow-hidden mt-auto">
             <div
-              className="h-full bg-lime rounded-full transition-all"
+              className="h-full bg-emerald rounded-full transition-all"
               style={{ width: `${Math.min(xpProgress, 100)}%` }}
             />
           </div>
@@ -797,7 +790,7 @@ function CyclesSwitcher({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="chip-neutral cursor-pointer hover:bg-cloud transition-colors"
+        className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink cursor-pointer hover:bg-snow/80 transition-colors"
       >
         {current?.publishedAt ? formatPublishedDate(current.publishedAt) : `#${currentId}`}
         <ChevronDownIcon

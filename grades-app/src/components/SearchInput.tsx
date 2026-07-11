@@ -26,7 +26,7 @@ export default function SearchInput({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="input rounded-pill pl-9 h-10 py-0"
+        className="input rounded-pill pl-9 h-10 py-0 bg-snow/60 backdrop-blur-md"
       />
     </span>
   );
