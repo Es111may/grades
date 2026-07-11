@@ -20,8 +20,8 @@ export default function SearchInput({
 }) {
   return (
     <span className={`relative ${className}`}>
-      {/* text-ink: в тёмной теме белая, в светлой — тёмная (Pavel) */}
-      <SearchIcon className="w-3.5 h-3.5 text-ink absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+      {/* .search-icon: белая в тёмной теме, чёрная в светлой (Pavel) */}
+      <SearchIcon className="w-3.5 h-3.5 search-icon absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
       {/* Подложка 1:1 как трек сегментов (bg-ink/5) — без .input, чтобы
           его bg-snow/border-cloud не спорили по специфичности */}
       <input
