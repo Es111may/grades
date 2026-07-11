@@ -174,36 +174,37 @@ export default function LeadReviewView({
               {review.responseCount} {pluralRespondents(review.responseCount)}
             </span>
           </div>
+          {/* Действия — под заголовком, не в углу страницы (Pavel) */}
+          {isAdmin && (
+            <div className="flex items-center gap-2 mt-4">
+              <Link
+                href={`/admin/lead-reviews/new?userId=${target.id}`}
+                className="btn-secondary btn-sm"
+              >
+                Новый цикл
+              </Link>
+              {!deleteArmed ? (
+                <button
+                  onClick={armDelete}
+                  className="btn-ghost-danger btn-sm"
+                  title="Удалить эту оценку"
+                  type="button"
+                >
+                  Удалить
+                </button>
+              ) : (
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="btn-danger btn-sm"
+                  type="button"
+                >
+                  {deleting ? 'Удаляю…' : 'Точно удалить?'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
-        {isAdmin && (
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/admin/lead-reviews/new?userId=${target.id}`}
-              className="btn-secondary"
-            >
-              Новый цикл
-            </Link>
-            {!deleteArmed ? (
-              <button
-                onClick={armDelete}
-                className="btn-ghost-danger"
-                title="Удалить эту оценку"
-                type="button"
-              >
-                Удалить
-              </button>
-            ) : (
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="btn-danger"
-                type="button"
-              >
-                {deleting ? 'Удаляю…' : 'Точно удалить?'}
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Переключатель циклов — inline в шапке (floating-копию убрали в

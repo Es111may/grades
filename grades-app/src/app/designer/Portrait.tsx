@@ -92,7 +92,7 @@ export type PortraitData = {
 
 export default function Portrait({
   data,
-  breadcrumb,
+  actions,
   siblingHrefPrefix,
   canEditLeadComment = false,
   userId,
@@ -108,7 +108,8 @@ export default function Portrait({
   teamGrowthMedian = null,
 }: {
   data: PortraitData;
-  breadcrumb?: { href: string; label: string };
+  /** Кнопки-действия (mgmt): рендерятся по центру под чипами hero. */
+  actions?: React.ReactNode;
   /** Префикс URL для переключателя циклов. К нему прицепляется id, чтобы
    *  получился готовый href. Сервер не умеет сериализовать функции в
    *  client-компоненты, поэтому передаём строку.
@@ -286,15 +287,6 @@ export default function Portrait({
 
   return (
     <main className="max-w-[1180px] mx-auto px-8 pt-[164px] pb-16">
-      {breadcrumb && (
-        <div className="text-xs text-stone mb-3">
-          <Link href={breadcrumb.href} className="hover:text-ink transition-colors">
-            {breadcrumb.label}
-          </Link>
-          <span className="text-ash mx-1.5">/</span>
-          <span>{data.designer.fullName}</span>
-        </div>
-      )}
       {/* Карточка-баннер временно скрыта — Pavel вернёт когда будут
           готовы upload картинки и зелёные полосы для лидов (PRD §11.16).
           Компонент остаётся в src/components/PortraitBanner.tsx. */}
@@ -309,22 +301,14 @@ export default function Portrait({
           белый чип, выбор цикла — дропдаун-чип в том же ряду. Дата публикации
           переехала в XP-плашку bento. */}
       <div className="mb-[164px] flex flex-col items-center text-center animate-fade-up">
-        {/* Аватар в conic-кольце прогресса XP + бейдж «N% XP» — как heroava
-            концепта */}
-        <div
-          className="relative w-[96px] h-[96px] rounded-full"
-          style={{
-            background: `conic-gradient(rgb(var(--c-lime)) ${Math.min(xpProgress, 100)}%, rgb(var(--c-cloud)) 0)`,
-            boxShadow: '0 0 26px rgb(var(--lime-glow-rgb) / 0.2)',
-          }}
-        >
-          <div className="absolute inset-[6px] rounded-full bg-snow flex items-center justify-center overflow-hidden">
-            <Avatar
-              name={data.designer.fullName}
-              avatarUrl={data.designer.avatarUrl}
-              size={84}
-            />
-          </div>
+        {/* Аватар без кольца (Pavel: обводки вокруг аватарок убраны везде),
+            бейдж «N% XP» остаётся */}
+        <div className="relative w-[96px] h-[96px]">
+          <Avatar
+            name={data.designer.fullName}
+            avatarUrl={data.designer.avatarUrl}
+            size={96}
+          />
           <span
             className="label-mono absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap
                        px-2 py-1 rounded-pill border border-lime/40 text-lime-dark"
@@ -333,7 +317,7 @@ export default function Portrait({
             {xpProgress}% XP
           </span>
         </div>
-        <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6">
+        <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6 title-halo px-10">
           {data.designer.fullName}
         </h1>
         <div className="flex items-center justify-center gap-1.5 flex-wrap mt-3.5">
@@ -342,7 +326,7 @@ export default function Portrait({
           </span>
           {/* Позиция 9-Box — сервер передаёт только admin/lead */}
           {nineBoxTitle && (
-            <span className="chip-accent">{nineBoxTitle} · 9-Box</span>
+            <span className="chip bg-lime text-black">{nineBoxTitle} · 9-Box</span>
           )}
           {data.designer.buildCode && (
             <span className="chip-neutral">
@@ -371,6 +355,11 @@ export default function Portrait({
             />
           )}
         </div>
+        {/* Действия mgmt («Продолжить черновик», «Новый цикл», «Удалить») —
+            органично под заголовком, а не в углу страницы */}
+        {actions && (
+          <div className="flex items-center justify-center gap-2 mt-6">{actions}</div>
+        )}
       </div>
 
       {/* === Статистика: grade-card, taxonomy-cards, radar, next-gate === */}
@@ -384,13 +373,15 @@ export default function Portrait({
         style={{ animationDelay: '80ms' }}
       >
         {/* XP: цифра, дельта за цикл, до следующего грейда, бар, дата публикации */}
+        {/* Единая анатомия карточек (как bento «Команды»): label → крупное
+            число 44px → описание → бар, прижатый к низу. */}
         <div className="card p-5 flex flex-col">
           <div className="label-mono text-stone">Общий XP</div>
-          <div className="font-display text-[42px] leading-none font-medium tracking-tight mt-3">
+          <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
             {data.totalXp}
             <span className="text-lg text-ash font-normal"> / {data.maxXp}</span>
           </div>
-          <div className="text-xs text-stone mt-1.5">
+          <div className="text-xs text-stone mt-2">
             {cycleDelta !== null && (
               <span
                 className={
@@ -409,13 +400,7 @@ export default function Portrait({
               </>
             )}
           </div>
-          <div className="h-1.5 bg-cloud rounded-full overflow-hidden mt-3">
-            <div
-              className="h-full bg-lime rounded-full transition-all"
-              style={{ width: `${Math.min(xpProgress, 100)}%` }}
-            />
-          </div>
-          <div className="text-[11px] text-ash mt-auto pt-3">
+          <div className="text-[11px] text-ash mt-1.5">
             {data.publishedAt
               ? `Опубликован ${formatPublishedDate(data.publishedAt)}`
               : 'Черновик'}
@@ -426,17 +411,24 @@ export default function Portrait({
               Грейд зафиксирован — расчёт дал {GRADE_NAMES[data.calculatedGrade]}
             </div>
           )}
+          <div className="h-1 bg-cloud rounded-full overflow-hidden mt-auto">
+            <div
+              className="h-full bg-lime rounded-full transition-all"
+              style={{ width: `${Math.min(xpProgress, 100)}%` }}
+            />
+          </div>
         </div>
 
-        {/* В срок — кольцо в цвете зоны */}
+        {/* В срок — та же анатомия: число, описание, бар в цвете зоны */}
         <div className="card p-5 flex flex-col">
           <div className="label-mono text-stone">В срок · 6 мес</div>
           {showPerformanceForBuild && onTimePercent !== null ? (
-            <div className="flex items-center gap-4 mt-3">
-              <PercentRing percent={Math.round(onTimePercent)} />
-              <div className="text-xs text-stone leading-relaxed">
-                {onTimeTotalTasks} задач в выборке
-                <br />
+            <>
+              <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
+                {Math.round(onTimePercent)}%
+              </div>
+              <div className="text-xs text-stone mt-2">
+                {onTimeTotalTasks} задач в выборке ·{' '}
                 <span
                   className={
                     onTimePercent >= 85
@@ -449,7 +441,19 @@ export default function Portrait({
                   цель 85%{onTimePercent >= 85 ? ' — есть' : ''}
                 </span>
               </div>
-            </div>
+              <div className="h-1 bg-cloud rounded-full overflow-hidden mt-auto">
+                <div
+                  className={`h-full rounded-full ${
+                    onTimePercent >= 85
+                      ? 'bg-emerald'
+                      : onTimePercent >= 70
+                        ? 'bg-sunset'
+                        : 'bg-blaze'
+                  }`}
+                  style={{ width: `${Math.max(0, Math.min(100, Math.round(onTimePercent)))}%` }}
+                />
+              </div>
+            </>
           ) : (
             <div className="text-sm text-ash mt-3">
               {data.designer.buildCode === 'creator'
@@ -466,7 +470,7 @@ export default function Portrait({
             <div className="font-display text-2xl font-medium tracking-tight mt-3">
               {nineBoxTitle}
             </div>
-            <div className="text-[11px] text-ash mt-auto pt-2">только лид и админ</div>
+            <div className="text-xs text-stone mt-2">только лид и админ</div>
           </div>
         ) : (
           <GrowthCell sibs={sortedSibs} />
@@ -820,25 +824,6 @@ function CyclesSwitcher({
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-/** Conic-кольцо процента (ячейка «В срок»). Цвет — по зоне 85/70. */
-function PercentRing({ percent }: { percent: number }) {
-  const colorVar =
-    percent >= 85 ? '--c-emerald' : percent >= 70 ? '--c-sunset' : '--c-blaze';
-  const p = Math.max(0, Math.min(100, percent));
-  return (
-    <div
-      className="relative w-[68px] h-[68px] rounded-full shrink-0"
-      style={{
-        background: `conic-gradient(rgb(var(${colorVar})) ${p}%, rgb(var(--c-cloud)) 0)`,
-      }}
-    >
-      <div className="absolute inset-[5px] rounded-full bg-snow flex items-center justify-center">
-        <span className="font-display text-base font-medium tracking-tight">{percent}%</span>
-      </div>
     </div>
   );
 }

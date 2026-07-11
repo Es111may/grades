@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NewSkillModal from './NewSkillModal';
+import SearchInput from '@/components/SearchInput';
 import MasteryEditorModal from './MasteryEditorModal';
 
 type Group = {
@@ -112,7 +113,7 @@ export default function MatrixClient({
 
   return (
     <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
-      <div className="relative text-center mb-[164px] animate-fade-up">
+      <div className="relative text-center mb-[164px] animate-fade-up title-halo">
         <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
           Скиллы
         </h1>
@@ -160,12 +161,11 @@ export default function MatrixClient({
             Архивные
           </button>
         </div>
-        <input
-          type="search"
+        <SearchInput
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={setSearch}
           placeholder="Поиск по названию или группе"
-          className="input flex-1"
+          className="flex-1 min-w-[220px]"
         />
       </div>
 

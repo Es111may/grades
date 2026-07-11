@@ -47,7 +47,8 @@ export default function PortraitActions({
   }
 
   return (
-    <div className="flex items-center justify-end gap-2 max-w-[1180px] mx-auto px-8 pt-5">
+    // Рендерится внутри hero портрета (слот actions) — по центру под чипами
+    <div className="flex items-center justify-center gap-2 flex-wrap">
       {hasDraft && (
         <Link
           href={`/lead/assess?id=${designerId}`}

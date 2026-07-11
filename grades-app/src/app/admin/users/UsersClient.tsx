@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ChevronDownIcon, SearchIcon } from '@/components/icons';
+import { ChevronDownIcon } from '@/components/icons';
+import SearchInput from '@/components/SearchInput';
 import UserModal from './UserModal';
 import KanbanView from './KanbanView';
 import MatrixView from './MatrixView';
@@ -253,8 +254,8 @@ export default function UsersClient({
 
   return (
     <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
-      {/* Заголовок — по центру, крупно, без лишних подписей (концепт v3) */}
-      <div className="text-center mb-[164px] animate-fade-up">
+      {/* Заголовок — по центру, крупно, с halo-сиянием позади */}
+      <div className="text-center mb-[164px] animate-fade-up title-halo">
         <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
           Команда
         </h1>
@@ -304,17 +305,13 @@ export default function UsersClient({
           ))}
         </div>
 
-        {/* Поиск — пилюля с иконкой, тянется на всю свободную ширину строки */}
-        <span className="relative flex-1 min-w-[220px]">
-          <SearchIcon className="w-3.5 h-3.5 text-ash absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Поиск по имени или email"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input rounded-pill pl-9 h-10 py-0"
-          />
-        </span>
+        {/* Поиск — единый компонент, тянется на всю свободную ширину строки */}
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Поиск по имени или email"
+          className="flex-1 min-w-[220px]"
+        />
         {(meRole === 'admin' || meRole === 'lead') && (
           <button
             onClick={openNew}

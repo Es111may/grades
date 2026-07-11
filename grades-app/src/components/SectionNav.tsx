@@ -80,8 +80,10 @@ export default function SectionNav({ sections }: { sections: SectionNavItem[] })
           : 'opacity-0 translate-y-3 pointer-events-none'
       }`}
     >
+      {/* Одна капсула без вложенного .segmented-трека — иначе двойная
+          обводка (Pavel). Пилюля сама играет роль трека. */}
       <div className="bg-snow/95 backdrop-blur-md border border-cloud rounded-pill shadow-soft-lg p-1 overflow-x-auto max-w-full">
-        <div className="segmented flex-nowrap">
+        <div className="flex items-center gap-0.5 flex-nowrap">
           {sections.map((s) => (
             <a
               key={s.id}

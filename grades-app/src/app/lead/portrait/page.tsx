@@ -149,14 +149,15 @@ export default async function LeadPortraitPage({
 
   return (
     <>
-      <PortraitActions
-        designerId={designerId}
-        publishedAssessmentId={result.data.assessmentId}
-        hasDraft={!!draft}
-      />
       <Portrait
         data={result.data}
-        breadcrumb={{ href: '/admin/users', label: 'Команда' }}
+        actions={
+          <PortraitActions
+            designerId={designerId}
+            publishedAssessmentId={result.data.assessmentId}
+            hasDraft={!!draft}
+          />
+        }
         siblingHrefPrefix={`/lead/portrait?id=${designerId}&assessmentId=`}
         canEditLeadComment={
           user.role === 'admin' ||

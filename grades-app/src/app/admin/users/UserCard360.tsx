@@ -172,21 +172,8 @@ export default function UserCard360({
             и делает попап короче на ~100px. */}
         <div className="px-7 pt-6 pb-5 border-b border-cloud">
           <div className="flex items-start gap-4">
-            {/* Аватар в conic-кольце composite-скора (как на подиуме) */}
-            {user.role === 'designer' && user.compositeScore != null ? (
-              <div
-                className="relative w-[60px] h-[60px] rounded-full shrink-0"
-                style={{
-                  background: `conic-gradient(rgb(var(--c-lime)) ${Math.round(user.compositeScore * 100)}%, rgb(var(--c-cloud)) 0)`,
-                }}
-              >
-                <div className="absolute inset-[3px] rounded-full bg-snow flex items-center justify-center overflow-hidden">
-                  <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={54} />
-                </div>
-              </div>
-            ) : (
-              <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={56} />
-            )}
+            {/* Аватар без кольца — обводки вокруг аватарок убраны везде (Pavel) */}
+            <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={56} />
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
