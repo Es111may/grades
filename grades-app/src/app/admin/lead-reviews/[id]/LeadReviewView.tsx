@@ -166,40 +166,43 @@ export default function LeadReviewView({
             {review.responseCount} {pluralRespondents(review.responseCount)}
           </span>
         </div>
-        {isAdmin && (
-          <div className="flex items-center justify-center gap-1 mt-6">
-            <Link
-              href={`/admin/lead-reviews/new?userId=${target.id}`}
-              className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
+      </div>
+
+      {/* Действия — по центру, вплотную к карточкам (как на портрете
+          дизайнера) */}
+      {isAdmin && (
+        <div className="flex items-center justify-center gap-1 flex-wrap mb-5 animate-fade-up"
+             style={{ animationDelay: '60ms' }}>
+          <Link
+            href={`/admin/lead-reviews/new?userId=${target.id}`}
+            className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
+                       bg-snow/60 backdrop-blur-md border border-cloud/40
+                       hover:bg-snow/80 transition-colors"
+          >
+            Новый цикл
+          </Link>
+          {!deleteArmed ? (
+            <button
+              onClick={armDelete}
+              className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-blaze
                          bg-snow/60 backdrop-blur-md border border-cloud/40
                          hover:bg-snow/80 transition-colors"
+              type="button"
             >
-              Новый цикл
-            </Link>
-            {!deleteArmed ? (
-              <button
-                onClick={armDelete}
-                className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-blaze
-                           bg-snow/60 backdrop-blur-md border border-cloud/40
-                           hover:bg-snow/80 transition-colors"
-                title="Удалить эту оценку"
-                type="button"
-              >
-                Удалить
-              </button>
-            ) : (
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="btn-danger btn-sm"
-                type="button"
-              >
-                {deleting ? 'Удаляю…' : 'Точно удалить?'}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+              Удалить
+            </button>
+          ) : (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="btn-danger btn-sm"
+              type="button"
+            >
+              {deleting ? 'Удаляю…' : 'Точно удалить?'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* === Статистика: eNPS + (Diff/RoleComparison) === */}
       <section id="stats" className="scroll-mt-24">
