@@ -1,9 +1,13 @@
 export const dynamic = 'force-dynamic';
 
+import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
+import TitleAurora from '@/components/TitleAurora';
+import EmptyState from '@/components/EmptyState';
+import { CheckIcon } from '@/components/icons';
 
 function formatDate(iso: Date | null) {
   if (!iso) return '—';
@@ -25,35 +29,46 @@ export default async function DesignerHistoryPage() {
   });
 
   return (
-    <main className="max-w-[1240px] mx-auto px-8 pt-10 pb-16">
-      <div className="mb-6">
-        <h1 className="font-display text-4xl font-medium tracking-tight">
+    <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
+      {/* Заголовок — по центру, с авророй, ритм 164px (как все разделы) */}
+      <div className="text-center mb-[164px] animate-fade-up title-halo">
+        <TitleAurora />
+        <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
           История оценок
         </h1>
       </div>
 
       {assessments.length === 0 ? (
-        <div className="card p-10 text-center">
-          <p className="text-stone">Опубликованных оценок пока нет.</p>
+        <div className="card animate-fade-up">
+          <EmptyState
+            icon={<CheckIcon className="w-5 h-5" />}
+            title="Опубликованных оценок пока нет"
+            hint="Первая появится после того, как лид опубликует твою оценку"
+            action={
+              <Link href="/designer" className="btn-secondary btn-sm">
+                Мой портрет
+              </Link>
+            }
+          />
         </div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden animate-fade-up" style={{ animationDelay: '70ms' }}>
           <table className="w-full text-sm">
             <thead>
-              <tr className="label-mono bg-canvas border-b border-cloud">
-                <th className="text-left py-2.5 px-4 font-medium text-stone">
+              <tr className="bg-ink/[0.03] border-b border-cloud">
+                <th className="label-mono text-left py-2.5 px-4 text-stone">
                   Опубликовано
                 </th>
-                <th className="text-left py-2.5 px-4 font-medium text-stone">
+                <th className="label-mono text-left py-2.5 px-4 text-stone">
                   Оценил
                 </th>
-                <th className="text-right py-2.5 px-4 font-medium text-stone">
+                <th className="label-mono text-right py-2.5 px-4 text-stone">
                   Грейд
                 </th>
-                <th className="text-right py-2.5 px-4 font-medium text-stone">
+                <th className="label-mono text-right py-2.5 px-4 text-stone">
                   XP
                 </th>
-                <th className="text-right py-2.5 px-4 font-medium text-stone w-20">
+                <th className="label-mono text-right py-2.5 px-4 text-stone w-20">
                   Δ XP
                 </th>
               </tr>
