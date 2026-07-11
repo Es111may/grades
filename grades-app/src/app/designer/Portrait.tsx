@@ -963,15 +963,15 @@ function CyclesSwitcher({
  */
 function GrowthCell({ sibs }: { sibs: PortraitData['siblings'] }) {
   const n = sibs.length;
-  if (n === 0) {
-    // Просмотр черновика — published-циклов ещё нет
-    return (
-      <div className="card p-5 flex flex-col">
-        <div className="label-mono text-stone">Скорость роста</div>
-        <div className="text-sm text-ash mt-3">появится после первой публикации</div>
-      </div>
-    );
-  }
+  const pts = sibs.filter((s) => s.totalXp != null);
+  // Средний прирост XP за цикл — та же метрика, что «Скорость роста ·
+  // медиана» в bento «Команды»: единая анатомия карточек (44px число).
+  const avg =
+    pts.length >= 2
+      ? Math.round(
+          (pts[pts.length - 1].totalXp! - pts[0].totalXp!) / (pts.length - 1),
+        )
+      : null;
   const first = sibs[0];
   const last = sibs[n - 1];
   let months: number | null = null;
@@ -985,17 +985,32 @@ function GrowthCell({ sibs }: { sibs: PortraitData['siblings'] }) {
   return (
     <div className="card p-5 flex flex-col">
       <div className="label-mono text-stone">Скорость роста</div>
-      <div className="font-display text-2xl font-medium tracking-tight mt-3">
-        {n} {cyclesWord}
-      </div>
-      <div className="text-xs text-stone mt-1.5 leading-relaxed">
-        {n >= 2 && first.effectiveGrade && last.effectiveGrade ? (
+      <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
+        {n === 0 ? (
+          '—'
+        ) : avg !== null ? (
           <>
-            {GRADE_NAMES[first.effectiveGrade]} → {GRADE_NAMES[last.effectiveGrade]}
-            {months !== null && months > 0 && <> за {months} мес</>}
+            {avg >= 0 ? '+' : ''}
+            {avg}
+            <span className="text-lg text-ash font-normal"> XP/цикл</span>
           </>
         ) : (
-          'первый цикл оценки'
+          <>
+            1<span className="text-lg text-ash font-normal"> цикл</span>
+          </>
+        )}
+      </div>
+      <div className="text-xs text-stone mt-2 leading-relaxed">
+        {n === 0 ? (
+          'появится после первой публикации'
+        ) : n >= 2 && first.effectiveGrade && last.effectiveGrade ? (
+          <>
+            {GRADE_NAMES[first.effectiveGrade]} → {GRADE_NAMES[last.effectiveGrade]}
+            {months !== null && months > 0 && <> за {months} мес</>} · {n}{' '}
+            {cyclesWord}
+          </>
+        ) : (
+          'динамика появится со второго цикла'
         )}
       </div>
     </div>
