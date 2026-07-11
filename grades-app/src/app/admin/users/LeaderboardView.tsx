@@ -305,7 +305,10 @@ export default function LeaderboardView({
                   ) : u.hasDraft ? (
                     <span className="chip-warn whitespace-nowrap">черновик</span>
                   ) : (
-                    <span className="chip-neutral whitespace-nowrap">не оценена</span>
+                    // Текстом в стиле грейда, серым — не чипом (Pavel)
+                    <span className="font-display text-sm font-medium tracking-tight text-ash whitespace-nowrap">
+                      Без оценки
+                    </span>
                   )}
                 </td>
                 <td className="py-3 px-4 text-center">
@@ -493,15 +496,15 @@ function PodiumCard({
     <button
       type="button"
       onClick={onClick}
-      className="card p-5 text-left w-full transition-all duration-200 ease-apple-out
+      className="card p-6 text-left w-full transition-all duration-200 ease-apple-out
                  hover:shadow-soft-md hover:-translate-y-1 hover:border-ash"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="font-medium text-[15.5px] leading-tight truncate mt-1">
+          <div className="font-medium text-base leading-tight truncate mt-1">
             {user.fullName}
           </div>
-          <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+          <div className="flex items-center gap-1.5 mt-3 flex-wrap">
             {/* Скор топ-3 — зелёная заливка (Pavel, скрин-ревью) */}
             <span className="chip bg-emerald/15">
               <b className="font-medium text-emerald">{score}</b>
@@ -528,7 +531,7 @@ function PodiumCard({
         </div>
         <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={44} />
       </div>
-      <div className="flex gap-1.5 mt-4">
+      <div className="flex gap-1.5 mt-5">
         {TAXONOMIES.map((t) => {
           const v = user.xpByTaxonomy?.[t] ?? 0;
           const h = Math.round((v / skillMax[t]) * 100);
@@ -552,42 +555,49 @@ function PodiumCard({
 /** 3×3 карта потенциала: счётчики по ячейкам 9-Box. */
 const NINE_CELLS: Array<{ key: string; title: string; tone: 'hot' | 'warn' | 'plain' }> = [
   { key: 'high_low', title: 'Проблемные гении', tone: 'warn' },
-  { key: 'high_mid', title: 'Высокий потенциал', tone: 'plain' },
+  { key: 'high_mid', title: 'Высокий потенциал', tone: 'hot' },
   { key: 'high_high', title: 'Звёзды', tone: 'hot' },
   { key: 'mid_low', title: 'Зона особого внимания', tone: 'warn' },
   { key: 'mid_mid', title: 'Основа команды', tone: 'plain' },
   { key: 'mid_high', title: 'Высокая производительность', tone: 'hot' },
   { key: 'low_low', title: 'Ошибка подбора', tone: 'warn' },
   { key: 'low_mid', title: 'Зона особого внимания', tone: 'warn' },
-  { key: 'low_high', title: 'Рабочие лошадки', tone: 'hot' },
+  { key: 'low_high', title: 'Рабочие лошадки', tone: 'plain' },
 ];
 
 function PotentialMap({ nineBox }: { nineBox: Record<string, number> }) {
   return (
-    <div className="card p-5">
+    <div className="card p-5 h-full flex flex-col">
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="text-base font-medium">Карта потенциала</h3>
         <span className="text-[11px] text-ash">производительность → · потенциал ↑</span>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      {/* auto-rows-fr + flex-1 — ячейки равномерно делят высоту карточки */}
+      <div className="grid grid-cols-3 auto-rows-fr gap-2 flex-1">
         {NINE_CELLS.map((c) => {
           const n = nineBox[c.key] ?? 0;
           // Тонируем только непустые ячейки — пустые не кричат.
+          // «Верхняя триада» — зелёная (emerald), зоны риска — красные.
           const tone =
             n === 0
               ? 'border-cloud bg-canvas/40'
               : c.tone === 'hot'
-                ? 'border-lime/30 bg-lime/10'
+                ? 'border-emerald/30 bg-emerald/10'
                 : c.tone === 'warn'
                   ? 'border-blaze/25 bg-blaze/10'
                   : 'border-cloud bg-canvas/40';
           return (
             <div
               key={c.key}
-              className={`rounded-card border px-3 py-2.5 min-h-[64px] flex flex-col justify-between ${tone}`}
+              className={`rounded-card border px-3 py-2.5 flex flex-col ${tone}`}
             >
               <span className="text-[10.5px] text-stone leading-tight">{c.title}</span>
-              <span className={`font-display text-xl font-medium ${n === 0 ? 'text-ash' : ''}`}>
+              {/* Число — по центру оставшегося пространства ячейки */}
+              <span
+                className={`flex-1 flex items-center justify-center font-display text-2xl font-medium ${
+                  n === 0 ? 'text-ash' : ''
+                }`}
+              >
                 {n}
               </span>
             </div>

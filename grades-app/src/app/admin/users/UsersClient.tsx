@@ -276,8 +276,8 @@ export default function UsersClient({
           ))}
         </div>
 
-        {/* Поиск — пилюля с иконкой, высота как у свитчеров */}
-        <span className="ml-auto relative w-[240px]">
+        {/* Поиск — пилюля с иконкой, тянется на всю свободную ширину строки */}
+        <span className="relative flex-1 min-w-[220px]">
           <SearchIcon className="w-3.5 h-3.5 text-ash absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
