@@ -15,7 +15,7 @@ import { Radar } from 'react-chartjs-2';
 import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
-import { ChevronDownIcon } from '@/components/icons';
+import { ChevronDownIcon, InfoIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
 import ProjectsField from '@/components/ProjectsField';
 import PerformanceDashboard from '@/components/performance/PerformanceDashboard';
@@ -485,6 +485,7 @@ export default function Portrait({
                 .getElementById('skills')
                 ?.scrollIntoView({ behavior: 'smooth' })
             }
+            title="Отметь уровни владения навыками и приложи ссылки-подтверждения — лид увидит их при грейдировании. На XP и грейд самооценка не влияет."
             className="mt-6 inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
                        bg-snow/60 backdrop-blur-md border border-cloud/40
                        hover:bg-snow/80 transition-colors"
@@ -832,10 +833,11 @@ export default function Portrait({
       <div id="skills" className="space-y-5 scroll-mt-24">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-2xl font-medium tracking-tight">Навыки</h2>
-          {/* Phase 14: тихий прогресс самооценки */}
+          {/* Phase 14: тихий прогресс самооценки + информер-инструкция */}
           {selfMap && (isSelfOwner || Object.keys(selfMap).length > 0) && (
-            <span className="text-xs text-stone">
+            <span className="inline-flex items-center gap-1.5 text-xs text-stone">
               Самооценка: {Object.keys(selfMap).length} из {data.skills.length}
+              <SelfAssessmentInfo />
             </span>
           )}
         </div>
@@ -1285,6 +1287,38 @@ function GroupBreakdown({
         <Radar data={chartData} options={opts} />
       </div>
     </div>
+  );
+}
+
+/** Phase 14: информер «как работает самооценка» — поповер по ховеру. */
+function SelfAssessmentInfo() {
+  return (
+    <span className="relative group/info inline-flex shrink-0">
+      <InfoIcon className="w-3.5 h-3.5 text-ash group-hover/info:text-ink cursor-help transition-colors" />
+      <span
+        className="pointer-events-none absolute right-0 top-full mt-2 w-80 card p-4 z-30
+                   text-left text-xs text-stone leading-relaxed shadow-soft-lg
+                   opacity-0 translate-y-1 transition-all duration-150
+                   group-hover/info:opacity-100 group-hover/info:translate-y-0"
+      >
+        <span className="block font-medium text-ink mb-1.5">
+          Как работает самооценка
+        </span>
+        Это твой взгляд на владение навыками — референс для лида при
+        грейдировании. На XP и грейд не влияет.
+        <span className="block mt-1.5">
+          1. Раскрой навык и кликни по уровню — появится метка «Моя оценка».
+        </span>
+        <span className="block mt-1">
+          2. Приложи ссылки-подтверждения (Figma, Notion, Loom) кнопкой
+          «Добавить».
+        </span>
+        <span className="block mt-1">
+          3. Лид увидит самооценку и материалы в форме оценки, расхождения
+          подсветятся — это повод для 1:1.
+        </span>
+      </span>
+    </span>
   );
 }
 
