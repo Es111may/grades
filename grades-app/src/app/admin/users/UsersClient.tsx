@@ -554,7 +554,8 @@ function RoleDropdown({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center gap-1.5 bg-ink/5 border border-ink/5 rounded-pill
-                   px-4 h-10 text-[13px] text-ink hover:bg-ink/10 transition-colors"
+                   px-4 h-10 text-[13px] font-normal leading-none text-stone
+                   hover:text-ink hover:bg-ink/10 transition-colors"
       >
         <span className="text-stone font-normal">Роль:</span>
         {LABEL[value]}

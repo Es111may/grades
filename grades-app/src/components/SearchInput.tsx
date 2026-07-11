@@ -29,7 +29,7 @@ export default function SearchInput({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-pill pl-9 pr-4 h-10 text-sm leading-none
+        className="w-full rounded-pill pl-9 pr-4 h-10 text-[13px] font-normal leading-none
                    bg-ink/5 border border-ink/5 text-ink placeholder:text-stone
                    transition-colors focus:outline-none focus:border-sky
                    focus:ring-4 focus:ring-sky/15"
