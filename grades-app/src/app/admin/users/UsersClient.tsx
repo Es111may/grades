@@ -8,6 +8,7 @@ import KanbanView from './KanbanView';
 import MatrixView from './MatrixView';
 import UserCard360 from './UserCard360';
 import LeaderboardView from './LeaderboardView';
+import TitleAurora from '@/components/TitleAurora';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -256,6 +257,7 @@ export default function UsersClient({
     <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
       {/* Заголовок — по центру, крупно, с halo-сиянием позади */}
       <div className="text-center mb-[164px] animate-fade-up title-halo">
+        <TitleAurora />
         <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
           Команда
         </h1>

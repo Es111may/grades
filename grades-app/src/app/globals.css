@@ -330,32 +330,12 @@
   /* Трек и метрики 1:1 из концептов: полупрозрачный ink-трек (работает в
      обеих темах), айтемы 13px. */
   /* === Сияние за заголовком страницы === */
-  /* Мягкий лаймовый halo позади крупного центрированного заголовка.
-     Работает в обеих темах: --lime-glow-rgb определён per-theme, альфа
-     чуть ниже в светлой (иначе выглядит грязно на белом). isolation —
-     чтобы ::before с z-index:-1 не провалился под фон страницы. */
+  /* Контейнер для шейдерной «авроры» (TitleAurora): relative — якорь для
+     абсолютного канваса, isolation — чтобы его z-index:-1 не провалился
+     под фон страницы. Само свечение рисует WebGL-компонент. */
   .title-halo {
     position: relative;
     isolation: isolate;
-  }
-  .title-halo::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: min(640px, 90vw);
-    height: 300px;
-    transform: translate(-50%, -50%);
-    background: radial-gradient(
-      ellipse at center,
-      rgb(var(--lime-glow-rgb) / var(--title-halo-alpha, 0.16)),
-      transparent 62%
-    );
-    pointer-events: none;
-    z-index: -1;
-  }
-  html[data-theme='light'] .title-halo::before {
-    --title-halo-alpha: 0.22;
   }
 
   /* h-10 — единая высота всех контролов тулбара (сегменты, дропдауны,

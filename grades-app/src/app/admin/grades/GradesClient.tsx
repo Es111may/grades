@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SkillCombobox from './SkillCombobox';
 import { PlusIcon, CloseIcon } from '@/components/icons';
+import TitleAurora from '@/components/TitleAurora';
 
 type Build = { id: number; code: string; name: string };
 type Gate = {
@@ -42,6 +43,7 @@ export default function GradesClient({
   return (
     <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
       <div className="text-center mb-[164px] animate-fade-up title-halo">
+        <TitleAurora />
         <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em] mb-3">
           Грейды
         </h1>

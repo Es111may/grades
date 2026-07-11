@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDownIcon } from '@/components/icons';
 import { AUDIT_ACTION_LABEL, AUDIT_TARGET_TYPE_LABEL } from '@/lib/audit';
+import TitleAurora from '@/components/TitleAurora';
 
 interface ActorInfo {
   id: number;
@@ -129,6 +130,7 @@ export default function AuditView({
   return (
     <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
       <div className="text-center mb-[164px] animate-fade-up title-halo">
+        <TitleAurora />
         <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
           Аудит
         </h1>

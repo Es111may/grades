@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import NewSkillModal from './NewSkillModal';
 import SearchInput from '@/components/SearchInput';
 import MasteryEditorModal from './MasteryEditorModal';
+import TitleAurora from '@/components/TitleAurora';
 
 type Group = {
   id: number;
@@ -114,6 +115,7 @@ export default function MatrixClient({
   return (
     <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
       <div className="relative text-center mb-[164px] animate-fade-up title-halo">
+        <TitleAurora />
         <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
           Скиллы
         </h1>

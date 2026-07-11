@@ -23,6 +23,7 @@ import ChecklistsSection from '@/components/checklists/ChecklistsSection';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import type { Role } from '@/lib/checklistPermissions';
 import { useTheme, CHART_AXIS } from '@/lib/theme';
+import TitleAurora from '@/components/TitleAurora';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -300,7 +301,8 @@ export default function Portrait({
       {/* Hero по центру (концепт v6): аватар → имя → чипы. Грейд — первый
           белый чип, выбор цикла — дропдаун-чип в том же ряду. Дата публикации
           переехала в XP-плашку bento. */}
-      <div className="mb-[164px] flex flex-col items-center text-center animate-fade-up">
+      <div className="mb-[164px] flex flex-col items-center text-center animate-fade-up title-halo">
+        <TitleAurora />
         {/* Аватар без кольца (Pavel: обводки вокруг аватарок убраны везде),
             бейдж «N% XP» остаётся */}
         <div className="relative w-[96px] h-[96px]">
@@ -317,7 +319,7 @@ export default function Portrait({
             {xpProgress}% XP
           </span>
         </div>
-        <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6 title-halo px-10">
+        <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6">
           {data.designer.fullName}
         </h1>
         <div className="flex items-center justify-center gap-1.5 flex-wrap mt-3.5">
