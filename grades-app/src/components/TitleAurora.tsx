@@ -227,7 +227,7 @@ export default function TitleAurora({ className = '' }: { className?: string }) 
       ref={ref}
       aria-hidden
       className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -z-10
-                  pointer-events-none w-[min(1100px,96vw)] h-[440px] ${className}`}
+                  pointer-events-none w-[min(1680px,98vw)] h-[680px] ${className}`}
     />
   );
 }
