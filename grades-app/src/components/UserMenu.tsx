@@ -22,6 +22,22 @@ export default function UserMenu({
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // Небольшая задержка на закрытие — курсор может на миг «срезать» зазор
+  // между аватаркой и меню; без грейс-периода меню мигало бы (Pavel:
+  // «ведёшь курсор вниз и меню схлопывается»).
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function openNow() {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setOpen(true);
+  }
+  function closeSoon() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(false), 160);
+  }
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -30,7 +46,10 @@ export default function UserMenu({
       }
     }
     document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    };
   }, []);
 
   return (
@@ -39,8 +58,8 @@ export default function UserMenu({
     <div
       className="relative"
       ref={wrapRef}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={openNow}
+      onMouseLeave={closeSoon}
     >
       <button
         onClick={() => setOpen((v) => !v)}
@@ -52,10 +71,11 @@ export default function UserMenu({
       </button>
 
       {open && (
-        // pt-2 — «мостик»: зазор между аватаркой и меню входит в hover-зону,
-        // курсор не роняет меню по пути к нему.
-        <div className="absolute right-0 top-full pt-2 w-56">
-          <div className="rounded-card bg-snow border border-cloud shadow-soft-lg overflow-hidden">
+        // По центру под аватаркой (left-1/2 -translate-x-1/2). pt-2 —
+        // «мостик»: зазор входит в hover-зону, и он ровно под аватаркой,
+        // так что движение курсора вниз держит меню открытым.
+        <div className="absolute left-1/2 -translate-x-1/2 top-full pt-2 w-56 z-40">
+          <div className="rounded-card bg-snow border border-cloud shadow-soft-lg overflow-hidden animate-scale-in">
             <div className="px-4 py-3 border-b border-cloud">
               <div className="text-sm font-medium text-ink truncate">{fullName}</div>
               <div className="text-xs text-stone mt-0.5">{ROLE_LABEL[role] ?? role}</div>
