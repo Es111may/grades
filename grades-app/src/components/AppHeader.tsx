@@ -70,6 +70,8 @@ export default async function AppHeader({
             className="dark-only"
           />
         </Link>
+        {/* Разделитель логотипа и контролов */}
+        <span className="w-px h-5 bg-cloud/80 shrink-0 -mx-2" aria-hidden />
         {navItems.length > 0 && <HeaderNav items={navItems} />}
         <div className="flex items-center gap-1 shrink-0">
           <ThemeToggle />

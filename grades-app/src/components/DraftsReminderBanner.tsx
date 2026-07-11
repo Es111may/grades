@@ -54,7 +54,7 @@ export default function DraftsReminderBanner({
 
   return (
     // Капсула в стиле Dynamic Island — центрированная пилюля под хедером
-    <div className="px-4 mt-2.5">
+    <div className="px-4 mt-1">
       <Link
         href="/lead/assessments"
         className={`block w-fit max-w-full mx-auto rounded-pill px-5 py-2 text-sm

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ChevronDownIcon, SearchIcon, PlusIcon } from '@/components/icons';
+import { ChevronDownIcon, SearchIcon } from '@/components/icons';
 import UserModal from './UserModal';
 import KanbanView from './KanbanView';
 import MatrixView from './MatrixView';
@@ -276,7 +276,7 @@ export default function UsersClient({
           ))}
         </div>
 
-        {/* Поиск — пилюля с иконкой, как в концепте */}
+        {/* Поиск — пилюля с иконкой, высота как у свитчеров */}
         <span className="ml-auto relative w-[240px]">
           <SearchIcon className="w-3.5 h-3.5 text-ash absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -284,16 +284,15 @@ export default function UsersClient({
             placeholder="Поиск по имени или email"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input rounded-pill pl-9"
+            className="input rounded-pill pl-9 h-10 py-0"
           />
         </span>
         {(meRole === 'admin' || meRole === 'lead') && (
           <button
             onClick={openNew}
-            className="btn-accent shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
+            className="btn-accent h-10 py-0 shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
                        hover:-translate-y-px hover:shadow-[0_0_34px_rgb(var(--lime-glow-rgb)_/_0.3)]"
           >
-            <PlusIcon className="w-3.5 h-3.5" />
             Добавить
           </button>
         )}
@@ -406,8 +405,8 @@ function RoleDropdown({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 bg-cloud/70 rounded-pill px-4 py-2
-                   text-xs font-medium text-ink hover:bg-cloud transition-colors"
+        className="inline-flex items-center gap-1.5 bg-ink/5 border border-ink/5 rounded-pill
+                   px-4 h-10 text-[13px] text-ink hover:bg-ink/10 transition-colors"
       >
         <span className="text-stone font-normal">Роль:</span>
         {LABEL[value]}

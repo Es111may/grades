@@ -197,14 +197,6 @@ export default function LeaderboardView({
       {/* Агрегаты команды (концепт v4) */}
       <TeamBento stats={teamStats} />
 
-      {/* Заголовок секции + формула рейтинга (концепт) */}
-      <div className="flex items-baseline justify-between pt-2">
-        <h2 className="text-[19px] font-medium tracking-tight">Лидерборд</h2>
-        <span className="text-[12.5px] text-ash">
-          рейтинг: XP 40% · перформанс 40% · 9-Box 20%
-        </span>
-      </div>
-
       {/* Подиум топ-3 по composite */}
       {podium.length > 0 && (
         <div
@@ -350,25 +342,6 @@ export default function LeaderboardView({
 
 /* ================= Компоненты редизайна (концепт v4) ================= */
 
-/** Conic-кольцо с числом в центре (NIPC, скор подиума). */
-function Ring({ percent }: { percent: number | null }) {
-  const p = Math.max(0, Math.min(100, percent ?? 0));
-  return (
-    <div
-      className="relative w-[92px] h-[92px] rounded-full shrink-0"
-      style={{
-        background: `conic-gradient(rgb(var(--c-lime)) ${p}%, rgb(var(--c-cloud)) 0)`,
-      }}
-    >
-      <div className="absolute inset-[7px] rounded-full bg-snow flex items-center justify-center">
-        <span className="font-display text-[22px] font-medium tracking-tight">
-          {percent === null ? '—' : `${percent}%`}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 /** Спарклайн «в срок» команды по месяцам (стиль концепта: зелёная линия
  *  с заливкой, прижат к низу карточки). */
 function OnTimeSparkline({ points }: { points: number[] }) {
@@ -415,22 +388,23 @@ function TeamBento({ stats }: { stats: TeamStats }) {
     : 0;
   return (
     <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-      <div className="card p-5 flex flex-col relative overflow-hidden">
-        {/* лаймовый глоу снизу — как у NIPC-ячейки концепта */}
-        <div
-          className="absolute -bottom-14 -left-8 -right-8 h-28 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(ellipse at 50% 100%, rgb(var(--lime-glow-rgb) / 0.14), transparent 65%)',
-          }}
-        />
-        <div className="label-mono text-stone relative">Dream Team Index · NIPC</div>
-        <div className="flex items-center gap-4 mt-3.5 relative">
-          <Ring percent={stats.nipcPercent} />
-          <div className="min-w-0 text-xs text-stone leading-relaxed">
-            (звёзды {stats.nipcStars} + потенциал {stats.nipcHpot} + производительность{' '}
-            {stats.nipcHperf} − зоны риска {stats.nipcRisk}) из {stats.nipcTotal}
-          </div>
+      {/* NIPC — та же анатомия, что у соседей: число · описание · бар */}
+      <div className="card p-5 flex flex-col">
+        <div className="label-mono text-stone">Dream Team Index · NIPC</div>
+        <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
+          {stats.nipcPercent == null ? '—' : `${stats.nipcPercent}%`}
+        </div>
+        <div className="text-xs text-stone mt-2 leading-relaxed">
+          (звёзды {stats.nipcStars} + потенциал {stats.nipcHpot} + производительность{' '}
+          {stats.nipcHperf} − зоны риска {stats.nipcRisk}) из {stats.nipcTotal}
+        </div>
+        <div className="h-1 bg-cloud rounded-full overflow-hidden mt-auto">
+          <div
+            className="h-full bg-lime rounded-full"
+            style={{
+              width: `${Math.max(0, Math.min(100, stats.nipcPercent ?? 0))}%`,
+            }}
+          />
         </div>
       </div>
       <div className="card p-5 flex flex-col">
@@ -475,15 +449,15 @@ function TeamBento({ stats }: { stats: TeamStats }) {
           {stats.gradedCount}
           <span className="text-lg text-ash font-normal"> / {stats.totalDesigners}</span>
         </div>
-        <div className="h-1 bg-cloud rounded-full overflow-hidden mt-3">
-          <div className="h-full bg-lime rounded-full" style={{ width: `${seasonPct}%` }} />
-        </div>
-        <div className="text-xs text-stone mt-auto pt-2">
+        <div className="text-xs text-stone mt-2">
           {stats.draftCount}{' '}
           {plural(stats.draftCount, ['черновик ждёт', 'черновика ждут', 'черновиков ждут'])}{' '}
           публикации
           {stats.totalDesigners - stats.gradedCount - stats.draftCount > 0 &&
             ` · ${stats.totalDesigners - stats.gradedCount - stats.draftCount} без оценки`}
+        </div>
+        <div className="h-1 bg-cloud rounded-full overflow-hidden mt-auto">
+          <div className="h-full bg-lime rounded-full" style={{ width: `${seasonPct}%` }} />
         </div>
       </div>
     </div>
@@ -504,63 +478,44 @@ function PodiumCard({
 }) {
   const score = Math.round((user.compositeScore ?? 0) * 100);
   return (
+    // Компактная карточка (v0.43): без обводки/кольца/№-лейбла, аватар в
+    // правом углу, скор с позицией — чипом перед грейдом, бары нейтральные.
     <button
       type="button"
       onClick={onClick}
-      className={`card p-6 text-left w-full relative overflow-hidden
-                  transition-all duration-200 ease-apple-out
-                  hover:shadow-soft-md hover:-translate-y-1 hover:border-ash ${
-                    place === 1 ? 'border-lime/40' : ''
-                  }`}
+      className="card p-5 text-left w-full transition-all duration-200 ease-apple-out
+                 hover:shadow-soft-md hover:-translate-y-1 hover:border-ash"
     >
-      {/* Лаймовый глоу у №1 — как в концепте */}
-      {place === 1 && (
-        <div
-          className="absolute -bottom-16 -left-8 -right-8 h-32 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(ellipse at 50% 100%, rgb(var(--lime-glow-rgb) / 0.16), transparent 65%)',
-          }}
-        />
-      )}
-      <span className="label-mono text-ash absolute top-6 right-6">№{place}</span>
-      <div className="flex items-center gap-4">
-        <div
-          className="relative w-[64px] h-[64px] rounded-full shrink-0"
-          style={{
-            background: `conic-gradient(rgb(var(--c-lime)) ${score}%, rgb(var(--c-cloud)) 0)`,
-          }}
-        >
-          <div className="absolute inset-[4px] rounded-full bg-snow flex items-center justify-center overflow-hidden">
-            <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={56} />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-[15.5px] leading-tight truncate mt-1">
+            {user.fullName}
+          </div>
+          <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+            <span className="chip bg-ink/[0.07]">
+              <b className={`font-medium ${scoreZoneClass(score)}`}>{score}</b>
+              <span className="text-ash">№{place}</span>
+            </span>
+            {user.effectiveGrade && (
+              <span className="chip bg-ink text-snow">
+                {GRADE_LABELS[user.effectiveGrade] ?? user.effectiveGrade}
+              </span>
+            )}
+            {user.build && (
+              <span className="chip-neutral">
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: buildColor(user.build.code) }}
+                />
+                {user.build.name}
+              </span>
+            )}
+            {user.onTimePercent != null && (
+              <span className="chip-neutral">{Math.round(user.onTimePercent)}% в срок</span>
+            )}
           </div>
         </div>
-        <div
-          className={`font-display text-[58px] font-medium tracking-[-0.05em] leading-[0.95] ${scoreZoneClass(score)}`}
-        >
-          {score}
-          <span className="text-sm text-ash font-normal tracking-normal">/100</span>
-        </div>
-      </div>
-      <div className="font-medium mt-3.5 truncate">{user.fullName}</div>
-      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-        {user.effectiveGrade && (
-          <span className="chip bg-ink text-snow">
-            {GRADE_LABELS[user.effectiveGrade] ?? user.effectiveGrade}
-          </span>
-        )}
-        {user.build && (
-          <span className="chip-build">
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ background: buildColor(user.build.code) }}
-            />
-            {user.build.name}
-          </span>
-        )}
-        {user.onTimePercent != null && (
-          <span className="chip-neutral">в срок {Math.round(user.onTimePercent)}%</span>
-        )}
+        <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={44} />
       </div>
       <div className="flex gap-1.5 mt-4">
         {TAXONOMIES.map((t) => {
@@ -569,9 +524,9 @@ function PodiumCard({
           return (
             <div key={t} className="flex-1">
               <div className="label-mono text-ash text-center mb-1">{t}</div>
-              <div className="h-6 rounded-[5px] bg-cloud/60 relative overflow-hidden">
+              <div className="h-5 rounded-[5px] bg-cloud/60 relative overflow-hidden">
                 <div
-                  className="absolute bottom-0 left-0 right-0 bg-lime/80 rounded-b-[5px]"
+                  className="absolute bottom-0 left-0 right-0 bg-ink/20 rounded-b-[5px]"
                   style={{ height: `${h}%` }}
                 />
               </div>

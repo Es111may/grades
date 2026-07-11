@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const isLeadLike = user.role === 'lead' || user.role === 'stardiz';
   const navItems = isAdminish
     ? [
-        { href: '/admin/users', label: 'Пользователи' },
+        { href: '/admin/users', label: 'Команда' },
         { href: '/admin/matrix', label: 'Матрица' },
         { href: '/admin/grades', label: 'Грейды' },
         { href: '/lead/assessments', label: 'Оценки' },
@@ -31,7 +31,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         ...(isLeadLike ? [{ href: '/admin/lead-reviews', label: 'Мой портрет' }] : []),
       ]
     : [
-        { href: '/admin/users', label: 'Пользователи' },
+        { href: '/admin/users', label: 'Команда' },
         { href: '/lead/assessments', label: 'Все оценки' },
         ...(isLeadLike ? [{ href: '/admin/lead-reviews', label: 'Мой портрет' }] : []),
       ];

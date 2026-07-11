@@ -16,7 +16,7 @@ export default async function LeadLayout({ children }: { children: React.ReactNo
   // виден на всех страницах (в т.ч. /lead/*), не только в /admin/*.
   const navItems = isAdminish
     ? [
-        { href: '/admin/users', label: 'Пользователи' },
+        { href: '/admin/users', label: 'Команда' },
         { href: '/admin/matrix', label: 'Матрица' },
         { href: '/admin/grades', label: 'Грейды' },
         { href: '/lead/assessments', label: 'Оценки' },
@@ -25,7 +25,7 @@ export default async function LeadLayout({ children }: { children: React.ReactNo
         ...(isLeadLike ? [{ href: '/admin/lead-reviews', label: 'Мой портрет' }] : []),
       ]
     : [
-        { href: '/admin/users', label: 'Пользователи' },
+        { href: '/admin/users', label: 'Команда' },
         { href: '/lead/assessments', label: 'Все оценки' },
         ...(isLeadLike ? [{ href: '/admin/lead-reviews', label: 'Мой портрет' }] : []),
       ];
