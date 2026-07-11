@@ -36,13 +36,15 @@ export default function DraftsReminderBanner({
   // - hasStale + faded       → светло-красный фон, blaze-текст
   // - не stale + highlighted → нейтральный graphite
   // - не stale + faded       → светло-серый
+  // border-transparent в «ярких» состояниях — чтобы появление бордера
+  // при затухании не сдвигало капсулу на 1px
   const cls = hasStale
     ? highlighted
-      ? 'bg-blaze text-white'
+      ? 'bg-blaze text-white border border-transparent'
       : 'bg-blaze/10 text-blaze backdrop-blur-xl border border-blaze/15'
     : highlighted
-      ? 'bg-cloud/60 text-graphite'
-      : 'bg-cloud/40 text-stone';
+      ? 'bg-cloud/60 text-graphite border border-transparent'
+      : 'bg-cloud/40 text-stone border border-transparent';
 
   // Коротко (Pavel): детали — на странице оценок по клику
   const message = hasStale

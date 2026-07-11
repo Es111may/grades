@@ -14,7 +14,6 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
-import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
 
 export async function GET() {
   const me = await getCurrentUser();
@@ -56,7 +55,6 @@ export async function GET() {
     where: { role: { in: ['designer', 'stardiz'] } },
     select: {
       id: true,
-      email: true,
       fullName: true,
       role: true,
       active: true,
@@ -66,18 +64,6 @@ export async function GET() {
     },
     orderBy: [{ active: 'desc' }, { fullName: 'asc' }],
   });
-
-  // Перформанс тем же путём, что лидерборд (кэш+SQL прод-кода) — чтобы
-  // сверить с сырыми данными ClickHouse при расследовании аномалий.
-  let onTime = new Map<string, { onTimePercent: number | null; totalTasks: number }>();
-  let onTimeError: string | null = null;
-  try {
-    onTime = await fetchOnTimeStatsByEmail(
-      designers.filter((d) => d.active && d.email).map((d) => d.email),
-    );
-  } catch (e) {
-    onTimeError = (e as Error).message;
-  }
 
   // По каждому дизайнеру — ещё и статусы его оценок (draft/published/...),
   // чтобы сразу видеть: грейд не виден, потому что оценка не опубликована.
@@ -93,12 +79,9 @@ export async function GET() {
 
   const rows = designers.map((d) => {
     const g = gradeByDesignerId.get(d.id);
-    const perf = d.email ? onTime.get(d.email.toLowerCase()) : undefined;
     return {
       id: d.id,
       fullName: d.fullName,
-      onTimePercent: perf?.onTimePercent ?? null,
-      onTimeTotalTasks: perf?.totalTasks ?? 0,
       role: d.role,
       active: d.active,
       build: d.build?.name ?? null,
@@ -115,7 +98,6 @@ export async function GET() {
 
   return NextResponse.json({
     session: { id: me.id, role: me.role },
-    onTimeError,
     publishedGradesCount: latestGrades.length,
     assessmentsByStatus: byStatus.map((b) => ({
       status: b.status,

@@ -321,8 +321,10 @@ export default async function AdminUsersPage() {
   // дате) и сравниваем с самым ранним снапшотом текущего оценочного цикла
   // (циклы: с 16 апреля и с 16 октября — после дедлайнов сезонов).
   // История копится с момента деплоя фазы; ошибки не блокируют страницу.
+  // ВАЖНО: у стардиза выборка users серверно обрезана до его подопечных —
+  // его NIPC частичный, снапшот команды им затирать нельзя.
   let nipcDelta: number | null = null;
-  if (nipcPercent !== null) {
+  if (nipcPercent !== null && me.role !== 'stardiz') {
     try {
       const nowD = new Date();
       const todayDate = new Date(
