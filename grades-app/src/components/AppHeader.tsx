@@ -39,8 +39,10 @@ export default async function AppHeader({
     // на узких экранах остров не липнул к краям; overflow-скролл внутри
     // капсулы на совсем маленьких ширинах.
     <header className="sticky top-3 z-30 px-4">
+      {/* `group` — hover-зона для инлайн-меню (HeaderNav): раскрытие при
+          наведении на любую часть острова, схлопывание при уходе с него */}
       <div
-        className="w-fit max-w-full mx-auto flex items-center gap-3 h-14 pl-6 pr-3
+        className="group w-fit max-w-full mx-auto flex items-center gap-3 h-14 pl-6 pr-3
                    rounded-pill border border-cloud/60 bg-snow/75
                    backdrop-blur-2xl shadow-soft-lg"
         style={{ WebkitBackdropFilter: 'blur(24px) saturate(160%)' }}

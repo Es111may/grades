@@ -334,8 +334,11 @@
   .segmented {
     @apply inline-flex items-center bg-ink/5 border border-ink/5 rounded-pill p-1 gap-0.5 h-10;
   }
+  /* h-8 + flex-центрирование + leading-none — активная «таблетка» строго
+     симметрична по вертикали (line-height Onest смещал её вниз). */
   .segmented-item {
-    @apply px-[15px] py-[7px] text-[13px] font-normal text-stone rounded-pill cursor-pointer
+    @apply px-[15px] h-8 flex items-center text-[13px] leading-none font-normal
+           text-stone rounded-pill cursor-pointer
            transition-colors duration-150 hover:text-ink;
   }
   /* Активный сегмент: в тёмной теме — светлее трека (white/10, iOS dark),

@@ -44,17 +44,14 @@ export default function DraftsReminderBanner({
       ? 'bg-cloud/60 text-graphite'
       : 'bg-cloud/40 text-stone';
 
+  // Коротко (Pavel): детали — на странице оценок по клику
   const message = hasStale
-    ? total === 1
-      ? `Зависший черновик: ${oldestDesignerName}, без правок ${oldestAgeDays} ${pluralizeDays(oldestAgeDays)}`
-      : `${total} ${pluralizeDrafts(total)} без движения — самый старый ${oldestDesignerName}, ${oldestAgeDays} ${pluralizeDays(oldestAgeDays)}`
-    : total === 1
-      ? `1 черновик в работе — не забудь дозаполнить`
-      : `${total} ${pluralizeDrafts(total)} в работе`;
+    ? `${total} ${pluralizeDrafts(total)} без движения`
+    : `${total} ${pluralizeDrafts(total)} в работе`;
 
   return (
     // Капсула в стиле Dynamic Island — центрированная пилюля под хедером
-    <div className="px-4 mt-1">
+    <div className="px-4 mt-2">
       <Link
         href="/lead/assessments"
         className={`block w-fit max-w-full mx-auto rounded-pill px-5 py-2 text-sm

@@ -312,6 +312,7 @@ export default function UsersClient({
             teamStats={teamStats}
             nineBox={nineBox}
             attention={attention}
+            searching={search.trim().length > 0}
           />
         ) : (
           <KanbanView
