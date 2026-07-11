@@ -180,6 +180,16 @@ export default async function AdminUsersPage() {
     xpThresholds: g.xpThresholds as Record<string, number>,
   }));
 
+  // Phase 14: последняя правка самооценки по каждому дизайнеру — для
+  // флага «обновил после последней оценки» (сигнал лиду).
+  const selfAgg = await prisma.selfAssessment.groupBy({
+    by: ['designerId'],
+    _max: { updatedAt: true },
+  });
+  const selfMaxByDesigner = new Map(
+    selfAgg.map((g) => [g.designerId, g._max.updatedAt]),
+  );
+
   // Phase 16.2: позиция в 9-Box матрице потенциала. Используется как
   // третья компонента composite score (вес 20%).
   const matrixCells = await prisma.teamMatrixCell.findMany({
@@ -282,6 +292,13 @@ export default async function AdminUsersPage() {
       onTimeTotalTasks,
       compositeScore,
       hasDraft: draftUpdatedAt.has(u.id),
+      // Phase 14: самооценка обновлялась после последней published-оценки
+      selfFresh: (() => {
+        const m = selfMaxByDesigner.get(u.id);
+        if (!m) return false;
+        const pub = last?.publishedAt;
+        return !pub || m.toISOString() > pub;
+      })(),
       // Для скоуп-пересчёта bento «Мои»:
       nineBoxCell: cellForScope
         ? { potential: cellForScope.potentialLevel, performance: cellForScope.performanceLevel }
@@ -436,6 +453,24 @@ export default async function AdminUsersPage() {
         detail: `${u.onTimeTotalTasks} задач · 6 мес`,
       });
     });
+  // Phase 14: свежие самооценки — «загляни перед оценкой»
+  const freshSelf = activeDesigners.filter((u) => u.selfFresh);
+  if (freshSelf.length > 0) {
+    const names = freshSelf.map((u) => u.fullName.split(' ')[0]);
+    attention.push({
+      tone: 'info',
+      title: `${freshSelf.length} ${
+        freshSelf.length === 1
+          ? 'дизайнер обновил'
+          : freshSelf.length < 5
+            ? 'дизайнера обновили'
+            : 'дизайнеров обновили'
+      } самооценку`,
+      detail: `${names.slice(0, 2).join(', ')}${
+        names.length > 2 ? ` и ещё ${names.length - 2}` : ''
+      } — после последней оценки`,
+    });
+  }
   readyRows.slice(0, 2).forEach(({ u, last }) => {
     attention.push({
       tone: 'info',

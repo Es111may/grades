@@ -837,10 +837,22 @@ export default function Portrait({
       <div id="skills" className="space-y-5 scroll-mt-24">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-2xl font-medium tracking-tight">Навыки</h2>
-          {/* Phase 14: тихий прогресс самооценки + информер-инструкция */}
+          {/* Phase 14: прогресс самооценки + расхождения с оценкой лида */}
           {selfMap && (isSelfOwner || Object.keys(selfMap).length > 0) && (
             <span className="inline-flex items-center gap-1.5 text-xs text-stone">
               Самооценка: {Object.keys(selfMap).length} из {data.skills.length}
+              {(() => {
+                const divergent = data.skills.filter((sk) => {
+                  const sf = selfMap[sk.id];
+                  return sf && sk.masteryLevel > 0 && sf.level !== sk.masteryLevel;
+                }).length;
+                return divergent > 0 ? (
+                  <span>
+                    {' '}· Расхождения:{' '}
+                    <span className="text-sunset font-medium">{divergent}</span>
+                  </span>
+                ) : null;
+              })()}
               <SelfAssessmentInfo />
             </span>
           )}

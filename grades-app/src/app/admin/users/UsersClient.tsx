@@ -53,6 +53,8 @@ export type UserRow = {
   xpNeeded?: number | null;
   /** Возраст самого свежего черновика в днях (сигнал «без движения»). */
   draftAgeDays?: number | null;
+  /** Phase 14: самооценка обновлялась после последней published-оценки. */
+  selfFresh?: boolean;
 };
 
 /** Агрегаты команды для bento-строки лидерборда (концепт v4). */
@@ -510,6 +512,23 @@ function computeScopedStats(list: UserRow[]): {
         detail: `${u.onTimeTotalTasks} задач · 6 мес`,
       });
     });
+  const freshSelf = activeDesigners.filter((u) => u.selfFresh);
+  if (freshSelf.length > 0) {
+    const names = freshSelf.map((u) => u.fullName.split(' ')[0]);
+    attention.push({
+      tone: 'info',
+      title: `${freshSelf.length} ${
+        freshSelf.length === 1
+          ? 'дизайнер обновил'
+          : freshSelf.length < 5
+            ? 'дизайнера обновили'
+            : 'дизайнеров обновили'
+      } самооценку`,
+      detail: `${names.slice(0, 2).join(', ')}${
+        names.length > 2 ? ` и ещё ${names.length - 2}` : ''
+      } — после последней оценки`,
+    });
+  }
   readyRows.slice(0, 2).forEach((u) => {
     attention.push({
       tone: 'info',
