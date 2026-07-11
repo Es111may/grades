@@ -242,41 +242,9 @@ export default function UserCard360({
                     {rank != null && <span className="text-white/75">№{rank}</span>}
                   </span>
                 )}
-                {/* Phase 14: самооценка — лаймовый чип, если обновлена
-                    после последней опубликованной оценки (есть что смотреть) */}
-                {selfInfo && selfInfo.count > 0 && (
-                  <Tooltip
-                    align="center"
-                    text={
-                      selfInfo.last
-                        ? `Обновлена ${formatDate(selfInfo.last)}`
-                        : 'Самооценка дизайнера'
-                    }
-                  >
-                    <span
-                      className={`chip ${
-                        selfInfo.last &&
-                        (!user.lastAssessedAt || selfInfo.last > user.lastAssessedAt)
-                          ? 'bg-lime-light text-graphite border border-lime/30'
-                          : 'bg-ink/[0.07] text-stone'
-                      }`}
-                    >
-                      Самооценка: {selfInfo.count}
-                    </span>
-                  </Tooltip>
-                )}
                 <span className={`chip ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
                   {ROLE_LABEL[user.role] ?? user.role}
                 </span>
-                {user.build && (
-                  <span className="chip-neutral">
-                    <span
-                      className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: buildColor(user.build.code) }}
-                    />
-                    {user.build.name}
-                  </span>
-                )}
                 {user.role === 'designer' && user.effectiveGrade && (
                   <span className="chip bg-ink text-snow">
                     {GRADE_NAMES[user.effectiveGrade] ?? user.effectiveGrade}
@@ -295,21 +263,26 @@ export default function UserCard360({
           </div>
         </div>
 
-        {/* Инфо-grid — только заполненные поля. Пустое «Стардиз —» больше не
-            маячит. Если ничего не заполнено — секция вообще скрывается. */}
+        {/* Секция «Профиль»: билд/лид/стардиз/дата найма. Только заполненные
+            поля; если пусто — секция скрывается. Билд живёт здесь (из чипов
+            шапки убран — дублировался). */}
         {filledMeta.length > 0 && (
-          <div className="px-7 py-5 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            {filledMeta.map((f) => (
-              <Field key={f.label} label={f.label} value={f.value} />
-            ))}
+          <div className="px-7 py-5">
+            <div className="label-mono text-stone mb-3">Профиль</div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              {filledMeta.map((f) => (
+                <Field key={f.label} label={f.label} value={f.value} />
+              ))}
+            </div>
           </div>
         )}
 
-        {/* История оценок */}
+        {/* История оценок (+ строка самооценки Phase 14) */}
         <HistoryBlock
           user={user}
           history={history}
           isLeadOrStardiz={isLeadOrStardiz}
+          selfInfo={selfInfo}
         />
 
         {/* «Срок с последнего повышения» — данные тянутся из ClickHouse-копии
@@ -465,12 +438,31 @@ function HistoryBlock({
   user,
   history,
   isLeadOrStardiz,
+  selfInfo,
 }: {
   user: UserRow;
   history: HistoryData | null;
   isLeadOrStardiz: boolean;
+  /** Phase 14: сводка самооценки — строка над историей. */
+  selfInfo: { count: number; last: string | null } | null;
 }) {
   if (history === null) return null;
+
+  // Самооценка: лаймовая, если обновлялась после последней published-оценки
+  const selfFresh =
+    selfInfo?.last != null &&
+    (!user.lastAssessedAt || selfInfo.last > user.lastAssessedAt);
+  const selfLine =
+    user.role === 'designer' && selfInfo && selfInfo.count > 0 ? (
+      <div
+        className={`text-xs ${selfFresh ? 'text-lime-dark font-medium' : 'text-stone'}`}
+      >
+        Самооценка: {selfInfo.count}{' '}
+        {plural(selfInfo.count, ['навык', 'навыка', 'навыков'])}
+        {selfInfo.last && ` · обновлена ${formatDate(selfInfo.last)}`}
+        {selfFresh && ' · после последней оценки'}
+      </div>
+    ) : null;
 
   const showLeadReviews = isLeadOrStardiz;
   const showAssessments = user.role === 'designer' || user.role === 'stardiz';
@@ -486,8 +478,9 @@ function HistoryBlock({
   // одну компактную строку-подсказку, а не два пустых блока.
   if (!hasAssessments && !hasLeadReviews) {
     return (
-      <div className="px-7 py-4 border-t border-cloud text-xs text-ash italic">
-        Оценок ещё не было
+      <div className="px-7 py-4 border-t border-cloud space-y-2">
+        <div className="text-xs text-ash italic">Оценок ещё не было</div>
+        {selfLine}
       </div>
     );
   }
@@ -496,6 +489,8 @@ function HistoryBlock({
     <div className="px-7 py-4 border-t border-cloud space-y-3">
       {hasAssessments && (
         <div className="space-y-1">
+          <div className="label-mono text-stone">История оценок</div>
+          {selfLine}
           <XpSparkline assessments={history.assessments} />
           {history.assessments.slice(0, 5).map((a, idx) => {
             const next = history.assessments[idx + 1];
@@ -543,6 +538,7 @@ function HistoryBlock({
 
       {hasLeadReviews && (
         <div className="space-y-1">
+          <div className="label-mono text-stone">360-опросы</div>
           {history.leadReviews.slice(0, 5).map((r) => (
             <a
               key={r.id}
@@ -570,6 +566,15 @@ function HistoryBlock({
       )}
     </div>
   );
+}
+
+function plural(n: number, forms: [string, string, string]): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return forms[2];
+  if (mod10 === 1) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4) return forms[1];
+  return forms[2];
 }
 
 function pluralResp(n: number): string {
