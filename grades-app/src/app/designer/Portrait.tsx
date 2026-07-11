@@ -1351,10 +1351,11 @@ function SkillAccordion({
         ) : (
           <span className="chip-neutral shrink-0 text-ash">Не оценено</span>
         )}
-        {/* Phase 14: самооценка — «Я: уровень / максимум» */}
+        {/* Phase 14: самооценка — объём опыта из максимума (как «5 / 15»
+            справа), с плотной подложкой — glass на карточке терялся */}
         {self && (
-          <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink shrink-0">
-            Я: {self.level} / {skill.maxMasteryLevel}
+          <span className="chip bg-canvas border border-cloud/60 text-ink shrink-0">
+            Я: {self.level * skill.weight} / {skill.maxMasteryLevel * skill.weight}
           </span>
         )}
         <span className="text-xs text-stone tabular-nums shrink-0 w-12 text-right">
@@ -1456,7 +1457,7 @@ function SkillAccordion({
 
           {/* Phase 14: комментарий к самооценке (владелец, если уровень отмечен) */}
           {canEditSelf && self && (
-            <div>
+            <div className="relative">
               <input
                 type="text"
                 defaultValue={self.comment ?? ''}
@@ -1467,13 +1468,19 @@ function SkillAccordion({
                   onSaveSelfComment(skill.id, e.target.value);
                   setCommentSaved(true);
                 }}
-                className="input text-xs"
+                className="input text-xs pr-32"
               />
-              <div className={`text-[11px] mt-1 ${commentSaved ? 'text-emerald' : 'text-ash'}`}>
-                {commentSaved
-                  ? 'Сохранено'
-                  : 'Сохранится само, когда уберёшь курсор с поля'}
-              </div>
+              {/* Статус-тег внутри поля: как сохраняется / что сохранено */}
+              <span
+                className={`absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded-pill
+                            text-[10px] leading-none pointer-events-none ${
+                              commentSaved
+                                ? 'bg-emerald/15 text-emerald'
+                                : 'bg-ink/[0.07] text-ash'
+                            }`}
+              >
+                {commentSaved ? 'Сохранено' : 'сохранится само'}
+              </span>
             </div>
           )}
           {/* Комментарий самооценки для зрителя-mgmt */}
