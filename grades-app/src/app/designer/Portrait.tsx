@@ -471,32 +471,37 @@ export default function Portrait({
             </span>
           )}
         </div>
-        {/* Действия mgmt («Продолжить черновик», «Новый цикл», «Удалить») —
-            органично под заголовком, а не в углу страницы */}
-        {actions && (
-          <div className="flex items-center justify-center mt-6">{actions}</div>
-        )}
-        {/* Phase 14: владельцу — быстрый переход к самооценке навыков */}
-        {isSelfOwner && (
-          <button
-            type="button"
-            onClick={() =>
-              document
-                .getElementById('skills')
-                ?.scrollIntoView({ behavior: 'smooth' })
-            }
-            title="Отметь уровни владения навыками и приложи ссылки-подтверждения — лид увидит их при грейдировании. На XP и грейд самооценка не влияет."
-            className="mt-6 inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
-                       bg-snow/60 backdrop-blur-md border border-cloud/40
-                       hover:bg-snow/80 transition-colors"
-          >
-            Добавить самооценку
-          </button>
-        )}
       </div>
 
       {/* === Статистика: grade-card, taxonomy-cards, radar, next-gate === */}
       <section id="stats" className="scroll-mt-24">
+
+      {/* Действия — по центру, вплотную к карточкам bento (Pavel) */}
+      {(actions || isSelfOwner) && (
+        <div
+          className="flex items-center justify-center gap-1 flex-wrap mb-5 animate-fade-up"
+          style={{ animationDelay: '60ms' }}
+        >
+          {actions}
+          {/* Phase 14: владельцу — быстрый переход к самооценке навыков */}
+          {isSelfOwner && (
+            <button
+              type="button"
+              onClick={() =>
+                document
+                  .getElementById('skills')
+                  ?.scrollIntoView({ behavior: 'smooth' })
+              }
+              title="Отметь уровни владения навыками и приложи ссылки-подтверждения — лид увидит их при грейдировании. На XP и грейд самооценка не влияет."
+              className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
+                         bg-snow/60 backdrop-blur-md border border-cloud/40
+                         hover:bg-snow/80 transition-colors"
+            >
+              Добавить самооценку
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Bento (концепт v6): XP · В срок · 9-Box (admin/lead) / Скорость
           роста (stardiz/designer) · Гейты. Заменяет прежнюю grade-карточку —
