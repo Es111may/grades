@@ -284,8 +284,11 @@ export default function UserCard360({
       />
       {/* Каркас Pavel (12.07.2026): hero по центру с авророй → мета
           «лейбл—значение» → график роста → действия текстом + меню «⋯». */}
-      <div className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg">
-        <div className="overflow-hidden rounded-modal">
+      <div className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg flex flex-col max-h-[calc(100dvh-104px)]">
+        <div className="overflow-hidden rounded-modal flex flex-col min-h-0">
+          {/* Скролл живёт внутри попапа (overscroll-contain — фон не
+              уезжает); ряд кнопок ниже — закреплён */}
+          <div className="overflow-y-auto overscroll-contain min-h-0">
           {/* ---------- Hero ---------- */}
           <div className="relative text-center px-6 pt-10 pb-1 overflow-hidden isolation-isolate title-halo">
             <TitleAurora className="!w-[560px] !h-[420px] opacity-40" />
@@ -530,8 +533,10 @@ export default function UserCard360({
             );
           })()}
 
-          {/* ---------- Действия: текстом + меню «⋯» ---------- */}
-          <div className="px-4 py-3.5 border-t border-cloud flex items-center gap-0.5">
+          </div>
+
+          {/* ---------- Действия: текстом + меню «⋯» (закреплены) ---------- */}
+          <div className="px-4 py-3.5 border-t border-cloud flex items-center gap-0.5 shrink-0">
             {canOpenPortrait && (
               <a
                 href={`/lead/portrait?id=${user.id}`}

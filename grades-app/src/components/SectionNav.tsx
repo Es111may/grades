@@ -89,8 +89,8 @@ export default function SectionNav({ sections }: { sections: SectionNavItem[] })
               key={s.id}
               href={`#${s.id}`}
               onClick={(e) => handleClick(e, s.id)}
-              className={`segmented-item whitespace-nowrap ${
-                activeId === s.id ? 'segmented-item-active' : ''
+              className={`segmented-item whitespace-nowrap rounded-pill ${
+                activeId === s.id ? 'bg-cloud text-ink' : ''
               }`}
             >
               {s.label}
