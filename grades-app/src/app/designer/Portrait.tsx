@@ -1414,7 +1414,8 @@ function SkillAccordion({
             справа), с плотной подложкой — glass на карточке терялся */}
         {self && (
           <span className="chip bg-canvas border border-cloud/60 text-ink shrink-0">
-            Я: {self.level * skill.weight} / {skill.maxMasteryLevel * skill.weight}
+            {canEditSelf ? 'Я' : 'Оценка дизайнера'}: {self.level * skill.weight} /{' '}
+            {skill.maxMasteryLevel * skill.weight}
           </span>
         )}
         <span className="text-xs text-stone tabular-nums shrink-0 w-12 text-right">
@@ -1547,8 +1548,10 @@ function SkillAccordion({
           )}
           {/* Комментарий самооценки для зрителя-mgmt */}
           {!canEditSelf && self?.comment && (
-            <div className="text-xs text-stone">
-              <span className="text-ash">Комментарий к самооценке:</span>{' '}
+            <div className="text-sm text-ink leading-relaxed break-words">
+              <span className="block text-xs text-ash mb-1.5">
+                Комментарий к самооценке
+              </span>
               {self.comment}
             </div>
           )}
@@ -1567,28 +1570,31 @@ function SkillAccordion({
                     align="center"
                     text={`${ev.title}${ev.description ? ` — ${ev.description}` : ''} · ${formatPublishedDate(ev.createdAt)}`}
                   >
-                  <span
-                    className="inline-flex items-center gap-1.5 chip bg-ink/[0.07] text-ink max-w-[280px]"
-                  >
+                    {/* Кликабелен весь тег, с ховером; × — span с
+                        preventDefault (button внутри <a> невалиден) */}
                     <a
                       href={ev.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="truncate hover:underline"
+                      className="inline-flex items-center gap-1.5 chip bg-ink/[0.07] text-ink
+                                 max-w-[280px] hover:bg-ink/15 transition-colors"
                     >
-                      {ev.title}
+                      <span className="truncate">{ev.title}</span>
+                      {canEditSelf && (
+                        <span
+                          role="button"
+                          aria-label="Удалить ссылку"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onRemoveEvidence(skill.id, ev.id);
+                          }}
+                          className="text-ash hover:text-blaze shrink-0 cursor-pointer"
+                        >
+                          ×
+                        </span>
+                      )}
                     </a>
-                    {canEditSelf && (
-                      <button
-                        type="button"
-                        onClick={() => onRemoveEvidence(skill.id, ev.id)}
-                        className="text-ash hover:text-blaze shrink-0"
-                        aria-label="Удалить ссылку"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </span>
                   </Tooltip>
                 ))}
                 {canEditSelf && !evidenceFormOpen && (
