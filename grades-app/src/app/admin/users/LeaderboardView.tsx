@@ -406,14 +406,27 @@ function TeamBento({ stats }: { stats: TeamStats }) {
         <div className="text-xs text-stone mt-2 leading-relaxed">
           ({stats.nipcStars + stats.nipcHpot + stats.nipcHperf} в верхней триаде −{' '}
           {stats.nipcRisk} {stats.nipcRisk === 1 ? 'зона' : 'зоны'} риска) /{' '}
-          {stats.nipcTotal}
+          {stats.nipcTotal} ·{' '}
+          <span
+            className={
+              (stats.nipcPercent ?? 0) > 35 ? 'text-emerald font-medium' : ''
+            }
+          >
+            цель &gt;35%{(stats.nipcPercent ?? 0) > 35 ? ' — есть' : ''}
+          </span>
         </div>
-        <div className="h-1 bg-cloud rounded-full overflow-hidden mt-auto">
+        {/* Бар с риской цели на 35% */}
+        <div className="relative h-1 bg-cloud rounded-full mt-auto">
           <div
-            className="h-full bg-emerald rounded-full"
+            className="absolute inset-y-0 left-0 bg-emerald rounded-full"
             style={{
               width: `${Math.max(0, Math.min(100, stats.nipcPercent ?? 0))}%`,
             }}
+          />
+          <div
+            className="absolute left-[35%] -top-[3px] h-2.5 w-px bg-ash/80"
+            title="Цель >35%"
+            aria-hidden
           />
         </div>
       </div>
