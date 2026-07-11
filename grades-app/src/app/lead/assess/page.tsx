@@ -88,8 +88,8 @@ export default async function AssessPage({
     });
   }
 
-  // Skills + grade levels параллельно
-  const [skills, gradeLevels] = await Promise.all([
+  // Skills + grade levels + самооценка (Phase 14) параллельно
+  const [skills, gradeLevels, selfAssessments, evidences] = await Promise.all([
     prisma.skill.findMany({
       where: { matrixVersionId: matrix.id, active: true },
       include: {
@@ -107,6 +107,23 @@ export default async function AssessPage({
       where: { matrixVersionId: matrix.id },
       include: { gates: { where: { buildId: designer.buildId! } } },
       orderBy: { sortOrder: 'asc' },
+    }),
+    // Phase 14: самооценка дизайнера — референс лиду рядом с навыком
+    prisma.selfAssessment.findMany({
+      where: { designerId: designer.id },
+      select: { skillId: true, level: true, comment: true, updatedAt: true },
+    }),
+    prisma.skillEvidence.findMany({
+      where: { designerId: designer.id },
+      select: {
+        id: true,
+        skillId: true,
+        url: true,
+        title: true,
+        description: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
     }),
   ]);
 
@@ -146,6 +163,38 @@ export default async function AssessPage({
     if (sc.flagged) existingFlags[sc.skillId] = true;
   }
 
+  // Phase 14: маппинг самооценки/подтверждений по skillId для формы
+  const selfBySkill: Record<
+    number,
+    { level: number; comment: string | null; updatedAt: string }
+  > = {};
+  for (const sa of selfAssessments) {
+    selfBySkill[sa.skillId] = {
+      level: sa.level,
+      comment: sa.comment,
+      updatedAt: sa.updatedAt.toISOString(),
+    };
+  }
+  const evidencesBySkill: Record<
+    number,
+    Array<{
+      id: number;
+      url: string;
+      title: string;
+      description: string | null;
+      createdAt: string;
+    }>
+  > = {};
+  for (const ev of evidences) {
+    (evidencesBySkill[ev.skillId] ??= []).push({
+      id: ev.id,
+      url: ev.url,
+      title: ev.title,
+      description: ev.description,
+      createdAt: ev.createdAt.toISOString(),
+    });
+  }
+
   // Max possible XP
   const maxXp = skillsData.reduce(
     (sum, s) => sum + s.weight * s.maxMasteryLevel,
@@ -173,6 +222,8 @@ export default async function AssessPage({
       existingFlags={existingFlags}
       initialLeadComment={assessment.leadComment ?? ''}
       maxXp={maxXp}
+      selfBySkill={selfBySkill}
+      evidencesBySkill={evidencesBySkill}
     />
   );
 }

@@ -22,6 +22,16 @@ type SkillData = {
   levels: { level: number; title: string; criteria: string }[];
 };
 
+// Phase 14: самооценка дизайнера — референс для лида
+type SelfInfo = { level: number; comment: string | null; updatedAt: string };
+type EvidenceInfo = {
+  id: number;
+  url: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+};
+
 type GradeData = {
   code: GradeCode;
   name: string;
@@ -49,6 +59,8 @@ export default function AssessmentForm({
   existingFlags,
   initialLeadComment,
   maxXp,
+  selfBySkill = {},
+  evidencesBySkill = {},
 }: {
   assessmentId: number;
   assessmentStatus: string;
@@ -69,6 +81,10 @@ export default function AssessmentForm({
   existingFlags: Record<number, boolean>;
   initialLeadComment: string;
   maxXp: number;
+  /** Phase 14: самооценка по skillId (пусто, если дизайнер не ставил). */
+  selfBySkill?: Record<number, SelfInfo>;
+  /** Phase 14: ссылки-подтверждения по skillId. */
+  evidencesBySkill?: Record<number, EvidenceInfo[]>;
 }) {
   const router = useRouter();
   const [scores, setScores] = useState<Record<number, number>>(existingScores);
@@ -609,6 +625,8 @@ export default function AssessmentForm({
                         onSetLevel={(lvl) => setMastery(skill.id, lvl)}
                         onToggleFlag={() => toggleFlag(skill.id)}
                         disabled={published}
+                        self={selfBySkill[skill.id] ?? null}
+                        evidences={evidencesBySkill[skill.id] ?? []}
                       />
                     ))}
                   </div>
@@ -841,6 +859,8 @@ function SkillCard({
   onSetLevel,
   onToggleFlag,
   disabled,
+  self,
+  evidences,
 }: {
   skill: SkillData;
   currentLevel: number;
@@ -849,6 +869,9 @@ function SkillCard({
   onSetLevel: (level: number) => void;
   onToggleFlag: () => void;
   disabled: boolean;
+  /** Phase 14: самооценка дизайнера (null — не ставил). */
+  self: SelfInfo | null;
+  evidences: EvidenceInfo[];
 }) {
   return (
     <article
@@ -876,6 +899,27 @@ function SkillCard({
           {skill.type}
         </span>
         <span className="text-xs text-stone">{skill.weight} вес</span>
+        {/* Phase 14: самооценка. Тон — по расхождению с ТЕКУЩИМ выбором
+            лида: выше выбора — sunset («переоценка?»), ниже — sky
+            («скромничает?»), совпадает/не выбрано — нейтральный glass. */}
+        {self && (
+          <span
+            className={`chip shrink-0 ${
+              currentLevel === 0
+                ? 'bg-snow/60 border border-cloud/40 text-ink'
+                : self.level > currentLevel
+                  ? 'bg-sunset/10 border border-sunset/25 text-sunset'
+                  : self.level < currentLevel
+                    ? 'bg-sky/10 border border-sky/25 text-sky'
+                    : 'bg-emerald/10 border border-emerald/25 text-emerald'
+            }`}
+            title={`Самооценка от ${formatSelfDate(self.updatedAt)}${
+              self.comment ? ` — ${self.comment}` : ''
+            }`}
+          >
+            Сам: {self.level}
+          </span>
+        )}
         {!disabled && (
           <button
             type="button"
@@ -903,6 +947,17 @@ function SkillCard({
           {skill.description}
         </div>
       )}
+
+      {/* Phase 14: комментарий дизайнера к самооценке */}
+      {self?.comment && (
+        <div className="text-xs text-stone leading-relaxed mb-3">
+          <span className="text-ash">Комментарий к самооценке:</span>{' '}
+          {self.comment}
+        </div>
+      )}
+
+      {/* Phase 14: ссылки-подтверждения дизайнера */}
+      {evidences.length > 0 && <EvidenceDisclosure evidences={evidences} />}
 
       {/* Уровни мастерства как вертикальный radio-список */}
       <div className="flex flex-col gap-2">
@@ -934,4 +989,57 @@ function SkillCard({
       )}
     </article>
   );
+}
+
+/** Phase 14: раскрывашка «Подтверждения (N)» в карточке навыка. */
+function EvidenceDisclosure({ evidences }: { evidences: EvidenceInfo[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 text-xs text-sky hover:underline"
+      >
+        Подтверждения ({evidences.length})
+        <ChevronDownIcon
+          className={`w-3 h-3 transition-transform duration-150 ${
+            open ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+      {open && (
+        <div className="mt-2 space-y-1.5">
+          {evidences.map((ev) => (
+            <div key={ev.id} className="flex items-baseline gap-2 text-xs min-w-0">
+              <a
+                href={ev.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sky hover:underline truncate"
+                title={ev.url}
+              >
+                {ev.title}
+              </a>
+              {ev.description && (
+                <span className="text-stone truncate">— {ev.description}</span>
+              )}
+              <span className="text-ash whitespace-nowrap ml-auto shrink-0">
+                {formatSelfDate(ev.createdAt)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** «11 июля 2026» для дат самооценки/подтверждений. */
+function formatSelfDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
