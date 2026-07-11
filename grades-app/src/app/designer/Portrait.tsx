@@ -1539,11 +1539,11 @@ function SkillAccordion({
                   onSaveSelfComment(skill.id, e.target.value);
                   setCommentSaved(true);
                 }}
-                className="input text-xs resize-none pb-7"
+                className="input text-xs resize-none pb-7 block"
               />
               {/* Статус-тег внутри поля: как сохраняется / что сохранено */}
               <span
-                className={`absolute right-2 bottom-2.5 px-2 py-1 rounded-pill
+                className={`absolute right-2.5 bottom-2.5 px-2 py-1 rounded-pill
                             text-[10px] leading-none pointer-events-none ${
                               commentSaved
                                 ? 'bg-emerald/15 text-emerald'
