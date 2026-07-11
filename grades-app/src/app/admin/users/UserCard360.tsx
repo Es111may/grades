@@ -267,8 +267,10 @@ export default function UserCard360({
             >
               <CloseIcon className="w-4 h-4" />
             </button>
-            {/* Fade к низу — аврора растворяется, а не обрезается кромкой hero */}
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-snow pointer-events-none" />
+            {/* Fade к низу — аврора растворяется, а не обрезается кромкой
+                hero. -z-[5]: между канвасом (-z-10) и контентом — иначе
+                градиент накрывал нижний ряд чипов «опасити». */}
+            <div className="absolute inset-x-0 bottom-0 h-16 -z-[5] bg-gradient-to-b from-transparent to-snow pointer-events-none" />
             <div className="flex justify-center">
               <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={80} />
             </div>
@@ -505,7 +507,7 @@ export default function UserCard360({
             ref={menuRef}
             onMouseEnter={menuEnter}
             onMouseLeave={menuLeave}
-            className="absolute right-3 bottom-[58px] w-max min-w-[150px] z-20 card p-1.5 shadow-soft-lg animate-scale-in"
+            className="absolute right-3 bottom-[58px] w-max z-20 card p-1.5 shadow-soft-lg animate-scale-in"
           >
             {canImpersonate && (
               <button
@@ -516,7 +518,7 @@ export default function UserCard360({
                     callbackUrl: '/',
                   })
                 }
-                className="w-full text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+                className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
               >
                 Войти как {user.fullName.split(' ')[0]}
               </button>
@@ -534,7 +536,7 @@ export default function UserCard360({
                 <button
                   type="button"
                   onClick={armDeactivate}
-                  className="w-full text-left px-3 py-2 rounded-[10px] text-sm text-blaze hover:bg-canvas transition-colors"
+                  className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-blaze hover:bg-canvas transition-colors"
                 >
                   Деактивировать
                 </button>
@@ -542,7 +544,7 @@ export default function UserCard360({
                 <button
                   type="button"
                   onClick={handleDeactivate}
-                  className="w-full text-left px-3 py-2 rounded-[10px] text-sm font-medium text-white bg-blaze hover:brightness-95 transition-all"
+                  className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm font-medium text-white bg-blaze hover:brightness-95 transition-all"
                 >
                   Точно деактивировать?
                 </button>
@@ -555,7 +557,7 @@ export default function UserCard360({
                     setDeleteArmed(true);
                     setTimeout(() => setDeleteArmed(false), 5000);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-[10px] text-sm text-blaze hover:bg-canvas transition-colors"
+                  className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-blaze hover:bg-canvas transition-colors"
                 >
                   Удалить
                 </button>
@@ -563,7 +565,7 @@ export default function UserCard360({
                 <button
                   type="button"
                   onClick={handleHardDelete}
-                  className="w-full text-left px-3 py-2 rounded-[10px] text-sm font-medium text-white bg-blaze hover:brightness-95 transition-all"
+                  className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm font-medium text-white bg-blaze hover:brightness-95 transition-all"
                 >
                   Точно удалить навсегда?
                 </button>
