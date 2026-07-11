@@ -490,10 +490,9 @@ function PodiumCard({
   onClick: () => void;
 }) {
   const score = Math.round((user.compositeScore ?? 0) * 100);
-  // Пиксель-в-пиксель как тег в списке (.chip-build): 10px, gap-1.5, px-2,
-  // py-0.5, leading-none — минимальная высота пилюли.
+  // Спека Pavel: высота тега ровно 24px, шрифт 10px.
   const chipSm =
-    'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill text-[10px] font-medium leading-none shrink-0';
+    'inline-flex items-center gap-1.5 px-2.5 h-6 rounded-pill text-[10px] font-medium leading-none shrink-0';
   return (
     // Компактная карточка: тонкий паддинг, теги размером как в списке,
     // всё в одну строку, аватар в правом углу.
@@ -522,8 +521,7 @@ function PodiumCard({
           </span>
         )}
         {user.build && (
-          // Ровно тот же класс, что билд-тег в списке — гарантия совпадения
-          <span className="chip-build shrink-0">
+          <span className={`${chipSm} bg-cloud/60 text-stone`}>
             <span
               className="w-1.5 h-1.5 rounded-full"
               style={{ background: buildColor(user.build.code) }}
