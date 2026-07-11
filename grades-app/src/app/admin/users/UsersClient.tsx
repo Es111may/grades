@@ -563,7 +563,8 @@ function RoleDropdown({
       >
         <span className="text-stone font-normal">Роль:</span>
         {LABEL[value]}
-        <span className="text-ash">{counts[value]}</span>
+        {/* text-xs — как счётчики в сегментах (были 13px, выбивались) */}
+        <span className="text-ash text-xs">{counts[value]}</span>
         <ChevronDownIcon
           className={`w-3 h-3 text-stone transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
         />
