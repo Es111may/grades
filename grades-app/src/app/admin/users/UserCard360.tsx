@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import Avatar from '@/components/Avatar';
-import { CloseIcon, ChevronDownIcon } from '@/components/icons';
+import { CloseIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
-import Tooltip from '@/components/Tooltip';
+import TitleAurora from '@/components/TitleAurora';
 
 type AssessmentHistoryRow = {
   id: number;
@@ -162,6 +162,23 @@ export default function UserCard360({
     isLeadOrStardiz && user.active && (meRole === 'admin' || isSelf);
   const canImportLeadReview = isLeadOrStardiz && user.active && meRole === 'admin';
 
+  // Меню «⋯»: клик-вне закрывает
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [menuOpen]);
+
+  // Двухступенчатое жёсткое удаление (только admin)
+  const [deleteArmed, setDeleteArmed] = useState(false);
+
   // Двухступенчатое удаление-«деактивация» — без нативного confirm,
   // который мог не отрабатывать в некоторых браузерах.
   const [deactivateArmed, setDeactivateArmed] = useState(false);
@@ -181,15 +198,44 @@ export default function UserCard360({
     }
   }
 
-  // Список метаданных — показываем только то, что заполнено.
-  // «Отдел» удалён: после переименования билдов он дублирует Билд.
-  const metaFields: Array<{ label: string; value: string | null }> = [
-    { label: 'Билд', value: user.build?.name ?? null },
-    { label: 'Дата найма', value: user.hiredAt ? formatDate(user.hiredAt) : null },
-    { label: 'Лид', value: user.lead?.fullName ?? null },
-    { label: 'Стардиз', value: user.stardiz?.fullName ?? null },
-  ];
-  const filledMeta = metaFields.filter((f) => f.value);
+  // Стаж — «1 г 10 мес» к дате найма
+  function tenureStr(hiredAt: string | null): string | null {
+    if (!hiredAt) return null;
+    const st = new Date(hiredAt);
+    const now = new Date();
+    let m = (now.getFullYear() - st.getFullYear()) * 12 + (now.getMonth() - st.getMonth());
+    if (now.getDate() < st.getDate()) m--;
+    if (m < 1) return '<1 мес';
+    const y = Math.floor(m / 12);
+    const mm = m % 12;
+    if (y === 0) return `${mm} мес`;
+    return mm === 0 ? `${y} г` : `${y} г ${mm} мес`;
+  }
+
+  const lastA = history?.assessments?.[0] ?? null;
+  const prevA = history?.assessments?.[1] ?? null;
+  const lastDelta =
+    lastA && prevA && lastA.totalXp !== null && prevA.totalXp !== null
+      ? lastA.totalXp - prevA.totalXp
+      : null;
+
+  const canImpersonate = meRole === 'admin' && !isSelf && user.active;
+  const canHardDelete = meRole === 'admin' && !isSelf;
+  const hasMenu = canEdit || canImpersonate || canImportLeadReview || canDeactivate || canHardDelete;
+
+  async function handleHardDelete() {
+    const res = await fetch(`/api/users/${user.id}?hard=true`, { method: 'DELETE' });
+    if (res.ok) {
+      onDeactivated(user.id);
+      onClose();
+    } else {
+      const j = await res.json().catch(() => ({}));
+      alert(
+        `Не удалилось: ${j.error ?? res.statusText}.\nЕсли у человека есть подопечные — открой «Изменить», там перенос и удаление.`,
+      );
+      setDeleteArmed(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16 pb-10">
@@ -197,176 +243,293 @@ export default function UserCard360({
         className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-2xl bg-snow rounded-modal shadow-soft-lg overflow-hidden">
-        {/* Header — теперь шапка несёт и роль/билд/грейд/«последняя оценка»
-            одним блоком чипов под именем. Это убирает большую Grade-карточку
-            и делает попап короче на ~100px. */}
-        <div className="px-7 pt-6 pb-5 border-b border-cloud">
-          <div className="flex items-start gap-4">
-            {/* Аватар без кольца — обводки вокруг аватарок убраны везде (Pavel) */}
-            <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={56} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="font-display text-2xl font-medium tracking-tight leading-tight truncate">
-                    {user.fullName}
-                  </h2>
-                  <div className="text-sm text-stone mt-0.5 truncate">{user.email}</div>
-                </div>
-                <button
-                  onClick={onClose}
-                  className="btn-ghost btn-sm shrink-0 w-8 h-8 p-0 flex items-center justify-center -mr-2 -mt-1"
-                  aria-label="Закрыть"
-                  type="button"
+      {/* Каркас Pavel (12.07.2026): hero по центру с авророй → мета
+          «лейбл—значение» → график роста → действия текстом + меню «⋯». */}
+      <div className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg">
+        <div className="overflow-hidden rounded-modal">
+          {/* ---------- Hero ---------- */}
+          <div className="relative text-center px-6 pt-10 pb-1 overflow-hidden isolation-isolate title-halo">
+            <TitleAurora className="!w-[560px] !h-[420px] opacity-40" />
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 w-8 h-8 rounded-pill bg-ink/5 text-stone
+                         hover:text-ink flex items-center justify-center transition-colors z-10"
+              aria-label="Закрыть"
+              type="button"
+            >
+              <CloseIcon className="w-4 h-4" />
+            </button>
+            <div className="flex justify-center">
+              <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={96} />
+            </div>
+            <h2 className="font-display text-2xl font-medium tracking-tight mt-4">
+              {user.fullName}
+            </h2>
+            <div className="text-[13px] text-stone mt-0.5 truncate">{user.email}</div>
+            <div className="flex items-center justify-center gap-1.5 mt-4 flex-wrap">
+              {user.role === 'designer' && user.compositeScore != null && (
+                <span
+                  className={`chip text-white ${
+                    Math.round(user.compositeScore * 100) >= 60
+                      ? 'bg-emerald'
+                      : Math.round(user.compositeScore * 100) >= 50
+                        ? 'bg-sunset'
+                        : 'bg-blaze'
+                  }`}
                 >
-                  <CloseIcon className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Полоса чипов: роль · билд · грейд · floor · неактивен.
-                  Все на базе `.chip` — одинаковый размер шрифта и паддинги,
-                  меняется только цветовая палитра. */}
-              <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-                {/* Composite-скор — как на подиуме: «83 №1», число в цвете зоны */}
-                {user.role === 'designer' && user.compositeScore != null && (
+                  <b className="font-medium">{Math.round(user.compositeScore * 100)}</b>
+                  {rank != null && <span className="text-white/75">№{rank}</span>}
+                </span>
+              )}
+              {user.role === 'designer' && user.effectiveGrade && (
+                <span className="chip bg-ink text-snow">
+                  {GRADE_NAMES[user.effectiveGrade] ?? user.effectiveGrade}
+                </span>
+              )}
+              {user.build && (
+                <span className="chip-neutral">
                   <span
-                    className={`chip text-white ${
-                      Math.round(user.compositeScore * 100) >= 60
-                        ? 'bg-emerald'
-                        : Math.round(user.compositeScore * 100) >= 50
-                          ? 'bg-sunset'
-                          : 'bg-blaze'
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: buildColor(user.build.code) }}
+                  />
+                  {user.build.name}
+                </span>
+              )}
+              <span className={`chip ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
+                {ROLE_LABEL[user.role] ?? user.role}
+              </span>
+              {user.role === 'designer' && user.onTimePercent != null && (
+                <span className="chip-neutral">
+                  {Math.round(user.onTimePercent)}% в срок
+                </span>
+              )}
+              {user.role === 'designer' &&
+                user.gradeFloor &&
+                user.gradeFloor !== user.effectiveGrade && (
+                  <span className="chip-warn">
+                    Floor: {GRADE_NAMES[user.gradeFloor] ?? user.gradeFloor}
+                  </span>
+                )}
+              {!user.active && <span className="chip-danger">Неактивен</span>}
+            </div>
+          </div>
+
+          {/* ---------- Мета: лейбл слева, значение справа ---------- */}
+          <div className="px-6 pt-6 pb-5 flex flex-col gap-3 text-sm">
+            {user.lead && (
+              <div className="flex items-center gap-3">
+                <span className="text-stone">Лид</span>
+                <span className="ml-auto text-ink text-right">{user.lead.fullName}</span>
+              </div>
+            )}
+            {user.stardiz && (
+              <div className="flex items-center gap-3">
+                <span className="text-stone">Стардиз</span>
+                <span className="ml-auto text-ink text-right">{user.stardiz.fullName}</span>
+              </div>
+            )}
+            {user.hiredAt && (
+              <div className="flex items-center gap-3">
+                <span className="text-stone">Дата найма</span>
+                <span className="ml-auto text-ink text-right">
+                  {formatDate(user.hiredAt)}
+                  {tenureStr(user.hiredAt) && (
+                    <span className="text-stone"> · {tenureStr(user.hiredAt)}</span>
+                  )}
+                </span>
+              </div>
+            )}
+            {user.role === 'designer' && selfInfo && selfInfo.count > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-stone">Самооценка</span>
+                <span className="ml-auto text-ink text-right">
+                  {selfInfo.count}{' '}
+                  {plural(selfInfo.count, ['навык', 'навыка', 'навыков'])}
+                  {selfInfo.last && (
+                    <span className="text-stone"> · {formatDate(selfInfo.last)}</span>
+                  )}
+                </span>
+              </div>
+            )}
+            <RaiseRow user={user} meRole={meRole} meId={meId} />
+          </div>
+
+          {/* ---------- График роста + последняя оценка ---------- */}
+          {history && history.assessments.length > 0 && user.role !== 'admin' && (
+            <div className="px-6 pt-5 pb-4 border-t border-cloud">
+              <XpSparkline assessments={history.assessments} height={110} />
+              <div className="flex items-baseline gap-2.5 mt-3 text-sm">
+                <span className="font-medium">
+                  {lastA?.effectiveGrade
+                    ? GRADE_NAMES[lastA.effectiveGrade] ?? lastA.effectiveGrade
+                    : '—'}
+                </span>
+                <span className="text-stone text-xs tabular-nums">
+                  {lastA?.totalXp ?? 0} XP
+                </span>
+                {lastDelta !== null && lastDelta !== 0 && (
+                  <span
+                    className={`text-xs font-medium tabular-nums ${
+                      lastDelta > 0 ? 'text-emerald' : 'text-blaze'
                     }`}
                   >
-                    <b className="font-medium">{Math.round(user.compositeScore * 100)}</b>
-                    {rank != null && <span className="text-white/75">№{rank}</span>}
+                    {lastDelta > 0 ? '+' : ''}
+                    {lastDelta}
                   </span>
                 )}
-                <span className={`chip ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
-                  {ROLE_LABEL[user.role] ?? user.role}
+                <span className="ml-auto text-stone text-xs tabular-nums">
+                  {formatDate(lastA?.publishedAt ?? null)}
                 </span>
-                {user.role === 'designer' && user.effectiveGrade && (
-                  <span className="chip bg-ink text-snow">
-                    {GRADE_NAMES[user.effectiveGrade] ?? user.effectiveGrade}
-                  </span>
-                )}
-                {user.role === 'designer' &&
-                  user.gradeFloor &&
-                  user.gradeFloor !== user.effectiveGrade && (
-                    <span className="chip-warn">
-                      Floor: {GRADE_NAMES[user.gradeFloor] ?? user.gradeFloor}
-                    </span>
-                  )}
-                {!user.active && <span className="chip-danger">Неактивен</span>}
               </div>
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Секция «Профиль»: билд/лид/стардиз/дата найма. Только заполненные
-            поля; если пусто — секция скрывается. Билд живёт здесь (из чипов
-            шапки убран — дублировался). */}
-        {filledMeta.length > 0 && (
-          <div className="px-7 py-5">
-            <div className="label-mono text-stone mb-3">Профиль</div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-              {filledMeta.map((f) => (
-                <Field key={f.label} label={f.label} value={f.value} />
+          {/* 360-опросы (лид/стардиз) — компактный список */}
+          {isLeadOrStardiz && history && history.leadReviews.length > 0 && (
+            <div className="px-6 pt-4 pb-4 border-t border-cloud space-y-1">
+              <div className="label-mono text-stone mb-1">360-опросы</div>
+              {history.leadReviews.slice(0, 3).map((r) => (
+                <a
+                  key={r.id}
+                  href={`/admin/lead-reviews/${r.id}`}
+                  className="flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-card text-sm hover:bg-canvas/60 transition-colors"
+                >
+                  <span className="font-medium truncate flex-1">{r.period}</span>
+                  <span className="text-stone text-xs shrink-0">
+                    {r.responseCount} {pluralResp(r.responseCount)}
+                  </span>
+                  {r.enps !== null && (
+                    <span className="tabular-nums shrink-0 text-xs text-stone">
+                      eNPS <strong className="text-ink">{r.enps.toFixed(1)}</strong>
+                    </span>
+                  )}
+                </a>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* История оценок (+ строка самооценки Phase 14) */}
-        <HistoryBlock
-          user={user}
-          history={history}
-          isLeadOrStardiz={isLeadOrStardiz}
-          selfInfo={selfInfo}
-        />
-
-        {/* «Срок с последнего повышения» — данные тянутся из ClickHouse-копии
-            HR-портала. Видно только admin/lead, только для дизайнеров и
-            стардизов. Сумма не показывается — только период. */}
-        <RaiseBlock user={user} meRole={meRole} meId={meId} />
-
-        {/* Footer: опасное действие слева, навигация и edit — справа.
-            Деактивация — двухступенчатая (без confirm). */}
-        <div className="px-7 py-4 border-t border-cloud flex items-center gap-2">
-          {canDeactivate &&
-            (!deactivateArmed ? (
-              <button
-                onClick={armDeactivate}
-                className="btn-ghost-danger"
-                type="button"
-              >
-                Деактивировать
-              </button>
-            ) : (
-              <button
-                onClick={handleDeactivate}
-                className="btn-danger"
-                type="button"
-              >
-                Точно деактивировать?
-              </button>
-            ))}
-
-          <div className="ml-auto flex items-center gap-1.5">
-            {/* Имперсонация: админ входит под этим пользователем */}
-            {meRole === 'admin' && !isSelf && user.active && (
-              <Tooltip align="center" text={`Открыть Грейды глазами ${user.fullName}`}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    signIn('impersonate', {
-                      targetUserId: String(user.id),
-                      callbackUrl: '/',
-                    })
-                  }
-                  className="btn-secondary"
-                >
-                  Войти как
-                </button>
-              </Tooltip>
-            )}
+          {/* ---------- Действия: текстом + меню «⋯» ---------- */}
+          <div className="px-4 py-3.5 border-t border-cloud flex items-center gap-0.5">
             {canOpenPortrait && (
-              <a href={`/lead/portrait?id=${user.id}`} className="btn-secondary">
+              <a
+                href={`/lead/portrait?id=${user.id}`}
+                className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
+              >
                 Портрет
               </a>
             )}
             {canOpenLeadReview && (
               <a
                 href={`/admin/lead-reviews?userId=${user.id}`}
-                className="btn-secondary"
+                className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
               >
                 Портрет
               </a>
             )}
-            {canImportLeadReview && (
-              <a
-                href={`/admin/lead-reviews/new?userId=${user.id}`}
-                className="btn-secondary"
-              >
-                Импорт опроса
-              </a>
-            )}
             {canAssess && (
-              <a href={`/lead/assess?id=${user.id}`} className="btn-secondary">
+              <a
+                href={`/lead/assess?id=${user.id}`}
+                className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
+              >
                 Оценить
               </a>
             )}
-            {canEdit && (
+            {hasMenu && (
               <button
-                onClick={() => onEdit(user)}
-                className="btn-accent"
                 type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="ml-auto w-9 h-9 rounded-pill flex items-center justify-center
+                           text-stone hover:text-ink hover:bg-ink/5 transition-colors text-lg tracking-widest"
+                aria-label="Ещё действия"
+                aria-expanded={menuOpen}
               >
-                Изменить
+                ⋯
               </button>
             )}
           </div>
         </div>
+
+        {/* Меню «⋯» — редкие/опасные действия не на виду (стрим-safe) */}
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            className="absolute right-3 bottom-[60px] min-w-[210px] z-20 card p-1.5 shadow-soft-lg animate-scale-in"
+          >
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onEdit(user);
+                }}
+                className="w-full text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+              >
+                Изменить
+              </button>
+            )}
+            {canImpersonate && (
+              <button
+                type="button"
+                onClick={() =>
+                  signIn('impersonate', {
+                    targetUserId: String(user.id),
+                    callbackUrl: '/',
+                  })
+                }
+                className="w-full text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+              >
+                Войти как {user.fullName.split(' ')[0]}
+              </button>
+            )}
+            {canImportLeadReview && (
+              <a
+                href={`/admin/lead-reviews/new?userId=${user.id}`}
+                className="block px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+              >
+                Импорт опроса
+              </a>
+            )}
+            {canDeactivate &&
+              (!deactivateArmed ? (
+                <button
+                  type="button"
+                  onClick={armDeactivate}
+                  className="w-full text-left px-3 py-2 rounded-[10px] text-sm text-blaze hover:bg-canvas transition-colors"
+                >
+                  Деактивировать
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleDeactivate}
+                  className="w-full text-left px-3 py-2 rounded-[10px] text-sm font-medium text-white bg-blaze hover:brightness-95 transition-all"
+                >
+                  Точно деактивировать?
+                </button>
+              ))}
+            {canHardDelete &&
+              (!deleteArmed ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteArmed(true);
+                    setTimeout(() => setDeleteArmed(false), 5000);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-[10px] text-sm text-blaze hover:bg-canvas transition-colors"
+                >
+                  Удалить
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleHardDelete}
+                  className="w-full text-left px-3 py-2 rounded-[10px] text-sm font-medium text-white bg-blaze hover:brightness-95 transition-all"
+                >
+                  Точно удалить навсегда?
+                </button>
+              ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -378,12 +541,18 @@ export default function UserCard360({
  * Рисуем только при ≥2 точках. preserveAspectRatio=none + non-scaling-stroke:
  * линия тянется на всю ширину карточки, но остаётся ровной 1.75px (не толстеет).
  */
-function XpSparkline({ assessments }: { assessments: AssessmentHistoryRow[] }) {
+function XpSparkline({
+  assessments,
+  height = 36,
+}: {
+  assessments: AssessmentHistoryRow[];
+  height?: number;
+}) {
   const points = [...assessments].reverse().map((a) => a.totalXp ?? 0);
   if (points.length < 2) return null;
 
   const W = 300;
-  const H = 36;
+  const H = height;
   const pad = 4;
   const min = Math.min(...points);
   const max = Math.max(...points);
@@ -420,6 +589,22 @@ function XpSparkline({ assessments }: { assessments: AssessmentHistoryRow[] }) {
         aria-hidden="true"
       >
         <path d={area} fill="rgba(213,255,12,0.12)" />
+        {/* последняя точка + пульс — «ты здесь» */}
+        <circle
+          cx={coords[coords.length - 1].x}
+          cy={coords[coords.length - 1].y}
+          r={3.5}
+          fill="rgb(var(--c-lime))"
+        />
+        <circle
+          cx={coords[coords.length - 1].x}
+          cy={coords[coords.length - 1].y}
+          fill="none"
+          stroke="rgb(var(--c-lime) / 0.35)"
+        >
+          <animate attributeName="r" values="5;12;5" dur="2.4s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.7;0;0.7" dur="2.4s" repeatCount="indefinite" />
+        </circle>
         <path
           d={line}
           fill="none"
@@ -434,149 +619,6 @@ function XpSparkline({ assessments }: { assessments: AssessmentHistoryRow[] }) {
   );
 }
 
-function HistoryBlock({
-  user,
-  history,
-  isLeadOrStardiz,
-  selfInfo,
-}: {
-  user: UserRow;
-  history: HistoryData | null;
-  isLeadOrStardiz: boolean;
-  /** Phase 14: сводка самооценки — строка над историей. */
-  selfInfo: { count: number; last: string | null } | null;
-}) {
-  if (history === null) return null;
-
-  // Самооценка: лаймовая, если обновлялась после последней published-оценки
-  const selfFresh =
-    selfInfo?.last != null &&
-    (!user.lastAssessedAt || selfInfo.last > user.lastAssessedAt);
-  const selfLine =
-    user.role === 'designer' && selfInfo && selfInfo.count > 0 ? (
-      <div
-        className={`text-xs ${selfFresh ? 'text-lime-dark font-medium' : 'text-stone'}`}
-      >
-        Самооценка: {selfInfo.count}{' '}
-        {plural(selfInfo.count, ['навык', 'навыка', 'навыков'])}
-        {selfInfo.last && ` · обновлена ${formatDate(selfInfo.last)}`}
-        {selfFresh && ' · после последней оценки'}
-      </div>
-    ) : null;
-
-  const showLeadReviews = isLeadOrStardiz;
-  const showAssessments = user.role === 'designer' || user.role === 'stardiz';
-
-  const hasAssessments = showAssessments && history.assessments.length > 0;
-  const hasLeadReviews = showLeadReviews && history.leadReviews.length > 0;
-
-  if (user.role === 'admin' || (!showAssessments && !showLeadReviews)) {
-    return null;
-  }
-
-  // Если совсем нет данных ни одной из применимых категорий — показываем
-  // одну компактную строку-подсказку, а не два пустых блока.
-  if (!hasAssessments && !hasLeadReviews) {
-    return (
-      <div className="px-7 py-4 border-t border-cloud space-y-2">
-        <div className="text-xs text-ash italic">Оценок ещё не было</div>
-        {selfLine}
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-7 py-4 border-t border-cloud space-y-3">
-      {hasAssessments && (
-        <div className="space-y-1">
-          <div className="label-mono text-stone">История оценок</div>
-          {selfLine}
-          <XpSparkline assessments={history.assessments} />
-          {history.assessments.slice(0, 5).map((a, idx) => {
-            const next = history.assessments[idx + 1];
-            const delta =
-              next && a.totalXp !== null && next.totalXp !== null
-                ? a.totalXp - next.totalXp
-                : null;
-            return (
-              <a
-                key={a.id}
-                href={`/lead/portrait?id=${user.id}`}
-                className="flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-card text-sm hover:bg-canvas/60 transition-colors"
-              >
-                <span className="text-stone tabular-nums shrink-0 whitespace-nowrap text-xs w-24">
-                  {formatDate(a.publishedAt)}
-                </span>
-                <span className="flex-1 font-medium truncate">
-                  {a.effectiveGrade
-                    ? GRADE_NAMES[a.effectiveGrade] ?? a.effectiveGrade
-                    : '—'}
-                </span>
-                <span className="text-stone tabular-nums shrink-0 whitespace-nowrap text-xs">
-                  {a.totalXp ?? 0} XP
-                </span>
-                {delta !== null && delta !== 0 && (
-                  <span
-                    className={`tabular-nums shrink-0 text-xs font-medium whitespace-nowrap w-10 text-right ${
-                      delta > 0 ? 'text-emerald' : 'text-blaze'
-                    }`}
-                  >
-                    {delta > 0 ? '+' : ''}
-                    {delta}
-                  </span>
-                )}
-              </a>
-            );
-          })}
-          {history.assessments.length > 5 && (
-            <div className="text-[11px] text-ash italic px-2">
-              + ещё {history.assessments.length - 5} в архиве
-            </div>
-          )}
-        </div>
-      )}
-
-      {hasLeadReviews && (
-        <div className="space-y-1">
-          <div className="label-mono text-stone">360-опросы</div>
-          {history.leadReviews.slice(0, 5).map((r) => (
-            <a
-              key={r.id}
-              href={`/admin/lead-reviews/${r.id}`}
-              className="flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-card text-sm hover:bg-canvas/60 transition-colors"
-            >
-              <span className="font-medium truncate flex-1">{r.period}</span>
-              <span className="text-stone text-xs shrink-0 whitespace-nowrap">
-                {r.responseCount} {pluralResp(r.responseCount)}
-              </span>
-              {r.enps !== null && (
-                <span className="tabular-nums shrink-0 text-xs text-stone whitespace-nowrap">
-                  eNPS{' '}
-                  <strong className="text-ink">{r.enps.toFixed(1)}</strong>
-                </span>
-              )}
-            </a>
-          ))}
-          {history.leadReviews.length > 5 && (
-            <div className="text-[11px] text-ash italic px-2">
-              + ещё {history.leadReviews.length - 5} в архиве
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function plural(n: number, forms: [string, string, string]): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 14) return forms[2];
-  if (mod10 === 1) return forms[0];
-  if (mod10 >= 2 && mod10 <= 4) return forms[1];
-  return forms[2];
-}
-
 function pluralResp(n: number): string {
   const mod10 = n % 10;
   const mod100 = n % 100;
@@ -586,29 +628,13 @@ function pluralResp(n: number): string {
   return 'респондентов';
 }
 
-function Field({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div>
-      <div className="text-[10px] text-stone mb-1">{label}</div>
-      <div className="text-graphite">{value}</div>
-    </div>
-  );
-}
-
 /**
- * Аккордеон «Срок с последнего повышения». Данные грузятся лениво
- * в момент раскрытия — пока пользователь не открыл, нет смысла
- * нагружать ClickHouse.
- *
- * Видимость:
- *  - admin — для дизайнеров и стардизов;
- *  - lead  — только для своих подопечных (designer/stardiz);
- *  - остальные роли не видят блок вовсе.
- *
- * Сумма повышения намеренно НЕ показывается — Pavel хочет, чтобы лиды
- * видели только сам факт «давно/недавно повышали», но не зарплату.
+ * «Пересмотр з/п» — мета-строка с глазом (каркас Pavel 12.07.2026):
+ * значение скрыто до клика (лид может стримить экран), данные тянутся
+ * лениво из ClickHouse-копии HR-портала. Видимость: admin — все
+ * дизайнеры/стардизы, lead — только свои.
  */
-function RaiseBlock({
+function RaiseRow({
   user,
   meRole,
   meId,
@@ -617,9 +643,7 @@ function RaiseBlock({
   meRole: string;
   meId: number | null;
 }) {
-  // Только для дизайнеров и стардизов имеет смысл
   const isTarget = user.role === 'designer' || user.role === 'stardiz';
-  // Видимость: admin — всех, lead — только своих
   const isMineForLead = meRole === 'lead' && meId !== null && user.leadId === meId;
   const canView = meRole === 'admin' || isMineForLead;
 
@@ -642,37 +666,41 @@ function RaiseBlock({
   if (!isTarget || !canView) return null;
 
   return (
-    <div className="border-t border-cloud">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full px-7 py-3 flex items-center justify-between text-sm text-stone hover:bg-canvas/40 transition-colors"
-      >
-        <span>Срок с последнего повышения</span>
-        <ChevronDownIcon
-          className={`w-4 h-4 transition-transform duration-150 ${
-            open ? 'rotate-180' : ''
-          }`}
-        />
-      </button>
-      {open && (
-        <div className="px-7 pb-4 -mt-1 text-sm">
+    <div className="flex items-center gap-3">
+      <span className="text-stone">Пересмотр з/п</span>
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="ml-auto inline-flex items-center gap-1.5 text-stone hover:text-ink transition-colors"
+        >
+          <EyeIcon className="w-4 h-4" />
+          Раскрыть
+        </button>
+      ) : (
+        <span className="ml-auto text-ink text-right">
           {loading && <span className="text-stone italic">Загрузка…</span>}
           {!loading && error && (
-            <span className="text-ash italic">Данные о повышениях недоступны</span>
+            <span className="text-ash italic">Данные недоступны</span>
           )}
           {!loading && !error && data && (
             data.lastRaiseAt ? (
-              <span className="text-graphite font-medium">
-                {formatRaisePeriod(data.lastRaiseAt)}
-              </span>
+              formatRaisePeriod(data.lastRaiseAt)
             ) : (
-              <span className="text-ash italic">Повышений не зафиксировано</span>
+              <span className="text-ash italic">Не зафиксировано</span>
             )
           )}
-        </div>
+        </span>
       )}
     </div>
+  );
+}
+
+function EyeIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 3C17.392 3 21.878 6.88 22.819 12C21.879 17.12 17.392 21 12 21C6.60803 21 2.12215 17.12 1.18164 12C2.12119 6.88 6.60803 3 12 3ZM12 19C16.2359 19 19.8603 16.052 20.7777 12C19.8603 7.948 16.2359 5 12 5C7.76412 5 4.13965 7.948 3.22227 12C4.13965 16.052 7.76412 19 12 19ZM12 16.5C9.51472 16.5 7.5 14.4853 7.5 12C7.5 9.51472 9.51472 7.5 12 7.5C14.4853 7.5 16.5 9.51472 16.5 12C16.5 14.4853 14.4853 16.5 12 16.5ZM12 14.5C13.3807 14.5 14.5 13.3807 14.5 12C14.5 10.6193 13.3807 9.5 12 9.5C10.6193 9.5 9.5 10.6193 9.5 12C9.5 13.3807 10.6193 14.5 12 14.5Z" />
+    </svg>
   );
 }
 
