@@ -17,7 +17,7 @@ export default async function LeadLayout({ children }: { children: React.ReactNo
   const navItems = isAdminish
     ? [
         { href: '/admin/users', label: 'Команда' },
-        { href: '/admin/matrix', label: 'Матрица' },
+        { href: '/admin/matrix', label: 'Скиллы' },
         { href: '/admin/grades', label: 'Грейды' },
         { href: '/lead/assessments', label: 'Оценки' },
         // Аудит-лог (Phase 19) — admin и lead. Стандартный пункт нав-меню.

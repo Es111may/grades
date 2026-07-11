@@ -84,14 +84,14 @@ export default function AssessmentsClient({
           для админа — все. Skoupe строится на сервере (page.tsx). */}
       {drafts.length > 0 && (
         <section className="mb-8 animate-fade-up" style={{ animationDelay: '70ms' }}>
-          <div className="flex items-baseline justify-between mb-3">
+          <div className="text-center mb-6">
             <h2 className="font-display text-xl font-medium tracking-tight">
               Черновики
               <span className="ml-2 text-sm text-stone font-normal tabular-nums">
                 {drafts.length}
               </span>
             </h2>
-            <p className="text-xs text-stone">
+            <p className="text-xs text-stone mt-1">
               Незаконченные оценки — можно продолжить любой
             </p>
           </div>

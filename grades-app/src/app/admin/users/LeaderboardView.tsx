@@ -398,24 +398,32 @@ function TeamBento({ stats }: { stats: TeamStats }) {
   return (
     <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
       {/* NIPC — та же анатомия, что у соседей: число · описание · бар */}
-      <div className="card p-5 flex flex-col">
+      <div className="card p-5 flex flex-col min-h-[188px]">
         <div className="label-mono text-stone">Dream Team Index · NIPC</div>
         <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
           {stats.nipcPercent == null ? '—' : `${stats.nipcPercent}%`}
         </div>
         <div className="text-xs text-stone mt-2 leading-relaxed">
-          ({stats.nipcStars + stats.nipcHpot + stats.nipcHperf} в верхней триаде −{' '}
+          ({stats.nipcStars + stats.nipcHpot + stats.nipcHperf} сверху триады −{' '}
           {stats.nipcRisk} {stats.nipcRisk === 1 ? 'зона' : 'зоны'} риска) /{' '}
-          {stats.nipcTotal} ·{' '}
-          <span
-            className={
-              (stats.nipcPercent ?? 0) > 35 ? 'text-emerald font-medium' : ''
-            }
-          >
-            цель &gt;35%{(stats.nipcPercent ?? 0) > 35 ? ' — есть' : ''}
-          </span>
+          {stats.nipcTotal}
         </div>
-        {/* Бар с риской цели на 35% */}
+        <div className="text-xs text-stone mt-1">
+          Цель &gt;{' '}
+          {[20, 35, 50].map((g, i) => (
+            <span key={g}>
+              {i > 0 && ' / '}
+              <span
+                className={
+                  (stats.nipcPercent ?? 0) > g ? 'text-emerald font-medium' : ''
+                }
+              >
+                {g}
+              </span>
+            </span>
+          ))}
+        </div>
+        {/* Бар с рисками целей 20/35/50 */}
         <div className="relative h-1 bg-cloud rounded-full mt-auto">
           <div
             className="absolute inset-y-0 left-0 bg-emerald rounded-full"
@@ -423,14 +431,18 @@ function TeamBento({ stats }: { stats: TeamStats }) {
               width: `${Math.max(0, Math.min(100, stats.nipcPercent ?? 0))}%`,
             }}
           />
-          <div
-            className="absolute left-[35%] -top-[3px] h-2.5 w-px bg-ash/80"
-            title="Цель >35%"
-            aria-hidden
-          />
+          {[20, 35, 50].map((g) => (
+            <div
+              key={g}
+              className="absolute -top-[3px] h-2.5 w-px bg-ash/80"
+              style={{ left: `${g}%` }}
+              title={`Цель >${g}%`}
+              aria-hidden
+            />
+          ))}
         </div>
       </div>
-      <div className="card p-5 flex flex-col">
+      <div className="card p-5 flex flex-col min-h-[188px]">
         <div className="label-mono text-stone">В срок · команда</div>
         {/* Цифра белая, как в концепте (семантика цвета — в колонке таблицы) */}
         <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
@@ -442,7 +454,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
           <OnTimeSparkline points={stats.onTimeSpark} />
         )}
       </div>
-      <div className="card p-5 flex flex-col">
+      <div className="card p-5 flex flex-col min-h-[188px]">
         <div className="label-mono text-stone">Скорость роста · медиана</div>
         <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
           {growth}
@@ -466,7 +478,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
           />
         </div>
       </div>
-      <div className="card p-5 flex flex-col">
+      <div className="card p-5 flex flex-col min-h-[188px]">
         <div className="label-mono text-stone">Сезон оценок</div>
         <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
           {stats.gradedCount}

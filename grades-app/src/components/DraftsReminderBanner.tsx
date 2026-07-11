@@ -39,7 +39,7 @@ export default function DraftsReminderBanner({
   const cls = hasStale
     ? highlighted
       ? 'bg-blaze text-white'
-      : 'bg-blaze/10 text-blaze'
+      : 'bg-blaze/10 text-blaze backdrop-blur-xl border border-blaze/15'
     : highlighted
       ? 'bg-cloud/60 text-graphite'
       : 'bg-cloud/40 text-stone';

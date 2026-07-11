@@ -313,7 +313,7 @@ export default function Portrait({
         <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6">
           {data.designer.fullName}
         </h1>
-        <div className="flex items-center justify-center gap-1.5 flex-wrap mt-3.5">
+        <div className="flex items-center justify-center gap-1 flex-wrap mt-3.5">
           <span className="chip bg-ink text-snow">
             {GRADE_NAMES[data.effectiveGrade]}
           </span>

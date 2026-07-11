@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Avatar from '@/components/Avatar';
@@ -153,8 +153,12 @@ export default function LeadReviewView({
         <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6">
           {target.fullName}
         </h1>
-        <div className="flex items-center justify-center gap-1.5 flex-wrap mt-3.5">
-          <span className="chip bg-ink text-snow">{review.period}</span>
+        <div className="flex items-center justify-center gap-1 flex-wrap mt-3.5">
+          {siblings.length > 1 ? (
+            <CyclesSwitcher siblings={siblings} currentId={review.id} />
+          ) : (
+            <span className="chip bg-ink text-snow">{review.period}</span>
+          )}
           <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
             {target.role === 'lead' ? 'Лид' : 'Стардиз'}
           </span>
@@ -196,13 +200,6 @@ export default function LeadReviewView({
           </div>
         )}
       </div>
-
-      {/* Переключатель циклов — по центру, под hero */}
-      {siblings.length > 1 && (
-        <div className="mb-6 flex justify-center">
-          <CyclesSwitcher siblings={siblings} currentId={review.id} />
-        </div>
-      )}
 
       {/* === Статистика: eNPS + (Diff/RoleComparison) === */}
       <section id="stats" className="scroll-mt-24">
@@ -340,6 +337,8 @@ export default function LeadReviewView({
   );
 }
 
+/** Выбор цикла — дропдаун-чип в ряду тегов hero (как на портрете
+ *  дизайнера). Триггер — glass-чип с текущим периодом. */
 function CyclesSwitcher({
   siblings,
   currentId,
@@ -347,19 +346,49 @@ function CyclesSwitcher({
   siblings: Sibling[];
   currentId: number;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+  const current = siblings.find((s) => s.id === currentId);
   return (
-    <div className="segmented">
-      {siblings.map((s) => (
-        <Link
-          key={s.id}
-          href={`/admin/lead-reviews/${s.id}`}
-          className={`segmented-item whitespace-nowrap ${
-            s.id === currentId ? 'segmented-item-active' : ''
-          }`}
-        >
-          {s.period}
-        </Link>
-      ))}
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink
+                   cursor-pointer hover:bg-snow/80 transition-colors"
+      >
+        {current?.period ?? `#${currentId}`}
+        <ChevronDownIcon
+          className={`w-3 h-3 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 card p-1.5 min-w-[210px] shadow-soft-lg animate-scale-in text-left">
+          {siblings.map((s) => (
+            <Link
+              key={s.id}
+              href={`/admin/lead-reviews/${s.id}`}
+              className={`flex items-center justify-between gap-3 px-3 py-2 rounded-[10px] text-xs transition-colors ${
+                s.id === currentId
+                  ? 'bg-cloud/60 text-ink font-medium'
+                  : 'text-stone hover:bg-canvas hover:text-ink'
+              }`}
+            >
+              <span className="whitespace-nowrap">{s.period}</span>
+              <span className="text-ash whitespace-nowrap">
+                {s.responseCount} отв.
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

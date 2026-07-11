@@ -22,7 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const navItems = isAdminish
     ? [
         { href: '/admin/users', label: 'Команда' },
-        { href: '/admin/matrix', label: 'Матрица' },
+        { href: '/admin/matrix', label: 'Скиллы' },
         { href: '/admin/grades', label: 'Грейды' },
         { href: '/lead/assessments', label: 'Оценки' },
         // Аудит-лог (Phase 19) — admin и lead. Стардизам не показываем,

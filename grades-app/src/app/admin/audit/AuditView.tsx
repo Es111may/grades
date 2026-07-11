@@ -143,7 +143,7 @@ export default function AuditView({
             <select
               value={actorId}
               onChange={(e) => setActorId(e.target.value)}
-              className="input input-sm"
+              className="select-pill"
             >
               <option value="">Все</option>
               {actors.map((a) => (
@@ -158,7 +158,7 @@ export default function AuditView({
             <select
               value={action}
               onChange={(e) => setAction(e.target.value)}
-              className="input input-sm"
+              className="select-pill"
             >
               <option value="">Все</option>
               {knownActions.map((a) => (
@@ -173,7 +173,7 @@ export default function AuditView({
             <select
               value={targetType}
               onChange={(e) => setTargetType(e.target.value)}
-              className="input input-sm"
+              className="select-pill"
             >
               <option value="">Все</option>
               {knownTargetTypes.map((t) => (
@@ -189,7 +189,7 @@ export default function AuditView({
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="input input-sm"
+              className="select-pill"
             />
           </FilterField>
 
@@ -198,7 +198,7 @@ export default function AuditView({
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="input input-sm"
+              className="select-pill"
             />
           </FilterField>
         </div>

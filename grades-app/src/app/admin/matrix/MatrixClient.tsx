@@ -201,7 +201,7 @@ export default function MatrixClient({
               filtered.find((s) => s.taxonomyCode === code)?.taxonomyName ?? code;
             return (
               <div key={code}>
-                <h2 className="font-display text-2xl tracking-tight mb-4">{taxName}</h2>
+                <h2 className="font-display text-2xl tracking-tight text-center mt-4 mb-7">{taxName}</h2>
                 <div className="space-y-4">
                   {Array.from(taxMap.entries()).map(([groupName, skills]) => (
                     <div
