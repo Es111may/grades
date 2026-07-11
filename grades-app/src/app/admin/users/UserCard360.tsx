@@ -28,6 +28,14 @@ type HistoryData = {
   leadReviews: LeadReviewHistoryRow[];
 };
 
+type NoteRow = {
+  id: number;
+  text: string;
+  createdAt: string;
+  authorId: number;
+  author: { fullName: string };
+};
+
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Админ',
   lead: 'Лид',
@@ -110,6 +118,29 @@ export default function UserCard360({
       cancelled = true;
     };
   }, [user.id, user.role]);
+
+  // Заметки по дизайнеру — приватные для admin/lead
+  const canSeeNotes =
+    (meRole === 'admin' || meRole === 'lead') && user.role === 'designer';
+  const [notes, setNotes] = useState<NoteRow[]>([]);
+  useEffect(() => {
+    if (!canSeeNotes) return;
+    let cancelled = false;
+    fetch(`/api/users/${user.id}/notes`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => {
+        if (!cancelled && Array.isArray(d)) setNotes(d);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, canSeeNotes]);
+
+  async function deleteNote(noteId: number) {
+    const res = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
+    if (res.ok) setNotes((prev) => prev.filter((n) => n.id !== noteId));
+  }
 
   // Ленивая подгрузка истории оценок (Assessment'ов и LeadReview'ов).
   const [history, setHistory] = useState<HistoryData | null>(null);
@@ -378,8 +409,6 @@ export default function UserCard360({
             <div className="px-6 pt-8 pb-7">
               <TrendSparkline
                 points={[...history.assessments].reverse().map((a) => a.totalXp ?? 0)}
-                label="Динамика XP"
-                unit=" XP"
                 height={110}
               />
               <div className="flex items-baseline gap-2.5 mt-4 text-sm">
@@ -406,6 +435,44 @@ export default function UserCard360({
                 </span>
               </div>
             </div>
+            </>
+          )}
+
+          {/* Заметки по дизайнеру — приватные (admin/lead), с удалением */}
+          {canSeeNotes && notes.length > 0 && (
+            <>
+              <div className="mx-6 h-px bg-cloud" />
+              <div className="px-6 pt-6 pb-5">
+                <div className="label-mono text-stone mb-3">Заметки</div>
+                <div className="space-y-2.5">
+                  {notes.map((n) => (
+                    <div
+                      key={n.id}
+                      className="bg-canvas border border-cloud rounded-card p-3.5 relative group"
+                    >
+                      {(meRole === 'admin' || n.authorId === meId) && (
+                        <button
+                          type="button"
+                          onClick={() => deleteNote(n.id)}
+                          className="absolute top-2 right-2 w-6 h-6 rounded-pill
+                                     flex items-center justify-center text-ash
+                                     hover:text-blaze hover:bg-blaze/10
+                                     opacity-0 group-hover:opacity-100 transition-all"
+                          aria-label="Удалить заметку"
+                        >
+                          ×
+                        </button>
+                      )}
+                      <div className="text-sm whitespace-pre-wrap leading-relaxed pr-6">
+                        {n.text}
+                      </div>
+                      <div className="text-xs text-stone mt-1.5">
+                        {n.author.fullName} · {formatDate(n.createdAt)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </>
           )}
 

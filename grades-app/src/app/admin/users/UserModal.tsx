@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Avatar from '@/components/Avatar';
 import { EditIcon, CloseIcon } from '@/components/icons';
+import { formatDateShort } from '@/lib/dates';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -10,6 +11,7 @@ type Note = {
   id: number;
   text: string;
   createdAt: string;
+  authorId: number;
   author: { fullName: string };
 };
 
@@ -329,6 +331,16 @@ export default function UserModal({
       const j = await res.json().catch(() => ({}));
       alert(j.message ?? j.error ?? 'Не получилось удалить навсегда');
       setHardBusy(false);
+    }
+  }
+
+  async function handleDeleteNote(noteId: number) {
+    const res = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
+    if (res.ok) {
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    } else {
+      const j = await res.json().catch(() => ({}));
+      alert(`Не удалилось: ${j.error ?? res.statusText}`);
     }
   }
 
@@ -713,18 +725,24 @@ export default function UserModal({
                   {notes.map((n) => (
                     <div
                       key={n.id}
-                      className="bg-canvas border border-cloud rounded-card p-4"
+                      className="bg-canvas border border-cloud rounded-card p-4 relative group"
                     >
-                      <div className="text-sm whitespace-pre-wrap">{n.text}</div>
+                      {(isAdmin || n.authorId === meId) && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteNote(n.id)}
+                          className="absolute top-2.5 right-2.5 w-6 h-6 rounded-pill
+                                     flex items-center justify-center text-ash
+                                     hover:text-blaze hover:bg-blaze/10
+                                     opacity-0 group-hover:opacity-100 transition-all"
+                          aria-label="Удалить заметку"
+                        >
+                          ×
+                        </button>
+                      )}
+                      <div className="text-sm whitespace-pre-wrap pr-6">{n.text}</div>
                       <div className="text-xs text-stone mt-2">
-                        {n.author.fullName} ·{' '}
-                        {new Date(n.createdAt).toLocaleDateString('ru-RU', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {n.author.fullName} · {formatDateShort(n.createdAt)}
                       </div>
                     </div>
                   ))}
