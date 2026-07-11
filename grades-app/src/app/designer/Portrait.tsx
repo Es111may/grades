@@ -8,7 +8,8 @@ import {
   PointElement,
   LineElement,
   Filler,
-  Tooltip,
+  // Alias: имя Tooltip занято нашим UI-компонентом хинтов
+  Tooltip as ChartJsTooltip,
   Legend,
 } from 'chart.js';
 import { Radar } from 'react-chartjs-2';
@@ -26,7 +27,7 @@ import { useTheme, CHART_AXIS } from '@/lib/theme';
 import TitleAurora from '@/components/TitleAurora';
 import Tooltip from '@/components/Tooltip';
 
-ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartJsTooltip, Legend);
 
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
 const TAXONOMY_COLOR: Record<string, string> = {
