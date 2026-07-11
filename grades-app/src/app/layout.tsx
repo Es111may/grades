@@ -5,6 +5,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Грейды',
   description: 'Веб-сервис грейдирования дизайнеров',
+  manifest: '/manifest.webmanifest',
 };
 
 export default function RootLayout({
