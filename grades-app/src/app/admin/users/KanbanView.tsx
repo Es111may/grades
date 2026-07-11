@@ -36,7 +36,7 @@ const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plu
 
 const ROLE_TONE: Record<string, string> = {
   admin: 'bg-sunset/15 text-sunset',
-  lead: 'bg-lime-light text-graphite border border-lime/30',
+  lead: 'bg-lime/15 text-lime-dark',
   stardiz: 'bg-[#bf5af2]/15 text-[#bf5af2]',
   designer: 'bg-cloud/60 text-stone',
 };

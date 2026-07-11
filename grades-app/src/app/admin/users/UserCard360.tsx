@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import Avatar from '@/components/Avatar';
 import { CloseIcon } from '@/components/icons';
@@ -47,7 +47,7 @@ const ROLE_LABEL: Record<string, string> = {
 // (одинаковый размер и шрифт, отличается только фон/текст).
 const ROLE_TONE: Record<string, string> = {
   admin: 'bg-sunset/15 text-sunset',
-  lead: 'bg-lime-light text-graphite border border-lime/30',
+  lead: 'bg-lime/15 text-lime-dark',
   stardiz: 'bg-[#bf5af2]/15 text-[#bf5af2]',
   designer: 'bg-cloud/60 text-stone',
 };
@@ -683,6 +683,7 @@ function TrendSparkline({
   height?: number;
   deltaDigits?: number;
 }) {
+  const gid = useId();
   if (points.length < 2) return null;
 
   const W = 300;
@@ -695,9 +696,19 @@ function TrendSparkline({
     x: pad + (i / (points.length - 1)) * (W - pad * 2),
     y: H - pad - ((v - min) / range) * (H - pad * 2),
   }));
-  const line = coords
-    .map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`)
-    .join(' ');
+  // Сглаженная кривая (Catmull-Rom → кубические Безье) — вместо ломаной
+  let line = `M ${coords[0].x.toFixed(1)} ${coords[0].y.toFixed(1)}`;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p0 = coords[i - 1] ?? coords[i];
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    const p3 = coords[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    line += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
   const area = `${line} L ${coords[coords.length - 1].x.toFixed(1)} ${H} L ${coords[0].x.toFixed(1)} ${H} Z`;
   const totalDelta = points[points.length - 1] - points[0];
 
@@ -725,7 +736,24 @@ function TrendSparkline({
         className="block"
         aria-hidden="true"
       >
-        <path d={area} fill="rgba(213,255,12,0.12)" />
+        <defs>
+          {/* Заливка тает к низу — глубина вместо плоского пятна */}
+          <linearGradient id={`tsg-${gid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="rgb(var(--c-lime))" stopOpacity="0.22" />
+            <stop offset="1" stopColor="rgb(var(--c-lime))" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill={`url(#tsg-${gid})`} />
+        {/* Мягкий глоу под основной линией */}
+        <path
+          d={line}
+          fill="none"
+          stroke="rgb(var(--c-lime) / 0.22)"
+          strokeWidth={6}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
         {/* последняя точка + пульс — «ты здесь» */}
         <circle
           cx={coords[coords.length - 1].x}
@@ -745,8 +773,8 @@ function TrendSparkline({
         <path
           d={line}
           fill="none"
-          stroke="#d5ff0c"
-          strokeWidth={1.75}
+          stroke="rgb(var(--c-lime))"
+          strokeWidth={2}
           strokeLinejoin="round"
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
