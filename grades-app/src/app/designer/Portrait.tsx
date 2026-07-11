@@ -1309,6 +1309,9 @@ function SkillAccordion({
   onRemoveEvidence: (skillId: number, evidenceId: number) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // Phase 14: форма «Добавить ссылку» и индикатор автосейва комментария
+  const [evidenceFormOpen, setEvidenceFormOpen] = useState(false);
+  const [commentSaved, setCommentSaved] = useState(true);
   const hasContent = skill.description || skill.levels.length > 0;
   const earnedXp = skill.masteryLevel * skill.weight;
   const maxXp = skill.maxMasteryLevel * skill.weight;
@@ -1332,10 +1335,10 @@ function SkillAccordion({
         ) : (
           <span className="chip-neutral shrink-0 text-ash">Не оценено</span>
         )}
-        {/* Phase 14: самооценка — glass-чип рядом с уровнем лида */}
+        {/* Phase 14: самооценка — «Я: уровень / максимум» */}
         {self && (
           <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink shrink-0">
-            Я: {self.level}
+            Я: {self.level} / {skill.maxMasteryLevel}
           </span>
         )}
         <span className="text-xs text-stone tabular-nums shrink-0 w-12 text-right">
@@ -1390,7 +1393,9 @@ function SkillAccordion({
                   className={`flex items-start gap-3 p-4 rounded-card border transition-colors ${
                     selected
                       ? 'border-ink bg-canvas/60'
-                      : 'border-cloud bg-snow'
+                      : isSelf
+                        ? 'border-lime/50 bg-lime/[0.05]'
+                        : 'border-cloud bg-snow'
                   } ${canEditSelf ? 'cursor-pointer hover:border-ash' : ''}`}
                 >
                   <span
@@ -1412,18 +1417,17 @@ function SkillAccordion({
                       </div>
                     )}
                   </div>
-                  {/* Phase 14: контурная метка самооценки */}
+                  {/* Phase 14: явная метка самооценки */}
                   {isSelf && (
                     <span
-                      className="label-mono shrink-0 self-start mt-0.5 px-1.5 py-0.5 rounded-pill
-                                 border border-ink/50 text-ink"
+                      className="chip-accent shrink-0 self-start"
                       title={
                         self?.updatedAt
                           ? `Самооценка от ${formatPublishedDate(self.updatedAt)}`
                           : 'Самооценка'
                       }
                     >
-                      Я
+                      Моя оценка
                     </span>
                   )}
                   <div className="shrink-0 text-xs text-stone tabular-nums self-start mt-0.5">
@@ -1436,14 +1440,25 @@ function SkillAccordion({
 
           {/* Phase 14: комментарий к самооценке (владелец, если уровень отмечен) */}
           {canEditSelf && self && (
-            <input
-              type="text"
-              defaultValue={self.comment ?? ''}
-              placeholder="Комментарий к самооценке (необязательно)"
-              maxLength={2000}
-              onBlur={(e) => onSaveSelfComment(skill.id, e.target.value)}
-              className="input text-xs"
-            />
+            <div>
+              <input
+                type="text"
+                defaultValue={self.comment ?? ''}
+                placeholder="Комментарий к самооценке (необязательно)"
+                maxLength={2000}
+                onChange={() => setCommentSaved(false)}
+                onBlur={(e) => {
+                  onSaveSelfComment(skill.id, e.target.value);
+                  setCommentSaved(true);
+                }}
+                className="input text-xs"
+              />
+              <div className={`text-[11px] mt-1 ${commentSaved ? 'text-emerald' : 'text-ash'}`}>
+                {commentSaved
+                  ? 'Сохранено'
+                  : 'Сохранится само, когда уберёшь курсор с поля'}
+              </div>
+            </div>
           )}
           {/* Комментарий самооценки для зрителя-mgmt */}
           {!canEditSelf && self?.comment && (
@@ -1453,44 +1468,55 @@ function SkillAccordion({
             </div>
           )}
 
-          {/* Phase 14: подтверждения-ссылки */}
+          {/* Phase 14: подтверждения — компактные теги + явная кнопка */}
           {selfLoaded && (canEditSelf || evidences.length > 0) && (
-            <div className="pt-3 border-t border-cloud/60 space-y-2">
-              <div className="text-xs font-medium text-stone">
-                {canEditSelf ? 'Мои подтверждения' : 'Подтверждения'}
-                {evidences.length > 0 && ` · ${evidences.length}`}
-              </div>
-              {evidences.map((ev) => (
-                <div key={ev.id} className="flex items-baseline gap-2 text-xs min-w-0">
-                  <a
-                    href={ev.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sky hover:underline truncate"
-                    title={ev.url}
+            <div className="pt-3 border-t border-cloud/60 space-y-2.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-medium text-stone shrink-0">
+                  {canEditSelf ? 'Мои подтверждения' : 'Подтверждения'}
+                  {evidences.length > 0 && ` · ${evidences.length}`}
+                </span>
+                {evidences.map((ev) => (
+                  <span
+                    key={ev.id}
+                    className="inline-flex items-center gap-1.5 chip bg-ink/[0.07] text-ink max-w-[280px]"
                   >
-                    {ev.title}
-                  </a>
-                  {ev.description && (
-                    <span className="text-stone truncate">— {ev.description}</span>
-                  )}
-                  <span className="text-ash whitespace-nowrap ml-auto shrink-0">
-                    {formatPublishedDate(ev.createdAt)}
-                  </span>
-                  {canEditSelf && (
-                    <button
-                      type="button"
-                      onClick={() => onRemoveEvidence(skill.id, ev.id)}
-                      className="text-ash hover:text-blaze shrink-0"
-                      aria-label="Удалить ссылку"
+                    <a
+                      href={ev.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate hover:underline"
+                      title={`${ev.title}${ev.description ? ` — ${ev.description}` : ''} · ${formatPublishedDate(ev.createdAt)}`}
                     >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ))}
-              {canEditSelf && (
-                <EvidenceForm onAdd={(payload) => onAddEvidence(skill.id, payload)} />
+                      {ev.title}
+                    </a>
+                    {canEditSelf && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveEvidence(skill.id, ev.id)}
+                        className="text-ash hover:text-blaze shrink-0"
+                        aria-label="Удалить ссылку"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                ))}
+                {canEditSelf && !evidenceFormOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setEvidenceFormOpen(true)}
+                    className="btn-secondary btn-sm ml-auto shrink-0"
+                  >
+                    Добавить
+                  </button>
+                )}
+              </div>
+              {canEditSelf && evidenceFormOpen && (
+                <EvidenceForm
+                  onAdd={(payload) => onAddEvidence(skill.id, payload)}
+                  onClose={() => setEvidenceFormOpen(false)}
+                />
               )}
             </div>
           )}
@@ -1500,30 +1526,20 @@ function SkillAccordion({
   );
 }
 
-/** Phase 14: inline-форма «+ ссылка» для подтверждений. */
+/** Phase 14: форма добавления ссылки-подтверждения (открывает родитель
+ *  кнопкой «Добавить»). */
 function EvidenceForm({
   onAdd,
+  onClose,
 }: {
   onAdd: (payload: { url: string; title: string; description?: string }) => Promise<boolean>;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="text-xs text-stone hover:text-ink transition-colors"
-      >
-        + ссылка
-      </button>
-    );
-  }
 
   async function submit() {
     if (!url.trim() || !title.trim() || saving) return;
@@ -1539,7 +1555,7 @@ function EvidenceForm({
       setUrl('');
       setTitle('');
       setDescription('');
-      setOpen(false);
+      onClose();
     } else {
       setError(true);
     }
@@ -1587,7 +1603,7 @@ function EvidenceForm({
         </button>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={onClose}
           className="text-xs text-stone hover:text-ink"
         >
           Отмена
