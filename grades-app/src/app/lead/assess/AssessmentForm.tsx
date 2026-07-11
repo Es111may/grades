@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { GRADE_NAMES, GRADE_ORDER, BUILD_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
-import { CheckIcon, FlagIcon } from '@/components/icons';
+import { CheckIcon, FlagIcon, ChevronDownIcon } from '@/components/icons';
 import { MarkdownTextarea } from '@/components/Markdown';
 
 type SkillData = {
