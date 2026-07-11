@@ -678,7 +678,12 @@ function RaiseRow({
           Раскрыть
         </button>
       ) : (
-        <span className="ml-auto text-ink text-right">
+        /* Повторный клик — скрыть обратно (Pavel) */
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="ml-auto text-ink text-right hover:text-stone transition-colors"
+        >
           {loading && <span className="text-stone italic">Загрузка…</span>}
           {!loading && error && (
             <span className="text-ash italic">Данные недоступны</span>
@@ -690,7 +695,7 @@ function RaiseRow({
               <span className="text-ash italic">Не зафиксировано</span>
             )
           )}
-        </span>
+        </button>
       )}
     </div>
   );
