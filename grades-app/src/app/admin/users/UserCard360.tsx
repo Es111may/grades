@@ -92,6 +92,32 @@ export default function UserCard360({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Phase 14: сводка самооценки — количество и свежесть (для чипа).
+  const [selfInfo, setSelfInfo] = useState<{ count: number; last: string | null } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (user.role !== 'designer') return;
+    let cancelled = false;
+    fetch(`/api/users/${user.id}/self-assessment`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        const last = d.selfAssessments.reduce(
+          (acc: string | null, sa: { updatedAt: string }) =>
+            !acc || sa.updatedAt > acc ? sa.updatedAt : acc,
+          null,
+        );
+        setSelfInfo({ count: d.selfAssessments.length, last });
+      })
+      .catch(() => {
+        // чип самооценки опционален
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, user.role]);
+
   // Ленивая подгрузка истории оценок (Assessment'ов и LeadReview'ов).
   const [history, setHistory] = useState<HistoryData | null>(null);
   useEffect(() => {
@@ -171,7 +197,7 @@ export default function UserCard360({
         className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-xl bg-snow rounded-modal shadow-soft-lg overflow-hidden">
+      <div className="relative w-full max-w-2xl bg-snow rounded-modal shadow-soft-lg overflow-hidden">
         {/* Header — теперь шапка несёт и роль/билд/грейд/«последняя оценка»
             одним блоком чипов под именем. Это убирает большую Grade-карточку
             и делает попап короче на ~100px. */}
@@ -215,6 +241,29 @@ export default function UserCard360({
                     <b className="font-medium">{Math.round(user.compositeScore * 100)}</b>
                     {rank != null && <span className="text-white/75">№{rank}</span>}
                   </span>
+                )}
+                {/* Phase 14: самооценка — лаймовый чип, если обновлена
+                    после последней опубликованной оценки (есть что смотреть) */}
+                {selfInfo && selfInfo.count > 0 && (
+                  <Tooltip
+                    align="center"
+                    text={
+                      selfInfo.last
+                        ? `Обновлена ${formatDate(selfInfo.last)}`
+                        : 'Самооценка дизайнера'
+                    }
+                  >
+                    <span
+                      className={`chip ${
+                        selfInfo.last &&
+                        (!user.lastAssessedAt || selfInfo.last > user.lastAssessedAt)
+                          ? 'bg-lime-light text-graphite border border-lime/30'
+                          : 'bg-ink/[0.07] text-stone'
+                      }`}
+                    >
+                      Самооценка: {selfInfo.count}
+                    </span>
+                  </Tooltip>
                 )}
                 <span className={`chip ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
                   {ROLE_LABEL[user.role] ?? user.role}

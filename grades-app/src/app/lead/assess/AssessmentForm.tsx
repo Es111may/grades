@@ -546,6 +546,17 @@ export default function AssessmentForm({
                         {tax.taxName}
                       </span>
                       <span className="flex items-center gap-1.5 shrink-0">
+                        {/* Phase 14: сколько навыков раздела дизайнер оценил сам */}
+                        {taxSkills.filter((sk) => selfBySkill[sk.id]).length > 0 && (
+                          <Tooltip
+                            align="right"
+                            text="Навыков с самооценкой дизайнера в этом разделе"
+                          >
+                            <span className="text-[10px] text-lime-dark font-medium tabular-nums">
+                              Сам {taxSkills.filter((sk) => selfBySkill[sk.id]).length}
+                            </span>
+                          </Tooltip>
+                        )}
                         {taxFlagged > 0 && (
                           <Tooltip text="Помечено к возврату" align="right">
                             <span className="inline-flex items-center gap-0.5 text-[10px] text-blaze font-medium tabular-nums">
