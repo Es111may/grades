@@ -487,11 +487,7 @@ export default function Portrait({
           {isSelfOwner && (
             <button
               type="button"
-              onClick={() =>
-                document
-                  .getElementById('skills')
-                  ?.scrollIntoView({ behavior: 'smooth' })
-              }
+              onClick={scrollToSkills}
               title="Отметь уровни владения навыками и приложи ссылки-подтверждения — лид увидит их при грейдировании. На XP и грейд самооценка не влияет."
               className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
                          bg-snow/60 backdrop-blur-md border border-cloud/40
@@ -1293,6 +1289,23 @@ function GroupBreakdown({
       </div>
     </div>
   );
+}
+
+/** Скролл к разделу «Навыки» с само-коррекцией: блоки выше (перформанс,
+ *  чек-листы) догружаются асинхронно и сдвигают якорь — без коррекции
+ *  первый клик промахивался. 96px = scroll-mt-24. */
+function scrollToSkills() {
+  document.getElementById('skills')?.scrollIntoView({ behavior: 'smooth' });
+  const correct = () => {
+    const el = document.getElementById('skills');
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    if (Math.abs(top - 96) > 12) {
+      window.scrollTo({ top: window.scrollY + top - 96, behavior: 'auto' });
+    }
+  };
+  setTimeout(correct, 700);
+  setTimeout(correct, 1400);
 }
 
 /** Phase 14: информер «как работает самооценка» — поповер по ховеру. */
