@@ -42,10 +42,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         navItems={navItems}
       />
       {/* Капсулы-уведомления живут ПОД Dynamic Island-хедером.
-          DraftsReminder — асинхронный server-component, сам fetch'ит
-          зависшие черновики; возвращает null, если их нет. */}
-      <AssessmentReminder />
-      <DraftsReminder />
+          pt-3 = 12px компенсирует sticky-сдвиг острова (`top-3`): его
+          flow-бокс на 12px выше визуального положения, без поправки
+          капсула заезжала бы под остров. Внутри капсулы держат зазор
+          8px (mt-2). DraftsReminder — асинхронный server-component,
+          сам fetch'ит зависшие черновики; возвращает null, если их нет. */}
+      <div className="pt-3">
+        <AssessmentReminder />
+        <DraftsReminder />
+      </div>
       {children}
     </>
   );

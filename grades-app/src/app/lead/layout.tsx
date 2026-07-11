@@ -35,9 +35,12 @@ export default async function LeadLayout({ children }: { children: React.ReactNo
         user={{ id: user.id, fullName: user.name ?? user.email ?? '—', role: user.role }}
         navItems={navItems}
       />
-      {/* Капсулы-уведомления — под Dynamic Island-хедером */}
-      <AssessmentReminder />
-      <DraftsReminder />
+      {/* Капсулы-уведомления — под Dynamic Island-хедером. pt-3 компенсирует
+          sticky-сдвиг острова (`top-3`), иначе капсула заезжает под него. */}
+      <div className="pt-3">
+        <AssessmentReminder />
+        <DraftsReminder />
+      </div>
       {children}
     </>
   );

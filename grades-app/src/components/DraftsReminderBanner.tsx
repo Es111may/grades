@@ -50,8 +50,9 @@ export default function DraftsReminderBanner({
     : `${total} ${pluralizeDrafts(total)} в работе`;
 
   return (
-    // Обычный блок под островом (не sticky) — при скролле уезжает вверх,
-    // не тянется за хедером (Pavel).
+    // Обычный блок под островом (не sticky) — при скролле уезжает вверх.
+    // Зазор до соседней капсулы 8px; компенсацию sticky-сдвига острова
+    // даёт обёртка в layout.
     <div className="px-4 mt-2">
       <Link
         href="/lead/assessments"
