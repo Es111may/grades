@@ -40,7 +40,7 @@ export default async function AppHeader({
     // капсулы на совсем маленьких ширинах.
     <header className="sticky top-3 z-30 px-4">
       <div
-        className="w-fit max-w-full mx-auto flex items-center gap-6 h-14 pl-6 pr-3
+        className="w-fit max-w-full mx-auto flex items-center gap-3 h-14 pl-6 pr-3
                    rounded-pill border border-cloud/60 bg-snow/75
                    backdrop-blur-2xl shadow-soft-lg"
         style={{ WebkitBackdropFilter: 'blur(24px) saturate(160%)' }}
@@ -70,13 +70,16 @@ export default async function AppHeader({
             className="dark-only"
           />
         </Link>
-        {/* Разделитель логотипа и контролов */}
-        <span className="w-px h-5 bg-cloud/80 shrink-0 -mx-2" aria-hidden />
-        {navItems.length > 0 && <HeaderNav items={navItems} />}
-        <div className="flex items-center gap-1 shrink-0">
+        {/* Разделитель: логотип | контролы */}
+        <span className="w-px h-5 bg-cloud/80 shrink-0" aria-hidden />
+        {/* Бургер (раскрывается в острове) и тумблер темы — вплотную */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          {navItems.length > 0 && <HeaderNav items={navItems} />}
           <ThemeToggle />
-          <UserMenu fullName={fullName} role={user.role} avatarUrl={avatarUrl} />
         </div>
+        {/* Разделитель: контролы | аватар */}
+        <span className="w-px h-5 bg-cloud/80 shrink-0" aria-hidden />
+        <UserMenu fullName={fullName} role={user.role} avatarUrl={avatarUrl} />
       </div>
     </header>
   );
