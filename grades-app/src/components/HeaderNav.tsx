@@ -7,12 +7,19 @@ import { MenuIcon } from './icons';
 type NavItem = { href: string; label: string };
 
 /**
- * Навигация в Dynamic Island. Работает на CSS group-hover от ВСЕГО острова
- * (класс `group` на капсуле в AppHeader):
- *  - при наведении на остров иконка-бургер плавно исчезает, и на её месте
- *    выезжают пункты меню;
- *  - схлопывается только когда курсор уходит со всей капсулы.
- * `group-focus-within` даёт то же поведение с клавиатуры (Tab).
+ * Навигация в Dynamic Island. Раскрытие — на CSS group-hover от ВСЕЙ
+ * капсулы (класс `group` на острове в AppHeader): наводишь куда угодно на
+ * остров → бургер плавно исчезает и на его месте из ЦЕНТРА выезжают пункты
+ * меню; схлопывается только когда курсор уходит со всего острова.
+ *
+ * Почему из центра: внешний контейнер центрирован (justify-center) и
+ * анимирует max-width от ширины иконки до ширины меню — окно растёт
+ * симметрично в обе стороны от середины. Бургер и меню лежат в одной
+ * grid-ячейке (стопкой) и кросс-фейдятся.
+ *
+ * Важно: НЕ используем group-focus-within — иначе фокус, остающийся на
+ * кнопке темы / ссылке после клика, держал бы меню раскрытым и после
+ * увода курсора (баг «не схлопывается при переходе / переключении темы»).
  */
 export default function HeaderNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname() ?? '';
@@ -24,31 +31,29 @@ export default function HeaderNav({ items }: { items: NavItem[] }) {
   }
 
   return (
-    <div className="flex items-center">
-      {/* Бургер: при ховере острова плавно схлопывается */}
-      <span
-        className="flex items-center justify-center h-9 overflow-hidden text-stone
-                   transition-all duration-500 ease-apple-out
-                   max-w-9 w-9 opacity-100
-                   group-hover:max-w-0 group-hover:opacity-0
-                   group-focus-within:max-w-0 group-focus-within:opacity-0"
-        aria-hidden
-      >
-        <MenuIcon className="w-[18px] h-[18px] shrink-0" />
-      </span>
+    <div
+      className="flex justify-center overflow-hidden max-w-9
+                 transition-[max-width] duration-500 ease-apple-out
+                 group-hover:max-w-[760px]"
+    >
+      {/* Стопка: бургер и меню в одной ячейке, обе центрированы. Ширина —
+          натуральная (по меню), внешнее окно обрезает её до иконки. */}
+      <div className="grid place-items-center shrink-0">
+        {/* Бургер — исчезает по ховеру острова */}
+        <span
+          className="col-start-1 row-start-1 flex items-center justify-center w-9 h-9
+                     text-stone transition-opacity duration-300 ease-apple-out
+                     group-hover:opacity-0 group-hover:pointer-events-none"
+          aria-hidden
+        >
+          <MenuIcon className="w-[18px] h-[18px] shrink-0" />
+        </span>
 
-      {/* Пункты меню: раскрываются ИЗ ЦЕНТРА. Обёртка с justify-center +
-          nav с фиксированной шириной (shrink-0) — при анимации max-width
-          видимая область растёт от середины в обе стороны. */}
-      <div
-        className="flex justify-center overflow-hidden
-                   transition-all duration-500 ease-apple-out
-                   max-w-0 opacity-0
-                   group-hover:max-w-[720px] group-hover:opacity-100
-                   group-focus-within:max-w-[720px] group-focus-within:opacity-100"
-      >
+        {/* Пункты меню — появляются по ховеру острова */}
         <nav
-          className="flex items-center gap-0.5 whitespace-nowrap shrink-0"
+          className="col-start-1 row-start-1 flex items-center gap-0.5 whitespace-nowrap
+                     opacity-0 pointer-events-none transition-opacity duration-300 delay-100
+                     ease-apple-out group-hover:opacity-100 group-hover:pointer-events-auto"
           aria-label="Разделы"
         >
           {items.map((n) => {

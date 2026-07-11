@@ -213,12 +213,25 @@ export default async function AdminUsersPage() {
     }
   }
 
+  const nowMs = Date.now();
   const users = usersRaw.map((u) => {
     const last = gradeByDesignerId.get(u.id);
     const maxXp = u.buildId ? maxXpByBuildId.get(u.buildId) ?? 0 : 0;
     const perfStat = u.email ? onTimeByEmail.get(u.email.toLowerCase()) : undefined;
     const onTimePercent = perfStat?.onTimePercent ?? null;
     const onTimeTotalTasks = perfStat?.totalTasks ?? 0;
+
+    // Данные для пересчёта bento-агрегатов под скоуп «Мои» на клиенте.
+    const cellForScope = cellByUserId.get(u.id);
+    const twoGrades = lastTwo.get(u.id);
+    const growthDelta =
+      twoGrades && twoGrades.cur !== undefined && twoGrades.prev !== undefined
+        ? twoGrades.cur - twoGrades.prev
+        : null;
+    const draftAt = draftUpdatedAt.get(u.id);
+    const draftAgeDays = draftAt
+      ? Math.floor((nowMs - draftAt.getTime()) / 864e5)
+      : null;
 
     // Composite score считаем только для дизайнеров (стардизы не
     // ранжируются в лидерборде). Если у дизайнера нет ни одной
@@ -269,6 +282,13 @@ export default async function AdminUsersPage() {
       onTimeTotalTasks,
       compositeScore,
       hasDraft: draftUpdatedAt.has(u.id),
+      // Для скоуп-пересчёта bento «Мои»:
+      nineBoxCell: cellForScope
+        ? { potential: cellForScope.potentialLevel, performance: cellForScope.performanceLevel }
+        : null,
+      growthDelta,
+      xpNeeded: last?.xpNeeded ?? null,
+      draftAgeDays,
     };
   });
 

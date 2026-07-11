@@ -98,9 +98,15 @@ export default function KanbanView({
     }
 
     if (groupBy === 'lead') {
-      const cols: Array<{ key: string; label: string; users: UserRow[] }> = leads.map(
-        (l) => ({ key: String(l.id), label: l.fullName, users: [] }),
-      );
+      // Артуш Манукян — всегда последним лидом, перед «Без лида» (Pavel).
+      const orderedLeads = [...leads].sort((a, b) => {
+        const aArtush = a.fullName.startsWith('Артуш');
+        const bArtush = b.fullName.startsWith('Артуш');
+        if (aArtush !== bArtush) return aArtush ? 1 : -1;
+        return 0; // остальные — в исходном (алфавитном) порядке
+      });
+      const cols: Array<{ key: string; label: string; users: UserRow[] }> =
+        orderedLeads.map((l) => ({ key: String(l.id), label: l.fullName, users: [] }));
       cols.push({ key: '__none', label: 'Без лида', users: [] });
       const byKey = new Map(cols.map((c) => [c.key, c]));
       for (const u of users) {

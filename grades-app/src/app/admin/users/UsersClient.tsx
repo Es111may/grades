@@ -42,6 +42,15 @@ export type UserRow = {
   compositeScore?: number | null;
   /** Есть незакрытый черновик оценки (для статус-чипа в лидерборде). */
   hasDraft?: boolean;
+  // Поля для пересчёта bento-агрегатов под скоуп «Мои» на клиенте:
+  /** Ячейка 9-Box (для NIPC и карты потенциала подвыборки). */
+  nineBoxCell?: { potential: string; performance: string } | null;
+  /** Прирост totalXp между двумя последними оценками (скорость роста). */
+  growthDelta?: number | null;
+  /** XP до следующего грейда из последней оценки (готовность к повышению). */
+  xpNeeded?: number | null;
+  /** Возраст самого свежего черновика в днях (сигнал «без движения»). */
+  draftAgeDays?: number | null;
 };
 
 /** Агрегаты команды для bento-строки лидерборда (концепт v4). */
@@ -181,6 +190,25 @@ export default function UsersClient({
     [users, meId],
   );
 
+  // Счётчик «Все» для сегмента скоупа — ВСЕГДА полная команда, независимо
+  // от текущего выбора (иначе при переключении на «Мои» цифра «Все»
+  // ошибочно показывала бы размер подвыборки — Pavel).
+  const allActiveCount = useMemo(
+    () => users.filter((u) => u.active).length,
+    [users],
+  );
+
+  // Bento-агрегаты под текущий скоуп: для «Все» — готовые серверные
+  // (с точными медианами ClickHouse и спарклайном); для «Мои» —
+  // пересчитываем по подвыборке подопечных на клиенте.
+  const scoped = useMemo(() => {
+    if (!(showScopeSwitcher && scopeFilter === 'mine' && meId !== null)) {
+      return { stats: teamStats, nineBox, attention };
+    }
+    const mine = users.filter((u) => u.leadId === meId || u.stardizId === meId);
+    return computeScopedStats(mine);
+  }, [showScopeSwitcher, scopeFilter, meId, users, teamStats, nineBox, attention]);
+
   function openNew() {
     setModalUser(null);
     setIsNew(true);
@@ -249,7 +277,7 @@ export default function UsersClient({
               >
                 {s === 'all' ? 'Все' : 'Мои'}
                 <span className="ml-1.5 text-ash text-xs">
-                  {s === 'all' ? counts.all : mineCount}
+                  {s === 'all' ? allActiveCount : mineCount}
                 </span>
               </button>
             ))}
@@ -309,9 +337,9 @@ export default function UsersClient({
             users={filtered}
             gradeThresholds={gradeThresholds}
             onRowClick={open360}
-            teamStats={teamStats}
-            nineBox={nineBox}
-            attention={attention}
+            teamStats={scoped.stats}
+            nineBox={scoped.nineBox}
+            attention={scoped.attention}
             searching={search.trim().length > 0}
           />
         ) : (
@@ -367,6 +395,117 @@ export default function UsersClient({
       )}
     </main>
   );
+}
+
+/**
+ * Пересчёт bento-агрегатов под подвыборку «Мои» — зеркалит серверную
+ * логику из page.tsx, но по полям, уже лежащим на UserRow. Спарклайн
+ * «в срок» по месяцам для подвыборки не считаем (нет помесячных данных
+ * на клиенте) — отдаём пустой, карточка просто прячет линию.
+ */
+function computeScopedStats(list: UserRow[]): {
+  stats: TeamStats;
+  nineBox: Record<string, number>;
+  attention: AttentionItem[];
+} {
+  const median = (xs: number[]): number | null => {
+    if (!xs.length) return null;
+    const a = [...xs].sort((x, y) => x - y);
+    const m = Math.floor(a.length / 2);
+    return a.length % 2 ? a[m] : Math.round((a[m - 1] + a[m]) / 2);
+  };
+  const plural = (n: number, forms: [string, string, string]) => {
+    const last = n % 10;
+    const lastTwo = n % 100;
+    if (lastTwo >= 11 && lastTwo <= 14) return forms[2];
+    if (last === 1) return forms[0];
+    if (last >= 2 && last <= 4) return forms[1];
+    return forms[2];
+  };
+
+  const activeDesigners = list.filter((u) => u.role === 'designer' && u.active);
+  const eligible = list.filter(
+    (u) => (u.role === 'designer' || u.role === 'stardiz') && u.active,
+  );
+
+  // 9-Box подвыборки
+  const nineBox: Record<string, number> = {};
+  for (const u of eligible) {
+    if (!u.nineBoxCell) continue;
+    const key = `${u.nineBoxCell.potential}_${u.nineBoxCell.performance}`;
+    nineBox[key] = (nineBox[key] ?? 0) + 1;
+  }
+  const nb = (k: string) => nineBox[k] ?? 0;
+  const nipcNumerator =
+    nb('high_high') + nb('high_mid') + nb('mid_high') - nb('mid_low') - nb('low_mid') - nb('low_low');
+  const nipcPercent = eligible.length
+    ? Math.round((nipcNumerator / eligible.length) * 100)
+    : null;
+
+  const onTimeValues = activeDesigners
+    .filter((u) => u.onTimePercent != null && (u.onTimeTotalTasks ?? 0) >= 5)
+    .map((u) => u.onTimePercent as number);
+  const growthDeltas = activeDesigners
+    .map((u) => u.growthDelta)
+    .filter((x): x is number => x != null);
+  const gradedCount = activeDesigners.filter((u) => u.totalXp != null).length;
+  const draftCount = activeDesigners.filter((u) => u.hasDraft).length;
+  const readyRows = activeDesigners
+    .filter((u) => u.xpNeeded != null && (u.xpNeeded as number) <= 20)
+    .sort((a, b) => (a.xpNeeded as number) - (b.xpNeeded as number));
+
+  const stats: TeamStats = {
+    nipcPercent,
+    nipcTotal: eligible.length,
+    nipcStars: nb('high_high'),
+    nipcHpot: nb('high_mid'),
+    nipcHperf: nb('mid_high'),
+    nipcRisk: nb('mid_low') + nb('low_mid') + nb('low_low'),
+    nineBoxPlaced: Object.values(nineBox).reduce((s, n) => s + n, 0),
+    onTimeMedian: median(onTimeValues),
+    onTimeSample: onTimeValues.length,
+    onTimeSpark: [],
+    growthMedian: median(growthDeltas),
+    growthSample: growthDeltas.length,
+    readyCount: readyRows.length,
+    gradedCount,
+    draftCount,
+    totalDesigners: activeDesigners.length,
+  };
+
+  const attention: AttentionItem[] = [];
+  const staleDrafts = activeDesigners
+    .filter((u) => u.draftAgeDays != null && (u.draftAgeDays as number) > 7)
+    .sort((a, b) => (b.draftAgeDays as number) - (a.draftAgeDays as number));
+  if (staleDrafts.length > 0) {
+    attention.push({
+      tone: 'danger',
+      title: `${staleDrafts.length} ${plural(staleDrafts.length, ['черновик', 'черновика', 'черновиков'])} без публикации`,
+      detail: `старейший — ${staleDrafts[0].fullName.split(' ')[0]}, ${staleDrafts[0].draftAgeDays} дн.`,
+    });
+  }
+  activeDesigners
+    .filter(
+      (u) => u.onTimePercent != null && (u.onTimeTotalTasks ?? 0) >= 5 && (u.onTimePercent as number) < 70,
+    )
+    .sort((a, b) => (a.onTimePercent as number) - (b.onTimePercent as number))
+    .slice(0, 2)
+    .forEach((u) => {
+      attention.push({
+        tone: 'warn',
+        title: `${u.fullName}: «в срок» ${Math.round(u.onTimePercent as number)}%`,
+        detail: `${u.onTimeTotalTasks} задач · 6 мес`,
+      });
+    });
+  readyRows.slice(0, 2).forEach((u) => {
+    attention.push({
+      tone: 'info',
+      title: `${u.fullName} — близко к повышению`,
+      detail: `+${u.xpNeeded} XP до порога`,
+    });
+  });
+
+  return { stats, nineBox, attention: attention.slice(0, 5) };
 }
 
 /**

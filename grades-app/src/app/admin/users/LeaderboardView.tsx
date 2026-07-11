@@ -490,35 +490,37 @@ function PodiumCard({
   onClick: () => void;
 }) {
   const score = Math.round((user.compositeScore ?? 0) * 100);
+  // Компактный чип — метрики как у тегов в списке (.chip-build: 10px, px-2)
+  const chipSm = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-[10px] font-medium shrink-0';
   return (
-    // Компактная карточка (v0.43): без обводки/кольца/№-лейбла, аватар в
-    // правом углу, скор с позицией — чипом перед грейдом, бары нейтральные.
+    // Компактная карточка: тонкий паддинг, теги размером как в списке,
+    // всё в одну строку, аватар в правом углу.
     <button
       type="button"
       onClick={onClick}
-      className="card p-6 text-left w-full transition-all duration-200 ease-apple-out
+      className="card p-4 text-left w-full transition-all duration-200 ease-apple-out
                  hover:shadow-soft-md hover:-translate-y-1 hover:border-ash"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="font-medium text-base leading-tight truncate mt-1 min-w-0 flex-1">
+        <div className="font-medium text-[15px] leading-tight truncate mt-0.5 min-w-0 flex-1">
           {user.fullName}
         </div>
-        <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={44} />
+        <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={40} />
       </div>
       {/* Чипы одной строкой на всю ширину карточки (nowrap) */}
-      <div className="flex items-center gap-1 mt-2.5 whitespace-nowrap overflow-hidden">
+      <div className="flex items-center gap-1 mt-2 whitespace-nowrap overflow-hidden">
         {/* Скор с № — насыщенный зелёный (Pavel) */}
-        <span className="chip bg-emerald text-white shrink-0">
+        <span className={`${chipSm} bg-emerald text-white`}>
           <b className="font-medium">{score}</b>
           <span className="text-white/75">№{place}</span>
         </span>
         {user.effectiveGrade && (
-          <span className="chip bg-ink text-snow shrink-0">
+          <span className={`${chipSm} bg-ink text-snow`}>
             {GRADE_LABELS[user.effectiveGrade] ?? user.effectiveGrade}
           </span>
         )}
         {user.build && (
-          <span className="chip-neutral shrink-0">
+          <span className={`${chipSm} bg-cloud/60 text-stone`}>
             <span
               className="w-1.5 h-1.5 rounded-full"
               style={{ background: buildColor(user.build.code) }}
@@ -527,19 +529,19 @@ function PodiumCard({
           </span>
         )}
         {user.onTimePercent != null && (
-          <span className="chip-neutral shrink-0">
+          <span className={`${chipSm} bg-ink/[0.07] text-stone`}>
             {Math.round(user.onTimePercent)}% в срок
           </span>
         )}
       </div>
-      <div className="flex gap-1.5 mt-5">
+      <div className="flex gap-1.5 mt-3.5">
         {TAXONOMIES.map((t) => {
           const v = user.xpByTaxonomy?.[t] ?? 0;
           const h = Math.round((v / skillMax[t]) * 100);
           return (
             <div key={t} className="flex-1">
               <div className="label-mono text-ash text-center mb-1">{t}</div>
-              <div className="h-5 rounded-[5px] bg-cloud/60 relative overflow-hidden">
+              <div className="h-4 rounded-[5px] bg-cloud/60 relative overflow-hidden">
                 <div
                   className="absolute bottom-0 left-0 right-0 bg-ink/20 rounded-b-[5px]"
                   style={{ height: `${h}%` }}
