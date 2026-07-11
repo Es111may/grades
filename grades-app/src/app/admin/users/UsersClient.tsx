@@ -224,9 +224,9 @@ export default function UsersClient({
   }
 
   return (
-    <main className="max-w-[1240px] mx-auto px-8 pt-10 pb-16">
+    <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
       {/* Заголовок — по центру, крупно, без лишних подписей (концепт v3) */}
-      <div className="text-center mb-8 animate-fade-up">
+      <div className="text-center mb-[164px] animate-fade-up">
         <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
           Команда
         </h1>

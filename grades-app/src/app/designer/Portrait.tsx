@@ -285,7 +285,7 @@ export default function Portrait({
   }
 
   return (
-    <main className="max-w-[1180px] mx-auto px-8 pt-8 pb-16">
+    <main className="max-w-[1180px] mx-auto px-8 pt-[164px] pb-16">
       {breadcrumb && (
         <div className="text-xs text-stone mb-3">
           <Link href={breadcrumb.href} className="hover:text-ink transition-colors">
@@ -308,7 +308,7 @@ export default function Portrait({
       {/* Hero по центру (концепт v6): аватар → имя → чипы. Грейд — первый
           белый чип, выбор цикла — дропдаун-чип в том же ряду. Дата публикации
           переехала в XP-плашку bento. */}
-      <div className="mb-8 flex flex-col items-center text-center animate-fade-up">
+      <div className="mb-[164px] flex flex-col items-center text-center animate-fade-up">
         {/* Аватар в conic-кольце прогресса XP + бейдж «N% XP» — как heroava
             концепта */}
         <div
