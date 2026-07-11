@@ -374,7 +374,12 @@ export default function UserCard360({
             {/* Разделитель — по ширине текстовых блоков, не в края */}
             <div className="mx-6 h-px bg-cloud" />
             <div className="px-6 pt-8 pb-7">
-              <XpSparkline assessments={history.assessments} height={110} />
+              <TrendSparkline
+                points={[...history.assessments].reverse().map((a) => a.totalXp ?? 0)}
+                label="Динамика XP"
+                unit=" XP"
+                height={110}
+              />
               <div className="flex items-baseline gap-2.5 mt-4 text-sm">
                 <span className="font-medium">
                   {lastA?.effectiveGrade
@@ -402,10 +407,20 @@ export default function UserCard360({
             </>
           )}
 
-          {/* 360-опросы (лид/стардиз) — компактный список */}
+          {/* 360-опросы (лид/стардиз): график eNPS + компактный список */}
           {isLeadOrStardiz && history && history.leadReviews.length > 0 && (
-            <div className="px-6 pt-4 pb-4 border-t border-cloud space-y-1">
-              <div className="label-mono text-stone mb-1">360-опросы</div>
+            <>
+            <div className="mx-6 h-px bg-cloud" />
+            <div className="px-6 pt-8 pb-7 space-y-1">
+              <TrendSparkline
+                points={[...history.leadReviews]
+                  .reverse()
+                  .map((r) => r.enps)
+                  .filter((v): v is number => v !== null)}
+                label="Динамика eNPS"
+                height={110}
+                deltaDigits={1}
+              />
               {history.leadReviews.slice(0, 3).map((r) => (
                 <a
                   key={r.id}
@@ -424,6 +439,7 @@ export default function UserCard360({
                 </a>
               ))}
             </div>
+            </>
           )}
 
           {/* ---------- Действия: текстом + меню «⋯» ---------- */}
@@ -565,14 +581,20 @@ export default function UserCard360({
  * Рисуем только при ≥2 точках. preserveAspectRatio=none + non-scaling-stroke:
  * линия тянется на всю ширину карточки, но остаётся ровной 1.75px (не толстеет).
  */
-function XpSparkline({
-  assessments,
+function TrendSparkline({
+  points,
+  label,
+  unit = '',
   height = 36,
+  deltaDigits = 0,
 }: {
-  assessments: AssessmentHistoryRow[];
+  /** Хронологический ряд значений (старые → новые). */
+  points: number[];
+  label: string;
+  unit?: string;
   height?: number;
+  deltaDigits?: number;
 }) {
-  const points = [...assessments].reverse().map((a) => a.totalXp ?? 0);
   if (points.length < 2) return null;
 
   const W = 300;
@@ -594,13 +616,14 @@ function XpSparkline({
   return (
     <div className="mb-2">
       <div className="flex items-baseline justify-between mb-1.5">
-        <span className="label-mono text-stone">Динамика XP</span>
+        <span className="label-mono text-stone">{label}</span>
         {totalDelta !== 0 && (
           <span
             className={`label-mono ${totalDelta > 0 ? 'text-emerald' : 'text-blaze'}`}
           >
             {totalDelta > 0 ? '+' : ''}
-            {totalDelta} XP
+            {totalDelta.toFixed(deltaDigits)}
+            {unit}
           </span>
         )}
       </div>
