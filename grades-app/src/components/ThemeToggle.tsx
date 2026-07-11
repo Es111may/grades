@@ -2,6 +2,7 @@
 
 import { toggleTheme } from '@/lib/theme';
 import { SunIcon, MoonIcon } from './icons';
+import Tooltip from './Tooltip';
 
 /**
  * Тумблер светлой/тёмной темы в шапке. Обе иконки в DOM всегда,
@@ -10,17 +11,18 @@ import { SunIcon, MoonIcon } from './icons';
  */
 export default function ThemeToggle() {
   return (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      className="w-8 h-8 flex items-center justify-center rounded-pill
-                 text-stone hover:text-ink hover:bg-cloud/50 transition-colors"
-      aria-label="Переключить тему"
-      title="Переключить тему"
-    >
-      {/* на тёмной теме показываем солнце («переключи на светлую»), на светлой — луну */}
-      <SunIcon className="w-4 h-4 dark-only" />
-      <MoonIcon className="w-4 h-4 light-only" />
-    </button>
+    <Tooltip align="center" text="Переключить тему">
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className="w-8 h-8 flex items-center justify-center rounded-pill
+                   text-stone hover:text-ink hover:bg-cloud/50 transition-colors"
+        aria-label="Переключить тему"
+      >
+        {/* на тёмной теме показываем солнце («переключи на светлую»), на светлой — луну */}
+        <SunIcon className="w-4 h-4 dark-only" />
+        <MoonIcon className="w-4 h-4 light-only" />
+      </button>
+    </Tooltip>
   );
 }

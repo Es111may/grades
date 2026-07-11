@@ -381,7 +381,6 @@ function SkillRow({
                 ? 'btn-ghost-danger btn-sm ml-1'
                 : 'btn-ghost btn-sm ml-1'
             }
-            title={skill.active ? 'Архивировать' : 'Восстановить'}
           >
             {skill.active ? 'В архив' : 'Вернуть'}
           </button>

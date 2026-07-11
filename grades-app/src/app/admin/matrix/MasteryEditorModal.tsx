@@ -131,7 +131,6 @@ export default function MasteryEditorModal({
                       type="button"
                       onClick={() => removeLevel(idx)}
                       className="text-xs font-medium text-blaze hover:underline transition-colors"
-                      title="Подтвердить удаление"
                     >
                       Точно удалить?
                     </button>
@@ -140,7 +139,6 @@ export default function MasteryEditorModal({
                       type="button"
                       onClick={() => armRemove(idx)}
                       className="text-xs text-stone hover:text-blaze transition-colors"
-                      title="Удалить уровень"
                     >
                       Удалить
                     </button>

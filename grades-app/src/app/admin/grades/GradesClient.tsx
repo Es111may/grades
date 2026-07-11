@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import SkillCombobox from './SkillCombobox';
 import { PlusIcon, CloseIcon } from '@/components/icons';
 import TitleAurora from '@/components/TitleAurora';
+import Tooltip from '@/components/Tooltip';
 
 type Build = { id: number; code: string; name: string };
 type Gate = {
@@ -308,13 +309,14 @@ function GatesColumn({
                   </option>
                 ))}
               </select>
-              <button
-                onClick={() => deleteGate(gate.id)}
-                className="text-ash hover:text-blaze opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-5 h-5"
-                title="Удалить"
-              >
-                <CloseIcon className="w-3.5 h-3.5" />
-              </button>
+              <Tooltip align="right" text="Удалить гейт">
+                <button
+                  onClick={() => deleteGate(gate.id)}
+                  className="text-ash hover:text-blaze opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-5 h-5"
+                >
+                  <CloseIcon className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
             </li>
           ))}
         </ul>
@@ -337,14 +339,15 @@ function GatesColumn({
             </option>
           ))}
         </select>
-        <button
-          onClick={addGate}
-          disabled={adding || !newSkillId}
-          className="btn-accent btn-sm w-8 h-8 p-0 flex items-center justify-center"
-          title="Добавить гейт"
-        >
-          {adding ? '…' : <PlusIcon className="w-4 h-4" />}
-        </button>
+        <Tooltip align="right" text="Добавить гейт">
+          <button
+            onClick={addGate}
+            disabled={adding || !newSkillId}
+            className="btn-accent btn-sm w-8 h-8 p-0 flex items-center justify-center"
+          >
+            {adding ? '…' : <PlusIcon className="w-4 h-4" />}
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

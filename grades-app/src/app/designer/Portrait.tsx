@@ -24,6 +24,7 @@ import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import type { Role } from '@/lib/checklistPermissions';
 import { useTheme, CHART_AXIS } from '@/lib/theme';
 import TitleAurora from '@/components/TitleAurora';
+import Tooltip from '@/components/Tooltip';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -485,16 +486,21 @@ export default function Portrait({
           {actions}
           {/* Phase 14: владельцу — быстрый переход к самооценке навыков */}
           {isSelfOwner && (
-            <button
-              type="button"
-              onClick={scrollToSkills}
-              title="Отметь уровни владения навыками и приложи ссылки-подтверждения — лид увидит их при грейдировании. На XP и грейд самооценка не влияет."
-              className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
-                         bg-snow/60 backdrop-blur-md border border-cloud/40
-                         hover:bg-snow/80 transition-colors"
+            <Tooltip
+              align="center"
+              maxWidth={320}
+              text="Отметь уровни владения навыками и приложи ссылки-подтверждения — лид увидит их при грейдировании. На XP и грейд самооценка не влияет."
             >
-              Добавить самооценку
-            </button>
+              <button
+                type="button"
+                onClick={scrollToSkills}
+                className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
+                           bg-snow/60 backdrop-blur-md border border-cloud/40
+                           hover:bg-snow/80 transition-colors"
+              >
+                Добавить самооценку
+              </button>
+            </Tooltip>
           )}
         </div>
       )}
@@ -1308,17 +1314,15 @@ function scrollToSkills() {
   setTimeout(correct, 1400);
 }
 
-/** Phase 14: информер «как работает самооценка» — поповер по ховеру. */
+/** Phase 14: информер «как работает самооценка» — единый Tooltip. */
 function SelfAssessmentInfo() {
   return (
-    <span className="relative group/info inline-flex shrink-0">
-      <InfoIcon className="w-3.5 h-3.5 text-ash group-hover/info:text-ink cursor-help transition-colors" />
-      <span
-        className="pointer-events-none absolute right-0 top-full mt-2 w-80 card p-4 z-30
-                   text-left text-xs text-stone leading-relaxed shadow-soft-lg
-                   opacity-0 translate-y-1 transition-all duration-150
-                   group-hover/info:opacity-100 group-hover/info:translate-y-0"
-      >
+    <Tooltip
+      align="right"
+      maxWidth={330}
+      className="shrink-0 cursor-help"
+      text={
+        <>
         <span className="block font-medium text-ink mb-1.5">
           Как работает самооценка
         </span>
@@ -1335,8 +1339,11 @@ function SelfAssessmentInfo() {
           3. Лид увидит самооценку и материалы в форме оценки, расхождения
           подсветятся — это повод для 1:1.
         </span>
-      </span>
-    </span>
+        </>
+      }
+    >
+      <InfoIcon className="w-3.5 h-3.5 text-ash hover:text-ink transition-colors" />
+    </Tooltip>
   );
 }
 
@@ -1488,16 +1495,17 @@ function SkillAccordion({
                   </div>
                   {/* Phase 14: явная метка самооценки */}
                   {isSelf && (
-                    <span
-                      className="chip-accent shrink-0 self-start"
-                      title={
+                    <Tooltip
+                      align="right"
+                      className="shrink-0 self-start"
+                      text={
                         self?.updatedAt
                           ? `Самооценка от ${formatPublishedDate(self.updatedAt)}`
                           : 'Самооценка'
                       }
                     >
-                      Моя оценка
-                    </span>
+                      <span className="chip-accent">Моя оценка</span>
+                    </Tooltip>
                   )}
                   <div className="shrink-0 text-xs text-stone tabular-nums self-start mt-0.5">
                     {lvl.level * skill.weight}
@@ -1554,8 +1562,12 @@ function SkillAccordion({
                   {evidences.length > 0 && ` · ${evidences.length}`}
                 </span>
                 {evidences.map((ev) => (
-                  <span
+                  <Tooltip
                     key={ev.id}
+                    align="center"
+                    text={`${ev.title}${ev.description ? ` — ${ev.description}` : ''} · ${formatPublishedDate(ev.createdAt)}`}
+                  >
+                  <span
                     className="inline-flex items-center gap-1.5 chip bg-ink/[0.07] text-ink max-w-[280px]"
                   >
                     <a
@@ -1563,7 +1575,6 @@ function SkillAccordion({
                       target="_blank"
                       rel="noreferrer"
                       className="truncate hover:underline"
-                      title={`${ev.title}${ev.description ? ` — ${ev.description}` : ''} · ${formatPublishedDate(ev.createdAt)}`}
                     >
                       {ev.title}
                     </a>
@@ -1578,6 +1589,7 @@ function SkillAccordion({
                       </button>
                     )}
                   </span>
+                  </Tooltip>
                 ))}
                 {canEditSelf && !evidenceFormOpen && (
                   <button

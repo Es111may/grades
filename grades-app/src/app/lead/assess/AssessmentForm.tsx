@@ -7,6 +7,7 @@ import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
 import { CheckIcon, FlagIcon, ChevronDownIcon } from '@/components/icons';
 import { MarkdownTextarea } from '@/components/Markdown';
+import Tooltip from '@/components/Tooltip';
 
 type SkillData = {
   id: number;
@@ -546,13 +547,12 @@ export default function AssessmentForm({
                       </span>
                       <span className="flex items-center gap-1.5 shrink-0">
                         {taxFlagged > 0 && (
-                          <span
-                            className="inline-flex items-center gap-0.5 text-[10px] text-blaze font-medium tabular-nums"
-                            title="Помечено к возврату"
-                          >
-                            <FlagIcon className="w-3 h-3" />
-                            {taxFlagged}
-                          </span>
+                          <Tooltip text="Помечено к возврату" align="right">
+                            <span className="inline-flex items-center gap-0.5 text-[10px] text-blaze font-medium tabular-nums">
+                              <FlagIcon className="w-3 h-3" />
+                              {taxFlagged}
+                            </span>
+                          </Tooltip>
                         )}
                         <span className="text-[11px] text-ash font-medium tabular-nums">
                           {taxFilled}/{taxSkills.length}
@@ -882,13 +882,11 @@ function SkillCard({
       {/* Header: чек-сессии · имя · CORE · вес · флаг */}
       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
         {touched && !disabled && (
-          <span
-            className="text-emerald shrink-0"
-            title="Уровень изменён в этой сессии"
-            aria-label="Изменено в этой сессии"
-          >
-            <CheckIcon className="w-3.5 h-3.5" />
-          </span>
+          <Tooltip text="Уровень изменён в этой сессии" className="shrink-0">
+            <span className="text-emerald" aria-label="Изменено в этой сессии">
+              <CheckIcon className="w-3.5 h-3.5" />
+            </span>
+          </Tooltip>
         )}
         <span className="font-medium text-sm">{skill.name}</span>
         <span
@@ -903,41 +901,51 @@ function SkillCard({
             лида: выше выбора — sunset («переоценка?»), ниже — sky
             («скромничает?»), совпадает/не выбрано — нейтральный glass. */}
         {self && (
-          <span
-            className={`chip shrink-0 ${
-              currentLevel === 0
-                ? 'bg-snow/60 border border-cloud/40 text-ink'
-                : self.level > currentLevel
-                  ? 'bg-sunset/10 border border-sunset/25 text-sunset'
-                  : self.level < currentLevel
-                    ? 'bg-sky/10 border border-sky/25 text-sky'
-                    : 'bg-emerald/10 border border-emerald/25 text-emerald'
-            }`}
-            title={`Самооценка от ${formatSelfDate(self.updatedAt)}${
+          <Tooltip
+            align="center"
+            className="shrink-0"
+            text={`Самооценка от ${formatSelfDate(self.updatedAt)}${
               self.comment ? ` — ${self.comment}` : ''
             }`}
           >
-            Сам: {self.level}
-          </span>
+            <span
+              className={`chip ${
+                currentLevel === 0
+                  ? 'bg-snow/60 border border-cloud/40 text-ink'
+                  : self.level > currentLevel
+                    ? 'bg-sunset/10 border border-sunset/25 text-sunset'
+                    : self.level < currentLevel
+                      ? 'bg-sky/10 border border-sky/25 text-sky'
+                      : 'bg-emerald/10 border border-emerald/25 text-emerald'
+              }`}
+            >
+              Сам: {self.level}
+            </span>
+          </Tooltip>
         )}
         {!disabled && (
-          <button
-            type="button"
-            onClick={onToggleFlag}
-            className={`ml-auto w-7 h-7 -mr-1 flex items-center justify-center rounded-pill transition-colors ${
-              flagged
-                ? 'text-blaze bg-blaze/10 hover:bg-blaze/20'
-                : 'text-ash hover:text-blaze hover:bg-blaze/10'
-            }`}
-            title={
+          <Tooltip
+            align="right"
+            className="ml-auto -mr-1"
+            text={
               flagged
                 ? 'Снять пометку — навык не требует возврата'
                 : 'Пометить, чтобы вернуться позже'
             }
-            aria-label={flagged ? 'Снять пометку' : 'Пометить навык'}
           >
-            <FlagIcon className="w-4 h-4" />
-          </button>
+            <button
+              type="button"
+              onClick={onToggleFlag}
+              className={`w-7 h-7 flex items-center justify-center rounded-pill transition-colors ${
+                flagged
+                  ? 'text-blaze bg-blaze/10 hover:bg-blaze/20'
+                  : 'text-ash hover:text-blaze hover:bg-blaze/10'
+              }`}
+              aria-label={flagged ? 'Снять пометку' : 'Пометить навык'}
+            >
+              <FlagIcon className="w-4 h-4" />
+            </button>
+          </Tooltip>
         )}
       </div>
 

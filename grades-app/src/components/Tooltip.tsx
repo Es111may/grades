@@ -1,48 +1,56 @@
 'use client';
 
 /**
- * Простой CSS-tooltip без задержки появления.
- *
- * Native `title=""` ждёт ~1 сек перед показом — Pavel'у это медленно для
- * информеров на графиках. Здесь — мгновенный показ через group-hover.
+ * Единый хинт сервиса (Pavel: «хинты везде одинаковые по стилистике»):
+ * светлая карточка-поповер по ховеру — стиль информера самооценки.
+ * CSS-only (named group — не конфликтует с group острова/строк),
+ * мгновенный показ, плавное появление, без нативного title.
  *
  * Использование:
- *   <Tooltip text="Длинный текст подсказки">
- *     <InfoIcon />
- *   </Tooltip>
- *
- * Tooltip появляется СНИЗУ от триггера, прижатый к левому краю. Для
- * заголовков графиков это нормально — иконка обычно в начале строки.
- * Если хочется правее/выше — можно прокинуть `placement` (пока не нужно).
+ *   <Tooltip text="Подсказка" align="center"><button …/></Tooltip>
  */
 
-import { type ReactNode } from 'react';
+import { type ReactNode, type CSSProperties } from 'react';
 
 export default function Tooltip({
   text,
   children,
   className = '',
-  /** Максимальная ширина tooltip-bubble в px. */
+  align = 'left',
+  /** Максимальная ширина поповера в px (ширина — по контенту). */
   maxWidth = 280,
+  style,
 }: {
-  text: string;
+  text: ReactNode;
   children: ReactNode;
   className?: string;
+  align?: 'left' | 'center' | 'right';
   maxWidth?: number;
+  style?: CSSProperties;
 }) {
+  const pos =
+    align === 'center'
+      ? 'left-1/2 -translate-x-1/2'
+      : align === 'right'
+        ? 'right-0'
+        : 'left-0';
   return (
-    <span className={`group relative inline-flex ${className}`}>
+    <span className={`group/tt relative inline-flex ${className}`} style={style}>
       {children}
-      <span
-        className="pointer-events-none invisible group-hover:visible
-                   absolute top-full left-0 mt-2 z-30
-                   bg-ink text-snow text-xs leading-relaxed
-                   rounded-card px-3 py-2 shadow-soft
-                   whitespace-normal break-words"
-        style={{ maxWidth, width: 'max-content' }}
-      >
-        {text}
-      </span>
+      {text != null && (
+        <span
+          role="tooltip"
+          className={`pointer-events-none absolute top-full mt-2 ${pos} z-40
+                      card p-3 text-left text-xs text-stone leading-relaxed shadow-soft-lg
+                      font-normal normal-case tracking-normal whitespace-normal break-words
+                      [font-family:Onest,sans-serif]
+                      opacity-0 translate-y-1 transition-all duration-150
+                      group-hover/tt:opacity-100 group-hover/tt:translate-y-0`}
+          style={{ maxWidth, width: 'max-content' }}
+        >
+          {text}
+        </span>
+      )}
     </span>
   );
 }

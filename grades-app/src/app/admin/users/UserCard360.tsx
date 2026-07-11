@@ -5,6 +5,7 @@ import { signIn } from 'next-auth/react';
 import Avatar from '@/components/Avatar';
 import { CloseIcon, ChevronDownIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
+import Tooltip from '@/components/Tooltip';
 
 type AssessmentHistoryRow = {
   id: number;
@@ -292,19 +293,20 @@ export default function UserCard360({
           <div className="ml-auto flex items-center gap-1.5">
             {/* Имперсонация: админ входит под этим пользователем */}
             {meRole === 'admin' && !isSelf && user.active && (
-              <button
-                type="button"
-                onClick={() =>
-                  signIn('impersonate', {
-                    targetUserId: String(user.id),
-                    callbackUrl: '/',
-                  })
-                }
-                className="btn-secondary"
-                title={`Открыть Грейды глазами ${user.fullName}`}
-              >
-                Войти как
-              </button>
+              <Tooltip align="center" text={`Открыть Грейды глазами ${user.fullName}`}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    signIn('impersonate', {
+                      targetUserId: String(user.id),
+                      callbackUrl: '/',
+                    })
+                  }
+                  className="btn-secondary"
+                >
+                  Войти как
+                </button>
+              </Tooltip>
             )}
             {canOpenPortrait && (
               <a href={`/lead/portrait?id=${user.id}`} className="btn-secondary">

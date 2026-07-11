@@ -16,6 +16,7 @@ import {
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { MarkdownContent } from '@/components/Markdown';
+import Tooltip from '@/components/Tooltip';
 
 type Build = { id: number; code: string; name: string };
 type UserRow = {
@@ -164,11 +165,12 @@ function UserCard({
         </span>
       )}
       {user.build && (
-        <span
-          className="w-1.5 h-1.5 rounded-full shrink-0"
-          style={{ background: buildColor(user.build.code) }}
-          title={user.build.name}
-        />
+        <Tooltip align="center" className="shrink-0" text={user.build.name}>
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: buildColor(user.build.code) }}
+          />
+        </Tooltip>
       )}
     </div>
   );

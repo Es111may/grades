@@ -6,6 +6,7 @@ import { ChevronDownIcon, SearchIcon } from '@/components/icons';
 import EmptyState from '@/components/EmptyState';
 import { getOnTimeZone } from '@/lib/perfScore';
 import type { UserRow, GradeThreshold, TeamStats, AttentionItem } from './UsersClient';
+import Tooltip from '@/components/Tooltip';
 
 const GRADE_LABELS: Record<string, string> = {
   junior: 'Джун',
@@ -190,17 +191,18 @@ export default function LeaderboardView({
     return (
       <th
         onClick={() => toggleSort(keyId)}
-        title={tooltip}
         className={`label-mono py-2.5 px-4 text-stone cursor-pointer select-none hover:text-ink transition-colors ${alignClass}`}
       >
-        <span className="inline-flex items-center gap-1">
-          {children}
-          {active && (
-            <ChevronDownIcon
-              className={`w-3 h-3 text-ink ${sortDir === 'asc' ? 'rotate-180' : ''}`}
-            />
-          )}
-        </span>
+        <Tooltip text={tooltip ?? null} maxWidth={340}>
+          <span className="inline-flex items-center gap-1">
+            {children}
+            {active && (
+              <ChevronDownIcon
+                className={`w-3 h-3 text-ink ${sortDir === 'asc' ? 'rotate-180' : ''}`}
+              />
+            )}
+          </span>
+        </Tooltip>
       </th>
     );
   }
@@ -450,13 +452,15 @@ function TeamBento({ stats }: { stats: TeamStats }) {
             }}
           />
           {[20, 35, 50].map((g) => (
-            <div
+            <Tooltip
               key={g}
-              className="absolute -top-[3px] h-2.5 w-px bg-ash/80"
+              align="center"
+              className="absolute -top-[3px] px-1 -ml-1"
               style={{ left: `${g}%` }}
-              title={`Цель >${g}%`}
-              aria-hidden
-            />
+              text={`Цель >${g}%`}
+            >
+              <span className="block h-2.5 w-px bg-ash/80" aria-hidden />
+            </Tooltip>
           ))}
         </div>
       </div>
