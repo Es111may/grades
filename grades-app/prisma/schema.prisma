@@ -107,6 +107,8 @@ model Skill {
   masteries MasteryLevel[]
   gates     SkillGate[]
   scores    AssessmentScore[]
+  selfAssessments SelfAssessment[]
+  skillEvidences  SkillEvidence[]
 
   @@unique([matrixVersionId, groupId, name])
   @@index([matrixVersionId, active])
@@ -227,6 +229,9 @@ model User {
   // Phase 17 — ИПР (чек-листы)
   checklistsAboutMe    Checklist[]        @relation("ChecklistOwner")
   checklistsCreated    Checklist[]        @relation("ChecklistCreator")
+  // Phase 14 — самооценка + подтверждения
+  selfAssessments      SelfAssessment[]
+  skillEvidences       SkillEvidence[]
 
   @@map("users")
 }
@@ -503,4 +508,39 @@ model NipcSnapshot {
   createdAt DateTime @default(now())
 
   @@map("nipc_snapshots")
+}
+
+// Phase 14: самооценка дизайнера — «я считаю, что владею до уровня N».
+// Референс для лида при грейдировании, НЕ участвует в расчёте XP/грейда.
+// Одна запись на пару (дизайнер, навык), правит только владелец.
+model SelfAssessment {
+  id         Int      @id @default(autoincrement())
+  designerId Int
+  designer   User     @relation(fields: [designerId], references: [id], onDelete: Cascade)
+  skillId    Int
+  skill      Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  level      Int // 1..maxMasteryLevel навыка
+  comment    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([designerId, skillId])
+  @@map("self_assessments")
+}
+
+// Phase 14: подтверждения владения навыком — ссылки (Figma/Notion/Loom/…).
+// Файлы НЕ храним (решение Pavel 11.07.2026) — только URL + подпись.
+model SkillEvidence {
+  id          Int      @id @default(autoincrement())
+  designerId  Int
+  designer    User     @relation(fields: [designerId], references: [id], onDelete: Cascade)
+  skillId     Int
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  url         String
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@index([designerId, skillId])
+  @@map("skill_evidences")
 }
