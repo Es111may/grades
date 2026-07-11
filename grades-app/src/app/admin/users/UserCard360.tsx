@@ -409,40 +409,59 @@ export default function UserCard360({
             </>
           )}
 
-          {/* 360-опросы (лид/стардиз): график eNPS + компактный список */}
-          {isLeadOrStardiz && history && history.leadReviews.length > 0 && (
-            <>
-            <div className="mx-6 h-px bg-cloud" />
-            <div className="px-6 pt-8 pb-7 space-y-1">
-              <TrendSparkline
-                points={[...history.leadReviews]
-                  .reverse()
-                  .map((r) => r.enps)
-                  .filter((v): v is number => v !== null)}
-                label="Динамика eNPS"
-                height={110}
-                deltaDigits={1}
-              />
-              {history.leadReviews.slice(0, 3).map((r) => (
-                <a
-                  key={r.id}
-                  href={`/admin/lead-reviews/${r.id}`}
-                  className="flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-card text-sm hover:bg-canvas/60 transition-colors"
-                >
-                  <span className="font-medium truncate flex-1">{r.period}</span>
-                  <span className="text-stone text-xs shrink-0">
-                    {r.responseCount} {pluralResp(r.responseCount)}
-                  </span>
-                  {r.enps !== null && (
-                    <span className="tabular-nums shrink-0 text-xs text-stone">
-                      eNPS <strong className="text-ink">{r.enps.toFixed(1)}</strong>
-                    </span>
-                  )}
-                </a>
-              ))}
-            </div>
-            </>
-          )}
+          {/* 360-опросы (лид/стардиз): график eNPS + список циклов.
+              Хронология — по дате из строки периода (importedAt врёт для
+              исторических импортов). */}
+          {isLeadOrStardiz && history && history.leadReviews.length > 0 && (() => {
+            const sorted = [...history.leadReviews].sort((a, b) => {
+              const da =
+                parsePeriodDate(a.period)?.getTime() ??
+                new Date(a.importedAt).getTime();
+              const db =
+                parsePeriodDate(b.period)?.getTime() ??
+                new Date(b.importedAt).getTime();
+              return db - da; // свежие сверху
+            });
+            const points = [...sorted]
+              .reverse()
+              .map((r) => r.enps)
+              .filter((v): v is number => v !== null);
+            return (
+              <>
+                <div className="mx-6 h-px bg-cloud" />
+                <div className="px-6 pt-8 pb-7">
+                  <div className="mb-5">
+                    <TrendSparkline points={points} height={110} deltaDigits={1} />
+                  </div>
+                  <div className="space-y-1">
+                    {sorted.slice(0, 3).map((r) => {
+                      const d = parsePeriodDate(r.period);
+                      return (
+                        <a
+                          key={r.id}
+                          href={`/admin/lead-reviews/${r.id}`}
+                          className="flex items-baseline gap-2.5 py-1.5 px-2 -mx-2 rounded-card text-sm hover:bg-canvas/60 transition-colors"
+                        >
+                          {r.enps !== null && (
+                            <span className="font-medium tabular-nums shrink-0">
+                              {r.enps.toFixed(1)}{' '}
+                              <span className="text-stone font-normal">eNPS</span>
+                            </span>
+                          )}
+                          <span className="text-stone shrink-0">
+                            {r.responseCount} {pluralResp(r.responseCount)}
+                          </span>
+                          <span className="ml-auto text-stone tabular-nums shrink-0">
+                            {d ? formatDate(d.toISOString()) : r.period}
+                          </span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* ---------- Действия: текстом + меню «⋯» ---------- */}
           <div className="px-4 py-3.5 border-t border-cloud flex items-center gap-0.5">
@@ -592,7 +611,7 @@ function TrendSparkline({
 }: {
   /** Хронологический ряд значений (старые → новые). */
   points: number[];
-  label: string;
+  label?: string;
   unit?: string;
   height?: number;
   deltaDigits?: number;
@@ -617,6 +636,7 @@ function TrendSparkline({
 
   return (
     <div className="mb-2">
+      {label && (
       <div className="flex items-baseline justify-between mb-1.5">
         <span className="label-mono text-stone">{label}</span>
         {totalDelta !== 0 && (
@@ -629,6 +649,7 @@ function TrendSparkline({
           </span>
         )}
       </div>
+      )}
       <svg
         viewBox={`0 0 ${W} ${H}`}
         width="100%"
@@ -675,6 +696,20 @@ function plural(n: number, forms: [string, string, string]): string {
   if (mod10 === 1) return forms[0];
   if (mod10 >= 2 && mod10 <= 4) return forms[1];
   return forms[2];
+}
+
+// «13 мая 2026» из строки периода → Date (хронология графика/списка).
+const RU_MONTHS: Record<string, number> = {
+  'января': 0, 'февраля': 1, 'марта': 2, 'апреля': 3, 'мая': 4, 'июня': 5,
+  'июля': 6, 'августа': 7, 'сентября': 8, 'октября': 9, 'ноября': 10,
+  'декабря': 11,
+};
+function parsePeriodDate(period: string): Date | null {
+  const m = period.trim().match(/^(\d{1,2})\s+([а-яё]+)\s+(\d{4})/i);
+  if (!m) return null;
+  const mon = RU_MONTHS[m[2].toLowerCase()];
+  if (mon === undefined) return null;
+  return new Date(Date.UTC(parseInt(m[3], 10), mon, parseInt(m[1], 10)));
 }
 
 function pluralResp(n: number): string {
