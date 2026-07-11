@@ -1510,8 +1510,10 @@ function SkillAccordion({
           {/* Phase 14: комментарий к самооценке (владелец, если уровень отмечен) */}
           {canEditSelf && self && (
             <div className="relative">
-              <input
-                type="text"
+              {/* textarea — комментарий переносится по строкам (input не
+                  умел); resize-none, две строки старта */}
+              <textarea
+                rows={2}
                 defaultValue={self.comment ?? ''}
                 placeholder="Комментарий к самооценке (необязательно)"
                 maxLength={2000}
@@ -1520,11 +1522,11 @@ function SkillAccordion({
                   onSaveSelfComment(skill.id, e.target.value);
                   setCommentSaved(true);
                 }}
-                className="input text-xs pr-32"
+                className="input text-xs resize-none pb-7"
               />
               {/* Статус-тег внутри поля: как сохраняется / что сохранено */}
               <span
-                className={`absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded-pill
+                className={`absolute right-2 bottom-2.5 px-2 py-1 rounded-pill
                             text-[10px] leading-none pointer-events-none ${
                               commentSaved
                                 ? 'bg-emerald/15 text-emerald'
