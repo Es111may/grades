@@ -30,7 +30,7 @@ export default function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-pill pl-9 pr-4 h-10 text-[13px] font-normal leading-none
-                   bg-ink/5 border border-ink/5 text-ink placeholder:text-stone
+                   bg-ink/5 border border-ink/5 text-ink placeholder:text-stone placeholder:opacity-100
                    transition-colors focus:outline-none focus:border-sky
                    focus:ring-4 focus:ring-sky/15"
       />
