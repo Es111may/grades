@@ -490,8 +490,10 @@ function PodiumCard({
   onClick: () => void;
 }) {
   const score = Math.round((user.compositeScore ?? 0) * 100);
-  // Компактный чип — метрики как у тегов в списке (.chip-build: 10px, px-2)
-  const chipSm = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-[10px] font-medium shrink-0';
+  // Пиксель-в-пиксель как тег в списке (.chip-build): 10px, gap-1.5, px-2,
+  // py-0.5, leading-none — минимальная высота пилюли.
+  const chipSm =
+    'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill text-[10px] font-medium leading-none shrink-0';
   return (
     // Компактная карточка: тонкий паддинг, теги размером как в списке,
     // всё в одну строку, аватар в правом углу.
