@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import Avatar from '@/components/Avatar';
-import { ChevronDownIcon } from '@/components/icons';
+import { ChevronDownIcon, SearchIcon } from '@/components/icons';
+import EmptyState from '@/components/EmptyState';
 import { getOnTimeZone } from '@/lib/perfScore';
 import type { UserRow, GradeThreshold, TeamStats, AttentionItem } from './UsersClient';
 
@@ -157,7 +158,13 @@ export default function LeaderboardView({
 
   if (designers.length === 0) {
     return (
-      <div className="card p-10 text-center text-stone">Нет дизайнеров в выборке.</div>
+      <div className="card">
+        <EmptyState
+          icon={<SearchIcon className="w-5 h-5" />}
+          title="Никого не нашлось"
+          hint="Поменяй фильтр роли, скоуп «Все/Мои» или поисковый запрос"
+        />
+      </div>
     );
   }
 

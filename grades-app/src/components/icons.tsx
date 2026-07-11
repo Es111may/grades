@@ -32,6 +32,30 @@ export function ChevronDownIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
+export function CheckIcon({ className = 'w-4 h-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M10 15.172L19.192 5.979L20.607 7.393L10 18L3.636 11.636L5.05 10.222L10 15.172Z" />
+    </svg>
+  );
+}
+
+export function PencilIcon({ className = 'w-4 h-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M15.728 9.686L14.314 8.272L5 17.586V19H6.414L15.728 9.686ZM17.142 8.272L18.556 6.858L17.142 5.444L15.728 6.858L17.142 8.272ZM7.242 21H3V16.757L16.435 3.322C16.826 2.932 17.459 2.932 17.85 3.322L20.678 6.151C21.068 6.541 21.068 7.175 20.678 7.565L7.243 21H7.242Z" />
+    </svg>
+  );
+}
+
+export function TrashIcon({ className = 'w-4 h-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M17 6H22V8H20V21C20 21.552 19.552 22 19 22H5C4.448 22 4 21.552 4 21V8H2V6H7V3C7 2.448 7.448 2 8 2H16C16.552 2 17 2.448 17 3V6ZM18 8H6V20H18V8ZM9 11H11V17H9V11ZM13 11H15V17H13V11ZM9 4V6H15V4H9Z" />
+    </svg>
+  );
+}
+
 export function MenuIcon({ className = 'w-4 h-4' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>

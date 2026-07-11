@@ -6,6 +6,8 @@ import NewSkillModal from './NewSkillModal';
 import SearchInput from '@/components/SearchInput';
 import MasteryEditorModal from './MasteryEditorModal';
 import TitleAurora from '@/components/TitleAurora';
+import EmptyState from '@/components/EmptyState';
+import { SearchIcon } from '@/components/icons';
 
 type Group = {
   id: number;
@@ -190,8 +192,23 @@ export default function MatrixClient({
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="bg-snow border border-cloud rounded-card p-10 text-center shadow-soft">
-          <p className="text-stone">Ничего не найдено.</p>
+        <div className="bg-snow border border-cloud rounded-card shadow-soft">
+          <EmptyState
+            icon={<SearchIcon className="w-5 h-5" />}
+            title="Навыки не нашлись"
+            hint="Проверь запрос или загляни в архивные"
+            action={
+              search.trim() ? (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="btn-secondary btn-sm"
+                >
+                  Сбросить поиск
+                </button>
+              ) : undefined
+            }
+          />
         </div>
       ) : (
         <div className="space-y-8">

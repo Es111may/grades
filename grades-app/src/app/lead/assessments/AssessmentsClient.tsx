@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import Avatar from '@/components/Avatar';
 import DeleteButton from './DeleteButton';
 import TitleAurora from '@/components/TitleAurora';
+import EmptyState from '@/components/EmptyState';
+import { CheckIcon } from '@/components/icons';
+import Link from 'next/link';
 
 export type AssessmentRow = {
   id: number;
@@ -188,8 +191,17 @@ export default function AssessmentsClient({
       )}
 
       {rows.length === 0 ? (
-        <div className="card p-10 text-center animate-fade-up" style={{ animationDelay: '110ms' }}>
-          <p className="text-stone">Опубликованных оценок пока нет.</p>
+        <div className="card animate-fade-up" style={{ animationDelay: '110ms' }}>
+          <EmptyState
+            icon={<CheckIcon className="w-5 h-5" />}
+            title="Опубликованных оценок пока нет"
+            hint="Оценка запускается с карточки дизайнера в «Команде»"
+            action={
+              <Link href="/admin/users" className="btn-secondary btn-sm">
+                Перейти к команде
+              </Link>
+            }
+          />
         </div>
       ) : (
         <div className="card overflow-hidden animate-fade-up" style={{ animationDelay: '110ms' }}>

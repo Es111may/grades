@@ -9,7 +9,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDownIcon } from '@/components/icons';
+import { ChevronDownIcon, CheckIcon, PencilIcon, TrashIcon, SearchIcon } from '@/components/icons';
+import EmptyState from '@/components/EmptyState';
 import { AUDIT_ACTION_LABEL, AUDIT_TARGET_TYPE_LABEL } from '@/lib/audit';
 import TitleAurora from '@/components/TitleAurora';
 
@@ -246,12 +247,51 @@ export default function AuditView({
           <tbody className="divide-y divide-cloud">
             {entries.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-sm text-stone italic">
-                  Нет событий под выбранные фильтры.
+                <td colSpan={5}>
+                  <EmptyState
+                    icon={<SearchIcon className="w-5 h-5" />}
+                    title="Нет событий под выбранные фильтры"
+                    hint="Расширь период или сбрось фильтры"
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActorId('');
+                          setAction('');
+                          setTargetType('');
+                          setDateFrom('');
+                          setDateTo('');
+                        }}
+                        className="btn-secondary btn-sm"
+                      >
+                        Сбросить фильтры
+                      </button>
+                    }
+                  />
                 </td>
               </tr>
             ) : (
-              entries.map((e) => <AuditRow key={e.id} entry={e} />)
+              // Phase 26: события сгруппированы по дням — разделители
+              // «Сегодня / Вчера / 8 июля» между блоками
+              (() => {
+                const out: React.ReactNode[] = [];
+                let lastDay = '';
+                for (const e of entries) {
+                  const day = new Date(e.createdAt).toDateString();
+                  if (day !== lastDay) {
+                    lastDay = day;
+                    out.push(
+                      <tr key={`day-${day}`} className="bg-canvas/60">
+                        <td colSpan={5} className="label-mono text-stone py-2 px-4">
+                          {dayLabel(e.createdAt)}
+                        </td>
+                      </tr>,
+                    );
+                  }
+                  out.push(<AuditRow key={e.id} entry={e} />);
+                }
+                return out;
+              })()
             )}
           </tbody>
         </table>
@@ -301,7 +341,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
         className="hover:bg-canvas/60 transition-colors cursor-pointer"
       >
         <td className="py-3 px-4 text-stone whitespace-nowrap tabular-nums">
-          {formatDateTime(entry.createdAt)}
+          {formatTime(entry.createdAt)}
         </td>
         <td className="py-3 px-4">
           <div className="font-medium leading-tight text-ink">
@@ -311,7 +351,12 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
             {ROLE_LABEL[entry.actor.role] ?? entry.actor.role}
           </div>
         </td>
-        <td className="py-3 px-4 text-ink">{actionLabel}</td>
+        <td className="py-3 px-4 text-ink">
+          <span className="inline-flex items-center gap-2.5">
+            <ActionIcon action={entry.action} />
+            {actionLabel}
+          </span>
+        </td>
         <td className="py-3 px-4 text-sm">
           <div className="text-ink">
             {entry.targetName ??
@@ -346,12 +391,51 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
   );
 }
 
-function formatDateTime(iso: string): string {
+/** Вид события по action: создание/публикация — зелёный, удаление —
+ *  красный, остальное (правки) — синий. Порядок проверок важен:
+ *  user_deactivated содержит «activated». */
+function actionKind(action: string): 'create' | 'update' | 'delete' {
+  if (/deleted|deactivated/.test(action)) return 'delete';
+  if (/published|imported|created|activated/.test(action)) return 'create';
+  return 'update';
+}
+
+function ActionIcon({ action }: { action: string }) {
+  const kind = actionKind(action);
+  const tone =
+    kind === 'create'
+      ? 'bg-emerald/15 text-emerald'
+      : kind === 'delete'
+        ? 'bg-blaze/15 text-blaze'
+        : 'bg-sky/15 text-sky';
+  const Icon = kind === 'create' ? CheckIcon : kind === 'delete' ? TrashIcon : PencilIcon;
+  return (
+    <span
+      className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${tone}`}
+    >
+      <Icon className="w-3 h-3" />
+    </span>
+  );
+}
+
+/** «Сегодня» / «Вчера» / «8 июля» (+ год, если не текущий). */
+function dayLabel(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
+  const now = new Date();
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((today.getTime() - day.getTime()) / 864e5);
+  if (diff === 0) return 'Сегодня';
+  if (diff === 1) return 'Вчера';
+  return d.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
+  });
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
   });
