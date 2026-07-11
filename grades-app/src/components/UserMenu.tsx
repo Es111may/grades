@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { signOut } from 'next-auth/react';
+import { signOut, signIn, useSession } from 'next-auth/react';
 import Avatar from './Avatar';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -22,6 +22,9 @@ export default function UserMenu({
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // Имперсонация: если в сессии есть impersonatorId — показываем возврат
+  const { data: session } = useSession();
+  const impersonatorId = session?.user?.impersonatorId ?? null;
   // Небольшая задержка на закрытие — курсор может на миг «срезать» зазор
   // между аватаркой и меню; без грейс-периода меню мигало бы (Pavel:
   // «ведёшь курсор вниз и меню схлопывается»).
@@ -80,6 +83,19 @@ export default function UserMenu({
               <div className="text-sm font-medium text-ink truncate">{fullName}</div>
               <div className="text-xs text-stone mt-0.5">{ROLE_LABEL[role] ?? role}</div>
             </div>
+            {impersonatorId !== null && (
+              <button
+                onClick={() =>
+                  signIn('impersonate', {
+                    targetUserId: String(impersonatorId),
+                    callbackUrl: '/admin/users',
+                  })
+                }
+                className="w-full text-left px-4 py-2.5 text-sm text-sunset hover:bg-cloud/50 transition-colors border-b border-cloud"
+              >
+                Вернуться в свой аккаунт
+              </button>
+            )}
             <button
               onClick={() => signOut({ callbackUrl: '/auth/signin' })}
               className="w-full text-left px-4 py-2.5 text-sm text-ink hover:bg-cloud/50 transition-colors"

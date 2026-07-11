@@ -14,6 +14,8 @@ declare module 'next-auth' {
       leadId: number | null;
       gradeFloor: GradeCode | null;
       department: string | null;
+      /** id админа, вошедшего «под» этим пользователем (имперсонация). */
+      impersonatorId: number | null;
     } & DefaultSession['user'];
   }
 
@@ -26,6 +28,7 @@ declare module 'next-auth' {
     leadId: number | null;
     gradeFloor: GradeCode | null;
     department: string | null;
+    impersonatorId?: number | null;
   }
 }
 
@@ -38,5 +41,6 @@ declare module 'next-auth/jwt' {
     leadId: number | null;
     gradeFloor: GradeCode | null;
     department: string | null;
+    impersonatorId?: number | null;
   }
 }

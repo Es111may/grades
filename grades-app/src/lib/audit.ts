@@ -73,6 +73,8 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   checklist_created: 'ИПР: чек-лист создан',
   checklist_updated: 'ИПР: чек-лист обновлён',
   checklist_deleted: 'ИПР: чек-лист удалён',
+  impersonation_started: 'Вход под пользователем',
+  impersonation_ended: 'Выход из имперсонации',
   project_created: 'Проект создан',
   project_updated: 'Проект обновлён',
   project_deleted: 'Проект удалён',

@@ -10,8 +10,11 @@
 
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { getToken } from 'next-auth/jwt';
+import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { prisma } from './db';
+import { writeAudit } from './audit';
 import type { BuildCode, GradeCode, UserRole } from './types';
 
 const authMode = process.env.AUTH_MODE || 'password';
@@ -40,6 +43,68 @@ if (isDevAuth) {
     }),
   );
 }
+
+// Имперсонация: админ входит «под» любым активным пользователем
+// (кнопка «Войти как» в карточке 360). Не-админу разрешён единственный
+// переход — обратно в свой аккаунт (по impersonatorId из текущего JWT).
+// Каждый вход логируется в аудит.
+providers.push(
+  CredentialsProvider({
+    id: 'impersonate',
+    name: 'Impersonate',
+    credentials: {
+      targetUserId: { label: 'User ID', type: 'text' },
+    },
+    async authorize(credentials) {
+      const targetId = parseInt(credentials?.targetUserId ?? '', 10);
+      if (isNaN(targetId)) return null;
+
+      // Текущий JWT — из cookies запроса (authorize выполняется в
+      // request-scope апп-роутера, next/headers доступен).
+      let token = null;
+      try {
+        const store = cookies();
+        const cookieMap: Record<string, string> = {};
+        for (const c of store.getAll()) cookieMap[c.name] = c.value;
+        token = await getToken({
+          req: { cookies: cookieMap, headers: {} } as never,
+        });
+      } catch {
+        return null;
+      }
+      if (!token?.numericId) return null;
+
+      const isAdmin = token.role === 'admin';
+      const returningToSelf =
+        typeof token.impersonatorId === 'number' &&
+        token.impersonatorId === targetId;
+      if (!isAdmin && !returningToSelf) return null;
+
+      const target = await prisma.user.findUnique({
+        where: { id: targetId },
+        include: { build: true },
+      });
+      if (!target || !target.active) return null;
+
+      // Кто «настоящий» админ в новой сессии: при возврате в себя — никто,
+      // при входе под другим — исходный админ (или уже сохранённый).
+      const impersonatorId = returningToSelf
+        ? null
+        : target.id === token.numericId
+          ? null
+          : ((token.impersonatorId as number | null) ?? token.numericId);
+
+      await writeAudit({
+        actorId: token.numericId as number,
+        action: returningToSelf ? 'impersonation_ended' : 'impersonation_started',
+        targetType: 'user',
+        targetId: target.id,
+      });
+
+      return { ...userToAuthPayload(target), impersonatorId };
+    },
+  }),
+);
 
 // Password-провайдер активен всегда (даже в dev — на случай если админ хочет
 // проверить email+password на локалке).
@@ -110,6 +175,8 @@ export const authOptions: NextAuthOptions = {
         token.leadId = (user as any).leadId;
         token.gradeFloor = (user as any).gradeFloor;
         token.department = (user as any).department;
+        // Имперсонация: обычный вход всегда сбрасывает метку
+        token.impersonatorId = (user as any).impersonatorId ?? null;
       }
       return token;
     },
@@ -123,6 +190,7 @@ export const authOptions: NextAuthOptions = {
         session.user.leadId = token.leadId;
         session.user.gradeFloor = token.gradeFloor;
         session.user.department = token.department;
+        session.user.impersonatorId = token.impersonatorId ?? null;
       }
       return session;
     },
