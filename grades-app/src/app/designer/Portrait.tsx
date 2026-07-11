@@ -954,7 +954,8 @@ function CyclesSwitcher({
         />
       </button>
       {open && (
-        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 card p-1.5 min-w-[210px] shadow-soft-lg animate-scale-in text-left">
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30">
+          <div className="card p-1.5 min-w-[210px] shadow-soft-lg animate-scale-in text-left">
           {siblings.map((s) => (
             <Link
               key={s.id}
@@ -973,6 +974,7 @@ function CyclesSwitcher({
               </span>
             </Link>
           ))}
+          </div>
         </div>
       )}
     </div>
