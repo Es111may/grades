@@ -500,36 +500,37 @@ function PodiumCard({
                  hover:shadow-soft-md hover:-translate-y-1 hover:border-ash"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="font-medium text-base leading-tight truncate mt-1">
-            {user.fullName}
-          </div>
-          <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-            {/* Скор топ-3 — зелёная заливка (Pavel, скрин-ревью) */}
-            <span className="chip bg-emerald/15">
-              <b className="font-medium text-emerald">{score}</b>
-              <span className="text-emerald/70">№{place}</span>
-            </span>
-            {user.effectiveGrade && (
-              <span className="chip bg-ink text-snow">
-                {GRADE_LABELS[user.effectiveGrade] ?? user.effectiveGrade}
-              </span>
-            )}
-            {user.build && (
-              <span className="chip-neutral">
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: buildColor(user.build.code) }}
-                />
-                {user.build.name}
-              </span>
-            )}
-            {user.onTimePercent != null && (
-              <span className="chip-neutral">{Math.round(user.onTimePercent)}% в срок</span>
-            )}
-          </div>
+        <div className="font-medium text-base leading-tight truncate mt-1 min-w-0 flex-1">
+          {user.fullName}
         </div>
         <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={44} />
+      </div>
+      {/* Чипы одной строкой на всю ширину карточки (nowrap) */}
+      <div className="flex items-center gap-1 mt-2.5 whitespace-nowrap overflow-hidden">
+        {/* Скор с № — насыщенный зелёный (Pavel) */}
+        <span className="chip bg-emerald text-white shrink-0">
+          <b className="font-medium">{score}</b>
+          <span className="text-white/75">№{place}</span>
+        </span>
+        {user.effectiveGrade && (
+          <span className="chip bg-ink text-snow shrink-0">
+            {GRADE_LABELS[user.effectiveGrade] ?? user.effectiveGrade}
+          </span>
+        )}
+        {user.build && (
+          <span className="chip-neutral shrink-0">
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: buildColor(user.build.code) }}
+            />
+            {user.build.name}
+          </span>
+        )}
+        {user.onTimePercent != null && (
+          <span className="chip-neutral shrink-0">
+            {Math.round(user.onTimePercent)}% в срок
+          </span>
+        )}
       </div>
       <div className="flex gap-1.5 mt-5">
         {TAXONOMIES.map((t) => {

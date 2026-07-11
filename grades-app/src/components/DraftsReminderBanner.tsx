@@ -50,8 +50,9 @@ export default function DraftsReminderBanner({
     : `${total} ${pluralizeDrafts(total)} в работе`;
 
   return (
-    // Капсула в стиле Dynamic Island — центрированная пилюля под хедером
-    <div className="px-4 mt-2">
+    // Капсула-спутник: липнет ПОД Dynamic Island (12px top острова + 56px
+    // высоты + 8px зазора = 76px) и скроллится вместе с ним единым стеком.
+    <div className="sticky top-[76px] z-20 px-4 mt-2">
       <Link
         href="/lead/assessments"
         className={`block w-fit max-w-full mx-auto rounded-pill px-5 py-2 text-sm

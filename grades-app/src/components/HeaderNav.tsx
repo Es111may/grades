@@ -37,32 +37,38 @@ export default function HeaderNav({ items }: { items: NavItem[] }) {
         <MenuIcon className="w-[18px] h-[18px] shrink-0" />
       </span>
 
-      {/* Пункты меню: выезжают на месте бургера */}
-      <nav
-        className="flex items-center gap-0.5 overflow-hidden whitespace-nowrap
+      {/* Пункты меню: раскрываются ИЗ ЦЕНТРА. Обёртка с justify-center +
+          nav с фиксированной шириной (shrink-0) — при анимации max-width
+          видимая область растёт от середины в обе стороны. */}
+      <div
+        className="flex justify-center overflow-hidden
                    transition-all duration-500 ease-apple-out
                    max-w-0 opacity-0
                    group-hover:max-w-[720px] group-hover:opacity-100
                    group-focus-within:max-w-[720px] group-focus-within:opacity-100"
-        aria-label="Разделы"
       >
-        {items.map((n) => {
-          const active = isActive(n.href);
-          return (
-            <Link
-              key={n.href}
-              href={n.href}
-              className={`px-3 py-1.5 text-sm rounded-pill transition-colors duration-150 ${
-                active
-                  ? 'bg-cloud text-ink'
-                  : 'text-stone hover:text-ink hover:bg-cloud/50'
-              }`}
-            >
-              {n.label}
-            </Link>
-          );
-        })}
-      </nav>
+        <nav
+          className="flex items-center gap-0.5 whitespace-nowrap shrink-0"
+          aria-label="Разделы"
+        >
+          {items.map((n) => {
+            const active = isActive(n.href);
+            return (
+              <Link
+                key={n.href}
+                href={n.href}
+                className={`px-3 py-1.5 text-sm rounded-pill transition-colors duration-150 ${
+                  active
+                    ? 'bg-cloud text-ink'
+                    : 'text-stone hover:text-ink hover:bg-cloud/50'
+                }`}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
     </div>
   );
 }
