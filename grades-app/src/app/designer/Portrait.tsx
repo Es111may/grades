@@ -487,11 +487,7 @@ export default function Portrait({
           {actions}
           {/* Phase 14: владельцу — быстрый переход к самооценке навыков */}
           {isSelfOwner && (
-            <Tooltip
-              align="center"
-              maxWidth={320}
-              text="Отметь уровни владения навыками и приложи ссылки-подтверждения — лид увидит их при грейдировании. На XP и грейд самооценка не влияет."
-            >
+            <Tooltip align="center" maxWidth={330} text={SELF_ASSESSMENT_HINT}>
               <button
                 type="button"
                 onClick={scrollToSkills}
@@ -1298,6 +1294,29 @@ function GroupBreakdown({
   );
 }
 
+/** Phase 14: контент хинта «как работает самооценка» — единый для
+ *  информера у счётчика и кнопки «Добавить самооценку». */
+const SELF_ASSESSMENT_HINT = (
+  <>
+    <span className="block font-medium text-ink mb-1.5">
+      Как работает самооценка
+    </span>
+    Это твой взгляд на владение навыками — референс для лида при
+    грейдировании. На XP и грейд не влияет.
+    <span className="block mt-1.5">
+      1. Раскрой навык и кликни по уровню — появится метка «Моя оценка».
+    </span>
+    <span className="block mt-1">
+      2. Приложи ссылки-подтверждения (Figma, Notion, Loom) кнопкой
+      «Добавить».
+    </span>
+    <span className="block mt-1">
+      3. Лид увидит самооценку и материалы в форме оценки, расхождения
+      подсветятся — это повод для 1:1.
+    </span>
+  </>
+);
+
 /** Скролл к разделу «Навыки» с само-коррекцией: блоки выше (перформанс,
  *  чек-листы) догружаются асинхронно и сдвигают якорь — без коррекции
  *  первый клик промахивался. 96px = scroll-mt-24. */
@@ -1322,26 +1341,7 @@ function SelfAssessmentInfo() {
       align="right"
       maxWidth={330}
       className="shrink-0 cursor-help"
-      text={
-        <>
-        <span className="block font-medium text-ink mb-1.5">
-          Как работает самооценка
-        </span>
-        Это твой взгляд на владение навыками — референс для лида при
-        грейдировании. На XP и грейд не влияет.
-        <span className="block mt-1.5">
-          1. Раскрой навык и кликни по уровню — появится метка «Моя оценка».
-        </span>
-        <span className="block mt-1">
-          2. Приложи ссылки-подтверждения (Figma, Notion, Loom) кнопкой
-          «Добавить».
-        </span>
-        <span className="block mt-1">
-          3. Лид увидит самооценку и материалы в форме оценки, расхождения
-          подсветятся — это повод для 1:1.
-        </span>
-        </>
-      }
+      text={SELF_ASSESSMENT_HINT}
     >
       <InfoIcon className="w-3.5 h-3.5 text-ash hover:text-ink transition-colors" />
     </Tooltip>
