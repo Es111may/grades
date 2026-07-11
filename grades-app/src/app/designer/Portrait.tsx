@@ -476,6 +476,22 @@ export default function Portrait({
         {actions && (
           <div className="flex items-center justify-center mt-6">{actions}</div>
         )}
+        {/* Phase 14: владельцу — быстрый переход к самооценке навыков */}
+        {isSelfOwner && (
+          <button
+            type="button"
+            onClick={() =>
+              document
+                .getElementById('skills')
+                ?.scrollIntoView({ behavior: 'smooth' })
+            }
+            className="mt-6 inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
+                       bg-snow/60 backdrop-blur-md border border-cloud/40
+                       hover:bg-snow/80 transition-colors"
+          >
+            Добавить самооценку
+          </button>
+        )}
       </div>
 
       {/* === Статистика: grade-card, taxonomy-cards, radar, next-gate === */}
@@ -491,7 +507,7 @@ export default function Portrait({
         {/* XP: цифра, дельта за цикл, до следующего грейда, бар, дата публикации */}
         {/* Единая анатомия карточек (как bento «Команды»): label → крупное
             число 44px → описание → бар, прижатый к низу. */}
-        <div className="card p-5 flex flex-col">
+        <div className="card p-5 flex flex-col min-h-[188px]">
           <div className="label-mono text-stone">Общий XP</div>
           <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
             {data.totalXp}
@@ -530,7 +546,7 @@ export default function Portrait({
         </div>
 
         {/* В срок — та же анатомия: число, описание, бар в цвете зоны */}
-        <div className="card p-5 flex flex-col">
+        <div className="card p-5 flex flex-col min-h-[188px]">
           <div className="label-mono text-stone">В срок · 6 мес</div>
           {showPerformanceForBuild && onTimePercent !== null ? (
             <>
@@ -575,7 +591,7 @@ export default function Portrait({
 
         {/* 9-Box (только admin/lead) либо «Скорость роста» */}
         {nineBoxTitle ? (
-          <div className="card p-5 flex flex-col">
+          <div className="card p-5 flex flex-col min-h-[188px]">
             <div className="label-mono text-stone">Позиция · 9-Box</div>
             <div className="font-display text-2xl font-medium tracking-tight mt-3">
               {nineBoxTitle}
@@ -587,7 +603,7 @@ export default function Portrait({
         )}
 
         {/* Гейты следующего грейда */}
-        <div className="card p-5 flex flex-col">
+        <div className="card p-5 flex flex-col min-h-[188px]">
           <div className="label-mono text-stone">
             {data.nextGrade ? `Гейты до «${GRADE_NAMES[data.nextGrade.code]}»` : 'Гейты'}
           </div>
@@ -813,7 +829,7 @@ export default function Portrait({
       )}
 
       {/* Skills grouped — accordions, стиль как у формы оценки */}
-      <div className="space-y-5">
+      <div id="skills" className="space-y-5 scroll-mt-24">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-2xl font-medium tracking-tight">Навыки</h2>
           {/* Phase 14: тихий прогресс самооценки */}
@@ -983,7 +999,7 @@ function GrowthCell({ sibs }: { sibs: PortraitData['siblings'] }) {
   }
   const cyclesWord = n === 1 ? 'цикл' : n < 5 ? 'цикла' : 'циклов';
   return (
-    <div className="card p-5 flex flex-col">
+    <div className="card p-5 flex flex-col min-h-[188px]">
       <div className="label-mono text-stone">Скорость роста</div>
       <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
         {n === 0 ? (
