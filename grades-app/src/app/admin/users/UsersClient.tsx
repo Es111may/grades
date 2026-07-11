@@ -375,6 +375,15 @@ export default function UsersClient({
       {card360User && (
         <UserCard360
           user={card360User}
+          rank={(() => {
+            // Позиция в рейтинге — по composite среди активных дизайнеров
+            // (та же сортировка, что подиум+таблица лидерборда)
+            const ranked = users
+              .filter((u) => u.role === 'designer' && u.active && u.compositeScore != null)
+              .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
+            const i = ranked.findIndex((u) => u.id === card360User.id);
+            return i >= 0 ? i + 1 : null;
+          })()}
           meId={meId}
           meRole={meRole}
           onClose={() => setCard360User(null)}

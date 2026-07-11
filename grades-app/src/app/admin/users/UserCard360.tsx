@@ -65,6 +65,7 @@ function formatDate(iso: string | null) {
 
 export default function UserCard360({
   user,
+  rank = null,
   meId,
   meRole,
   onClose,
@@ -72,6 +73,8 @@ export default function UserCard360({
   onDeactivated,
 }: {
   user: UserRow;
+  /** Позиция в рейтинге по composite среди активных дизайнеров («№1»). */
+  rank?: number | null;
   meId: number | null;
   meRole: string;
   onClose: () => void;
@@ -196,10 +199,9 @@ export default function UserCard360({
                   Все на базе `.chip` — одинаковый размер шрифта и паддинги,
                   меняется только цветовая палитра. */}
               <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-                {/* Composite-скор — первым чипом, число в цвете зоны */}
+                {/* Composite-скор — как на подиуме: «83 №1», число в цвете зоны */}
                 {user.role === 'designer' && user.compositeScore != null && (
                   <span className="chip bg-ink/[0.07] text-stone">
-                    Топ{' '}
                     <b
                       className={
                         Math.round(user.compositeScore * 100) >= 80
@@ -213,6 +215,7 @@ export default function UserCard360({
                     >
                       {Math.round(user.compositeScore * 100)}
                     </b>
+                    {rank != null && <span className="text-ash">№{rank}</span>}
                   </span>
                 )}
                 <span className={`chip ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
