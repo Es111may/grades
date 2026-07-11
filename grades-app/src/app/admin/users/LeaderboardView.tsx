@@ -549,14 +549,14 @@ function PodiumCard({
       className="card p-4 text-left w-full transition-all duration-200 ease-apple-out
                  hover:shadow-soft-md hover:-translate-y-1 hover:border-ash"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="font-medium text-[15px] leading-tight truncate mt-0.5 min-w-0 flex-1">
+      <div className="flex items-center justify-between gap-3">
+        <div className="font-medium text-[15px] leading-tight truncate min-w-0 flex-1">
           {user.fullName}
         </div>
-        <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={40} />
+        <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={36} />
       </div>
-      {/* Чипы одной строкой на всю ширину карточки (nowrap) */}
-      <div className="flex items-center gap-1 mt-2 whitespace-nowrap overflow-hidden">
+      {/* Чипы одной строкой, подтянуты к имени (Pavel) */}
+      <div className="flex items-center gap-1 mt-1.5 whitespace-nowrap overflow-hidden">
         {/* Скор с № — насыщенный зелёный (Pavel) */}
         <span className={`${chipSm} bg-emerald text-white`}>
           <b className="font-medium">{score}</b>
