@@ -82,34 +82,31 @@ export default function SignInForm({
             Войди с рабочей почтой и паролем
           </p>
         </div>
-        <div className="space-y-2">
-          <label htmlFor="login-email" className="label-mono text-stone block">
-            Email
-          </label>
+        {/* Поля круглые (rounded-pill, как всюду в сервисе), без лейблов —
+            плейсхолдеры говорят сами; вплотную друг к другу */}
+        <div className="space-y-2.5">
           <input
             id="login-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="ivan@idaproject.com"
+            placeholder="Рабочая почта"
+            aria-label="Email"
             autoComplete="email"
-            className="w-full h-12 rounded-[14px] bg-ink/5 border border-ink/10 px-4
+            className="w-full h-12 rounded-pill bg-ink/5 border border-ink/10 px-5
                        text-[15px] text-ink placeholder:text-ash transition-all
                        focus:outline-none focus:border-lime/50 focus:ring-4 focus:ring-lime/10"
             required
           />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="login-password" className="label-mono text-stone block">
-            Пароль
-          </label>
           <input
             id="login-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            placeholder="Пароль"
+            aria-label="Пароль"
             autoComplete="current-password"
-            className="w-full h-12 rounded-[14px] bg-ink/5 border border-ink/10 px-4
+            className="w-full h-12 rounded-pill bg-ink/5 border border-ink/10 px-5
                        text-[15px] text-ink placeholder:text-ash transition-all
                        focus:outline-none focus:border-lime/50 focus:ring-4 focus:ring-lime/10"
             required
