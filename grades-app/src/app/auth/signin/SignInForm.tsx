@@ -1,6 +1,7 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
+import BrandLogo from '@/components/BrandLogo';
 import { useState } from 'react';
 import { ChevronDownIcon } from '@/components/icons';
 
@@ -70,9 +71,17 @@ export default function SignInForm({
       <form
         onSubmit={handlePasswordLogin}
         className="rounded-modal border border-cloud/60 bg-snow/70 backdrop-blur-2xl
-                   shadow-soft-lg p-8 space-y-5"
+                   shadow-soft-lg px-8 pt-10 pb-8 space-y-5"
         style={{ WebkitBackdropFilter: 'blur(24px) saturate(160%)' }}
       >
+        {/* Логотип и подпись — внутри плашки (Pavel); на подложке серый
+            текст чистый, над авророй — грязнился */}
+        <div className="flex flex-col items-center text-center !mb-8">
+          <BrandLogo className="w-[190px] h-[26px]" />
+          <p className="text-sm text-graphite mt-4">
+            Войди с рабочей почтой и паролем
+          </p>
+        </div>
         <div className="space-y-2">
           <label htmlFor="login-email" className="label-mono text-stone block">
             Email
@@ -123,10 +132,10 @@ export default function SignInForm({
         >
           {loading === 'password' ? 'Вхожу…' : 'Войти'}
         </button>
+        <p className="text-xs text-stone text-center !mt-6">
+          Если ещё нет доступа — попроси админа создать аккаунт.
+        </p>
       </form>
-      <p className="text-xs text-stone text-center">
-        Если ещё нет доступа — попроси админа создать аккаунт.
-      </p>
 
       {/* Dev mode helper */}
       {isDev && devUsers.length > 0 && (

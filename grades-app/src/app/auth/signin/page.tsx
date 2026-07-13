@@ -6,7 +6,6 @@ import { authOptions, isUsingDevAuth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { getDashboardForRole } from '@/lib/session';
 import SignInForm from './SignInForm';
-import BrandLogo from '@/components/BrandLogo';
 import TitleAurora from '@/components/TitleAurora';
 
 export default async function SignInPage({
@@ -40,19 +39,13 @@ export default async function SignInPage({
     // Экран входа: аврора за логотипом (как за заголовками разделов),
     // живой BrandLogo, форма-карточка по центру.
     <main className="min-h-screen flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-[400px] title-halo">
+      <div className="w-full max-w-[400px] title-halo animate-fade-up">
         <TitleAurora />
-        <div className="mb-10 flex flex-col items-center text-center animate-fade-up">
-          <BrandLogo className="w-[216px] h-[30px]" />
-          <p className="text-sm text-stone mt-5">Войди с рабочей почтой и паролем</p>
-        </div>
-        <div className="animate-fade-up" style={{ animationDelay: '80ms' }}>
-          <SignInForm
-            isDev={isUsingDevAuth}
-            devUsers={devUsers}
-            callbackUrl={searchParams.callbackUrl}
-          />
-        </div>
+        <SignInForm
+          isDev={isUsingDevAuth}
+          devUsers={devUsers}
+          callbackUrl={searchParams.callbackUrl}
+        />
       </div>
     </main>
   );
