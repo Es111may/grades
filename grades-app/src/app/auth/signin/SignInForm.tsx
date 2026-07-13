@@ -66,43 +66,67 @@ export default function SignInForm({
   return (
     <div className="space-y-4">
       {/* Password form (always visible) */}
-      <form onSubmit={handlePasswordLogin} className="card p-7 space-y-4">
-        <div>
-          <label className="label-mono text-stone block mb-2">Email</label>
+      {/* Glass-карточка над авророй; поля крупные, фокус — фирменный лайм */}
+      <form
+        onSubmit={handlePasswordLogin}
+        className="rounded-modal border border-cloud/60 bg-snow/70 backdrop-blur-2xl
+                   shadow-soft-lg p-8 space-y-5"
+        style={{ WebkitBackdropFilter: 'blur(24px) saturate(160%)' }}
+      >
+        <div className="space-y-2">
+          <label htmlFor="login-email" className="label-mono text-stone block">
+            Email
+          </label>
           <input
+            id="login-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="ivan@idaproject.com"
             autoComplete="email"
-            className="input"
+            className="w-full h-12 rounded-[14px] bg-ink/5 border border-ink/10 px-4
+                       text-[15px] text-ink placeholder:text-ash transition-all
+                       focus:outline-none focus:border-lime/50 focus:ring-4 focus:ring-lime/10"
             required
           />
         </div>
-        <div>
-          <label className="label-mono text-stone block mb-2">Пароль</label>
+        <div className="space-y-2">
+          <label htmlFor="login-password" className="label-mono text-stone block">
+            Пароль
+          </label>
           <input
+            id="login-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
-            className="input"
+            className="w-full h-12 rounded-[14px] bg-ink/5 border border-ink/10 px-4
+                       text-[15px] text-ink placeholder:text-ash transition-all
+                       focus:outline-none focus:border-lime/50 focus:ring-4 focus:ring-lime/10"
             required
           />
         </div>
-        {error && <div className="text-xs text-blaze">{error}</div>}
+        {error && (
+          <div className="text-[13px] text-blaze bg-blaze/10 border border-blaze/15
+                          rounded-[12px] px-4 py-2.5">
+            {error}
+          </div>
+        )}
         <button
           type="submit"
           disabled={loading !== null}
-          className="btn-accent w-full justify-center shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
-                     hover:-translate-y-px hover:shadow-[0_0_34px_rgb(var(--lime-glow-rgb)_/_0.3)]"
+          className="w-full h-12 rounded-pill bg-lime text-black font-medium text-[15px]
+                     transition-all duration-200 ease-apple-out
+                     shadow-[0_0_28px_rgb(var(--lime-glow-rgb)_/_0.22)]
+                     hover:-translate-y-px hover:shadow-[0_0_40px_rgb(var(--lime-glow-rgb)_/_0.34)]
+                     disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {loading === 'password' ? 'Вхожу…' : 'Войти'}
         </button>
-        <p className="text-xs text-stone text-center">
-          Если ещё нет доступа — попроси админа создать аккаунт.
-        </p>
       </form>
+      <p className="text-xs text-stone text-center">
+        Если ещё нет доступа — попроси админа создать аккаунт.
+      </p>
 
       {/* Dev mode helper */}
       {isDev && devUsers.length > 0 && (

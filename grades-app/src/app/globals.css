@@ -149,6 +149,17 @@
   ::selection {
     background: var(--selection-bg);
   }
+  /* Chrome-автофилл красил поля в системный синий — гасим: фон canvas,
+     текст ink, огромная inset-тень перекрывает жёлто-синюю заливку. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: rgb(var(--c-ink));
+    -webkit-box-shadow: 0 0 0 1000px rgb(var(--c-canvas)) inset;
+    caret-color: rgb(var(--c-ink));
+    transition: background-color 9999s ease-in-out 0s;
+  }
+
   /* Тонкий скроллбар в тон теме */
   * {
     scrollbar-width: thin;
