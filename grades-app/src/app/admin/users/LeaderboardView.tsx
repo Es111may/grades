@@ -168,7 +168,7 @@ export default function LeaderboardView({
         <EmptyState
           icon={<SearchIcon className="w-5 h-5" />}
           title="Никого не нашлось"
-          hint="Поменяй фильтр роли, скоуп «Все/Мои» или поисковый запрос"
+          hint="Поменяй команду, фильтр роли или поисковый запрос"
         />
       </div>
     );

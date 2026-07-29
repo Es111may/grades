@@ -9,6 +9,14 @@ import MatrixView from './MatrixView';
 import UserCard360 from './UserCard360';
 import LeaderboardView from './LeaderboardView';
 import TitleAurora from '@/components/TitleAurora';
+import {
+  buildTeamOptions,
+  countMentees,
+  isMenteeOf,
+  scopeOwnerId,
+  type ScopeFilter,
+  type TeamOption,
+} from '@/lib/teamScope';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -104,7 +112,8 @@ type ViewMode =
   | 'matrix';
 
 type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
-type ScopeFilter = 'all' | 'mine';
+// ScopeFilter, scopeOwnerId, isMenteeOf и buildTeamOptions живут в
+// @/lib/teamScope — чистой библиотекой, покрытой тестами.
 
 export default function UsersClient({
   initialUsers,
@@ -146,10 +155,14 @@ export default function UsersClient({
   // 9-Box доступен только admin/lead (нужны права на drag-n-drop в API).
   const showMatrixTab = meRole === 'admin' || meRole === 'lead';
 
+  // id владельца выбранной команды (null = «Все»). Считаем один раз и
+  // переиспользуем в списке, счётчиках ролей и bento-агрегатах.
+  const ownerId = showScopeSwitcher ? scopeOwnerId(scopeFilter, meId) : null;
+
   const filtered = useMemo(() => {
     let list = users;
-    if (showScopeSwitcher && scopeFilter === 'mine' && meId !== null) {
-      list = list.filter((u) => u.leadId === meId || u.stardizId === meId);
+    if (ownerId !== null) {
+      list = list.filter((u) => isMenteeOf(u, ownerId));
     }
     if (roleFilter !== 'all') {
       list = list.filter((u) => u.role === roleFilter);
@@ -162,7 +175,7 @@ export default function UsersClient({
       );
     }
     return list;
-  }, [users, roleFilter, search, scopeFilter, showScopeSwitcher, meId]);
+  }, [users, roleFilter, search, ownerId]);
 
   // Счётчики ролей считаем с учётом scope (но без поиска и роле-фильтра),
   // чтобы цифры в чипах были согласованы с тем, что увидит пользователь.
@@ -172,9 +185,7 @@ export default function UsersClient({
   // и в конце списка) — это уже логика отображения, отдельно от счётчиков.
   const counts = useMemo(() => {
     const scoped =
-      showScopeSwitcher && scopeFilter === 'mine' && meId !== null
-        ? users.filter((u) => u.leadId === meId || u.stardizId === meId)
-        : users;
+      ownerId !== null ? users.filter((u) => isMenteeOf(u, ownerId)) : users;
     const base = scoped.filter((u) => u.active);
     const c = { all: base.length, designer: 0, stardiz: 0, lead: 0, admin: 0 };
     base.forEach((u) => {
@@ -184,17 +195,18 @@ export default function UsersClient({
       else if (u.role === 'admin') c.admin++;
     });
     return c;
-  }, [users, scopeFilter, showScopeSwitcher, meId]);
+  }, [users, ownerId]);
 
-  // Счётчик «Мои» — подопечные текущего пользователя (для сегмента скоупа).
+  // Счётчик «Мои» — подопечные текущего пользователя (для пункта скоупа).
   const mineCount = useMemo(
-    () =>
-      meId === null
-        ? 0
-        : users.filter(
-            (u) => u.active && (u.leadId === meId || u.stardizId === meId),
-          ).length,
+    () => (meId === null ? 0 : countMentees(users, meId)),
     [users, meId],
+  );
+
+  // Команды лидов и стардизов для селектора скоупа.
+  const teamOptions = useMemo(
+    () => buildTeamOptions(users, meId, meRole),
+    [users, meId, meRole],
   );
 
   // Счётчик «Все» для сегмента скоупа — ВСЕГДА полная команда, независимо
@@ -209,12 +221,11 @@ export default function UsersClient({
   // (с точными медианами ClickHouse и спарклайном); для «Мои» —
   // пересчитываем по подвыборке подопечных на клиенте.
   const scoped = useMemo(() => {
-    if (!(showScopeSwitcher && scopeFilter === 'mine' && meId !== null)) {
+    if (ownerId === null) {
       return { stats: teamStats, nineBox, attention };
     }
-    const mine = users.filter((u) => u.leadId === meId || u.stardizId === meId);
-    return computeScopedStats(mine);
-  }, [showScopeSwitcher, scopeFilter, meId, users, teamStats, nineBox, attention]);
+    return computeScopedStats(users.filter((u) => isMenteeOf(u, ownerId)));
+  }, [ownerId, users, teamStats, nineBox, attention]);
 
   function openNew() {
     setModalUser(null);
@@ -274,22 +285,13 @@ export default function UsersClient({
         style={{ animationDelay: '70ms' }}
       >
         {showScopeSwitcher && (
-          <div className="segmented">
-            {(['all', 'mine'] as ScopeFilter[]).map((s) => (
-              <button
-                key={s}
-                onClick={() => setScopeFilter(s)}
-                className={`segmented-item ${
-                  scopeFilter === s ? 'segmented-item-active' : ''
-                }`}
-              >
-                {s === 'all' ? 'Все' : 'Мои'}
-                <span className="ml-1.5 text-ash text-xs">
-                  {s === 'all' ? allActiveCount : mineCount}
-                </span>
-              </button>
-            ))}
-          </div>
+          <ScopeDropdown
+            value={scopeFilter}
+            allCount={allActiveCount}
+            mineCount={mineCount}
+            teams={teamOptions}
+            onChange={setScopeFilter}
+          />
         )}
 
         <RoleDropdown value={roleFilter} counts={counts} onChange={setRoleFilter} />
@@ -544,6 +546,136 @@ function computeScopedStats(list: UserRow[]): {
  * Дропдаун фильтра по ролям (концепт v3: сегменты ролей схлопнуты).
  * Закрывается по клику вне и по выбору.
  */
+/**
+ * Селектор команды: «Все · Мои · Никиты · Саши · …». Заменил сегментированный
+ * свитчер «Все/Мои» — Pavel: нужно смотреть команды лидов и стардизов, а в
+ * сегменты столько пунктов не влезает. Стиль повторяет RoleDropdown, чтобы
+ * ряд контролов читался одним набором.
+ */
+function ScopeDropdown({
+  value,
+  allCount,
+  mineCount,
+  teams,
+  onChange,
+}: {
+  value: ScopeFilter;
+  allCount: number;
+  mineCount: number;
+  teams: TeamOption[];
+  onChange: (s: ScopeFilter) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const base: TeamOption[] = [
+    { scope: 'all', label: 'Все', fullName: 'Вся команда', role: '', count: allCount },
+    ...(mineCount > 0
+      ? [
+          {
+            scope: 'mine' as ScopeFilter,
+            label: 'Мои',
+            fullName: 'Мои подопечные',
+            role: '',
+            count: mineCount,
+          },
+        ]
+      : []),
+  ];
+  const current = [...base, ...teams].find((o) => o.scope === value) ?? base[0];
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 bg-ink/5 border border-ink/5 rounded-pill
+                   px-4 h-10 text-[13px] font-normal leading-none text-stone
+                   hover:text-ink hover:bg-ink/10 transition-colors"
+      >
+        <span className="text-stone font-normal">Команда:</span>
+        {current.label}
+        <span className="text-stone text-xs">{current.count}</span>
+        <ChevronDownIcon
+          className={`w-3 h-3 text-stone transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-2 z-30 card p-1.5 min-w-[220px] shadow-soft-lg animate-scale-in">
+          {base.map((o) => (
+            <ScopeOption
+              key={o.scope}
+              option={o}
+              active={value === o.scope}
+              onPick={() => {
+                onChange(o.scope);
+                setOpen(false);
+              }}
+            />
+          ))}
+          {teams.length > 0 && (
+            <>
+              {/* Разделитель: выше — вся команда и свои, ниже — чужие команды */}
+              <div className="my-1.5 h-px bg-cloud/60" />
+              {teams.map((o) => (
+                <ScopeOption
+                  key={o.scope}
+                  option={o}
+                  active={value === o.scope}
+                  onPick={() => {
+                    onChange(o.scope);
+                    setOpen(false);
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScopeOption({
+  option,
+  active,
+  onPick,
+}: {
+  option: TeamOption;
+  active: boolean;
+  onPick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      title={option.fullName}
+      className={`w-full flex items-center justify-between gap-4 px-3 py-2 rounded-[10px]
+                  text-xs transition-colors ${
+                    active
+                      ? 'bg-cloud/60 text-ink font-medium'
+                      : 'text-stone hover:bg-canvas hover:text-ink'
+                  }`}
+    >
+      <span className="flex items-center gap-1.5 min-w-0">
+        <span className="truncate">{option.label}</span>
+        {option.role === 'stardiz' && (
+          <span className="text-[10px] text-ash shrink-0">стардиз</span>
+        )}
+      </span>
+      <span className="text-ash shrink-0">{option.count}</span>
+    </button>
+  );
+}
+
 function RoleDropdown({
   value,
   counts,
