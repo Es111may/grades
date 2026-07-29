@@ -91,7 +91,21 @@ function palette(): Palette {
       };
 }
 
-export default function TitleAurora({ className = '' }: { className?: string }) {
+export default function TitleAurora({
+  className = '',
+  staticFrame = false,
+}: {
+  className?: string;
+  /**
+   * Отрисовать один кадр и не запускать анимацию.
+   *
+   * Нужно там, где аврора — декорация внутри скроллящегося контейнера
+   * (поп-ап 360). Анимация в таком месте заставляет пересчитывать композицию
+   * на каждом кадре скролла, и плашка моргает (Pavel, 29.07.2026). Один кадр
+   * выглядит тем же мягким свечением, но композиция становится статичной.
+   */
+  staticFrame?: boolean;
+}) {
   const ref = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -144,7 +158,10 @@ export default function TitleAurora({ className = '' }: { className?: string }) 
     const uC3 = gl.getUniformLocation(prog, 'u_c3');
     const uA = gl.getUniformLocation(prog, 'u_alpha');
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Статичный режим приравниваем к reduced-motion: тот же путь «один кадр,
+    // никакого rAF и никаких наблюдателей».
+    const reduced =
+      staticFrame || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let pal = palette();
     let raf = 0;
     let inView = true;
@@ -206,6 +223,21 @@ export default function TitleAurora({ className = '' }: { className?: string }) 
       attributeFilter: ['data-theme'],
     });
 
+    // Статичный режим: один кадр и никаких наблюдателей за скроллом и
+    // видимостью — иначе они бы срабатывали на каждом кадре скролла поп-апа
+    // впустую. ResizeObserver обязателен: если на момент первой отрисовки
+    // контейнер ещё не разложен, кадр остался бы навсегда неверного размера.
+    if (reduced) {
+      draw(performance.now());
+      const ro = new ResizeObserver(() => draw(performance.now()));
+      ro.observe(canvas);
+      return () => {
+        ro.disconnect();
+        mo.disconnect();
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
+      };
+    }
+
     // rootMargin даёт гистерезис: у самой кромки вьюпорта состояние не
     // дёргается туда-обратно на каждом кадре скролла.
     const io = new IntersectionObserver(
@@ -219,12 +251,7 @@ export default function TitleAurora({ className = '' }: { className?: string }) 
 
     const onVis = () => sync();
     document.addEventListener('visibilitychange', onVis);
-
-    if (reduced) {
-      draw(performance.now());
-    } else {
-      sync();
-    }
+    sync();
 
     return () => {
       running = false;
@@ -234,7 +261,7 @@ export default function TitleAurora({ className = '' }: { className?: string }) 
       document.removeEventListener('visibilitychange', onVis);
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     };
-  }, []);
+  }, [staticFrame]);
 
   return (
     <canvas

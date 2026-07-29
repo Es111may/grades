@@ -300,10 +300,13 @@ export default function UserCard360({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16 pb-10">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
+      {/* Затемнение без blur. backdrop-blur здесь был на весь экран и сэмплил
+          всё позади — включая аврору страницы, которая под модалкой продолжает
+          анимироваться. Каждый её кадр заставлял полноэкранный слой блюра
+          перерастрироваться, и поп-ап моргал (Pavel, 29.07.2026). Под
+          60-процентным чёрным двухпиксельный блюр почти не читался, так что
+          внешне потеря незаметна. */}
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       {/* Каркас Pavel (12.07.2026): hero по центру с авророй → мета
           «лейбл—значение» → график роста → действия текстом + меню «⋯». */}
       <div className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg flex flex-col max-h-[calc(100dvh-104px)]">
@@ -313,7 +316,10 @@ export default function UserCard360({
           <div className="overflow-y-auto overscroll-contain min-h-0">
           {/* ---------- Hero ---------- */}
           <div className="relative text-center px-6 pt-10 pb-1 overflow-hidden isolation-isolate title-halo">
-            <TitleAurora className="!w-[560px] !h-[420px] opacity-40" />
+            {/* staticFrame: внутри скроллящегося поп-апа анимация заставляла
+                пересчитывать композицию на каждом кадре скролла. Один кадр —
+                то же мягкое свечение, но без моргания. */}
+            <TitleAurora staticFrame className="!w-[560px] !h-[420px] opacity-40" />
             <button
               onClick={onClose}
               className="absolute top-4 right-4 w-8 h-8 rounded-pill bg-ink/5 text-stone
