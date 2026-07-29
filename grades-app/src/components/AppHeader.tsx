@@ -46,7 +46,18 @@ export default async function AppHeader({
         className="group w-fit max-w-full mx-auto flex items-center gap-3 h-14 pl-6 pr-3
                    rounded-pill border border-cloud/60 bg-snow/75
                    backdrop-blur-2xl shadow-soft-lg"
-        style={{ WebkitBackdropFilter: 'blur(24px) saturate(160%)' }}
+        style={{
+          WebkitBackdropFilter: 'blur(24px) saturate(160%)',
+          // Остров — sticky со стеклянным блюром, а под ним при скролле
+          // проезжает контент и анимирующийся канвас авроры. Без своего слоя
+          // композитинга браузер перерастрирует блюр каждый кадр, и плашка
+          // моргает (Pavel, 29.07.2026). translateZ поднимает её на
+          // отдельный слой; backface-visibility гасит остаточное мерцание.
+          // Ставим на внутреннюю плашку, а не на sticky-хедер, чтобы не
+          // сломать залипание.
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+        }}
       >
         <Link
           href="/"

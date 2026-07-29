@@ -66,6 +66,7 @@ const buildColor = (code: string) =>
 
 import { formatDateShort as formatDate } from '@/lib/dates';
 import GradingPlanChip from '@/components/GradingPlanChip';
+import { canSetGradingDate } from '@/lib/gradingPlan';
 
 export default function UserCard360({
   user,
@@ -75,6 +76,7 @@ export default function UserCard360({
   onClose,
   onEdit,
   onDeactivated,
+  onGradingCleared,
 }: {
   user: UserRow;
   /** Позиция в рейтинге по composite среди активных дизайнеров («№1»). */
@@ -84,6 +86,8 @@ export default function UserCard360({
   onClose: () => void;
   onEdit: (user: UserRow) => void;
   onDeactivated: (id: number) => void;
+  /** Дата грейдирования сброшена — обновить список и открытую карточку. */
+  onGradingCleared: (id: number) => void;
 }) {
   // Закрытие по Escape
   useEffect(() => {
@@ -142,6 +146,23 @@ export default function UserCard360({
     const res = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
     if (res.ok) setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }
+
+  // Сброс даты грейдирования — крестиком в пилюле срока (Pavel).
+  const [clearingGrading, setClearingGrading] = useState(false);
+  async function clearGradingDate() {
+    setClearingGrading(true);
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nextGradingAt: null }),
+    });
+    setClearingGrading(false);
+    if (res.ok) onGradingCleared(user.id);
+  }
+  // Крестик показываем только тем, кто вправе менять дату: админ — всем,
+  // лид и стардиз — своим подопечным.
+  const canClearGrading =
+    meId !== null && canSetGradingDate({ id: meId, role: meRole }, user);
 
   // Ленивая подгрузка истории оценок (Assessment'ов и LeadReview'ов).
   const [history, setHistory] = useState<HistoryData | null>(null);
@@ -397,7 +418,12 @@ export default function UserCard360({
                 <div className="flex items-center gap-3">
                   <span className="text-stone">Грейдирование</span>
                   <span className="ml-auto text-right">
-                    <GradingPlanChip user={user} size="md" />
+                    <GradingPlanChip
+                      user={user}
+                      size="md"
+                      onClear={canClearGrading ? clearGradingDate : undefined}
+                      clearing={clearingGrading}
+                    />
                   </span>
                 </div>
               )}

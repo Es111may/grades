@@ -6,7 +6,7 @@ import {
   type GradingPlanState,
 } from '@/lib/gradingPlan';
 import { formatDateShort } from '@/lib/dates';
-import { CalendarIcon } from '@/components/icons';
+import { CloseIcon, TimerIcon } from '@/components/icons';
 import Tooltip from '@/components/Tooltip';
 
 export type GradingPlanSource = {
@@ -76,7 +76,7 @@ export function GradingPlanIcon({ user }: { user: GradingPlanSource }) {
       )}`}
       align="center"
     >
-      <CalendarIcon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
+      <TimerIcon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
     </Tooltip>
   );
 }
@@ -93,11 +93,19 @@ export default function GradingPlanChip({
   user,
   size = 'sm',
   showLabel = true,
+  onClear,
+  clearing = false,
 }: {
   user: GradingPlanSource;
   size?: 'sm' | 'md';
   /** false — только дата, без пояснения в скобках (для тесных мест). */
   showLabel?: boolean;
+  /**
+   * Сброс даты. Передаём только тем, у кого есть права (см. canSetGradingDate) —
+   * тогда в пилюле появляется крестик. Pavel: сбрасывать прямо в поп-апе.
+   */
+  onClear?: () => void;
+  clearing?: boolean;
 }) {
   const st = gradingPlanStatus({
     nextGradingAt: user.nextGradingAt ?? null,
@@ -133,6 +141,21 @@ export default function GradingPlanChip({
         {shown ? formatDateShort(shown.toISOString()) : '—'}
       </span>
       {showLabel && <span className="opacity-70">{label}</span>}
+      {/* Крестик — сброс даты. После проведения грейдирования сбрасывать
+          нечего: там уже факт, а не план. */}
+      {onClear && st.state !== 'done' && (
+        <button
+          type="button"
+          onClick={onClear}
+          disabled={clearing}
+          aria-label="Сбросить дату грейдирования"
+          title="Сбросить дату грейдирования"
+          className="-mr-0.5 ml-0.5 p-0.5 rounded-full opacity-60 hover:opacity-100
+                     hover:bg-ink/10 transition-opacity disabled:opacity-30"
+        >
+          <CloseIcon className="w-2.5 h-2.5" />
+        </button>
+      )}
     </span>
   );
 }

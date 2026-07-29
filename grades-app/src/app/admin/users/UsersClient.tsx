@@ -400,6 +400,16 @@ export default function UsersClient({
           meRole={meRole}
           onClose={() => setCard360User(null)}
           onEdit={handleEditFrom360}
+          onGradingCleared={(id) => {
+            // Сбрасываем и в списке (исчезает иконка таймера), и в открытой
+            // карточке — чтобы результат был виден сразу, не закрывая попап.
+            const clear = <T extends { id: number }>(u: T) =>
+              u.id === id
+                ? { ...u, nextGradingAt: null, nextGradingSetAt: null, nextGradingSetBy: null }
+                : u;
+            setUsers((prev) => prev.map(clear));
+            setCard360User((curr) => (curr ? clear(curr) : curr));
+          }}
           onDeactivated={(id) => {
             setUsers((prev) =>
               prev.map((u) => (u.id === id ? { ...u, active: false } : u)),

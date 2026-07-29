@@ -112,6 +112,24 @@ export function CloseIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
+export function TimerIcon({ className = 'w-4 h-4' }: IconProps) {
+  // Таймер — «идёт отсчёт до события». Используется как признак
+  // запланированного грейдирования в списке команды.
+  // Stroke-стиль (как InfoIcon): на 14px читается лучше залитого.
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="13.5" r="7.5" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M12 10v3.5l2.5 1.5M9.5 2.5h5M12 2.5V6"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function InfoIcon({ className = 'w-4 h-4' }: IconProps) {
   // Кружок с «i» — для информеров рядом с заголовками графиков и метрик.
   return (

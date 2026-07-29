@@ -485,8 +485,7 @@ export default function Portrait({
               align="center"
             >
               <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
-                Грейд:{' '}
-                {formatDateShort(data.designer.nextGradingAt)}
+                Грейды будут: {formatDateShort(data.designer.nextGradingAt)}
               </span>
             </Tooltip>
           )}
