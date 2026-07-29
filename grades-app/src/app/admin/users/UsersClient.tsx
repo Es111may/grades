@@ -36,6 +36,10 @@ export type UserRow = {
   active: boolean;
   gradeFloor: string | null;
   gradeFloorReason: string | null;
+  // Phase 23.2 — план грейдирования
+  nextGradingAt?: string | null;
+  nextGradingSetAt?: string | null;
+  nextGradingSetBy?: { id: number; fullName: string } | null;
   avatarUrl?: string | null;
   effectiveGrade?: string | null;
   lastAssessedAt?: string | null;

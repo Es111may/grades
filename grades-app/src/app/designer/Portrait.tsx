@@ -58,6 +58,10 @@ export type PortraitData = {
     department: string | null;
     leadName: string | null;
     gradeFloor: GradeCode | null;
+    // Phase 23.2 — план грейдирования. Дизайнер видит свою дату, но не меняет.
+    nextGradingAt?: string | null;
+    nextGradingSetAt?: string | null;
+    lastAssessedAt?: string | null;
   };
   cycle: string;
   publishedAt: string | null;
@@ -472,6 +476,19 @@ export default function Portrait({
             <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
               Лид: {data.designer.leadName}
             </span>
+          )}
+          {/* Ближайшее грейдирование — главный ответ на «что дальше».
+              Только чтение: дату ставят лид, стардиз или админ. */}
+          {data.designer.nextGradingAt && (
+            <Tooltip
+              text="Дата ближайшего грейдирования. Её ставит лид, стардиз или админ — если она сдвинулась, спроси у лида."
+              align="center"
+            >
+              <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
+                Грейд:{' '}
+                {formatDateShort(data.designer.nextGradingAt)}
+              </span>
+            </Tooltip>
           )}
           {data.siblings.length > 1 ? (
             <CyclesSwitcher
@@ -908,7 +925,10 @@ export default function Portrait({
 }
 
 // Единый формат дат сервиса — «4 июн. 2026» (см. src/lib/dates.ts)
-import { formatDateShort as formatPublishedDate } from '@/lib/dates';
+import {
+  formatDateShort,
+  formatDateShort as formatPublishedDate,
+} from '@/lib/dates';
 
 function CyclesSwitcher({
   siblings,

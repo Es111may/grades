@@ -222,6 +222,9 @@ export async function loadPortraitData(
       department: designer.department,
       leadName: designer.lead?.fullName ?? null,
       gradeFloor: designer.gradeFloor as GradeCode | null,
+      // Phase 23.2 — план грейдирования (только чтение на портрете)
+      nextGradingAt: designer.nextGradingAt?.toISOString() ?? null,
+      nextGradingSetAt: designer.nextGradingSetAt?.toISOString() ?? null,
     },
     cycle: assessment.cycle,
     publishedAt: assessment.publishedAt?.toISOString() ?? null,

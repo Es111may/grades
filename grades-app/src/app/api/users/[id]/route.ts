@@ -5,6 +5,8 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { z } from 'zod';
 import { canAssignAdminRole, canManageUsers } from '@/lib/permissions';
+import { canSetGradingDate } from '@/lib/gradingPlan';
+import { AUDIT_ACTIONS } from '@/lib/audit';
 
 const updateUserSchema = z.object({
   fullName: z.string().min(1).optional(),
@@ -19,6 +21,10 @@ const updateUserSchema = z.object({
   gradeFloor: z.string().nullable().optional(),
   gradeFloorReason: z.string().nullable().optional(),
   avatarUrl: z.string().max(300_000).nullable().optional(),
+  // Phase 23.2 — дата ближайшего грейдирования. Права на неё уже́ (см. ниже),
+  // потому что canManageUsers пускает лида к любому пользователю, а дату он
+  // должен ставить только своим подопечным.
+  nextGradingAt: z.string().nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -53,6 +59,42 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       { error: 'Только админ может менять роль admin' },
       { status: 403 },
     );
+  }
+
+  // Дата грейдирования: своя область прав — админ всем, лид/стардиз своим.
+  // Сравниваем по дню, а не по timestamp, чтобы повторное сохранение карточки
+  // без правки даты не переписывало «кто и когда поставил».
+  const gradingDateProvided = data.nextGradingAt !== undefined;
+  const nextGradingAt = data.nextGradingAt ? new Date(data.nextGradingAt) : null;
+  if (nextGradingAt && Number.isNaN(nextGradingAt.getTime())) {
+    return NextResponse.json({ error: 'Некорректная дата грейдирования' }, { status: 400 });
+  }
+  const gradingDateChanged =
+    gradingDateProvided &&
+    (existing.nextGradingAt?.toISOString().slice(0, 10) ?? null) !==
+      (nextGradingAt?.toISOString().slice(0, 10) ?? null);
+
+  if (gradingDateChanged && !canSetGradingDate(me as { id: number; role: string }, existing)) {
+    return NextResponse.json(
+      { error: 'Дату грейдирования можно ставить только своим подопечным' },
+      { status: 403 },
+    );
+  }
+  if (gradingDateChanged) {
+    await prisma.auditLog.create({
+      data: {
+        actorId: me.id!,
+        action: nextGradingAt
+          ? AUDIT_ACTIONS.GRADING_DATE_SET
+          : AUDIT_ACTIONS.GRADING_DATE_CLEARED,
+        targetType: 'user',
+        targetId: userId,
+        details: {
+          before: existing.nextGradingAt?.toISOString() ?? null,
+          after: nextGradingAt?.toISOString() ?? null,
+        },
+      },
+    });
   }
 
   // Audit grade_floor changes
@@ -105,6 +147,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         hiredAt: data.hiredAt ? new Date(data.hiredAt) : null,
       }),
       ...(data.active !== undefined && { active: data.active }),
+      // Отметку «кто и когда поставил» пишем только при реальной смене даты —
+      // от неё зависит определение «проведено» (см. lib/gradingPlan).
+      ...(gradingDateChanged && {
+        nextGradingAt,
+        nextGradingSetById: nextGradingAt ? me.id! : null,
+        nextGradingSetAt: nextGradingAt ? new Date() : null,
+      }),
       ...(data.gradeFloor !== undefined && { gradeFloor: data.gradeFloor }),
       ...(data.gradeFloorReason !== undefined && {
         gradeFloorReason: data.gradeFloorReason,

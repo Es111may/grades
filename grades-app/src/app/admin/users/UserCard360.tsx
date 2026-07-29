@@ -65,6 +65,7 @@ const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 import { formatDateShort as formatDate } from '@/lib/dates';
+import GradingPlanChip from '@/components/GradingPlanChip';
 
 export default function UserCard360({
   user,
@@ -389,6 +390,17 @@ export default function UserCard360({
                 </span>
               </div>
             )}
+            {/* Phase 23.2 — план грейдирования. Показываем для грейдируемых
+                ролей; чип сам решает тон (просрочено / подходит / проведено). */}
+            {(user.role === 'designer' || user.role === 'stardiz') &&
+              user.nextGradingAt && (
+                <div className="flex items-center gap-3">
+                  <span className="text-stone">Грейдирование</span>
+                  <span className="ml-auto text-right">
+                    <GradingPlanChip user={user} size="md" />
+                  </span>
+                </div>
+              )}
             {user.role === 'designer' && selfInfo && selfInfo.count > 0 && (
               <div className="flex items-center gap-3">
                 <span className="text-stone">Самооценка</span>

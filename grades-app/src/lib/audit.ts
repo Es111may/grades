@@ -36,6 +36,8 @@ export const AUDIT_ACTIONS = {
   USER_DELETED: 'user_deleted',
   USER_PASSWORD_CHANGED: 'user_password_changed',
   GRADE_FLOOR_CHANGED: 'grade_floor_changed',
+  GRADING_DATE_SET: 'grading_date_set',
+  GRADING_DATE_CLEARED: 'grading_date_cleared',
   // --- Assessments ---
   ASSESSMENT_PUBLISHED: 'assessment_published',
   ASSESSMENT_REOPENED: 'assessment_reopened',
@@ -64,6 +66,12 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   user_deleted: 'Удалён',
   user_password_changed: 'Пароль изменён',
   grade_floor_changed: 'Зафиксированный грейд изменён',
+  // Эти два писались в лог, но подписи не имели — в аудите выводились
+  // без названия. Добавлены 29.07.2026.
+  grade_floor_lowered: 'Зафиксированный грейд понижен',
+  grade_floor_removed: 'Зафиксированный грейд снят',
+  grading_date_set: 'Дата грейдирования назначена',
+  grading_date_cleared: 'Дата грейдирования снята',
   assessment_published: 'Оценка опубликована',
   assessment_reopened: 'Оценка возвращена в черновик',
   assessment_deleted: 'Оценка удалена',

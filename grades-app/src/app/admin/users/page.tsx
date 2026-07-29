@@ -9,6 +9,7 @@ import {
   fetchTeamMonthlyOnTime,
 } from '@/lib/clickhousePerfBatch';
 import { computeScore, nineBoxLevelFromString } from '@/lib/perfScore';
+import { gradingPlanStatus } from '@/lib/gradingPlan';
 import type { BuildCode } from '@/lib/types';
 import UsersClient from './UsersClient';
 
@@ -57,6 +58,7 @@ export default async function AdminUsersPage() {
           build: true,
           lead: { select: { id: true, fullName: true } },
           stardiz: { select: { id: true, fullName: true } },
+          nextGradingSetBy: { select: { id: true, fullName: true } },
         },
         // active desc — активные сверху, деактивированные в конце.
         orderBy: [{ active: 'desc' }, { role: 'asc' }, { fullName: 'asc' }],
@@ -283,6 +285,14 @@ export default async function AdminUsersPage() {
       gradeFloor: u.gradeFloor,
       gradeFloorReason: u.gradeFloorReason,
       avatarUrl: u.avatarUrl,
+      // Phase 23.2 — план грейдирования. Состояние («проведено», «просрочено»)
+      // считаем в клиенте через lib/gradingPlan, чтобы оно не устаревало
+      // между рендерами страницы.
+      nextGradingAt: u.nextGradingAt?.toISOString() ?? null,
+      nextGradingSetAt: u.nextGradingSetAt?.toISOString() ?? null,
+      nextGradingSetBy: u.nextGradingSetBy
+        ? { id: u.nextGradingSetBy.id, fullName: u.nextGradingSetBy.fullName }
+        : null,
       effectiveGrade: last?.grade ?? null,
       lastAssessedAt: last?.publishedAt ?? null,
       totalXp: last?.totalXp ?? null,
@@ -471,6 +481,47 @@ export default async function AdminUsersPage() {
       } — после последней оценки`,
     });
   }
+  // Phase 23.2: контроль грейдирования — просрочки и незапланированные.
+  // Считаем по дизайнерам и стардизам: стардизы тоже грейдируются.
+  const gradedRoles = users.filter(
+    (u) => (u.role === 'designer' || u.role === 'stardiz') && u.active,
+  );
+  const gradingStates = gradedRoles.map((u) => ({
+    u,
+    st: gradingPlanStatus(
+      {
+        nextGradingAt: u.nextGradingAt,
+        nextGradingSetAt: u.nextGradingSetAt,
+        lastPublishedAt: u.lastAssessedAt,
+      },
+      new Date(now),
+    ),
+  }));
+  const overdue = gradingStates
+    .filter((r) => r.st.state === 'overdue')
+    .sort((a, b) => (a.st.daysLeft ?? 0) - (b.st.daysLeft ?? 0));
+  if (overdue.length > 0) {
+    const days = -(overdue[0].st.daysLeft ?? 0);
+    attention.push({
+      tone: 'danger',
+      title: `Грейдирование просрочено — ${overdue.length} ${
+        overdue.length === 1 ? 'человек' : overdue.length < 5 ? 'человека' : 'человек'
+      }`,
+      detail: `Дольше всех — ${overdue[0].u.fullName.split(' ')[0]}, ${days} дн.`,
+    });
+  }
+  const unplanned = gradingStates.filter((r) => r.st.state === 'none');
+  if (unplanned.length > 0) {
+    const names = unplanned.map((r) => r.u.fullName.split(' ')[0]);
+    attention.push({
+      tone: 'warn',
+      title: `Без даты грейдирования — ${unplanned.length}`,
+      detail: `${names.slice(0, 3).join(', ')}${
+        names.length > 3 ? ` и ещё ${names.length - 3}` : ''
+      }`,
+    });
+  }
+
   readyRows.slice(0, 2).forEach(({ u, last }) => {
     attention.push({
       tone: 'info',

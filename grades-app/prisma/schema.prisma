@@ -210,6 +210,18 @@ model User {
   gradeFloor       String? // grade code or null
   gradeFloorReason String?
 
+  // Phase 23.2 — планирование грейдирования.
+  // Дату вписывают руками админ/лид/стардиз; к сезону НЕ привязана (Pavel:
+  // сезоны «примерно май и октябрь-ноябрь», но смещаются). Факт проведения
+  // не храним флагом — он выводится из опубликованной оценки, см. lib/gradingPlan.
+  nextGradingAt      DateTime?
+  nextGradingSetById Int?
+  nextGradingSetBy   User?     @relation("GradingPlanSetter", fields: [nextGradingSetById], references: [id])
+  // Когда дату поставили. Нужно, чтобы «проведено» работало и при досрочном
+  // грейдировании: сравниваем publishedAt с этой отметкой, а не с самой датой.
+  nextGradingSetAt   DateTime?
+  gradingPlansSet    User[]    @relation("GradingPlanSetter")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
