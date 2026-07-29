@@ -219,7 +219,12 @@ export default function KanbanView({
               <span className="text-[11px]  font-medium text-stone">
                 {col.label}
               </span>
-              <span className="text-xs text-ash font-medium">{col.users.length}</span>
+              {/* Счётчик — только активные. Карточки деактивированных
+                  продолжаем показывать (приглушённо), но в число они не
+                  идут: Pavel — «везде показывать без учёта деактивированных». */}
+              <span className="text-xs text-ash font-medium">
+                {col.users.filter((u) => u.active).length}
+              </span>
             </div>
             <div className="px-2 pb-2 space-y-1.5 min-h-[60px]">
               {col.users.map((u) => (

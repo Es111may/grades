@@ -103,6 +103,12 @@ export default function TitleAurora({ className = '' }: { className?: string }) 
       antialias: false,
       depth: false,
       stencil: false,
+      // Обязательно true: мы останавливаем rAF, когда канвас уходит за экран.
+      // При false буфер очищается после каждой композиции, и любая
+      // перерисовка на паузе показывала пустой прозрачный канвас — фон
+      // мелькал при скролле и в открытом поп-апе (Pavel, 29.07.2026).
+      // С true на паузе остаётся последний отрисованный кадр.
+      preserveDrawingBuffer: true,
     });
     if (!gl) return;
 
@@ -180,6 +186,9 @@ export default function TitleAurora({ className = '' }: { className?: string }) 
       const shouldRun = inView && !document.hidden && !reduced;
       if (shouldRun && !running) {
         running = true;
+        // Рисуем кадр сразу, не дожидаясь rAF: иначе между снятием с паузы
+        // и первым кадром успевает пройти композиция с прошлым буфером.
+        draw(performance.now());
         raf = requestAnimationFrame(loop);
       } else if (!shouldRun && running) {
         running = false;
@@ -197,10 +206,15 @@ export default function TitleAurora({ className = '' }: { className?: string }) 
       attributeFilter: ['data-theme'],
     });
 
-    const io = new IntersectionObserver(([e]) => {
-      inView = e.isIntersecting;
-      sync();
-    });
+    // rootMargin даёт гистерезис: у самой кромки вьюпорта состояние не
+    // дёргается туда-обратно на каждом кадре скролла.
+    const io = new IntersectionObserver(
+      ([e]) => {
+        inView = e.isIntersecting;
+        sync();
+      },
+      { rootMargin: '240px' },
+    );
     io.observe(canvas);
 
     const onVis = () => sync();
