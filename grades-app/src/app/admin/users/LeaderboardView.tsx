@@ -7,8 +7,7 @@ import EmptyState from '@/components/EmptyState';
 import { getOnTimeZone } from '@/lib/perfScore';
 import type { UserRow, GradeThreshold, TeamStats, AttentionItem } from './UsersClient';
 import Tooltip from '@/components/Tooltip';
-import GradingPlanChip from '@/components/GradingPlanChip';
-import { gradingPlanStatus } from '@/lib/gradingPlan';
+import { GradingPlanIcon } from '@/components/GradingPlanChip';
 
 const GRADE_LABELS: Record<string, string> = {
   junior: 'Джун',
@@ -25,47 +24,7 @@ type TaxKey = (typeof TAXONOMIES)[number];
 const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
-type SortKey =
-  | 'composite'
-  | 'name'
-  | 'grade'
-  | 'totalXp'
-  | 'onTime'
-  | 'tenure'
-  | 'grading'
-  | TaxKey;
-
-/**
- * Ключ сортировки по грейдированию: сначала просроченные, потом близкие,
- * в конце — проведённые и без даты. Так первый клик по колонке сразу даёт
- * тех, по кому забыли.
- */
-function gradingSortValue(u: {
-  nextGradingAt?: string | null;
-  nextGradingSetAt?: string | null;
-  lastAssessedAt?: string | null;
-}): number {
-  const st = gradingPlanStatus({
-    nextGradingAt: u.nextGradingAt ?? null,
-    nextGradingSetAt: u.nextGradingSetAt ?? null,
-    lastPublishedAt: u.lastAssessedAt ?? null,
-  });
-  // Чем меньше значение, тем выше при сортировке по возрастанию.
-  switch (st.state) {
-    case 'overdue':
-      return -1000 + (st.daysLeft ?? 0);
-    case 'due':
-      return st.daysLeft ?? 0;
-    case 'soon':
-      return 100 + (st.daysLeft ?? 0);
-    case 'planned':
-      return 1000 + (st.daysLeft ?? 0);
-    case 'done':
-      return 1e6;
-    default:
-      return 1e7; // без даты — в самый конец
-  }
-}
+type SortKey = 'composite' | 'name' | 'grade' | 'totalXp' | 'onTime' | 'tenure' | TaxKey;
 
 function tenureMonths(hiredAt: string | null): number {
   if (!hiredAt) return -1;
@@ -133,9 +92,7 @@ export default function LeaderboardView({
     } else {
       setSortKey(key);
       // По умолчанию сортируем чтобы «лучшее сверху»: имя/стаж — asc, остальное — desc.
-      setSortDir(
-        key === 'name' || key === 'tenure' || key === 'grading' ? 'asc' : 'desc',
-      );
+      setSortDir(key === 'name' || key === 'tenure' ? 'asc' : 'desc');
     }
   }
 
@@ -169,9 +126,6 @@ export default function LeaderboardView({
       } else if (sortKey === 'tenure') {
         av = tenureMonths(a.hiredAt);
         bv = tenureMonths(b.hiredAt);
-      } else if (sortKey === 'grading') {
-        av = gradingSortValue(a);
-        bv = gradingSortValue(b);
       } else {
         // taxonomy
         av = a.xpByTaxonomy?.[sortKey] ?? -1;
@@ -317,13 +271,6 @@ export default function LeaderboardView({
             <Th keyId="tenure" align="center">
               Стаж
             </Th>
-            <Th
-              keyId="grading"
-              align="center"
-              tooltip="Дата ближайшего грейдирования. Ставят админ, лид или стардиз — руками, в карточке. «Проведено» появляется само, когда оценка опубликована. Просрочкой считается больше двух недель без оценки. Клик по колонке — сначала просроченные."
-            >
-              Грейдирование
-            </Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-cloud">
@@ -346,8 +293,11 @@ export default function LeaderboardView({
                   <div className="flex items-center gap-3">
                     <Avatar name={u.fullName} avatarUrl={u.avatarUrl} size={32} />
                     <div className="min-w-0">
-                      <div className="font-medium leading-tight truncate">
+                      <div className="font-medium leading-tight truncate flex items-center gap-1.5">
                         {u.fullName}
+                        {/* Иконка — только у тех, у кого грейдирование
+                            запланировано; после проведения исчезает (Pavel) */}
+                        <GradingPlanIcon user={u} />
                       </div>
                     </div>
                   </div>
@@ -400,9 +350,6 @@ export default function LeaderboardView({
                 ))}
                 <td className="py-3 px-4 text-center text-stone whitespace-nowrap">
                   {formatTenure(tenureMonths(u.hiredAt))}
-                </td>
-                <td className="py-3 px-4 text-center whitespace-nowrap">
-                  <GradingPlanChip user={u} />
                 </td>
               </tr>
             );
@@ -612,8 +559,11 @@ function PodiumCard({
                  hover:shadow-soft-md hover:-translate-y-1 hover:border-ash"
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="font-medium text-[15px] leading-tight truncate min-w-0 flex-1">
+        <div className="font-medium text-[15px] leading-tight truncate min-w-0 flex-1 flex items-center gap-1.5">
           {user.fullName}
+          {/* Тот же признак, что в списке — иначе у топ-3 иконка исчезала бы
+              без причины */}
+          <GradingPlanIcon user={user} />
         </div>
         <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={36} />
       </div>

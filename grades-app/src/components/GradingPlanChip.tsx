@@ -6,6 +6,8 @@ import {
   type GradingPlanState,
 } from '@/lib/gradingPlan';
 import { formatDateShort } from '@/lib/dates';
+import { CalendarIcon } from '@/components/icons';
+import Tooltip from '@/components/Tooltip';
 
 export type GradingPlanSource = {
   nextGradingAt?: string | null;
@@ -43,7 +45,45 @@ export function gradingPlanLabel(
 }
 
 /**
- * Дата ближайшего грейдирования — единый чип для таблицы, поп-апа и портрета.
+ * Иконка «грейдирование запланировано» — для списка команды.
+ *
+ * Pavel: в таблице нужна не колонка, а иконка у тех, у кого грейдирование
+ * запланировано; по ховеру — дата; после проведения иконка исчезает.
+ * Поэтому здесь ничего не рендерится в состояниях 'done' и 'none' — пустой
+ * список читается как «планировать нечего или уже сделано», а разбор этих
+ * двух случаев живёт в фиде «Требует внимания».
+ *
+ * Тон сохраняем: просроченное грейдирование подсвечивается, иначе контроль
+ * «не забыли ли» пришлось бы держать только в фиде.
+ */
+export function GradingPlanIcon({ user }: { user: GradingPlanSource }) {
+  const st = gradingPlanStatus({
+    nextGradingAt: user.nextGradingAt ?? null,
+    nextGradingSetAt: user.nextGradingSetAt ?? null,
+    lastPublishedAt: user.lastAssessedAt ?? null,
+  });
+  if (st.state === 'none' || st.state === 'done' || !st.plannedAt) return null;
+
+  const tone = gradingPlanTone(st.state);
+  const color =
+    tone === 'danger' ? 'text-blaze' : tone === 'warn' ? 'text-sunset' : 'text-ash';
+
+  return (
+    <Tooltip
+      text={`Грейдирование — ${formatDateShort(st.plannedAt.toISOString())} · ${gradingPlanLabel(
+        st.state,
+        st.daysLeft,
+      )}`}
+      align="center"
+    >
+      <CalendarIcon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
+    </Tooltip>
+  );
+}
+
+/**
+ * Полный чип с датой — для поп-апа 360 и портрета, где важна подробность:
+ * Pavel хочет видеть по итогу, что грейдирование состоялось и когда именно.
  *
  * Состояние не хранится, а выводится: «проведено» = есть опубликованная
  * оценка после постановки даты (см. lib/gradingPlan). Поэтому чип не может
