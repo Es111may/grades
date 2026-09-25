@@ -17,6 +17,7 @@ import {
   type ScopeFilter,
   type TeamOption,
 } from '@/lib/teamScope';
+import { gradingPlanStatus } from '@/lib/gradingPlan';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -545,6 +546,39 @@ function computeScopedStats(list: UserRow[]): {
       } — после последней оценки`,
     });
   }
+  // Phase 23.2: те же сигналы грейдирования, что считает сервер для «Все».
+  // Без этого блока лид на своём скоупе «Мои» (его дефолт) не видел ни
+  // просрочек, ни людей без даты — сигналы жили только в серверном фиде.
+  const gradingStates = eligible.map((u) => ({
+    u,
+    st: gradingPlanStatus({
+      nextGradingAt: u.nextGradingAt ?? null,
+      nextGradingSetAt: u.nextGradingSetAt ?? null,
+      lastPublishedAt: u.lastAssessedAt ?? null,
+    }),
+  }));
+  const overdue = gradingStates
+    .filter((r) => r.st.state === 'overdue')
+    .sort((a, b) => (a.st.daysLeft ?? 0) - (b.st.daysLeft ?? 0));
+  if (overdue.length > 0) {
+    attention.push({
+      tone: 'danger',
+      title: `Грейдирование просрочено — ${overdue.length} ${plural(overdue.length, ['человек', 'человека', 'человек'])}`,
+      detail: `Дольше всех — ${overdue[0].u.fullName.split(' ')[0]}, ${-(overdue[0].st.daysLeft ?? 0)} дн.`,
+    });
+  }
+  const unplanned = gradingStates.filter((r) => r.st.state === 'none');
+  if (unplanned.length > 0) {
+    const names = unplanned.map((r) => r.u.fullName.split(' ')[0]);
+    attention.push({
+      tone: 'warn',
+      title: `Без даты грейдирования — ${unplanned.length}`,
+      detail: `${names.slice(0, 3).join(', ')}${
+        names.length > 3 ? ` и ещё ${names.length - 3}` : ''
+      }`,
+    });
+  }
+
   readyRows.slice(0, 2).forEach((u) => {
     attention.push({
       tone: 'info',
