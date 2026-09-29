@@ -8,6 +8,7 @@ import {
   canAssignAdminRole,
   canManageUsers,
 } from '@/lib/permissions';
+import { canSetEmploymentType } from '@/lib/employment';
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -23,6 +24,8 @@ const createUserSchema = z.object({
   gradeFloorReason: z.string().nullable().optional(),
   // Аватар как data URL — ресайзим на клиенте до 256×256, ограничение ~200KB.
   avatarUrl: z.string().max(300_000).nullable().optional(),
+  // Phase 23.4 — почасовщик. Права — отдельно, см. canSetEmploymentType.
+  employmentType: z.enum(['staff', 'hourly']).optional(),
 });
 
 export async function GET() {
@@ -65,6 +68,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const hourly = data.employmentType === 'hourly';
+  if (
+    hourly &&
+    !canSetEmploymentType(me as { id: number; role: string }, {
+      role: data.role,
+      leadId: data.leadId ?? null,
+    })
+  ) {
+    return NextResponse.json(
+      { error: 'Сделать почасовщиком может админ или лид этого дизайнера' },
+      { status: 403 },
+    );
+  }
+
   const existing = await prisma.user.findUnique({
     where: { email: data.email.toLowerCase() },
   });
@@ -86,6 +103,7 @@ export async function POST(req: NextRequest) {
       gradeFloor: data.gradeFloor ?? null,
       gradeFloorReason: data.gradeFloorReason ?? null,
       avatarUrl: data.avatarUrl ?? null,
+      employmentType: hourly ? 'hourly' : 'staff',
     },
     include: {
       build: true,

@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import Avatar from '@/components/Avatar';
-import { CloseIcon } from '@/components/icons';
+import { CloseIcon, HourglassIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
 import TitleAurora from '@/components/TitleAurora';
 
@@ -67,6 +67,7 @@ const buildColor = (code: string) =>
 import { formatDateShort as formatDate } from '@/lib/dates';
 import GradingPlanChip from '@/components/GradingPlanChip';
 import { canSetGradingDate } from '@/lib/gradingPlan';
+import { isHourly } from '@/lib/employment';
 
 export default function UserCard360({
   user,
@@ -194,6 +195,7 @@ export default function UserCard360({
   const canAssess =
     user.role === 'designer' &&
     user.active &&
+    !isHourly(user) &&
     !isSelf &&
     (meRole === 'admin' || isMine);
 
@@ -388,6 +390,12 @@ export default function UserCard360({
                     Floor: {GRADE_NAMES[user.gradeFloor] ?? user.gradeFloor}
                   </span>
                 )}
+              {isHourly(user) && (
+                <span className="chip-neutral h-6 inline-flex items-center gap-1">
+                  <HourglassIcon className="w-3 h-3" />
+                  Почасовщик
+                </span>
+              )}
               {!user.active && <span className="chip-danger h-6">Неактивен</span>}
             </div>
           </div>
@@ -420,6 +428,7 @@ export default function UserCard360({
             {/* Phase 23.2 — план грейдирования. Показываем для грейдируемых
                 ролей; чип сам решает тон (просрочено / подходит / проведено). */}
             {(user.role === 'designer' || user.role === 'stardiz') &&
+              !isHourly(user) &&
               user.nextGradingAt && (
                 <div className="flex items-center gap-3">
                   <span className="text-stone">Грейдирование</span>

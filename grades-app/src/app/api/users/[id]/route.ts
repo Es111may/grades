@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/session';
 import { z } from 'zod';
 import { canAssignAdminRole, canManageUsers } from '@/lib/permissions';
 import { canSetGradingDate } from '@/lib/gradingPlan';
+import { canSetEmploymentType } from '@/lib/employment';
 import { AUDIT_ACTIONS } from '@/lib/audit';
 
 const updateUserSchema = z.object({
@@ -25,6 +26,8 @@ const updateUserSchema = z.object({
   // потому что canManageUsers пускает лида к любому пользователю, а дату он
   // должен ставить только своим подопечным.
   nextGradingAt: z.string().nullable().optional(),
+  // Phase 23.4 — почасовщик: не грейдируется, не входит в таланты.
+  employmentType: z.enum(['staff', 'hourly']).optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -97,6 +100,35 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     });
   }
 
+  // Формат занятости: админ — любому дизайнеру, лид — своему. Проверяем
+  // только при реальной смене, чтобы сохранение карточки без правки статуса
+  // не упиралось в права.
+  const employmentChanged =
+    data.employmentType !== undefined && data.employmentType !== existing.employmentType;
+  if (
+    employmentChanged &&
+    !canSetEmploymentType(me as { id: number; role: string }, {
+      role: data.role ?? existing.role,
+      leadId: data.leadId !== undefined ? data.leadId : existing.leadId,
+    })
+  ) {
+    return NextResponse.json(
+      { error: 'Сделать почасовщиком может админ или лид этого дизайнера' },
+      { status: 403 },
+    );
+  }
+  if (employmentChanged) {
+    await prisma.auditLog.create({
+      data: {
+        actorId: me.id!,
+        action: AUDIT_ACTIONS.EMPLOYMENT_TYPE_CHANGED,
+        targetType: 'user',
+        targetId: userId,
+        details: { before: existing.employmentType, after: data.employmentType },
+      },
+    });
+  }
+
   // Audit grade_floor changes
   const floorChanged =
     data.gradeFloor !== undefined && data.gradeFloor !== existing.gradeFloor;
@@ -154,6 +186,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         nextGradingSetById: nextGradingAt ? me.id! : null,
         nextGradingSetAt: nextGradingAt ? new Date() : null,
       }),
+      ...(employmentChanged && { employmentType: data.employmentType }),
       ...(data.gradeFloor !== undefined && { gradeFloor: data.gradeFloor }),
       ...(data.gradeFloorReason !== undefined && {
         gradeFloorReason: data.gradeFloorReason,
@@ -164,6 +197,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       build: true,
       lead: { select: { id: true, fullName: true } },
       stardiz: { select: { id: true, fullName: true } },
+      nextGradingSetBy: { select: { id: true, fullName: true } },
     },
   });
 

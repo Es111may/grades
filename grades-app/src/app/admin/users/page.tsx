@@ -10,6 +10,7 @@ import {
 } from '@/lib/clickhousePerfBatch';
 import { computeScore, nineBoxLevelFromString } from '@/lib/perfScore';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
+import { isGradable, isHourly } from '@/lib/employment';
 import type { BuildCode } from '@/lib/types';
 import UsersClient from './UsersClient';
 
@@ -163,10 +164,6 @@ export default async function AdminUsersPage() {
     else slot.prev = r.totalXp;
     lastTwo.set(r.designerId, slot);
   }
-  const growthDeltas: number[] = [];
-  for (const s of lastTwo.values()) {
-    if (s.cur !== undefined && s.prev !== undefined) growthDeltas.push(s.cur - s.prev);
-  }
   const median = (xs: number[]): number | null => {
     if (!xs.length) return null;
     const a = [...xs].sort((x, y) => x - y);
@@ -250,7 +247,8 @@ export default async function AdminUsersPage() {
     // опубликованной оценки (XP=null) — оставляем score=null,
     // чтобы UI показал «—» серым вместо 0.
     let compositeScore: number | null = null;
-    if (u.role === 'designer' && last?.totalXp != null) {
+    // Почасовщики не ранжируются — их XP заморожен (Phase 23.4).
+    if (u.role === 'designer' && last?.totalXp != null && !isHourly(u)) {
       const cell = cellByUserId.get(u.id);
       const nineBoxPerf = nineBoxLevelFromString(cell?.performanceLevel);
       const nineBoxPot = nineBoxLevelFromString(cell?.potentialLevel);
@@ -288,6 +286,7 @@ export default async function AdminUsersPage() {
       // Phase 23.2 — план грейдирования. Состояние («проведено», «просрочено»)
       // считаем в клиенте через lib/gradingPlan, чтобы оно не устаревало
       // между рендерами страницы.
+      employmentType: u.employmentType,
       nextGradingAt: u.nextGradingAt?.toISOString() ?? null,
       nextGradingSetAt: u.nextGradingSetAt?.toISOString() ?? null,
       nextGradingSetBy: u.nextGradingSetBy
@@ -320,15 +319,16 @@ export default async function AdminUsersPage() {
   });
 
   // === Агрегаты команды для bento + сигналов (концепт v4) ============
+  // «В срок» считаем по всем активным дизайнерам, включая почасовщиков;
+  // грейдирование и таланты — только по грейдируемым (Phase 23.4).
   const activeDesigners = users.filter((u) => u.role === 'designer' && u.active);
+  const talentDesigners = activeDesigners.filter((u) => !isHourly(u));
 
   // 9-Box: счётчики по ячейкам + NIPC. Pavel: в Dream Team Index считаем
   // и дизайнеров, И СТАРДИЗОВ (как в самой матрице 9-Box, где размещаются
   // обе роли). Формула: (звёзды + выс.потенциал + выс.производительность −
   // обе зоны внимания − ошибка подбора) / все размещаемые (дизайнеры+стардизы).
-  const nineBoxEligible = users.filter(
-    (u) => (u.role === 'designer' || u.role === 'stardiz') && u.active,
-  );
+  const nineBoxEligible = users.filter(isGradable);
   const nineBoxIds = new Set(nineBoxEligible.map((u) => u.id));
   const nineBox: Record<string, number> = {};
   for (const c of matrixCells) {
@@ -403,14 +403,19 @@ export default async function AdminUsersPage() {
     .map((u) => u.onTimePercent as number);
 
   // Сезон: оценено / всего активных + черновики
-  const gradedCount = activeDesigners.filter((u) => u.totalXp != null).length;
-  const draftCount = activeDesigners.filter((u) => draftUpdatedAt.has(u.id)).length;
+  const gradedCount = talentDesigners.filter((u) => u.totalXp != null).length;
+  const draftCount = talentDesigners.filter((u) => draftUpdatedAt.has(u.id)).length;
 
   // «Готовы к повышению»: xpNeeded ≤ 20 в последней published-оценке
-  const readyRows = activeDesigners
+  const readyRows = talentDesigners
     .map((u) => ({ u, last: gradeByDesignerId.get(u.id) }))
     .filter((r) => r.last?.xpNeeded != null && r.last.xpNeeded <= 20)
     .sort((a, b) => (a.last!.xpNeeded! - b.last!.xpNeeded!));
+
+  // Рост — по активным грейдируемым, как и на клиенте для скоупа «Мои».
+  const talentGrowth = talentDesigners
+    .map((u) => u.growthDelta)
+    .filter((x): x is number => x != null);
 
   const teamStats = {
     nipcPercent,
@@ -424,12 +429,12 @@ export default async function AdminUsersPage() {
     onTimeMedian: median(onTimeValues),
     onTimeSample: onTimeValues.length,
     onTimeSpark,
-    growthMedian: median(growthDeltas),
-    growthSample: growthDeltas.length,
+    growthMedian: median(talentGrowth),
+    growthSample: talentGrowth.length,
     readyCount: readyRows.length,
     gradedCount,
     draftCount,
-    totalDesigners: activeDesigners.length,
+    totalDesigners: talentDesigners.length,
   };
 
   // «Требует внимания»: черновики без движения, просевший «в срок»,
@@ -440,7 +445,7 @@ export default async function AdminUsersPage() {
     title: string;
     detail: string;
   }> = [];
-  const staleDrafts = activeDesigners
+  const staleDrafts = talentDesigners
     .map((u) => ({ u, at: draftUpdatedAt.get(u.id) }))
     .filter((r) => r.at && now - r.at.getTime() > 7 * 864e5)
     .sort((a, b) => a.at!.getTime() - b.at!.getTime());
@@ -464,7 +469,7 @@ export default async function AdminUsersPage() {
       });
     });
   // Phase 14: свежие самооценки — «загляни перед оценкой»
-  const freshSelf = activeDesigners.filter((u) => u.selfFresh);
+  const freshSelf = talentDesigners.filter((u) => u.selfFresh);
   if (freshSelf.length > 0) {
     const names = freshSelf.map((u) => u.fullName.split(' ')[0]);
     attention.push({
@@ -483,9 +488,7 @@ export default async function AdminUsersPage() {
   }
   // Phase 23.2: контроль грейдирования — просрочки и незапланированные.
   // Считаем по дизайнерам и стардизам: стардизы тоже грейдируются.
-  const gradedRoles = users.filter(
-    (u) => (u.role === 'designer' || u.role === 'stardiz') && u.active,
-  );
+  const gradedRoles = users.filter(isGradable);
   const gradingStates = gradedRoles.map((u) => ({
     u,
     st: gradingPlanStatus(

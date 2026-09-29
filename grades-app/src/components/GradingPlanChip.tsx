@@ -6,10 +6,13 @@ import {
   type GradingPlanState,
 } from '@/lib/gradingPlan';
 import { formatDateShort } from '@/lib/dates';
-import { CloseIcon, TimerIcon } from '@/components/icons';
+import { CloseIcon, HourglassIcon, TimerIcon } from '@/components/icons';
+import { isHourly } from '@/lib/employment';
 import Tooltip from '@/components/Tooltip';
 
 export type GradingPlanSource = {
+  /** 'hourly' — почасовщик: не грейдируется, таймера у него не бывает. */
+  employmentType?: string;
   nextGradingAt?: string | null;
   nextGradingSetAt?: string | null;
   /** publishedAt последней опубликованной оценки. */
@@ -57,6 +60,7 @@ export function gradingPlanLabel(
  * «не забыли ли» пришлось бы держать только в фиде.
  */
 export function GradingPlanIcon({ user }: { user: GradingPlanSource }) {
+  if (isHourly(user)) return null;
   const st = gradingPlanStatus({
     nextGradingAt: user.nextGradingAt ?? null,
     nextGradingSetAt: user.nextGradingSetAt ?? null,
@@ -158,4 +162,21 @@ export default function GradingPlanChip({
       )}
     </span>
   );
+}
+
+/**
+ * Статусная иконка у имени человека в списке (Phase 23.4). Одно место —
+ * одна иконка: у почасовщика песочные часы, у остальных — таймер
+ * грейдирования, если он запланирован. Вместе они не встречаются:
+ * почасовщиков не грейдируют.
+ */
+export function PersonStatusIcon({ user }: { user: GradingPlanSource }) {
+  if (isHourly(user)) {
+    return (
+      <Tooltip text="Почасовщик — не грейдируется, в рейтинг и 9-Box не входит" align="center">
+        <HourglassIcon className="w-3.5 h-3.5 shrink-0 text-ash" />
+      </Tooltip>
+    );
+  }
+  return <GradingPlanIcon user={user} />;
 }

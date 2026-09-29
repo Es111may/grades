@@ -7,7 +7,8 @@ import EmptyState from '@/components/EmptyState';
 import { getOnTimeZone } from '@/lib/perfScore';
 import type { UserRow, GradeThreshold, TeamStats, AttentionItem } from './UsersClient';
 import Tooltip from '@/components/Tooltip';
-import { GradingPlanIcon } from '@/components/GradingPlanChip';
+import { PersonStatusIcon } from '@/components/GradingPlanChip';
+import { isHourly } from '@/lib/employment';
 
 const GRADE_LABELS: Record<string, string> = {
   junior: 'Джун',
@@ -154,6 +155,15 @@ export default function LeaderboardView({
     const ids = new Set(podium.map((u) => u.id));
     return sorted.filter((u) => !ids.has(u.id));
   }, [sorted, podium, podiumVisible]);
+
+  // Места в таблице: считаем подряд, пропуская почасовщиков — у них места
+  // нет, и они не должны оставлять дыр в нумерации (Phase 23.4).
+  const rankById = useMemo(() => {
+    const m = new Map<number, number>();
+    let n = podiumVisible ? podium.length : 0;
+    for (const u of rest) if (!isHourly(u)) m.set(u.id, ++n);
+    return m;
+  }, [rest, podium, podiumVisible]);
   // Нормировка мини-баров навыков на подиуме: максимум по каждой таксономии
   // среди видимых дизайнеров.
   const skillMax = useMemo(() => {
@@ -274,7 +284,7 @@ export default function LeaderboardView({
           </tr>
         </thead>
         <tbody className="divide-y divide-cloud">
-          {rest.map((u, index) => {
+          {rest.map((u) => {
             return (
               <tr
                 key={u.id}
@@ -286,7 +296,7 @@ export default function LeaderboardView({
                 <td className="py-3 px-4 text-center">
                   <TopCell
                     score={u.compositeScore ?? null}
-                    rank={index + (podiumVisible ? podium.length + 1 : 1)}
+                    rank={rankById.get(u.id) ?? null}
                   />
                 </td>
                 <td className="py-3 px-4">
@@ -297,7 +307,7 @@ export default function LeaderboardView({
                         {u.fullName}
                         {/* Иконка — только у тех, у кого грейдирование
                             запланировано; после проведения исчезает (Pavel) */}
-                        <GradingPlanIcon user={u} />
+                        <PersonStatusIcon user={u} />
                       </div>
                     </div>
                   </div>
@@ -563,7 +573,7 @@ function PodiumCard({
           {user.fullName}
           {/* Тот же признак, что в списке — иначе у топ-3 иконка исчезала бы
               без причины */}
-          <GradingPlanIcon user={user} />
+          <PersonStatusIcon user={user} />
         </div>
         <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={36} />
       </div>
@@ -739,12 +749,14 @@ function plural(n: number, forms: [string, string, string]): string {
   return forms[2];
 }
 
-function TopCell({ score, rank }: { score: number | null; rank: number }) {
+function TopCell({ score, rank }: { score: number | null; rank: number | null }) {
   if (score == null) {
     return (
       <div className="flex flex-col items-center">
         <span className="text-ash text-base tabular-nums">—</span>
-        <span className="text-ash text-[10px] tabular-nums mt-0.5">№{rank}</span>
+        {rank != null && (
+          <span className="text-ash text-[10px] tabular-nums mt-0.5">№{rank}</span>
+        )}
       </div>
     );
   }

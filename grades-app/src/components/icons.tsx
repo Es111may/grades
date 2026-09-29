@@ -130,6 +130,22 @@ export function TimerIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
+export function HourglassIcon({ className = 'w-4 h-4' }: IconProps) {
+  // Песочные часы — «почасовщик». Силуэт из треугольников, чтобы не путать
+  // с TimerIcon (секундомер-круг) на 14px: они стоят на одном месте у имени.
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6.5 3h11M6.5 21h11M8 3c0 4.4 4 5.3 4 9s-4 4.6-4 9M16 3c0 4.4-4 5.3-4 9s4 4.6 4 9M9.5 18.5h5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function InfoIcon({ className = 'w-4 h-4' }: IconProps) {
   // Кружок с «i» — для информеров рядом с заголовками графиков и метрик.
   return (

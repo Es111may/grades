@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { isGradable } from '@/lib/employment';
 import {
   DndContext,
   DragEndEvent,
@@ -623,7 +624,8 @@ function AboutAccordion() {
 
 export default function MatrixView({ users }: { users: UserRow[] }) {
   const eligible = useMemo(
-    () => users.filter((u) => (u.role === 'designer' || u.role === 'stardiz') && u.active),
+    // Почасовщики в таланты не входят (Phase 23.4)
+    () => users.filter(isGradable),
     [users],
   );
 

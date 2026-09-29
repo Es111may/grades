@@ -5,6 +5,7 @@ import Avatar from '@/components/Avatar';
 import { EditIcon, CloseIcon } from '@/components/icons';
 import { formatDateShort } from '@/lib/dates';
 import { canSetGradingDate } from '@/lib/gradingPlan';
+import { canSetEmploymentType } from '@/lib/employment';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -36,6 +37,8 @@ type UserData = {
   // Phase 23.2 — план грейдирования
   nextGradingAt?: string | null;
   nextGradingSetBy?: { id: number; fullName: string } | null;
+  /** Phase 23.4 — 'hourly' для почасовщика. */
+  employmentType?: string;
 };
 
 /**
@@ -142,6 +145,7 @@ export default function UserModal({
     gradeFloor: user?.gradeFloor ?? '',
     gradeFloorReason: user?.gradeFloorReason ?? '',
     nextGradingAt: user?.nextGradingAt ? user.nextGradingAt.split('T')[0] : '',
+    employmentType: user?.employmentType ?? 'staff',
   });
 
   const [floorEnabled, setFloorEnabled] = useState(!!user?.gradeFloor);
@@ -279,6 +283,9 @@ export default function UserModal({
       ...(form.role === 'designer' || form.role === 'stardiz'
         ? { nextGradingAt: form.nextGradingAt || null }
         : {}),
+      // Формат занятости — только у дизайнеров. Если не меняли, значение
+      // равно исходному, и сервер права не проверяет.
+      ...(form.role === 'designer' ? { employmentType: form.employmentType } : {}),
     };
 
     const url = isNew ? '/api/users' : `/api/users/${user!.id}`;
@@ -582,6 +589,7 @@ export default function UserModal({
                   кто грейдируется, и только тем, у кого есть на это права
                   (админ всем, лид/стардиз своим подопечным). */}
               {(user?.role === 'designer' || user?.role === 'stardiz') &&
+                form.employmentType !== 'hourly' &&
                 canSetGradingDate({ id: meId ?? -1, role: meRole }, {
                   id: user.id,
                   leadId: form.leadId,
@@ -607,24 +615,42 @@ export default function UserModal({
               <div>
                 <label className="block text-xs text-stone mb-1.5">Активен</label>
                 <div className="flex items-center gap-3 pt-2.5">
-                  <button
-                    type="button"
-                    onClick={() => set('active', !form.active)}
-                    className={`relative w-9 h-5 rounded-full transition-colors ${
-                      form.active ? 'bg-emerald' : 'bg-cloud'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                        form.active ? 'left-[18px]' : 'left-0.5'
-                      }`}
-                    />
-                  </button>
+                  <Switch
+                    on={form.active}
+                    onToggle={() => set('active', !form.active)}
+                    label="Активен"
+                  />
                   <span className="text-sm">
                     {form.active ? 'Учётка активна' : 'Деактивирован'}
                   </span>
                 </div>
               </div>
+              {/* Phase 23.4 — почасовщик: такой же дизайнер, но не
+                  грейдируется и не входит в таланты. Ставят админ и лид. */}
+              {form.role === 'designer' &&
+                canSetEmploymentType(
+                  { id: meId ?? -1, role: meRole },
+                  { role: form.role, leadId: form.leadId },
+                ) && (
+                  <div>
+                    <label className="block text-xs text-stone mb-1.5">Почасовщик</label>
+                    <div className="flex items-center gap-3 pt-2.5">
+                      <Switch
+                        on={form.employmentType === 'hourly'}
+                        onToggle={() =>
+                          set(
+                            'employmentType',
+                            form.employmentType === 'hourly' ? 'staff' : 'hourly',
+                          )
+                        }
+                        label="Почасовщик"
+                      />
+                      <span className="text-sm">
+                        {form.employmentType === 'hourly' ? 'Не грейдируется' : 'Штатный'}
+                      </span>
+                    </div>
+                  </div>
+                )}
             </div>
           </section>
 
@@ -640,25 +666,17 @@ export default function UserModal({
                   уровень
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
+              <Switch
+                on={floorEnabled}
+                onToggle={() => {
                   setFloorEnabled(!floorEnabled);
                   if (floorEnabled) {
                     set('gradeFloor', '');
                     set('gradeFloorReason', '');
                   }
                 }}
-                className={`relative w-9 h-5 rounded-full transition-colors ${
-                  floorEnabled ? 'bg-emerald' : 'bg-cloud'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                    floorEnabled ? 'left-[18px]' : 'left-0.5'
-                  }`}
-                />
-              </button>
+                label="Зафиксированный грейд"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div>
@@ -984,5 +1002,35 @@ export default function UserModal({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Переключатель карточки: зелёный — включено. Один вид для всех свитчей формы. */
+function Switch({
+  on,
+  onToggle,
+  label,
+}: {
+  on: boolean;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onToggle}
+      className={`relative w-9 h-5 rounded-full transition-colors ${
+        on ? 'bg-emerald' : 'bg-cloud'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+          on ? 'left-[18px]' : 'left-0.5'
+        }`}
+      />
+    </button>
   );
 }

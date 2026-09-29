@@ -38,6 +38,7 @@ export const AUDIT_ACTIONS = {
   GRADE_FLOOR_CHANGED: 'grade_floor_changed',
   GRADING_DATE_SET: 'grading_date_set',
   GRADING_DATE_CLEARED: 'grading_date_cleared',
+  EMPLOYMENT_TYPE_CHANGED: 'employment_type_changed',
   // --- Assessments ---
   ASSESSMENT_PUBLISHED: 'assessment_published',
   ASSESSMENT_REOPENED: 'assessment_reopened',
@@ -72,6 +73,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   grade_floor_removed: 'Зафиксированный грейд снят',
   grading_date_set: 'Дата грейдирования назначена',
   grading_date_cleared: 'Дата грейдирования снята',
+  employment_type_changed: 'Формат занятости изменён',
   assessment_published: 'Оценка опубликована',
   assessment_reopened: 'Оценка возвращена в черновик',
   assessment_deleted: 'Оценка удалена',

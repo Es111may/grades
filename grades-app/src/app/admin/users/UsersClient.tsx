@@ -18,6 +18,7 @@ import {
   type TeamOption,
 } from '@/lib/teamScope';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
+import { isGradable, isHourly } from '@/lib/employment';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -37,6 +38,8 @@ export type UserRow = {
   active: boolean;
   gradeFloor: string | null;
   gradeFloorReason: string | null;
+  /** Phase 23.4 — 'hourly' для почасовщика, иначе 'staff'. */
+  employmentType?: string;
   // Phase 23.2 — план грейдирования
   nextGradingAt?: string | null;
   nextGradingSetAt?: string | null;
@@ -261,7 +264,15 @@ export default function UsersClient({
       const idx = prev.findIndex((u) => u.id === saved.id);
       if (idx >= 0) {
         const next = [...prev];
-        next[idx] = saved;
+        // Сливаем, а не заменяем: API отдаёт только поля из базы, а грейд,
+        // XP, место и «в срок» считаются на странице. При замене они
+        // пропадали из строки до перезагрузки. Почасовщик места не имеет —
+        // снимаем сразу, не дожидаясь пересчёта (Phase 23.4).
+        next[idx] = {
+          ...prev[idx],
+          ...saved,
+          ...(isHourly(saved) ? { compositeScore: null } : {}),
+        };
         return next;
       }
       return [...prev, saved];
@@ -454,10 +465,11 @@ function computeScopedStats(list: UserRow[]): {
     return forms[2];
   };
 
+  // Те же правила, что на сервере (page.tsx): «в срок» — по всем активным
+  // дизайнерам, включая почасовщиков; грейдирование и таланты — без них.
   const activeDesigners = list.filter((u) => u.role === 'designer' && u.active);
-  const eligible = list.filter(
-    (u) => (u.role === 'designer' || u.role === 'stardiz') && u.active,
-  );
+  const talentDesigners = activeDesigners.filter((u) => !isHourly(u));
+  const eligible = list.filter(isGradable);
 
   // 9-Box подвыборки
   const nineBox: Record<string, number> = {};
@@ -476,12 +488,12 @@ function computeScopedStats(list: UserRow[]): {
   const onTimeValues = activeDesigners
     .filter((u) => u.onTimePercent != null && (u.onTimeTotalTasks ?? 0) >= 5)
     .map((u) => u.onTimePercent as number);
-  const growthDeltas = activeDesigners
+  const growthDeltas = talentDesigners
     .map((u) => u.growthDelta)
     .filter((x): x is number => x != null);
-  const gradedCount = activeDesigners.filter((u) => u.totalXp != null).length;
-  const draftCount = activeDesigners.filter((u) => u.hasDraft).length;
-  const readyRows = activeDesigners
+  const gradedCount = talentDesigners.filter((u) => u.totalXp != null).length;
+  const draftCount = talentDesigners.filter((u) => u.hasDraft).length;
+  const readyRows = talentDesigners
     .filter((u) => u.xpNeeded != null && (u.xpNeeded as number) <= 20)
     .sort((a, b) => (a.xpNeeded as number) - (b.xpNeeded as number));
 
@@ -502,11 +514,11 @@ function computeScopedStats(list: UserRow[]): {
     readyCount: readyRows.length,
     gradedCount,
     draftCount,
-    totalDesigners: activeDesigners.length,
+    totalDesigners: talentDesigners.length,
   };
 
   const attention: AttentionItem[] = [];
-  const staleDrafts = activeDesigners
+  const staleDrafts = talentDesigners
     .filter((u) => u.draftAgeDays != null && (u.draftAgeDays as number) > 7)
     .sort((a, b) => (b.draftAgeDays as number) - (a.draftAgeDays as number));
   if (staleDrafts.length > 0) {
@@ -529,7 +541,7 @@ function computeScopedStats(list: UserRow[]): {
         detail: `${u.onTimeTotalTasks} задач · 6 мес`,
       });
     });
-  const freshSelf = activeDesigners.filter((u) => u.selfFresh);
+  const freshSelf = talentDesigners.filter((u) => u.selfFresh);
   if (freshSelf.length > 0) {
     const names = freshSelf.map((u) => u.fullName.split(' ')[0]);
     attention.push({
