@@ -9,6 +9,8 @@ import {
   canManageUsers,
 } from '@/lib/permissions';
 import { canSetEmploymentType } from '@/lib/employment';
+import { DISMISSAL_TYPES, canEditDismissal } from '@/lib/dismissal';
+import { userForViewer } from '@/lib/userResponse';
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -26,6 +28,11 @@ const createUserSchema = z.object({
   avatarUrl: z.string().max(300_000).nullable().optional(),
   // Phase 23.4 — почасовщик. Права — отдельно, см. canSetEmploymentType.
   employmentType: z.enum(['staff', 'hourly']).optional(),
+  // Phase 23.4 — увольнение (например, почасовщик, выведенный из штата).
+  // Только админ, см. lib/dismissal.
+  dismissedAt: z.string().nullable().optional(),
+  dismissalType: z.enum(DISMISSAL_TYPES).nullable().optional(),
+  dismissalReason: z.string().trim().max(300).nullable().optional(),
 });
 
 export async function GET() {
@@ -43,7 +50,10 @@ export async function GET() {
     orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
   });
 
-  return NextResponse.json(users);
+  // Записи целиком — вырезаем то, что зрителю видеть нельзя (увольнение,
+  // плановый пересмотр чужих людей, хэш пароля), см. lib/userResponse.
+  const viewer = { id: me.id!, role: me.role };
+  return NextResponse.json(users.map((u) => userForViewer(u, viewer)));
 }
 
 export async function POST(req: NextRequest) {
@@ -82,6 +92,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const dismissalProvided =
+    data.dismissedAt !== undefined ||
+    data.dismissalType !== undefined ||
+    data.dismissalReason !== undefined;
+  if (dismissalProvided && !canEditDismissal(me)) {
+    return NextResponse.json(
+      { error: 'Данные об увольнении может менять только админ' },
+      { status: 403 },
+    );
+  }
+  const dismissedAt = data.dismissedAt ? new Date(data.dismissedAt) : null;
+  if (dismissedAt && Number.isNaN(dismissedAt.getTime())) {
+    return NextResponse.json({ error: 'Некорректная дата увольнения' }, { status: 400 });
+  }
+
   const existing = await prisma.user.findUnique({
     where: { email: data.email.toLowerCase() },
   });
@@ -104,6 +129,9 @@ export async function POST(req: NextRequest) {
       gradeFloorReason: data.gradeFloorReason ?? null,
       avatarUrl: data.avatarUrl ?? null,
       employmentType: hourly ? 'hourly' : 'staff',
+      dismissedAt,
+      dismissalType: data.dismissalType ?? null,
+      dismissalReason: data.dismissalReason || null,
     },
     include: {
       build: true,
@@ -112,5 +140,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(user, { status: 201 });
+  return NextResponse.json(userForViewer(user, { id: me.id!, role: me.role }), {
+    status: 201,
+  });
 }

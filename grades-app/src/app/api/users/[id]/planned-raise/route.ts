@@ -4,7 +4,9 @@
  * DELETE /api/users/[id]/planned-raise — снять.
  *
  * Права: админ — всем, лид — своим (lib/compPermissions). Phase 23.4.
- * «Выполнен» здесь не ставится — он выводится из HR-портала.
+ * «Выполнен» здесь не ставится — он выводится из HR-портала. Поэтому PUT
+ * поверх выполненного (или с fresh: true) начинает новый статус: иначе он
+ * считался бы от старой отметки и сразу выглядел бы выполненным.
  */
 
 export const dynamic = 'force-dynamic';
@@ -15,12 +17,22 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { canEditPlannedRaise } from '@/lib/compPermissions';
 import { AUDIT_ACTIONS, writeAudit } from '@/lib/audit';
+import {
+  plannedRaiseStartAt,
+  plannedRaiseState,
+  shouldRestartPlan,
+  type PlannedRaiseState,
+} from '@/lib/compensation';
+import { fetchHrCompensation, type HrCompensation } from '@/lib/hrSalary';
 
 const bodySchema = z.object({
   at: z.string().nullable().optional(),
   // ₽/мес на руки
   salary: z.number().int().positive().max(10_000_000).nullable().optional(),
   note: z.string().max(500).nullable().optional(),
+  // Клиент начинает новый статус («Запланировать пересмотр»), а не уточняет
+  // текущий. Нужен, когда HR недоступен и сервер сам этого не поймёт.
+  fresh: z.boolean().optional(),
 });
 
 async function guard(idParam: string) {
@@ -29,7 +41,14 @@ async function guard(idParam: string) {
   if (isNaN(id)) return { error: NextResponse.json({ error: 'Invalid id' }, { status: 400 }) };
   const target = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, leadId: true, plannedRaiseSetAt: true, plannedRaiseAt: true, plannedRaiseSalary: true },
+    select: {
+      id: true,
+      email: true,
+      leadId: true,
+      plannedRaiseSetAt: true,
+      plannedRaiseAt: true,
+      plannedRaiseSalary: true,
+    },
   });
   if (!target) return { error: NextResponse.json({ error: 'Not found' }, { status: 404 }) };
   const viewer = me?.id ? { id: me.id, role: me.role } : null;
@@ -50,17 +69,42 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: 'Некорректная дата пересмотра' }, { status: 400 });
   }
 
+  // HR — тот же кэш и те же входы, что у GET /compensation: выполнен ли
+  // текущий статус и с какой отметки начинать новый. Недоступен — без него.
+  let hr: HrCompensation | null = null;
+  try {
+    hr = await fetchHrCompensation(g.target.email);
+  } catch (err) {
+    console.error('[planned-raise] HR unavailable:', err);
+  }
+  const log = hr?.log ?? [];
+  const hiredAt = hr?.hr?.hiredAt ?? null;
+  const setAt = g.target.plannedRaiseSetAt;
+  const state: PlannedRaiseState | null = !setAt
+    ? 'none'
+    : hr
+      ? plannedRaiseState({ setAt: setAt.toISOString() }, log, hiredAt)
+      : null;
+  const restart = shouldRestartPlan(state, data.fresh === true);
+
   // Отметку постановки не сдвигаем при уточнении деталей: от неё считается,
-  // выполнен ли пересмотр.
+  // выполнен ли пересмотр. Новый статус — с новой отметкой и без деталей
+  // прежнего: чего нет в запросе, то пусто.
   const user = await prisma.user.update({
     where: { id: g.target.id },
-    data: {
-      plannedRaiseSetAt: g.target.plannedRaiseSetAt ?? new Date(),
-      plannedRaiseSetById: g.target.plannedRaiseSetAt ? undefined : g.me.id,
-      ...(at !== undefined && { plannedRaiseAt: at }),
-      ...(data.salary !== undefined && { plannedRaiseSalary: data.salary }),
-      ...(data.note !== undefined && { plannedRaiseNote: data.note?.trim() || null }),
-    },
+    data: restart
+      ? {
+          plannedRaiseSetAt: plannedRaiseStartAt(new Date(), log, hiredAt),
+          plannedRaiseSetById: g.me.id,
+          plannedRaiseAt: at ?? null,
+          plannedRaiseSalary: data.salary ?? null,
+          plannedRaiseNote: data.note?.trim() || null,
+        }
+      : {
+          ...(at !== undefined && { plannedRaiseAt: at }),
+          ...(data.salary !== undefined && { plannedRaiseSalary: data.salary }),
+          ...(data.note !== undefined && { plannedRaiseNote: data.note?.trim() || null }),
+        },
     select: { plannedRaiseSetAt: true, plannedRaiseAt: true, plannedRaiseSalary: true, plannedRaiseNote: true },
   });
 

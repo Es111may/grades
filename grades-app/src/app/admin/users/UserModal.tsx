@@ -3,9 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Avatar from '@/components/Avatar';
 import { EditIcon, CloseIcon } from '@/components/icons';
-import { formatDateShort } from '@/lib/dates';
+import { formatDateShort, todayLocalIso } from '@/lib/dates';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType } from '@/lib/employment';
+import {
+  DISMISSAL_TYPES,
+  DISMISSAL_TYPE_LABELS,
+  canEditDismissal,
+  showsDismissal,
+} from '@/lib/dismissal';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -39,6 +45,10 @@ type UserData = {
   nextGradingSetBy?: { id: number; fullName: string } | null;
   /** Phase 23.4 — 'hourly' для почасовщика. */
   employmentType?: string;
+  /** Phase 23.4 — увольнение. Тип и причина приходят только админу. */
+  dismissedAt?: string | null;
+  dismissalType?: string | null;
+  dismissalReason?: string | null;
 };
 
 /**
@@ -113,6 +123,8 @@ export default function UserModal({
   onDeleted: (id: number) => void;
 }) {
   const isAdmin = meRole === 'admin';
+  // Увольнение (дата, тип, причина) правит только админ — см. lib/dismissal
+  const canDismiss = canEditDismissal({ role: meRole });
   // Кто может выдать пароль этому пользователю — синхронизировано с
   // серверной логикой /api/users/[id]/password:
   //   - admin: всем
@@ -146,7 +158,14 @@ export default function UserModal({
     gradeFloorReason: user?.gradeFloorReason ?? '',
     nextGradingAt: user?.nextGradingAt ? user.nextGradingAt.split('T')[0] : '',
     employmentType: user?.employmentType ?? 'staff',
+    dismissedAt: user?.dismissedAt ? user.dismissedAt.split('T')[0] : '',
+    dismissalType: user?.dismissalType ?? '',
+    dismissalReason: user?.dismissalReason ?? '',
   });
+  // Дата увольнения подставлена автоматически при выключении «Активен».
+  // Если админ передумал и включил обратно — убираем подстановку, чтобы не
+  // сохранить активному человеку случайную дату. Введённое руками не трогаем.
+  const [dismissalAutoFilled, setDismissalAutoFilled] = useState(false);
 
   const [floorEnabled, setFloorEnabled] = useState(!!user?.gradeFloor);
   const [saving, setSaving] = useState(false);
@@ -240,6 +259,20 @@ export default function UserModal({
     setError('');
   }
 
+  function toggleActive() {
+    const nextActive = !form.active;
+    if (!nextActive && canDismiss && !form.dismissedAt) {
+      setForm((prev) => ({ ...prev, active: false, dismissedAt: todayLocalIso() }));
+      setDismissalAutoFilled(true);
+    } else if (nextActive && dismissalAutoFilled) {
+      setForm((prev) => ({ ...prev, active: true, dismissedAt: '' }));
+      setDismissalAutoFilled(false);
+    } else {
+      setForm((prev) => ({ ...prev, active: nextActive }));
+    }
+    setError('');
+  }
+
   function isLoweringFloor(): boolean {
     if (!user?.gradeFloor || !form.gradeFloor) return false;
     const beforeIdx = GRADE_ORDER.indexOf(user.gradeFloor);
@@ -286,6 +319,16 @@ export default function UserModal({
       // Формат занятости — только у дизайнеров. Если не меняли, значение
       // равно исходному, и сервер права не проверяет.
       ...(form.role === 'designer' ? { employmentType: form.employmentType } : {}),
+      // Увольнение — только от админа: лиду сервер ответит 403 на само
+      // присутствие полей. Скрытые поля шлём как есть — значения не теряются,
+      // если человек снова стал активным.
+      ...(canDismiss
+        ? {
+            dismissedAt: form.dismissedAt || null,
+            dismissalType: form.dismissalType || null,
+            dismissalReason: form.dismissalReason.trim() || null,
+          }
+        : {}),
     };
 
     const url = isNew ? '/api/users' : `/api/users/${user!.id}`;
@@ -615,11 +658,7 @@ export default function UserModal({
               <div>
                 <label className="block text-xs text-stone mb-1.5">Активен</label>
                 <div className="flex items-center gap-3 pt-2.5">
-                  <Switch
-                    on={form.active}
-                    onToggle={() => set('active', !form.active)}
-                    label="Активен"
-                  />
+                  <Switch on={form.active} onToggle={toggleActive} label="Активен" />
                   <span className="text-sm">
                     {form.active ? 'Учётка активна' : 'Деактивирован'}
                   </span>
@@ -648,6 +687,50 @@ export default function UserModal({
                       <span className="text-sm">
                         {form.employmentType === 'hourly' ? 'Не грейдируется' : 'Штатный'}
                       </span>
+                    </div>
+                  </div>
+                )}
+              {/* Phase 23.4 — увольнение: у деактивированных и почасовщиков,
+                  только админу. Реагирует на переключатели выше, с новой строки. */}
+              {canDismiss &&
+                showsDismissal({ active: form.active, employmentType: form.employmentType }) && (
+                  <div className="col-span-2 grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-stone mb-1.5">Дата увольнения</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={form.dismissedAt}
+                        onChange={(e) => {
+                          set('dismissedAt', e.target.value);
+                          setDismissalAutoFilled(false);
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-stone mb-1.5">Статус</label>
+                      <select
+                        className="input"
+                        value={form.dismissalType}
+                        onChange={(e) => set('dismissalType', e.target.value)}
+                      >
+                        <option value="">—</option>
+                        {DISMISSAL_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {DISMISSAL_TYPE_LABELS[t]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs text-stone mb-1.5">Причина</label>
+                      <input
+                        className="input"
+                        maxLength={300}
+                        placeholder="Коротко: куда ушли или почему"
+                        value={form.dismissalReason}
+                        onChange={(e) => set('dismissalReason', e.target.value)}
+                      />
                     </div>
                   </div>
                 )}

@@ -166,15 +166,15 @@ export default function GradingPlanChip({
 
 /**
  * Статусная иконка у имени человека в списке (Phase 23.4). Одно место —
- * одна иконка: у почасовщика песочные часы, у остальных — таймер
- * грейдирования, если он запланирован. Вместе они не встречаются:
- * почасовщиков не грейдируют.
+ * одна иконка: у почасовщика жёлтые песочные часы (залитые, 16px — чтобы
+ * бросались в глаза), у остальных — таймер грейдирования, если он
+ * запланирован. Вместе они не встречаются: почасовщиков не грейдируют.
  */
 export function PersonStatusIcon({ user }: { user: GradingPlanSource }) {
   if (isHourly(user)) {
     return (
       <Tooltip text="Почасовщик — не грейдируется, в рейтинг и 9-Box не входит" align="center">
-        <HourglassIcon className="w-3.5 h-3.5 shrink-0 text-ash" />
+        <HourglassIcon className="w-4 h-4 shrink-0 text-gold" />
       </Tooltip>
     );
   }

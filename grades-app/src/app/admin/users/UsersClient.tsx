@@ -46,6 +46,12 @@ export type UserRow = {
   plannedRaise?: PlannedRaiseRow | null;
   /** Phase 23.4 — текущая зарплата, ₽. Есть только у админа; null — нет данных в HR. */
   salary?: number | null;
+  /** Phase 23.4 — дата увольнения (деактивированные и почасовщики).
+   *  Сервер кладёт её только админу и лиду. */
+  dismissedAt?: string | null;
+  /** Phase 23.4 — тип и причина увольнения. Только у админа (lib/dismissal). */
+  dismissalType?: string | null;
+  dismissalReason?: string | null;
   // Phase 23.2 — план грейдирования
   nextGradingAt?: string | null;
   nextGradingSetAt?: string | null;

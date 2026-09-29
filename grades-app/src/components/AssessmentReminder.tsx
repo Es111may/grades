@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { activeSeason, seasonDeadlineLabel, type Season } from '@/lib/assessmentSeason';
 
 /**
- * Сезонный ремайндер о грейдировании. Показывается только в окнах
- * 15 марта — 15 апреля и 15 сентября — 15 октября.
+ * Сезонный ремайндер о грейдировании: до старта сезона назначь даты.
+ * Показывается месяц перед стартом и в день старта — 1 марта … 1 апреля
+ * и 1 сентября … 1 октября (правило и даты — в lib/assessmentSeason).
  *
  * Поведение:
  *  - При mount фон ярко-лаймовый, через 5 секунд плавно затухает до светло-серого.
@@ -13,25 +15,14 @@ import { useEffect, useState } from 'react';
  *
  * Адресат: admin / lead / stardiz (designer этот раздел не видит).
  */
-function activePeriod(): 'spring' | 'autumn' | null {
-  const now = new Date();
-  const m = now.getMonth() + 1; // 1..12
-  const d = now.getDate();
-  // Весеннее окно — 15 марта … 15 апреля.
-  if ((m === 3 && d >= 15) || (m === 4 && d <= 15)) return 'spring';
-  // Осеннее окно — 15 сентября … 15 октября.
-  if ((m === 9 && d >= 15) || (m === 10 && d <= 15)) return 'autumn';
-  return null;
-}
-
 export default function AssessmentReminder() {
   // Инициализируем как null, чтобы избежать flash на SSR — фактическое окно
   // вычисляется на клиенте после mount.
-  const [period, setPeriod] = useState<'spring' | 'autumn' | null>(null);
+  const [period, setPeriod] = useState<Season | null>(null);
   const [highlighted, setHighlighted] = useState(true);
 
   useEffect(() => {
-    setPeriod(activePeriod());
+    setPeriod(activeSeason(new Date()));
   }, []);
 
   useEffect(() => {
@@ -42,7 +33,7 @@ export default function AssessmentReminder() {
 
   if (!period) return null;
 
-  const deadline = period === 'spring' ? '15 апреля' : '15 октября';
+  const deadline = seasonDeadlineLabel(period);
 
   return (
     // Капсула в стиле Dynamic Island — центрированная пилюля под хедером

@@ -68,8 +68,15 @@ import { formatDateShort as formatDate } from '@/lib/dates';
 import GradingPlanChip from '@/components/GradingPlanChip';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { isHourly } from '@/lib/employment';
-import { canEditPlannedRaise, canViewCompensation } from '@/lib/compPermissions';
-import SalaryBlock from '@/components/SalaryBlock';
+import {
+  DISMISSAL_TYPE_LABELS,
+  canViewDismissalDate,
+  canViewDismissalStatus,
+  isDismissalType,
+  showsDismissal,
+} from '@/lib/dismissal';
+import { canEditBonuses, canEditPlannedRaise, canViewCompensation } from '@/lib/compPermissions';
+import SalaryBlock, { useCompensation } from '@/components/SalaryBlock';
 import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
 
 export default function UserCard360({
@@ -267,11 +274,12 @@ export default function UserCard360({
     }
   }
 
-  // Стаж — «1 г 10 мес» к дате найма
-  function tenureStr(hiredAt: string | null): string | null {
+  // Стаж — «1 г 10 мес» к дате найма. У уволенных и почасовщиков с датой
+  // увольнения считаем до неё, а не до сегодня.
+  function tenureStr(hiredAt: string | null, until: string | null = null): string | null {
     if (!hiredAt) return null;
     const st = new Date(hiredAt);
-    const now = new Date();
+    const now = until ? new Date(until) : new Date();
     let m = (now.getFullYear() - st.getFullYear()) * 12 + (now.getMonth() - st.getMonth());
     if (now.getDate() < st.getDate()) m--;
     if (m < 1) return '<1 мес';
@@ -280,6 +288,14 @@ export default function UserCard360({
     if (y === 0) return `${mm} мес`;
     return mm === 0 ? `${y} г` : `${y} г ${mm} мес`;
   }
+
+  // Phase 23.4 — увольнение. Дату видят админ и лид, тип и причину —
+  // только админ (сервер другим эти поля и не отдаёт).
+  const withDismissal = showsDismissal(user);
+  const seeDismissalDate = withDismissal && canViewDismissalDate({ role: meRole });
+  const seeDismissalStatus = withDismissal && canViewDismissalStatus({ role: meRole });
+  const dismissedAt = withDismissal ? user.dismissedAt ?? null : null;
+  const tenure = tenureStr(user.hiredAt, dismissedAt);
 
   const lastA = history?.assessments?.[0] ?? null;
   const prevA = history?.assessments?.[1] ?? null;
@@ -295,14 +311,21 @@ export default function UserCard360({
   const canViewComp = canViewCompensation(viewer, user);
   const canPlan = canEditPlannedRaise(viewer, user) && user.active;
   const hasPlan = !!user.plannedRaise;
+  // Данные блока «Зарплата» грузит поп-ап и отдаёт ему (source), как карточка
+  // на портрете: пункты меню перечитывают те же данные — строка пересмотра
+  // в блоке обновляется сразу, без переоткрытия.
+  const comp = useCompensation(canViewComp ? user.id : null);
   const [planSignal, setPlanSignal] = useState(0);
+  // Статуса нет (или выполнен — список его уже не шлёт) — ставим новый:
+  // fresh, чтобы сервер не считал его от старой отметки, даже без HR. Потом
+  // сигнал блоку: он открывает редактор и перечитывает данные.
   async function startPlan() {
     setMenuOpen(false);
     if (!hasPlan) {
       const res = await fetch(`/api/users/${user.id}/planned-raise`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: '{}',
+        body: JSON.stringify({ fresh: true }),
       });
       if (!res.ok) return;
       onPlannedRaiseChange(user.id, { at: null, salary: null, note: null });
@@ -312,11 +335,23 @@ export default function UserCard360({
   async function clearPlan() {
     setMenuOpen(false);
     const res = await fetch(`/api/users/${user.id}/planned-raise`, { method: 'DELETE' });
-    if (res.ok) onPlannedRaiseChange(user.id, null);
+    if (!res.ok) return;
+    onPlannedRaiseChange(user.id, null);
+    await comp.reload();
+  }
+  // Премию вносит только админ; пункт — когда история загрузилась (без
+  // HR-данных её нет, и форме негде появиться). Сама форма — в SalaryBlock.
+  const [bonusReady, setBonusReady] = useState(false);
+  const [bonusSignal, setBonusSignal] = useState(0);
+  const canAddBonus = canPlan && canEditBonuses(viewer) && bonusReady;
+  function startBonus() {
+    setMenuOpen(false);
+    setBonusSignal((n) => n + 1);
   }
   const hasMenu = canPlan || canImpersonate || canImportLeadReview || canDeactivate || canHardDelete;
   // У лида в меню только пункты про пересмотр — при скрытых зарплатах
-  // прячем и саму кнопку, иначе откроется пустое меню.
+  // прячем и саму кнопку, иначе откроется пустое меню. «Добавить премию»
+  // тоже salary-sensitive и бывает только вместе с пунктами пересмотра.
   const menuOnlySalary = canPlan && !canImpersonate && !canImportLeadReview && !canDeactivate && !canHardDelete;
 
   async function handleHardDelete() {
@@ -424,8 +459,8 @@ export default function UserCard360({
                   </span>
                 )}
               {isHourly(user) && (
-                <span className="chip-neutral h-6 inline-flex items-center gap-1">
-                  <HourglassIcon className="w-3 h-3" />
+                <span className="chip-gold h-6 inline-flex items-center gap-1">
+                  <HourglassIcon className="w-3 h-3 text-gold" />
                   Почасовщик
                 </span>
               )}
@@ -452,8 +487,43 @@ export default function UserCard360({
                 <span className="text-stone">Дата найма</span>
                 <span className="ml-auto text-ink text-right">
                   {formatDate(user.hiredAt)}
-                  {tenureStr(user.hiredAt) && (
-                    <span className="text-stone"> · {tenureStr(user.hiredAt)}</span>
+                  {tenure && <span className="text-stone"> · {tenure}</span>}
+                </span>
+              </div>
+            )}
+            {/* Без даты: админу — «не указана» (заполнит в «Изменить»),
+                лиду строку не показываем. */}
+            {seeDismissalDate && (dismissedAt || seeDismissalStatus) && (
+              <div className="flex items-center gap-3">
+                <span className="text-stone">Дата увольнения</span>
+                <span className="ml-auto text-right">
+                  {dismissedAt ? (
+                    <span className="text-ink">{formatDate(dismissedAt)}</span>
+                  ) : (
+                    <span className="text-ash">не указана</span>
+                  )}
+                </span>
+              </div>
+            )}
+            {seeDismissalStatus && (
+              <div className="flex items-baseline gap-3">
+                <span className="text-stone shrink-0">Статус</span>
+                <span className="ml-auto text-right min-w-0 break-words">
+                  {isDismissalType(user.dismissalType) ? (
+                    <span className="text-ink">{DISMISSAL_TYPE_LABELS[user.dismissalType]}</span>
+                  ) : !user.dismissalReason ? (
+                    <span className="text-ash">не указан</span>
+                  ) : null}
+                  {user.dismissalReason && (
+                    <span
+                      className={
+                        isDismissalType(user.dismissalType)
+                          ? 'block text-xs text-stone mt-0.5'
+                          : 'text-ink'
+                      }
+                    >
+                      {user.dismissalReason}
+                    </span>
                   )}
                 </span>
               </div>
@@ -491,8 +561,11 @@ export default function UserCard360({
               <SalaryBlock
                 userId={user.id}
                 variant="popup"
+                source={comp}
                 editSignal={planSignal}
+                bonusSignal={bonusSignal}
                 onPlannedChange={(p) => onPlannedRaiseChange(user.id, p)}
+                onBonusReadyChange={setBonusReady}
               />
             )}
           </div>
@@ -709,6 +782,15 @@ export default function UserCard360({
                 className="salary-sensitive block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
               >
                 Снять пересмотр
+              </button>
+            )}
+            {canAddBonus && (
+              <button
+                type="button"
+                onClick={startBonus}
+                className="salary-sensitive block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+              >
+                Добавить премию
               </button>
             )}
             {canImpersonate && (

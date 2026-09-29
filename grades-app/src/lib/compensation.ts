@@ -114,7 +114,7 @@ export function buildCompensation(input: {
           from: r.from,
           to: r.to,
           delta: r.to - r.from,
-          pct: r.from > 0 ? ((r.to - r.from) / r.from) * 100 : null,
+          pct: pctChange(r.from, r.to),
           future: r.date > today,
         },
   );
@@ -140,7 +140,7 @@ export function buildCompensation(input: {
     const after = past.filter((r) => r.date > jan1);
     base = before.length ? before[before.length - 1].to : after.length ? after[0].from : current;
   }
-  const pct = base && base > 0 ? ((current - base) / base) * 100 : null;
+  const pct = base ? pctChange(base, current) : null;
   const since = base
     ? {
         label: hiredThisYear ? ('с найма' as const) : ('с начала года' as const),
@@ -185,10 +185,71 @@ export function plannedRaiseState(
 ): PlannedRaiseState {
   if (!planned.setAt) return 'none';
   const since = day(planned.setAt);
-  const raised = normalized(log).some(
-    (r) => r.to > r.from && !isHireRow(r, hiredAt) && r.date >= since,
-  );
+  const raised = planRaises(log, hiredAt).some((r) => r.date >= since);
   return raised ? 'done' : 'active';
+}
+
+/** Повышения, которые закрывают плановый пересмотр: без стартовой ставки. */
+function planRaises(log: HrLogRow[], hiredAt: string | null): HrLogRow[] {
+  return normalized(log).filter((r) => r.to > r.from && !isHireRow(r, hiredAt));
+}
+
+/**
+ * PUT планового пересмотра: начать новый статус (новая отметка постановки)
+ * или уточнить текущий. Новый — если статуса нет, прежний уже выполнен
+ * (от старой отметки новый сразу выглядел бы выполненным) или клиент явно
+ * начинает новый (fresh). state = null — HR недоступен и выполнен ли
+ * прежний, неизвестно: без fresh уточняем текущий.
+ */
+export function shouldRestartPlan(state: PlannedRaiseState | null, fresh = false): boolean {
+  return fresh || state === 'none' || state === 'done';
+}
+
+/**
+ * Отметка постановки нового статуса. Обычно — сейчас. Но повышение, которое
+ * уже есть в HR с датой от сегодня и позже (оформили заранее, «с 1-го»),
+ * закрыло прежний статус и не должно сразу закрыть новый: тогда отметка —
+ * начало следующего за ним дня (UTC, как и сравнение в plannedRaiseState).
+ */
+export function plannedRaiseStartAt(now: Date, log: HrLogRow[], hiredAt: string | null): Date {
+  const today = now.toISOString().slice(0, 10);
+  const ahead = planRaises(log, hiredAt).filter((r) => r.date >= today);
+  // Журнал отсортирован по возрастанию — последнее повышение в конце
+  const last = ahead[ahead.length - 1];
+  return last ? new Date(`${addDays(last.date, 1)}T00:00:00Z`) : now;
+}
+
+/** Изменение «было → стало» в процентах; null, если «было» нет (ставка с нуля). */
+export function pctChange(from: number, to: number): number | null {
+  return from > 0 ? ((to - from) / from) * 100 : null;
+}
+
+/**
+ * «+27%», «−8%» — целые проценты. Меньше процента — с одним знаком
+ * («+0,5%»), чтобы рост не превращался в «+0%».
+ */
+export function formatPct(p: number): string {
+  const a = Math.abs(p);
+  const r = a < 1 ? Math.round(a * 10) / 10 : Math.round(a);
+  if (r === 0) return '0%';
+  return `${p > 0 ? '+' : '−'}${String(r).replace('.', ',')}%`;
+}
+
+/**
+ * История по годам — для подписей «2026», «2025». События уже отсортированы
+ * по убыванию даты, поэтому год меняется только на границе групп.
+ */
+export function groupEventsByYear<T extends { date: string }>(
+  events: T[],
+): { year: string; events: T[] }[] {
+  const groups: { year: string; events: T[] }[] = [];
+  for (const e of events) {
+    const year = e.date.slice(0, 4);
+    const last = groups[groups.length - 1];
+    if (last && last.year === year) last.events.push(e);
+    else groups.push({ year, events: [e] });
+  }
+  return groups;
 }
 
 /** «130», «104,9» — тысячи рублей для подписи «тыс. ₽». */

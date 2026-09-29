@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildCompensation,
+  formatPct,
   formatThousands,
+  groupEventsByYear,
+  pctChange,
+  plannedRaiseStartAt,
   plannedRaiseState,
+  shouldRestartPlan,
   type HrLogRow,
 } from '../compensation';
 import { bandFor, bandState } from '../salaryBands';
@@ -182,10 +187,92 @@ describe('plannedRaiseState', () => {
   });
 });
 
+describe('новый плановый пересмотр после выполненного', () => {
+  it('shouldRestartPlan: нет статуса или выполнен — новый; активный — уточняем', () => {
+    expect(shouldRestartPlan('none')).toBe(true);
+    expect(shouldRestartPlan('done')).toBe(true);
+    expect(shouldRestartPlan('active')).toBe(false);
+  });
+  it('shouldRestartPlan: HR недоступен — новый только по явному fresh', () => {
+    expect(shouldRestartPlan(null)).toBe(false);
+    expect(shouldRestartPlan(null, true)).toBe(true);
+    expect(shouldRestartPlan('active', true)).toBe(true);
+  });
+
+  const NOW = new Date('2026-09-30T12:00:00Z');
+  const hired = '2024-01-01';
+  it('прошлое повышение — отметка «сейчас», новый статус активен', () => {
+    const log: HrLogRow[] = [{ date: '2026-09-01', from: 120 * K, to: 130 * K }];
+    const at = plannedRaiseStartAt(NOW, log, hired);
+    expect(at).toEqual(NOW);
+    expect(plannedRaiseState({ setAt: at.toISOString() }, log, hired)).toBe('active');
+  });
+  it('повышение сегодня или «с 1-го» — отметка после него, новый не закрыт им же', () => {
+    const today: HrLogRow[] = [{ date: '2026-09-30', from: 120 * K, to: 130 * K }];
+    expect(plannedRaiseStartAt(NOW, today, hired).toISOString()).toBe('2026-10-01T00:00:00.000Z');
+    const log: HrLogRow[] = [
+      { date: '2026-09-01', from: 110 * K, to: 120 * K },
+      { date: '2026-10-01', from: 120 * K, to: 130 * K },
+    ];
+    const at = plannedRaiseStartAt(NOW, log, hired);
+    expect(at.toISOString()).toBe('2026-10-02T00:00:00.000Z');
+    expect(plannedRaiseState({ setAt: at.toISOString() }, log, hired)).toBe('active');
+    // Следующее повышение после отметки закрывает новый статус как обычно
+    const next = [...log, { date: '2027-03-01', from: 130 * K, to: 145 * K }];
+    expect(plannedRaiseState({ setAt: at.toISOString() }, next, hired)).toBe('done');
+  });
+  it('будущее снижение и стартовая ставка отметку не сдвигают', () => {
+    const log: HrLogRow[] = [
+      { date: '2026-10-01', from: 130 * K, to: 120 * K },
+      { date: '2026-10-05', from: 100 * K, to: 110 * K },
+    ];
+    expect(plannedRaiseStartAt(NOW, log, '2026-10-05')).toEqual(NOW);
+  });
+});
+
 describe('formatThousands', () => {
   it('целые тысячи — без дробей, иначе один знак', () => {
     expect(formatThousands(130 * K)).toBe('130');
     expect(formatThousands(104939)).toBe('104,9');
+  });
+});
+
+describe('проценты «было → стало»', () => {
+  it('рост и снижение от прежней ставки; без прежней — null', () => {
+    expect(pctChange(110 * K, 140 * K)).toBeCloseTo(27.27, 1);
+    expect(pctChange(120 * K, 100 * K)).toBeCloseTo(-16.67, 1);
+    expect(pctChange(0, 100 * K)).toBeNull();
+  });
+  it('плановый пересмотр — процент к текущей ставке', () => {
+    expect(formatPct(pctChange(140 * K, 145 * K)!)).toBe('+4%');
+  });
+  it('формат: знак, типографский минус, меньше процента — с десятыми', () => {
+    expect(formatPct(27.27)).toBe('+27%');
+    expect(formatPct(-16.67)).toBe('−17%');
+    expect(formatPct(0.5)).toBe('+0,5%');
+    expect(formatPct(0.96)).toBe('+1%');
+    expect(formatPct(0.01)).toBe('0%');
+    expect(formatPct(0)).toBe('0%');
+  });
+});
+
+describe('groupEventsByYear', () => {
+  it('подряд идущие события одного года — одна группа, порядок сохраняется', () => {
+    const g = groupEventsByYear([
+      { date: '2026-09-01' },
+      { date: '2026-03-01' },
+      { date: '2025-12-15' },
+      { date: '2024-06-01' },
+    ]);
+    expect(g.map((x) => [x.year, x.events.length])).toEqual([
+      ['2026', 2],
+      ['2025', 1],
+      ['2024', 1],
+    ]);
+    expect(g[0].events[1].date).toBe('2026-03-01');
+  });
+  it('пустая история — пустой список групп', () => {
+    expect(groupEventsByYear([])).toEqual([]);
   });
 });
 

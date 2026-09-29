@@ -2,29 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { activeSeason, seasonDeadlineLabel, type Season } from '@/lib/assessmentSeason';
 
 /**
  * Сезонное напоминание ДИЗАЙНЕРУ: обнови самооценку и приложи работы
- * до дедлайна грейдирования. Окна — те же, что у AssessmentReminder
- * (15 марта — 15 апреля, 15 сентября — 15 октября), адресат другой.
+ * до старта сезона оценок. Окна — те же, что у AssessmentReminder
+ * (1 марта — 1 апреля, 1 сентября — 1 октября; lib/assessmentSeason),
+ * адресат другой.
  *
  * Поведение капсулы: при mount — лаймовая, через 5 секунд затухает.
  */
-function activePeriod(): 'spring' | 'autumn' | null {
-  const now = new Date();
-  const m = now.getMonth() + 1;
-  const d = now.getDate();
-  if ((m === 3 && d >= 15) || (m === 4 && d <= 15)) return 'spring';
-  if ((m === 9 && d >= 15) || (m === 10 && d <= 15)) return 'autumn';
-  return null;
-}
-
 export default function SelfAssessmentReminder() {
-  const [period, setPeriod] = useState<'spring' | 'autumn' | null>(null);
+  const [period, setPeriod] = useState<Season | null>(null);
   const [highlighted, setHighlighted] = useState(true);
 
   useEffect(() => {
-    setPeriod(activePeriod());
+    setPeriod(activeSeason(new Date()));
   }, []);
 
   useEffect(() => {
@@ -35,7 +28,7 @@ export default function SelfAssessmentReminder() {
 
   if (!period) return null;
 
-  const deadline = period === 'spring' ? '15 апреля' : '15 октября';
+  const deadline = seasonDeadlineLabel(period);
 
   return (
     <div className="relative z-10 px-4 mt-5">

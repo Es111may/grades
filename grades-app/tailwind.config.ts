@@ -27,6 +27,10 @@ const config: Config = {
         blaze: 'rgb(var(--c-blaze) / <alpha-value>)',
         sky: 'rgb(var(--c-sky) / <alpha-value>)',
         emerald: 'rgb(var(--c-emerald) / <alpha-value>)',
+        // Почасовщик (иконка, чип) — жёлтый, в светлой теме темнее
+        gold: 'rgb(var(--c-gold) / <alpha-value>)',
+        // Стардиз (звёздочка у грейда) — фиолетовый, в светлой теме темнее
+        violet: 'rgb(var(--c-violet) / <alpha-value>)',
       },
       // Шрифты: Onest (Variable, max Medium — как на ida-ai-report) для
       // display и sans. mono — JetBrains Mono: лейблы колонок, названия

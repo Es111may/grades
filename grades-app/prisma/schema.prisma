@@ -216,6 +216,13 @@ model User {
   // признака нет (work_format — это не он), поэтому ведём здесь.
   employmentType String @default("staff") // "staff" | "hourly"
 
+  // Phase 23.4 — увольнение. Показывается у деактивированных и почасовщиков
+  // (почасовщик формально выведен из штата). Дату видят админ и лид; тип и
+  // причину — только админ, ставит тоже только он. Правила — lib/dismissal.
+  dismissedAt     DateTime?
+  dismissalType   String?   // 'voluntary' | 'company' | 'probation'
+  dismissalReason String?
+
   // Phase 23.4 — плановый пересмотр з/п. Статус включён, когда задан
   // plannedRaiseSetAt; дата, новая ставка и обоснование — по желанию.
   // «Выполнен» не хранится: он выводится из HR-портала (утверждённое

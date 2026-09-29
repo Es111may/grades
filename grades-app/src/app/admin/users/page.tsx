@@ -12,6 +12,7 @@ import { computeScore, nineBoxLevelFromString } from '@/lib/perfScore';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
 import { isGradable, isHourly } from '@/lib/employment';
 import { canViewCompensation } from '@/lib/compPermissions';
+import { canViewDismissalDate, canViewDismissalStatus } from '@/lib/dismissal';
 import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
 import { fetchHrCompensationBatch, fetchHrLogsByEmail } from '@/lib/hrSalary';
 import type { BuildCode } from '@/lib/types';
@@ -249,6 +250,10 @@ export default async function AdminUsersPage() {
     console.error('[/admin/users] HR data failed:', err);
   }
   const todayIso = new Date().toISOString().slice(0, 10);
+  // Увольнение: дату видят админ и лид, тип и причину — только админ.
+  // Остальным поля не кладём вовсе — ни в данные страницы, ни в JSON.
+  const seeDismissalDate = canViewDismissalDate(me);
+  const seeDismissalStatus = canViewDismissalStatus(me);
 
   const nowMs = Date.now();
   const users = usersRaw.map((u) => {
@@ -316,6 +321,11 @@ export default async function AdminUsersPage() {
       // считаем в клиенте через lib/gradingPlan, чтобы оно не устаревало
       // между рендерами страницы.
       employmentType: u.employmentType,
+      ...(seeDismissalDate && { dismissedAt: u.dismissedAt?.toISOString() ?? null }),
+      ...(seeDismissalStatus && {
+        dismissalType: u.dismissalType,
+        dismissalReason: u.dismissalReason,
+      }),
       // Текущая зарплата для колонки — только админу (Phase 23.4)
       salary: (() => {
         const c = hrBatch?.get(u.email.toLowerCase());

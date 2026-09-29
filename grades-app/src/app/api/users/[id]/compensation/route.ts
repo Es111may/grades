@@ -20,6 +20,7 @@ import {
 } from '@/lib/compPermissions';
 import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
 import { fetchHrCompensation } from '@/lib/hrSalary';
+import { isHourly } from '@/lib/employment';
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
@@ -100,6 +101,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   return NextResponse.json({
     view,
+    // Почасовщик в HR числится уволенным — это норма, а не сбой учёта:
+    // блоку нужно знать, чтобы не советовать «оформить возвращение».
+    hourly: isHourly(target),
     // Без HR «выполнен» определить нельзя — показываем статус как есть
     planned: hr ? planned : { ...planned, state: planned.setAt ? 'active' : 'none' },
     can: {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronDownIcon, SearchIcon } from '@/components/icons';
+import { ChevronDownIcon, SearchIcon, StarIcon } from '@/components/icons';
 import EmptyState from '@/components/EmptyState';
 import { getOnTimeZone } from '@/lib/perfScore';
 import type { UserRow, GradeThreshold, TeamStats, AttentionItem } from './UsersClient';
@@ -306,6 +306,18 @@ export default function LeaderboardView({
         </thead>
         <tbody className="divide-y divide-cloud">
           {rest.map((u) => {
+            const grade = u.effectiveGrade ? (
+              <span className="font-display text-sm font-medium tracking-tight">
+                {GRADE_LABELS[u.effectiveGrade] ?? u.effectiveGrade}
+              </span>
+            ) : u.hasDraft ? (
+              <span className="chip-warn whitespace-nowrap">Черновик</span>
+            ) : (
+              // Текстом в стиле грейда, серым — не чипом (Pavel)
+              <span className="font-display text-sm font-medium tracking-tight text-ash whitespace-nowrap">
+                Без оценки
+              </span>
+            );
             return (
               <tr
                 key={u.id}
@@ -329,9 +341,6 @@ export default function LeaderboardView({
                         {/* Иконка — только у тех, у кого грейдирование
                             запланировано; после проведения исчезает (Pavel) */}
                         <PersonStatusIcon user={u} />
-                        {u.role === 'stardiz' && (
-                          <span className="text-[11px] font-normal text-ash">стардиз</span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -350,17 +359,17 @@ export default function LeaderboardView({
                   )}
                 </td>
                 <td className="py-3 px-4">
-                  {u.effectiveGrade ? (
-                    <span className="font-display text-sm font-medium tracking-tight">
-                      {GRADE_LABELS[u.effectiveGrade] ?? u.effectiveGrade}
+                  {/* Стардиз — фиолетовая звёздочка перед грейдом вместо
+                      подписи у имени (Pavel) */}
+                  {u.role === 'stardiz' ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Tooltip text="Стардиз" align="center">
+                        <StarIcon className="w-3.5 h-3.5 shrink-0 text-violet" />
+                      </Tooltip>
+                      {grade}
                     </span>
-                  ) : u.hasDraft ? (
-                    <span className="chip-warn whitespace-nowrap">Черновик</span>
                   ) : (
-                    // Текстом в стиле грейда, серым — не чипом (Pavel)
-                    <span className="font-display text-sm font-medium tracking-tight text-ash whitespace-nowrap">
-                      Без оценки
-                    </span>
+                    grade
                   )}
                 </td>
                 <td className="py-3 px-4 text-center">
@@ -617,10 +626,25 @@ function PodiumCard({
           <b className="font-medium">{score}</b>
           <span className="text-white/75">№{place}</span>
         </span>
-        {user.effectiveGrade && (
+        {/* Стардиз — та же звёздочка, что в списке. Без Tooltip: ряд
+            с overflow-hidden обрезал бы поповер, поэтому подпись sr-only. */}
+        {user.effectiveGrade ? (
           <span className={`${chipSm} bg-ink text-snow`}>
+            {user.role === 'stardiz' && (
+              <>
+                <StarIcon className="w-3.5 h-3.5 shrink-0 text-violet" />
+                <span className="sr-only">Стардиз</span>
+              </>
+            )}
             {GRADE_LABELS[user.effectiveGrade] ?? user.effectiveGrade}
           </span>
+        ) : (
+          user.role === 'stardiz' && (
+            <span className="inline-flex shrink-0">
+              <StarIcon className="w-3.5 h-3.5 text-violet" />
+              <span className="sr-only">Стардиз</span>
+            </span>
+          )
         )}
         {user.build && (
           <span className={`${chipSm} bg-cloud/60 text-stone`}>

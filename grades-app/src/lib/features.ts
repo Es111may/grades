@@ -2,15 +2,33 @@
 //
 // Правило: каждый релиз с заметной для пользователя фичей добавляет запись в
 // UPDATES (сверху — новое). Роли в записи — кому она показывается; админ
-// видит всё с пометками, кому что доступно. Тексты пишем так, как видит
-// человек интерфейс, без внутренних терминов.
+// видит всё с пометками, кому что доступно. У каждой записи (и в UPDATES, и
+// в SECTIONS) обязательна область `area` — по ней работает фильтр «Тип».
+// Тексты пишем так, как видит человек интерфейс, без внутренних терминов.
 
 export type FeatureRole = 'admin' | 'lead' | 'stardiz';
+
+/** Область функционала — фильтр «Тип» на странице. */
+export type FeatureArea = 'salary' | 'team' | 'grading' | 'access' | 'interface';
+
+/** Области в порядке показа в фильтре. */
+export const FEATURE_AREAS: { id: FeatureArea; label: string }[] = [
+  { id: 'salary', label: 'Зарплата' },
+  { id: 'team', label: 'Команда' },
+  { id: 'grading', label: 'Грейдирование и оценки' },
+  { id: 'access', label: 'Доступ и роли' },
+  { id: 'interface', label: 'Интерфейс' },
+];
+
+export function areaLabel(area: FeatureArea): string {
+  return FEATURE_AREAS.find((a) => a.id === area)?.label ?? area;
+}
 
 export type FeatureDetail = { text: string; roles?: FeatureRole[] };
 
 export type FeatureUpdate = {
   id: string;
+  area: FeatureArea;
   /** YYYY-MM-DD */
   date: string;
   title: string;
@@ -21,6 +39,7 @@ export type FeatureUpdate = {
 
 export type FeatureSection = {
   id: string;
+  area: FeatureArea;
   title: string;
   summary: string;
   roles: FeatureRole[];
@@ -32,7 +51,82 @@ const AL: FeatureRole[] = ['admin', 'lead'];
 
 export const UPDATES: FeatureUpdate[] = [
   {
+    id: 'portrait-salary-card',
+    area: 'salary',
+    date: '2026-09-30',
+    title: 'Зарплата на странице дизайнера — рядом с 9-Box',
+    summary: 'Ставка и вилка — в карточке под 9-Box, подробности — в поп-апе по «+».',
+    roles: AL,
+    details: [
+      { text: 'Карточка 9-Box разделена: сверху позиция, снизу зарплата.' },
+      { text: 'По «+» открывается поп-ап с тем же блоком, что в поп-апе дизайнера: вилка, рост с начала года, история.' },
+      { text: 'В меню «⋯» поп-апа — пересмотр и премия.', roles: ['admin'] },
+      { text: 'В меню «⋯» поп-апа — пересмотр.', roles: ['lead'] },
+    ],
+  },
+  {
+    id: 'season-deadline',
+    area: 'grading',
+    date: '2026-09-30',
+    title: 'Сезоны оценок: 1 апреля — 1 мая и 1 октября — 1 ноября',
+    summary: 'Даты грейдирования назначаем до начала сезона — до 1 апреля и до 1 октября.',
+    roles: ALL,
+    details: [
+      { text: 'Плашка в шапке напоминает об этом весь месяц перед сезоном: в марте и сентябре, а также в первый день сезона.' },
+      { text: 'Дизайнеру — такое же напоминание обновить самооценку.' },
+    ],
+  },
+  {
+    id: 'popup-salary-history',
+    area: 'salary',
+    date: '2026-09-30',
+    title: 'Зарплата в поп-апе — компактнее',
+    summary: 'Блок отделён линией, история — по кнопке, пересмотры — в процентах.',
+    roles: AL,
+    details: [
+      { text: 'Блок «Зарплата» отделён линией от сведений выше.' },
+      { text: 'В строке «Последний пересмотр» — дата и кнопка «История». История раскрывается списком: дата, было → стало и процент, по годам.' },
+      { text: 'Премии — в той же истории отдельными строками.' },
+      { text: 'Добавить премию — в меню «⋯» поп-апа.', roles: ['admin'] },
+    ],
+  },
+  {
+    id: 'stardiz-star',
+    area: 'team',
+    date: '2026-09-30',
+    title: 'Стардизы отмечены звёздочкой',
+    summary: 'В колонке «Грейд» у стардиза — фиолетовая звёздочка.',
+    roles: AL,
+    details: [{ text: 'Подпись «стардиз» у имени убрана — статус теперь рядом с уровнем.' }],
+  },
+  {
+    id: 'dismissal',
+    area: 'team',
+    date: '2026-09-30',
+    title: 'Дата увольнения и статус',
+    summary: 'У деактивированных и почасовщиков в поп-апе видно, с какого дня человек не в штате.',
+    roles: AL,
+    details: [
+      { text: 'В поп-апе 360 под датой найма — «Дата увольнения»: у деактивированных и у почасовщиков (почасовщик формально выведен из штата). Стаж считается до этой даты.' },
+      { text: 'Под датой — «Статус»: по своему желанию, по решению компании или испытательный срок не пройден, ниже — причина. Видит только админ.', roles: ['admin'] },
+      { text: 'Дату, статус и причину ставишь в «Изменить». Когда выключаешь «Активен», подставляется сегодняшняя дата — её можно поправить.', roles: ['admin'] },
+      { text: 'В блоке «Зарплата» у почасовщика — «в штате HR не числится с …» вместо совета оформить возвращение.' },
+    ],
+  },
+  {
+    id: 'hourly-icon',
+    area: 'team',
+    date: '2026-09-30',
+    title: 'Почасовщиков видно сразу',
+    summary: 'Песочные часы у имени стали жёлтыми и заметнее.',
+    roles: ALL,
+    details: [
+      { text: 'В таблице у имени — жёлтые песочные часы, в поп-апе — жёлтый чип «Почасовщик».' },
+    ],
+  },
+  {
     id: 'salary',
+    area: 'salary',
     date: '2026-09-29',
     title: 'Зарплата в поп-апе и на странице дизайнера',
     summary: 'Текущая зарплата, вилка, рост и история пересмотров — прямо в сервисе, из HR-портала.',
@@ -51,6 +145,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'planned-raise',
+    area: 'salary',
     date: '2026-09-29',
     title: 'Плановый пересмотр зарплаты',
     summary: 'Договорились пересмотреть позже — отметь это, чтобы договорённость не потерялась.',
@@ -64,6 +159,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'bonuses',
+    area: 'salary',
     date: '2026-09-29',
     title: 'Премии',
     summary: 'Разовые премии — отдельными строками в истории зарплаты.',
@@ -76,6 +172,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'hourly',
+    area: 'team',
     date: '2026-09-29',
     title: 'Почасовщики',
     summary: 'Дизайнеры на почасовой оплате — видны в команде, но не грейдируются.',
@@ -89,6 +186,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'stardiz-leaderboard',
+    area: 'team',
     date: '2026-09-29',
     title: 'Стардизы в лидерборде',
     summary: 'Стардизы теперь в общем рейтинге команды вместе с дизайнерами.',
@@ -100,6 +198,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'desktop-only',
+    area: 'interface',
     date: '2026-09-29',
     title: 'Сервис — для десктопа',
     summary: 'На телефоне и планшете сервис показывает заглушку — открывай его на компьютере.',
@@ -108,6 +207,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'features-page',
+    area: 'interface',
     date: '2026-09-29',
     title: 'Страница «Функционал»',
     summary: 'Эта страница: что нового в сервисе и что он умеет — под твою роль.',
@@ -119,6 +219,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'actions',
+    area: 'access',
     date: '2026-09-29',
     title: '«Аудит» теперь называется «Действия»',
     summary: 'Тот же журнал изменений, новое название в меню.',
@@ -127,6 +228,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'grading-plan',
+    area: 'grading',
     date: '2026-07-29',
     title: 'Планирование грейдирования',
     summary: 'Дата ближайшего грейдирования у каждого дизайнера — и контроль, что никого не забыли.',
@@ -142,6 +244,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'team-scope',
+    area: 'team',
     date: '2026-07-29',
     title: 'Селектор команд',
     summary: 'Смотри не только всю команду и своих, но и команды отдельных лидов и стардизов.',
@@ -154,6 +257,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'self-assessment',
+    area: 'grading',
     date: '2026-07-12',
     title: 'Самооценка дизайнера',
     summary: 'Дизайнер сам отмечает уровень навыков и прикладывает подтверждения.',
@@ -166,6 +270,7 @@ export const UPDATES: FeatureUpdate[] = [
   },
   {
     id: 'impersonation',
+    area: 'access',
     date: '2026-07-12',
     title: 'Вход под пользователем',
     summary: 'Посмотреть сервис глазами любого человека.',
@@ -179,6 +284,7 @@ export const UPDATES: FeatureUpdate[] = [
 export const SECTIONS: FeatureSection[] = [
   {
     id: 'team',
+    area: 'team',
     title: 'Команда',
     summary: 'Главный экран: рейтинг, карта потенциала и то, что требует внимания.',
     roles: ALL,
@@ -191,29 +297,34 @@ export const SECTIONS: FeatureSection[] = [
       { title: 'Селектор команд', text: '«Все · Мои · команды лидов и стардизов».', roles: AL },
       { title: 'Bento', text: 'NIPC (Dream Team Index), «в срок», скорость роста, сезон оценок.' },
       { title: 'Требует внимания', text: 'Черновики без движения, просевший «в срок», грейдирование без даты или с просрочкой, близкие к повышению.' },
-      { title: 'Иконки у имени', text: 'Таймер — запланировано грейдирование, песочные часы — почасовщик.' },
+      { title: 'Иконки у имени', text: 'Таймер — запланировано грейдирование, жёлтые песочные часы — почасовщик.' },
+      { title: 'Звёздочка в «Грейде»', text: 'Фиолетовая — стардиз.', roles: AL },
       { title: 'Бейдж на аватарке', text: 'Лаймовая стрелка — запланирован пересмотр зарплаты.', roles: AL },
       { title: 'Колонка «З/п»', text: 'Текущая зарплата, с сортировкой.', roles: ['admin'] },
     ],
   },
   {
     id: 'popup',
+    area: 'team',
     title: 'Поп-ап 360',
     summary: 'Карточка человека по клику в списке.',
     roles: ALL,
     items: [
       { title: 'Визитка', text: 'Скор и место в рейтинге, грейд, билд, роль, «в срок».' },
       { title: 'Сведения', text: 'Лид, стардиз, дата найма и стаж, грейдирование, самооценка.' },
-      { title: 'Зарплата', text: 'Ставка, вилка, рост, пересмотры, история и премии.', roles: AL },
+      { title: 'Дата увольнения', text: 'У деактивированных и почасовщиков. Стаж — до этой даты.', roles: AL },
+      { title: 'Статус увольнения', text: 'Тип увольнения и причина — под датой.', roles: ['admin'] },
+      { title: 'Зарплата', text: 'Ставка, вилка, рост и последний пересмотр. История пересмотров в процентах и премии — по кнопке «История».', roles: AL },
       { title: 'Рост', text: 'График XP по оценкам.' },
       { title: 'Заметки', text: 'Заметки по человеку: добавить и удалить.', roles: AL },
       { title: 'Действия', text: '«Портрет», «Оценить», «Изменить».' },
       { title: 'Меню «⋯»', text: 'Плановый пересмотр зарплаты.', roles: ['lead'] },
-      { title: 'Меню «⋯»', text: 'Плановый пересмотр, «Войти как», импорт 360-опроса, деактивация и удаление.', roles: ['admin'] },
+      { title: 'Меню «⋯»', text: 'Плановый пересмотр, премия, «Войти как», импорт 360-опроса, деактивация и удаление.', roles: ['admin'] },
     ],
   },
   {
     id: 'card',
+    area: 'team',
     title: 'Карточка сотрудника',
     summary: 'Правка данных человека — кнопка «Изменить» в поп-апе.',
     roles: ALL,
@@ -221,27 +332,30 @@ export const SECTIONS: FeatureSection[] = [
       { title: 'Основное', text: 'Имя, почта, роль, билд, лид, стардиз, дата найма.' },
       { title: 'Ближайшее грейдирование', text: 'Дата грейдирования — видна дизайнеру.' },
       { title: 'Почасовщик', text: 'Выводит дизайнера из грейдирования и талантов.', roles: AL },
+      { title: 'Увольнение', text: 'Дата, статус и причина — у деактивированных и почасовщиков.', roles: ['admin'] },
       { title: 'Зафиксированный грейд', text: 'Нижняя граница грейда с обоснованием.' },
       { title: 'Активен', text: 'Деактивированных видно приглушённо, в цифры команды они не входят.' },
     ],
   },
   {
     id: 'salary',
+    area: 'salary',
     title: 'Зарплаты',
     summary: 'Всё про деньги — из HR-портала.',
     roles: AL,
     items: [
-      { title: 'Где', text: 'Блок в поп-апе, карточка на странице дизайнера, бейдж планового пересмотра.' },
+      { title: 'Где', text: 'Блок в поп-апе, карточка под 9-Box на странице дизайнера (подробности — по «+»), бейдж планового пересмотра.' },
       { title: 'Колонка в таблице', text: 'Текущая зарплата у всех.', roles: ['admin'] },
       { title: 'Вилка', text: 'Красный — выше вилки, зелёный — в вилке или ниже. У почасовщиков вилку не проверяем.' },
       { title: 'Плановый пересмотр', text: 'Меню «⋯» в поп-апе. Снимается сам, когда в HR проходит повышение.' },
-      { title: 'Премии', text: 'Вносит админ в истории зарплаты.' },
+      { title: 'Премии', text: 'Вносит админ — меню «⋯» в поп-апе. Видны в истории зарплаты.' },
       { title: 'Скрыть', text: 'Кнопка-глаз в шапке прячет всё про деньги.' },
       { title: 'Кто видит', text: 'Админ — всех, лид — своих. Стардиз и дизайнер — никого.' },
     ],
   },
   {
     id: 'assess',
+    area: 'grading',
     title: 'Оценка и портрет',
     summary: 'Грейдирование по матрице навыков.',
     roles: ALL,
@@ -253,6 +367,7 @@ export const SECTIONS: FeatureSection[] = [
   },
   {
     id: 'matrix',
+    area: 'grading',
     title: 'Скиллы и грейды',
     summary: 'Настройка матрицы.',
     roles: AL,
@@ -263,6 +378,7 @@ export const SECTIONS: FeatureSection[] = [
   },
   {
     id: 'actions',
+    area: 'access',
     title: 'Действия',
     summary: 'Журнал изменений в сервисе.',
     roles: AL,
@@ -273,6 +389,7 @@ export const SECTIONS: FeatureSection[] = [
   },
   {
     id: 'my-portrait',
+    area: 'grading',
     title: 'Мой портрет',
     summary: '360-оценка от команды.',
     roles: ['lead', 'stardiz'],
@@ -285,7 +402,60 @@ export const SECTIONS: FeatureSection[] = [
 /** Что показывать роли. Админ видит всё — чтобы знать, что видят остальные. */
 export function forRole<T extends { roles?: FeatureRole[] }>(items: T[], role: FeatureRole): T[] {
   if (role === 'admin') return items;
+  return addressedTo(items, role);
+}
+
+/**
+ * Записи, адресованные роли, — строго, и для админа тоже: без чужих пометок
+ * («Мой портрет», пункты «только лиду»). Для лида и стардиза совпадает с
+ * forRole.
+ */
+export function addressedTo<T extends { roles?: FeatureRole[] }>(
+  items: T[],
+  role: FeatureRole,
+): T[] {
   return items.filter((i) => !i.roles || i.roles.includes(role));
+}
+
+// === Фильтры страницы ===
+// Работают на клиенте поверх того, что прислал сервер: админ получает всё и
+// фильтром «Роль» смотрит страницу глазами лида или стардиза, у остальных
+// роль уже отфильтрована на сервере.
+
+export type AreaFilter = FeatureArea | 'all';
+export type RoleFilter = FeatureRole | 'all';
+
+type FilterArgs = { area?: AreaFilter; role?: RoleFilter };
+
+export function filterUpdates({
+  updates,
+  area = 'all',
+  role = 'all',
+}: FilterArgs & { updates: FeatureUpdate[] }): FeatureUpdate[] {
+  const byArea = area === 'all' ? updates : updates.filter((u) => u.area === area);
+  if (role === 'all') return byArea;
+  return addressedTo(byArea, role).map((u) => ({ ...u, details: addressedTo(u.details, role) }));
+}
+
+export function filterSections({
+  sections,
+  area = 'all',
+  role = 'all',
+}: FilterArgs & { sections: FeatureSection[] }): FeatureSection[] {
+  const byArea = area === 'all' ? sections : sections.filter((s) => s.area === area);
+  if (role === 'all') return byArea;
+  return addressedTo(byArea, role).map((s) => ({ ...s, items: addressedTo(s.items, role) }));
+}
+
+/** Области, которые есть в списке, со счётчиками — в порядке FEATURE_AREAS. */
+export function areaCounts(
+  items: { area: FeatureArea }[],
+): { area: FeatureArea; label: string; count: number }[] {
+  return FEATURE_AREAS.map((a) => ({
+    area: a.id,
+    label: a.label,
+    count: items.filter((i) => i.area === a.id).length,
+  })).filter((a) => a.count > 0);
 }
 
 /** Запись с отфильтрованными под роль деталями. */

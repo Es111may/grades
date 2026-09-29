@@ -26,7 +26,7 @@ import type { Role } from '@/lib/checklistPermissions';
 import { useTheme, CHART_AXIS } from '@/lib/theme';
 import TitleAurora from '@/components/TitleAurora';
 import Tooltip from '@/components/Tooltip';
-import SalaryBlock from '@/components/SalaryBlock';
+import SalaryCard from '@/components/SalaryCard';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartJsTooltip, Legend);
 
@@ -140,7 +140,8 @@ export default function Portrait({
   canEditLeadComment?: boolean;
   /** Id владельца портрета — нужен для PUT /api/users/[id]/projects. */
   userId: number;
-  /** Phase 23.4 — показывать блок «Зарплата» (админ и лид этого дизайнера). */
+  /** Phase 23.4 — показывать карточку «Зарплата» под 9-Box (админ и лид
+   *  этого дизайнера; флаг считает сервер, API проверяет права ещё раз). */
   canViewSalary?: boolean;
   /** Проекты, которые уже выбрал пользователь (server-side fetch). */
   initialProjects: { id: number; name: string; category: string }[];
@@ -626,15 +627,18 @@ export default function Portrait({
           )}
         </div>
 
-        {/* 9-Box (только admin/lead) либо «Скорость роста» */}
-        {nineBoxTitle ? (
-          <div className="card p-5 flex flex-col min-h-[188px]">
-            <div className="label-mono text-stone">Позиция · 9-Box</div>
-            <div className="font-display text-2xl font-medium tracking-tight mt-3">
-              {nineBoxTitle}
-            </div>
-            <div className="text-xs text-stone mt-2">Только лид и админ</div>
+        {/* 9-Box (только admin/lead) либо «Скорость роста». Тем, кто видит
+            деньги (админ и лид этого дизайнера), слот делится пополам: сверху
+            позиция, снизу «Зарплата», подробности — в поп-апе по «+».
+            Зарплаты спрятаны выключателем в шапке — нижней половины нет
+            (salary-sensitive), позиция растягивается на весь слот (flex-1). */}
+        {canViewSalary ? (
+          <div className="flex flex-col gap-3 min-h-[188px]">
+            <NineBoxCell title={nineBoxTitle} half />
+            <SalaryCard userId={userId} className="flex-1" />
           </div>
+        ) : nineBoxTitle ? (
+          <NineBoxCell title={nineBoxTitle} />
         ) : (
           <GrowthCell sibs={sortedSibs} />
         )}
@@ -681,11 +685,6 @@ export default function Portrait({
           )}
         </div>
       </div>
-
-      {/* Phase 23.4 — зарплата: только админу и лиду этого дизайнера (флаг
-          считает сервер, API проверяет права ещё раз). Своей страницы у
-          дизайнера этот флаг не бывает. Прячется выключателем в шапке. */}
-      {canViewSalary && <SalaryBlock userId={userId} variant="portrait" />}
 
       {/* Taxonomy progress cards (hovering anywhere reveals the full group breakdown row) */}
       <div
@@ -993,6 +992,36 @@ function CyclesSwitcher({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Позиция 9-Box в bento. half — верхняя половина слота, под ней «Зарплата»:
+ * та же анатомия, что у зарплаты (ряд подписи 24px, значение text-xl), —
+ * половины читаются парой. Позиции нет — «Не размечена».
+ */
+function NineBoxCell({ title, half = false }: { title: string | null; half?: boolean }) {
+  if (!half) {
+    return (
+      <div className="card p-5 flex flex-col min-h-[188px]">
+        <div className="label-mono text-stone">Позиция · 9-Box</div>
+        <div className="font-display text-2xl font-medium tracking-tight mt-3">{title}</div>
+      </div>
+    );
+  }
+  return (
+    // pt-[13px] + ряд подписи в 24px: подпись на той же высоте, что у
+    // соседних карточек с p-5
+    <div className="card flex-1 px-5 pt-[13px] pb-4">
+      <div className="min-h-6 flex items-center label-mono text-stone">Позиция · 9-Box</div>
+      <div
+        className={`mt-1.5 font-display text-xl leading-tight font-medium tracking-tight ${
+          title ? '' : 'text-ash'
+        }`}
+      >
+        {title ?? 'Не размечена'}
+      </div>
     </div>
   );
 }

@@ -132,16 +132,20 @@ export function TimerIcon({ className = 'w-4 h-4' }: IconProps) {
 
 export function HourglassIcon({ className = 'w-4 h-4' }: IconProps) {
   // Песочные часы — «почасовщик». Силуэт из треугольников, чтобы не путать
-  // с TimerIcon (секундомер-круг) на 14px: они стоят на одном месте у имени.
+  // с TimerIcon (секундомер-круг): они стоят на одном месте у имени.
+  // Источник — Remix Icon hourglass-2-fill (Apache-2.0).
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M6.5 3h11M6.5 21h11M8 3c0 4.4 4 5.3 4 9s-4 4.6-4 9M16 3c0 4.4-4 5.3-4 9s4 4.6 4 9M9.5 18.5h5"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M4 2H20V6.45994L13.5366 12L20 17.5401V22H4V17.5401L10.4634 12L4 6.45994V2ZM16.2967 7L18 5.54007V4H6V5.54007L7.70326 7H16.2967ZM12 13.3171L6 18.4599V20H7L12 17L17 20H18V18.4599L12 13.3171Z" />
+    </svg>
+  );
+}
+
+export function StarIcon({ className = 'w-4 h-4' }: IconProps) {
+  // Remix Icon star-fill (Apache-2.0)
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12.0006 18.26L4.94715 22.2082L6.52248 14.2799L0.587891 8.7918L8.61493 7.84006L12.0006 0.5L15.3862 7.84006L23.4132 8.7918L17.4787 14.2799L19.054 22.2082L12.0006 18.26Z" />
     </svg>
   );
 }

@@ -7,6 +7,8 @@ import { z } from 'zod';
 import { canAssignAdminRole, canManageUsers } from '@/lib/permissions';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType } from '@/lib/employment';
+import { DISMISSAL_TYPES, canEditDismissal } from '@/lib/dismissal';
+import { userForViewer } from '@/lib/userResponse';
 import { AUDIT_ACTIONS } from '@/lib/audit';
 
 const updateUserSchema = z.object({
@@ -28,6 +30,10 @@ const updateUserSchema = z.object({
   nextGradingAt: z.string().nullable().optional(),
   // Phase 23.4 — почасовщик: не грейдируется, не входит в таланты.
   employmentType: z.enum(['staff', 'hourly']).optional(),
+  // Phase 23.4 — увольнение: дата, тип, причина. Ставит только админ.
+  dismissedAt: z.string().nullable().optional(),
+  dismissalType: z.enum(DISMISSAL_TYPES).nullable().optional(),
+  dismissalReason: z.string().trim().max(300).nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -62,6 +68,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       { error: 'Только админ может менять роль admin' },
       { status: 403 },
     );
+  }
+
+  // Увольнение: тип и причина — чувствительные, поэтому 403 уже на само
+  // присутствие полей, а не только на реальную смену. Модалка лида их не шлёт.
+  // Проверяем до любых записей в журнал — отказ не должен оставлять следов.
+  const dismissalProvided =
+    data.dismissedAt !== undefined ||
+    data.dismissalType !== undefined ||
+    data.dismissalReason !== undefined;
+  if (dismissalProvided && !canEditDismissal(me)) {
+    return NextResponse.json(
+      { error: 'Данные об увольнении может менять только админ' },
+      { status: 403 },
+    );
+  }
+  const dismissedAt = data.dismissedAt ? new Date(data.dismissedAt) : null;
+  if (dismissedAt && Number.isNaN(dismissedAt.getTime())) {
+    return NextResponse.json({ error: 'Некорректная дата увольнения' }, { status: 400 });
   }
 
   // Дата грейдирования: своя область прав — админ всем, лид/стардиз своим.
@@ -129,6 +153,38 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     });
   }
 
+  // Пустая причина — то же, что её нет
+  const dismissalReason =
+    data.dismissalReason === undefined ? undefined : data.dismissalReason || null;
+  const dismissalDateChanged =
+    data.dismissedAt !== undefined &&
+    (existing.dismissedAt?.toISOString().slice(0, 10) ?? null) !==
+      (dismissedAt?.toISOString().slice(0, 10) ?? null);
+  const dismissalTypeChanged =
+    data.dismissalType !== undefined && data.dismissalType !== existing.dismissalType;
+  const dismissalReasonChanged =
+    dismissalReason !== undefined && dismissalReason !== existing.dismissalReason;
+  if (dismissalDateChanged || dismissalTypeChanged || dismissalReasonChanged) {
+    // «Действия» видит и лид, поэтому тип и причину в лог не пишем — только
+    // дату и признаки, что они менялись.
+    await prisma.auditLog.create({
+      data: {
+        actorId: me.id!,
+        action: AUDIT_ACTIONS.DISMISSAL_UPDATED,
+        targetType: 'user',
+        targetId: userId,
+        details: {
+          before: existing.dismissedAt?.toISOString().slice(0, 10) ?? null,
+          after: dismissalDateChanged
+            ? dismissedAt?.toISOString().slice(0, 10) ?? null
+            : existing.dismissedAt?.toISOString().slice(0, 10) ?? null,
+          typeChanged: dismissalTypeChanged,
+          reasonChanged: dismissalReasonChanged,
+        },
+      },
+    });
+  }
+
   // Audit grade_floor changes
   const floorChanged =
     data.gradeFloor !== undefined && data.gradeFloor !== existing.gradeFloor;
@@ -187,6 +243,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         nextGradingSetAt: nextGradingAt ? new Date() : null,
       }),
       ...(employmentChanged && { employmentType: data.employmentType }),
+      ...(dismissalDateChanged && { dismissedAt }),
+      ...(dismissalTypeChanged && { dismissalType: data.dismissalType }),
+      ...(dismissalReasonChanged && { dismissalReason }),
       ...(data.gradeFloor !== undefined && { gradeFloor: data.gradeFloor }),
       ...(data.gradeFloorReason !== undefined && {
         gradeFloorReason: data.gradeFloorReason,
@@ -201,7 +260,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     },
   });
 
-  return NextResponse.json(user);
+  // Ответ сливается в строку списка на клиенте — отдаём только то, что
+  // этому зрителю можно видеть (увольнение, плановый пересмотр, без хэша).
+  return NextResponse.json(userForViewer(user, { id: me.id!, role: me.role }));
 }
 
 /**
