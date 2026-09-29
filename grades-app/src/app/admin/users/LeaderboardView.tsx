@@ -8,6 +8,7 @@ import type { UserRow, GradeThreshold, TeamStats, AttentionItem } from './UsersC
 import Tooltip from '@/components/Tooltip';
 import { PersonStatusIcon } from '@/components/GradingPlanChip';
 import AvatarWithRaise from '@/components/PlannedRaiseBadge';
+import { formatThousands } from '@/lib/compensation';
 import { isHourly } from '@/lib/employment';
 
 const GRADE_LABELS: Record<string, string> = {
@@ -25,7 +26,7 @@ type TaxKey = (typeof TAXONOMIES)[number];
 const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
-type SortKey = 'composite' | 'name' | 'grade' | 'totalXp' | 'onTime' | 'tenure' | TaxKey;
+type SortKey = 'composite' | 'name' | 'grade' | 'totalXp' | 'onTime' | 'tenure' | 'salary' | TaxKey;
 
 function tenureMonths(hiredAt: string | null): number {
   if (!hiredAt) return -1;
@@ -64,6 +65,8 @@ export default function LeaderboardView({
   attention,
   searching = false,
   showPodium = true,
+  showSalary = false,
+  includeStardiz = false,
 }: {
   users: UserRow[];
   gradeThresholds: GradeThreshold[];
@@ -77,9 +80,17 @@ export default function LeaderboardView({
   /** false — подиум не показываем вовсе (стардиз: подопечных мало,
    *  таблица информативнее карточек). */
   showPodium?: boolean;
+  /** Phase 23.4 — колонка «Зарплата» (только админ). Прячется выключателем в шапке. */
+  showSalary?: boolean;
+  /** Стардизы в рейтинге вместе с дизайнерами — у админа и лида (Pavel
+   *  29.09.2026). Стардизу себя и коллег не показываем. */
+  includeStardiz?: boolean;
 }) {
   // На лидерборде сравниваем только дизайнеров — стардизы не грейдируются.
-  const designers = useMemo(() => users.filter((u) => u.role === 'designer'), [users]);
+  const designers = useMemo(
+    () => users.filter((u) => u.role === 'designer' || (includeStardiz && u.role === 'stardiz')),
+    [users, includeStardiz],
+  );
 
   // Дефолтная сортировка — composite score (XP·0.6 + perf·0.4). Это и есть
   // «истинный» рейтинг лидерборда. По клику на любую другую колонку
@@ -127,6 +138,9 @@ export default function LeaderboardView({
       } else if (sortKey === 'tenure') {
         av = tenureMonths(a.hiredAt);
         bv = tenureMonths(b.hiredAt);
+      } else if (sortKey === 'salary') {
+        av = a.salary ?? -1;
+        bv = b.salary ?? -1;
       } else {
         // taxonomy
         av = a.xpByTaxonomy?.[sortKey] ?? -1;
@@ -190,12 +204,14 @@ export default function LeaderboardView({
     children,
     align = 'left',
     tooltip,
+    className = '',
   }: {
     keyId: SortKey;
     children: React.ReactNode;
     align?: 'left' | 'center' | 'right';
     /** Нативный browser tooltip — показывается при наведении на заголовок. */
     tooltip?: string;
+    className?: string;
   }) {
     const active = sortKey === keyId;
     const alignClass =
@@ -207,7 +223,7 @@ export default function LeaderboardView({
     return (
       <th
         onClick={() => toggleSort(keyId)}
-        className={`label-mono py-2.5 px-4 text-stone cursor-pointer select-none hover:text-ink transition-colors ${alignClass}`}
+        className={`label-mono py-2.5 px-4 text-stone cursor-pointer select-none hover:text-ink transition-colors ${alignClass} ${className}`}
       >
         <Tooltip text={tooltip ?? null} maxWidth={340}>
           <span className="inline-flex items-center gap-1">
@@ -281,6 +297,11 @@ export default function LeaderboardView({
             <Th keyId="tenure" align="center">
               Стаж
             </Th>
+            {showSalary && (
+              <Th keyId="salary" align="center" className="salary-sensitive">
+                З/п, тыс.
+              </Th>
+            )}
           </tr>
         </thead>
         <tbody className="divide-y divide-cloud">
@@ -308,6 +329,9 @@ export default function LeaderboardView({
                         {/* Иконка — только у тех, у кого грейдирование
                             запланировано; после проведения исчезает (Pavel) */}
                         <PersonStatusIcon user={u} />
+                        {u.role === 'stardiz' && (
+                          <span className="text-[11px] font-normal text-ash">стардиз</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -361,6 +385,11 @@ export default function LeaderboardView({
                 <td className="py-3 px-4 text-center text-stone whitespace-nowrap">
                   {formatTenure(tenureMonths(u.hiredAt))}
                 </td>
+                {showSalary && (
+                  <td className="salary-sensitive py-3 px-4 text-center tabular-nums whitespace-nowrap">
+                    {u.salary != null ? formatThousands(u.salary) : <span className="text-ash">—</span>}
+                  </td>
+                )}
               </tr>
             );
           })}

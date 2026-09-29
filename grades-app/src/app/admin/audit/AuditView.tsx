@@ -133,7 +133,7 @@ export default function AuditView({
       <div className="text-center mb-[164px] animate-fade-up title-halo">
         <TitleAurora />
         <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em]">
-          Аудит
+          Действия
         </h1>
       </div>
 

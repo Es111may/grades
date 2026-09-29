@@ -42,7 +42,7 @@ export default function AvatarWithRaise({
       <Avatar name={name} avatarUrl={avatarUrl} size={size} />
       {/* Позиционирует обёртка: Tooltip сам ставит себе relative, и
           absolute на нём проиграл бы порядку классов Tailwind */}
-      <span className="absolute -right-1 -bottom-1">
+      <span className="salary-sensitive absolute -right-1 -bottom-1">
         <Tooltip text={plannedRaiseHint(planned)} align="center">
           <span
             className="w-4 h-4 rounded-full bg-lime text-black ring-2 ring-snow

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import SessionProvider from '@/components/SessionProvider';
+import DesktopOnly from '@/components/DesktopOnly';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -18,12 +19,13 @@ export default function RootLayout({
     // гидрации — React не должен ругаться на «лишний» атрибут.
     <html lang="ru" suppressHydrationWarning>
       <head>
-        {/* Восстановление темы до первой отрисовки — без вспышки тёмной.
-            Дефолт — тёмная (без атрибута), 'light' в localStorage — светлая. */}
+        {/* Восстановление темы и выключателя зарплат до первой отрисовки —
+            без вспышки тёмной темы и без мелькания цифр. Дефолт — тёмная тема
+            и зарплаты видны; 'light' и 'salary-hidden' хранятся в localStorage. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(localStorage.getItem('theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}",
+              "try{if(localStorage.getItem('theme')==='light')document.documentElement.setAttribute('data-theme','light');if(localStorage.getItem('salary-hidden')==='1')document.documentElement.setAttribute('data-salary','hidden')}catch(e){}",
           }}
         />
         {/* Onest грузится локально через @font-face в globals.css.
@@ -38,7 +40,11 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <SessionProvider>{children}</SessionProvider>
+        {/* Только десктоп: ниже lg сервис скрыт, поверх — заглушка */}
+        <DesktopOnly />
+        <div className="hidden lg:block">
+          <SessionProvider>{children}</SessionProvider>
+        </div>
       </body>
     </html>
   );

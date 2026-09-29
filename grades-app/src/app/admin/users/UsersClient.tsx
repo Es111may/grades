@@ -44,6 +44,8 @@ export type UserRow = {
   /** Phase 23.4 — плановый пересмотр з/п. Сервер кладёт его только тем, кому
    *  можно видеть деньги (админ, лид по своим), и только невыполненный. */
   plannedRaise?: PlannedRaiseRow | null;
+  /** Phase 23.4 — текущая зарплата, ₽. Есть только у админа; null — нет данных в HR. */
+  salary?: number | null;
   // Phase 23.2 — план грейдирования
   nextGradingAt?: string | null;
   nextGradingSetAt?: string | null;
@@ -124,6 +126,12 @@ type ViewMode =
   | 'matrix';
 
 type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
+/**
+ * Подиум топ-3 над таблицей временно скрыт (Pavel 29.09.2026): все — просто
+ * строками списка. Код подиума в LeaderboardView не удалён — вернуть: true.
+ */
+const PODIUM_ENABLED = false;
+
 // ScopeFilter, scopeOwnerId, isMenteeOf и buildTeamOptions живут в
 // @/lib/teamScope — чистой библиотекой, покрытой тестами.
 
@@ -367,7 +375,9 @@ export default function UsersClient({
             nineBox={scoped.nineBox}
             attention={scoped.attention}
             searching={search.trim().length > 0}
-            showPodium={meRole !== 'stardiz'}
+            showPodium={PODIUM_ENABLED && meRole !== 'stardiz'}
+            showSalary={meRole === 'admin'}
+            includeStardiz={meRole !== 'stardiz'}
           />
         ) : (
           <KanbanView
@@ -407,7 +417,12 @@ export default function UsersClient({
             // Позиция в рейтинге — по composite среди активных дизайнеров
             // (та же сортировка, что подиум+таблица лидерборда)
             const ranked = users
-              .filter((u) => u.role === 'designer' && u.active && u.compositeScore != null)
+              .filter(
+                (u) =>
+                  (u.role === 'designer' || (meRole !== 'stardiz' && u.role === 'stardiz')) &&
+                  u.active &&
+                  u.compositeScore != null,
+              )
               .sort((a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0));
             const i = ranked.findIndex((u) => u.id === card360User.id);
             return i >= 0 ? i + 1 : null;

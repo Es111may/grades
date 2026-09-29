@@ -12,8 +12,8 @@ import { computeScore, nineBoxLevelFromString } from '@/lib/perfScore';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
 import { isGradable, isHourly } from '@/lib/employment';
 import { canViewCompensation } from '@/lib/compPermissions';
-import { plannedRaiseState } from '@/lib/compensation';
-import { fetchHrLogsByEmail } from '@/lib/hrSalary';
+import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
+import { fetchHrCompensationBatch, fetchHrLogsByEmail } from '@/lib/hrSalary';
 import type { BuildCode } from '@/lib/types';
 import UsersClient from './UsersClient';
 
@@ -233,14 +233,22 @@ export default async function AdminUsersPage() {
     (u) => u.plannedRaiseSetAt && u.email && canViewCompensation(viewer, u),
   );
   let hrLogs = new Map<string, { hiredAt: string | null; log: { date: string; from: number; to: number }[] }>();
-  if (withPlan.length) {
-    try {
+  // Админу — ещё и колонка «Зарплата»: один батч по всей странице, из него же
+  // берём журналы для плановых пересмотров. Лиду — только журналы тех, у кого
+  // стоит статус.
+  let hrBatch: Awaited<ReturnType<typeof fetchHrCompensationBatch>> | null = null;
+  try {
+    if (me?.role === 'admin') {
+      hrBatch = await fetchHrCompensationBatch(usersRaw.map((u) => u.email).filter(Boolean));
+      for (const [em, c] of hrBatch) hrLogs.set(em, { hiredAt: c.hr?.hiredAt ?? null, log: c.log });
+    } else if (withPlan.length) {
       hrLogs = await fetchHrLogsByEmail(withPlan.map((u) => u.email));
-    } catch (err) {
-      // HR недоступен — показываем статус как есть, «выполнен» не определить
-      console.error('[/admin/users] HR logs for planned raises failed:', err);
     }
+  } catch (err) {
+    // HR недоступен — колонка пустая, статус пересмотра показываем как есть
+    console.error('[/admin/users] HR data failed:', err);
   }
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const nowMs = Date.now();
   const users = usersRaw.map((u) => {
@@ -267,8 +275,9 @@ export default async function AdminUsersPage() {
     // опубликованной оценки (XP=null) — оставляем score=null,
     // чтобы UI показал «—» серым вместо 0.
     let compositeScore: number | null = null;
-    // Почасовщики не ранжируются — их XP заморожен (Phase 23.4).
-    if (u.role === 'designer' && last?.totalXp != null && !isHourly(u)) {
+    // Стардизы ранжируются вместе с дизайнерами (Pavel 29.09.2026);
+    // почасовщики — нет: их XP заморожен (Phase 23.4).
+    if ((u.role === 'designer' || u.role === 'stardiz') && last?.totalXp != null && !isHourly(u)) {
       const cell = cellByUserId.get(u.id);
       const nineBoxPerf = nineBoxLevelFromString(cell?.performanceLevel);
       const nineBoxPot = nineBoxLevelFromString(cell?.potentialLevel);
@@ -307,6 +316,22 @@ export default async function AdminUsersPage() {
       // считаем в клиенте через lib/gradingPlan, чтобы оно не устаревало
       // между рендерами страницы.
       employmentType: u.employmentType,
+      // Текущая зарплата для колонки — только админу (Phase 23.4)
+      salary: (() => {
+        const c = hrBatch?.get(u.email.toLowerCase());
+        if (!c) return undefined;
+        const v = buildCompensation({
+          hr: c.hr,
+          log: c.log,
+          bonuses: [],
+          role: u.role,
+          grade: last?.grade ?? null,
+          employmentType: u.employmentType,
+          activeInGrades: u.active,
+          today: todayIso,
+        });
+        return v.state === 'ok' ? v.current : null;
+      })(),
       plannedRaise: (() => {
         if (!u.plannedRaiseSetAt || !canViewCompensation(viewer, u)) return null;
         const hr = hrLogs.get(u.email.toLowerCase());

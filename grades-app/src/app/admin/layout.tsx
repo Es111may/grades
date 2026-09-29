@@ -27,13 +27,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: '/lead/assessments', label: 'Оценки' },
         // Аудит-лог (Phase 19) — admin и lead. Стардизам не показываем,
         // как договорились с Pavel'ом.
-        { href: '/admin/audit', label: 'Аудит' },
+        { href: '/admin/audit', label: 'Действия' },
         ...(isLeadLike ? [{ href: '/admin/lead-reviews', label: 'Мой портрет' }] : []),
+        { href: '/admin/features', label: 'Функционал' },
       ]
     : [
         { href: '/admin/users', label: 'Команда' },
         { href: '/lead/assessments', label: 'Все оценки' },
         ...(isLeadLike ? [{ href: '/admin/lead-reviews', label: 'Мой портрет' }] : []),
+        { href: '/admin/features', label: 'Функционал' },
       ];
   return (
     <>

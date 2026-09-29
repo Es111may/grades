@@ -69,7 +69,7 @@ import GradingPlanChip from '@/components/GradingPlanChip';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { isHourly } from '@/lib/employment';
 import { canEditPlannedRaise, canViewCompensation } from '@/lib/compPermissions';
-import CompensationBlock from './CompensationBlock';
+import SalaryBlock from '@/components/SalaryBlock';
 import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
 
 export default function UserCard360({
@@ -315,6 +315,9 @@ export default function UserCard360({
     if (res.ok) onPlannedRaiseChange(user.id, null);
   }
   const hasMenu = canPlan || canImpersonate || canImportLeadReview || canDeactivate || canHardDelete;
+  // У лида в меню только пункты про пересмотр — при скрытых зарплатах
+  // прячем и саму кнопку, иначе откроется пустое меню.
+  const menuOnlySalary = canPlan && !canImpersonate && !canImportLeadReview && !canDeactivate && !canHardDelete;
 
   async function handleHardDelete() {
     const res = await fetch(`/api/users/${user.id}?hard=true`, { method: 'DELETE' });
@@ -485,8 +488,9 @@ export default function UserCard360({
               </div>
             )}
             {canViewComp && (
-              <CompensationBlock
+              <SalaryBlock
                 userId={user.id}
+                variant="popup"
                 editSignal={planSignal}
                 onPlannedChange={(p) => onPlannedRaiseChange(user.id, p)}
               />
@@ -662,7 +666,7 @@ export default function UserCard360({
             {hasMenu && (
               /* Меню — по ховеру (грейс на уход), клик тоже работает */
               <span
-                className="ml-auto"
+                className={`ml-auto ${menuOnlySalary ? 'salary-sensitive' : ''}`}
                 onMouseEnter={menuEnter}
                 onMouseLeave={menuLeave}
               >
@@ -693,7 +697,7 @@ export default function UserCard360({
               <button
                 type="button"
                 onClick={startPlan}
-                className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+                className="salary-sensitive block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
               >
                 {hasPlan ? 'Изменить пересмотр' : 'Запланировать пересмотр'}
               </button>
@@ -702,7 +706,7 @@ export default function UserCard360({
               <button
                 type="button"
                 onClick={clearPlan}
-                className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+                className="salary-sensitive block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
               >
                 Снять пересмотр
               </button>

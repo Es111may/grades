@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { CloseIcon, EyeIcon } from '@/components/icons';
+import { CloseIcon } from '@/components/icons';
 import { formatDateShort } from '@/lib/dates';
 import {
   formatThousands,
@@ -28,29 +28,32 @@ const signed = (rub: number) =>
 const pctStr = (p: number) => `${p > 0 ? '+' : p < 0 ? '−' : ''}${Math.abs(Math.round(p))}%`;
 
 /**
- * Блок «Компенсация» в поп-апе 360 (Phase 23.4).
+ * Блок «Зарплата» (Phase 23.4) — в поп-апе 360 и на странице дизайнера.
  *
- * Суммы скрыты, пока не нажмёшь «Показать», — на случай показа экрана на
- * встрече (так же работала прежняя строка «Пересмотр з/п»). Данные — из
- * /api/users/[id]/compensation; права проверяет сервер, сюда блок попадает
- * только у админа и лида по своим людям.
+ * Данные — из /api/users/[id]/compensation; права проверяет сервер, блок
+ * рендерят только админу и лиду по своим людям. Прятать суммы при показе
+ * экрана — глобальный выключатель в шапке: корень помечен salary-sensitive.
+ *
+ *  • popup    — всё сразу, история под линией;
+ *  • portrait — текущая зарплата одной строкой, остальное по «+».
  */
-export default function CompensationBlock({
+export default function SalaryBlock({
   userId,
-  editSignal,
+  variant,
+  editSignal = 0,
   onPlannedChange,
 }: {
   userId: number;
+  variant: 'popup' | 'portrait';
   /** Растёт при «Запланировать пересмотр» в меню «⋯» — открывает редактор. */
-  editSignal: number;
-  onPlannedChange: (planned: PlannedRaiseRow | null) => void;
+  editSignal?: number;
+  onPlannedChange?: (planned: PlannedRaiseRow | null) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [data, setData] = useState<Data | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -67,87 +70,65 @@ export default function CompensationBlock({
   }, [userId]);
 
   useEffect(() => {
-    if (open && !data && !loading) void load();
-  }, [open, data, loading, load]);
+    void load();
+  }, [load]);
 
-  // Меню «⋯» → «Запланировать пересмотр»: раскрыть блок и сразу редактор
+  // Меню «⋯» → «Запланировать пересмотр»: сразу редактор и свежие данные
   useEffect(() => {
     if (editSignal > 0) {
-      setOpen(true);
       setEditing(true);
-      // Статус могли только что поставить из меню — подтягиваем свежие данные
+      setExpanded(true);
       void load();
     }
     // load стабилен в рамках userId; реагируем только на новый сигнал
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editSignal]);
 
-  if (!open) {
-    return (
-      <div className="flex items-center gap-3">
-        <span className="text-stone">Компенсация</span>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="ml-auto inline-flex items-center gap-1.5 text-stone hover:text-ink transition-colors"
-        >
-          <EyeIcon className="w-4 h-4" />
-          Показать
-        </button>
-      </div>
-    );
-  }
-
   const view = data?.view;
   const planned = data?.planned;
+  const current = view?.state === 'ok' ? view.current : null;
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <span className="text-stone">Компенсация</span>
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false);
-            setEditing(false);
-            setHistoryOpen(false);
-          }}
-          className="ml-auto text-stone hover:text-ink transition-colors"
-        >
-          Скрыть
-        </button>
-      </div>
-
-      {loading && !data && <p className="text-stone italic">Загрузка…</p>}
-      {error && <p className="text-ash italic">Не удалось загрузить данные</p>}
-
-      {view?.state === 'hr_unavailable' && (
-        <p className="text-ash">HR-портал сейчас недоступен — ставка и история не загрузились.</p>
-      )}
-      {view?.state === 'no_hr' && <p className="text-ash">Нет данных в HR-портале.</p>}
-      {view?.state === 'hr_dismissed' && (
-        <p className="text-ash">
-          В HR-портале — увольнение с {formatDateShort(view.dismissedAt)}, актуальных данных нет.
-          Если человек вернулся, возвращение нужно оформить в HR.
-        </p>
-      )}
-
+  const headline = (
+    <>
+      {loading && !data && <span className="text-stone italic">Загрузка…</span>}
+      {error && <span className="text-ash italic">Не удалось загрузить</span>}
       {view?.state === 'ok' && (
         <>
-          <Row label="Ставка">
-            <span className="text-ink">{tys(view.current)} ₽/мес</span>
-            {view.hourly ? (
-              <span className="chip-neutral h-6">почасовка</span>
-            ) : view.band ? (
-              view.band.state === 'above' ? (
-                <span className="chip-danger h-6">выше вилки на {formatThousands(view.band.overBy)}</span>
-              ) : (
-                <span className="chip-success h-6">
-                  {view.band.state === 'within' ? 'в вилке' : 'ниже вилки'}
-                </span>
-              )
-            ) : null}
-          </Row>
+          <span className="text-ink">{tys(view.current)} ₽/мес</span>
+          {view.hourly ? (
+            <span className="chip-neutral h-6">почасовка</span>
+          ) : view.band ? (
+            view.band.state === 'above' ? (
+              <span className="chip-danger h-6">выше вилки на {formatThousands(view.band.overBy)}</span>
+            ) : (
+              <span className="chip-success h-6">
+                {view.band.state === 'within' ? 'в вилке' : 'ниже вилки'}
+              </span>
+            )
+          ) : null}
+        </>
+      )}
+      {view && view.state !== 'ok' && <span className="text-ash">нет данных</span>}
+    </>
+  );
+
+  const notice =
+    view?.state === 'hr_unavailable' ? (
+      <p className="text-ash">HR-портал сейчас недоступен — зарплата и история не загрузились.</p>
+    ) : view?.state === 'no_hr' ? (
+      <p className="text-ash">Нет данных в HR-портале.</p>
+    ) : view?.state === 'hr_dismissed' ? (
+      <p className="text-ash">
+        В HR-портале — увольнение с {formatDateShort(view.dismissedAt)}, актуальных данных нет.
+        Если человек вернулся, возвращение нужно оформить в HR.
+      </p>
+    ) : null;
+
+  const details = (
+    <div className="flex flex-col gap-3">
+      {notice}
+      {view?.state === 'ok' && (
+        <>
           {view.band && (
             <BandMeter
               min={view.band.min}
@@ -181,42 +162,62 @@ export default function CompensationBlock({
           </Row>
         </>
       )}
-
       {data && planned && (
         <PlannedRow
           userId={userId}
           planned={planned}
-          current={view?.state === 'ok' ? view.current : null}
+          current={current}
           canEdit={data.can.editPlanned}
           editing={editing}
           setEditing={setEditing}
+          offerStart={variant === 'portrait'}
           onChanged={async (next) => {
-            onPlannedChange(next);
+            onPlannedChange?.(next);
             await load();
           }}
         />
       )}
-
-      {view?.state === 'ok' && (
-        <>
-          <button
-            type="button"
-            onClick={() => setHistoryOpen((v) => !v)}
-            className="self-end text-stone hover:text-ink transition-colors"
-          >
-            {historyOpen ? 'Скрыть историю' : 'История ›'}
-          </button>
-          {historyOpen && (
-            <History
-              userId={userId}
-              events={view.events}
-              canEditBonuses={data!.can.editBonuses}
-              onChanged={load}
-            />
-          )}
-        </>
-      )}
     </div>
+  );
+
+  const history =
+    view?.state === 'ok' && data ? (
+      <History userId={userId} events={view.events} canEditBonuses={data.can.editBonuses} onChanged={load} />
+    ) : null;
+
+  if (variant === 'popup') {
+    return (
+      <div className="salary-sensitive flex flex-col gap-3">
+        <Row label="Зарплата">{headline}</Row>
+        {details}
+        {history && <div className="border-t border-cloud pt-3">{history}</div>}
+      </div>
+    );
+  }
+
+  return (
+    <section className="salary-sensitive card px-5 py-4 mb-6 text-sm">
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="label-mono text-stone">Зарплата</span>
+        <span className="flex items-center gap-2 flex-wrap">{headline}</span>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-label={expanded ? 'Свернуть историю зарплаты' : 'Показать историю зарплаты'}
+          className="ml-auto w-8 h-8 rounded-pill flex items-center justify-center text-lg leading-none
+                     text-stone hover:text-ink hover:bg-ink/5 transition-colors"
+        >
+          {expanded ? '−' : '+'}
+        </button>
+      </div>
+      {expanded && (
+        <div className="grid md:grid-cols-2 gap-x-8 gap-y-4 border-t border-cloud mt-4 pt-4">
+          {details}
+          {history ?? <div />}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -288,6 +289,7 @@ function PlannedRow({
   canEdit,
   editing,
   setEditing,
+  offerStart,
   onChanged,
 }: {
   userId: number;
@@ -296,6 +298,8 @@ function PlannedRow({
   canEdit: boolean;
   editing: boolean;
   setEditing: (v: boolean) => void;
+  /** Показать «Запланировать пересмотр», если статуса нет (там, где нет меню «⋯»). */
+  offerStart: boolean;
   onChanged: (next: PlannedRaiseRow | null) => Promise<void>;
 }) {
   const [at, setAt] = useState(planned.at ? planned.at.slice(0, 10) : '');
@@ -401,7 +405,18 @@ function PlannedRow({
     );
   }
 
-  if (planned.state === 'none') return null;
+  if (planned.state === 'none') {
+    if (!offerStart || !canEdit) return null;
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="self-start text-stone hover:text-ink transition-colors"
+      >
+        Запланировать пересмотр
+      </button>
+    );
+  }
 
   return (
     <div className="flex items-start gap-3">
@@ -501,7 +516,7 @@ function History({
   }
 
   return (
-    <div className="rounded-card border border-cloud p-3 flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center">
         <span className="text-stone">История</span>
         {canEditBonuses && !adding && (

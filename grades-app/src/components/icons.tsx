@@ -154,6 +154,20 @@ export function EyeIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
+export function EyeOffIcon({ className = 'w-4 h-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M3 3l18 18M10.6 5.1A10.4 10.4 0 0 1 12 5c5 0 8.6 3.4 9.8 7-.5 1.4-1.3 2.7-2.4 3.8M6.5 6.6C4.4 7.9 2.9 9.8 2.2 12c1.2 3.6 4.8 7 9.8 7 1.6 0 3-.3 4.3-.9M9.9 9.9a3 3 0 0 0 4.2 4.2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ArrowUpIcon({ className = 'w-4 h-4' }: IconProps) {
   // Бейдж «планируется пересмотр» на аватарке
   return (

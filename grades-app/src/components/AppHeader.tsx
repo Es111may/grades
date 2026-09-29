@@ -4,6 +4,7 @@ import UserMenu from './UserMenu';
 import HeaderNav from './HeaderNav';
 import BrandLogo from './BrandLogo';
 import ThemeToggle from './ThemeToggle';
+import SalaryToggle from './SalaryToggle';
 
 type NavItem = { href: string; label: string };
 
@@ -72,6 +73,8 @@ export default async function AppHeader({
         <div className="flex items-center gap-0.5 shrink-0">
           {navItems.length > 0 && <HeaderNav items={navItems} />}
           <ThemeToggle />
+          {/* Выключатель зарплат — тем, кто их видит (Phase 23.4) */}
+          {(user.role === 'admin' || user.role === 'lead') && <SalaryToggle />}
         </div>
         {/* Разделитель: контролы | аватар */}
         <span className="w-px h-5 bg-cloud/80 shrink-0" aria-hidden />

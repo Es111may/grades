@@ -191,6 +191,17 @@
   html:not([data-theme='light']) .light-only {
     display: none;
   }
+  /* Phase 23.4 — выключатель зарплат в шапке (для показа экрана на встрече).
+     html[data-salary='hidden'] прячет всё с классом salary-sensitive: блоки
+     зарплаты, колонку в таблице, бейджи пересмотра. Тоже чистый CSS — атрибут
+     ставит инлайн-скрипт в layout.tsx до первой отрисовки, цифры не мелькают. */
+  html[data-salary='hidden'] .salary-sensitive,
+  html[data-salary='hidden'] .salary-shown-only {
+    display: none !important;
+  }
+  html:not([data-salary='hidden']) .salary-hidden-only {
+    display: none !important;
+  }
 }
 
 @layer components {

@@ -26,6 +26,7 @@ import type { Role } from '@/lib/checklistPermissions';
 import { useTheme, CHART_AXIS } from '@/lib/theme';
 import TitleAurora from '@/components/TitleAurora';
 import Tooltip from '@/components/Tooltip';
+import SalaryBlock from '@/components/SalaryBlock';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartJsTooltip, Legend);
 
@@ -113,6 +114,7 @@ export default function Portrait({
   siblingHrefPrefix,
   canEditLeadComment = false,
   userId,
+  canViewSalary = false,
   initialProjects,
   canEditProjects = false,
   showPerformance = true,
@@ -138,6 +140,8 @@ export default function Portrait({
   canEditLeadComment?: boolean;
   /** Id владельца портрета — нужен для PUT /api/users/[id]/projects. */
   userId: number;
+  /** Phase 23.4 — показывать блок «Зарплата» (админ и лид этого дизайнера). */
+  canViewSalary?: boolean;
   /** Проекты, которые уже выбрал пользователь (server-side fetch). */
   initialProjects: { id: number; name: string; category: string }[];
   /** Может ли текущий пользователь редактировать список проектов
@@ -677,6 +681,11 @@ export default function Portrait({
           )}
         </div>
       </div>
+
+      {/* Phase 23.4 — зарплата: только админу и лиду этого дизайнера (флаг
+          считает сервер, API проверяет права ещё раз). Своей страницы у
+          дизайнера этот флаг не бывает. Прячется выключателем в шапке. */}
+      {canViewSalary && <SalaryBlock userId={userId} variant="portrait" />}
 
       {/* Taxonomy progress cards (hovering anywhere reveals the full group breakdown row) */}
       <div

@@ -724,7 +724,7 @@ export default function UserModal({
                   <strong>
                     {GRADE_OPTIONS.find((g) => g.value === form.gradeFloor)?.label}
                   </strong>
-                  . Это действие будет записано в аудит-лог.
+                  . Это действие попадёт в журнал действий.
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -745,7 +745,7 @@ export default function UserModal({
 
             <div className="text-xs text-stone mt-3">
               <strong className="text-graphite">Правило:</strong> Понижение grade_floor —
-              только Admin, с подтверждением. Все изменения фиксируются в аудит-логе.
+              только Admin, с подтверждением. Все изменения фиксируются в журнале действий.
             </div>
           </section>
 

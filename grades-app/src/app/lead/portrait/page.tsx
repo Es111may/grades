@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { canViewCompensation } from '@/lib/compPermissions';
 import { loadPortraitData } from '@/lib/portrait';
 import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
 import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
@@ -165,6 +166,7 @@ export default async function LeadPortraitPage({
           designer.stardizId === user.id
         }
         userId={designerId}
+        canViewSalary={canViewCompensation({ id: user.id, role: user.role }, designer)}
         initialProjects={userProjects.map((up) => up.project)}
         canEditProjects={user.role === 'admin' || designerId === user.id}
         showPerformance={showPerformance}

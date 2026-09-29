@@ -102,3 +102,70 @@ export async function fetchHrLogsByEmail(
   }
   return out;
 }
+
+/**
+ * Ставки и журналы сразу по многим людям — для колонки «Зарплата» в таблице
+ * у админа. Два запроса на всю страницу (сотрудники + журналы), кэш 15 минут.
+ * Текущую ставку считает тот же buildCompensation, что и поп-ап, — цифры в
+ * таблице и в карточке не могут разойтись.
+ */
+export async function fetchHrCompensationBatch(
+  emails: string[],
+): Promise<Map<string, HrCompensation>> {
+  const unique = Array.from(new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean)));
+  const out = new Map<string, HrCompensation>();
+  if (!unique.length) return out;
+  return getOrCompute(
+    makeEmailsCacheKey('hr-comp-batch', unique),
+    async () => {
+      const emps = await chQuery<EmpRow & { em: string }>(
+        `SELECT lowerUTF8(email) AS em, toString(id) AS id, salary,
+                toString(toDate(date_of_employee)) AS hired,
+                toString(toDate(date_of_dismissal)) AS dismissed,
+                is_archive AS arch
+           FROM hr_portal_current.employee_employee
+          WHERE lowerUTF8(email) IN {emails:Array(String)}`,
+        { emails: arrayParam(unique) },
+      );
+      const byEmail = new Map<string, EmpRow[]>();
+      for (const e of emps) byEmail.set(e.em, [...(byEmail.get(e.em) ?? []), e]);
+      const picked = new Map<string, EmpRow>();
+      for (const [em, rows] of byEmail) {
+        const e = pickEmployee(rows);
+        if (e) picked.set(em, e);
+      }
+      const ids = Array.from(picked.values()).map((e) => e.id);
+      const logs = ids.length
+        ? await chQuery<LogRow & { id: string }>(
+            `SELECT toString(employee_id) AS id, toString(toDate(date_start)) AS d,
+                    salary_start AS f, salary AS t
+               FROM hr_portal_current.salary_changesalarylog
+              WHERE toString(employee_id) IN {ids:Array(String)}
+              ORDER BY date_start`,
+            { ids: arrayParam(ids) },
+          )
+        : [];
+      const logById = new Map<string, HrLogRow[]>();
+      for (const l of logs) logById.set(l.id, [...(logById.get(l.id) ?? []), toLog(l)]);
+      const result = new Map<string, HrCompensation>();
+      for (const em of unique) {
+        const e = picked.get(em);
+        result.set(
+          em,
+          e
+            ? {
+                hr: {
+                  salary: Number(e.salary),
+                  hiredAt: EMPTY_DATE(e.hired) ? null : e.hired,
+                  dismissedAt: EMPTY_DATE(e.dismissed) ? null : e.dismissed,
+                },
+                log: logById.get(e.id) ?? [],
+              }
+            : { hr: null, log: [] },
+        );
+      }
+      return result;
+    },
+    DEFAULT_TTL_MS,
+  );
+}
