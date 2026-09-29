@@ -146,6 +146,23 @@ export function HourglassIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
+export function EyeIcon({ className = 'w-4 h-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 3C17.392 3 21.878 6.88 22.819 12C21.879 17.12 17.392 21 12 21C6.60803 21 2.12215 17.12 1.18164 12C2.12119 6.88 6.60803 3 12 3ZM12 19C16.2359 19 19.8603 16.052 20.7777 12C19.8603 7.948 16.2359 5 12 5C7.76412 5 4.13965 7.948 3.22227 12C4.13965 16.052 7.76412 19 12 19ZM12 16.5C9.51472 16.5 7.5 14.4853 7.5 12C7.5 9.51472 9.51472 7.5 12 7.5C14.4853 7.5 16.5 9.51472 16.5 12C16.5 14.4853 14.4853 16.5 12 16.5ZM12 14.5C13.3807 14.5 14.5 13.3807 14.5 12C14.5 10.6193 13.3807 9.5 12 9.5C10.6193 9.5 9.5 10.6193 9.5 12C9.5 13.3807 10.6193 14.5 12 14.5Z" />
+    </svg>
+  );
+}
+
+export function ArrowUpIcon({ className = 'w-4 h-4' }: IconProps) {
+  // Бейдж «планируется пересмотр» на аватарке
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 19V5M6 11l6-6 6 6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function InfoIcon({ className = 'w-4 h-4' }: IconProps) {
   // Кружок с «i» — для информеров рядом с заголовками графиков и метрик.
   return (

@@ -327,6 +327,10 @@
   .chip-danger {
     @apply chip bg-blaze/10 text-blaze;
   }
+  /* Phase 23.4 — «в норме»: ставка в вилке или ниже */
+  .chip-success {
+    @apply chip bg-emerald/10 text-emerald;
+  }
   .chip-warn {
     @apply chip bg-sunset/10 text-sunset;
   }

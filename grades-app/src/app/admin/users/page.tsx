@@ -11,6 +11,9 @@ import {
 import { computeScore, nineBoxLevelFromString } from '@/lib/perfScore';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
 import { isGradable, isHourly } from '@/lib/employment';
+import { canViewCompensation } from '@/lib/compPermissions';
+import { plannedRaiseState } from '@/lib/compensation';
+import { fetchHrLogsByEmail } from '@/lib/hrSalary';
 import type { BuildCode } from '@/lib/types';
 import UsersClient from './UsersClient';
 
@@ -222,6 +225,23 @@ export default async function AdminUsersPage() {
     }
   }
 
+  // Phase 23.4 — плановый пересмотр. Бейдж видят только те, кому можно
+  // видеть деньги; выполненный (в HR уже есть повышение после постановки
+  // статуса) не показываем. В HR ходим только за теми, у кого статус стоит.
+  const viewer = me?.id ? { id: me.id, role: me.role } : null;
+  const withPlan = usersRaw.filter(
+    (u) => u.plannedRaiseSetAt && u.email && canViewCompensation(viewer, u),
+  );
+  let hrLogs = new Map<string, { hiredAt: string | null; log: { date: string; from: number; to: number }[] }>();
+  if (withPlan.length) {
+    try {
+      hrLogs = await fetchHrLogsByEmail(withPlan.map((u) => u.email));
+    } catch (err) {
+      // HR недоступен — показываем статус как есть, «выполнен» не определить
+      console.error('[/admin/users] HR logs for planned raises failed:', err);
+    }
+  }
+
   const nowMs = Date.now();
   const users = usersRaw.map((u) => {
     const last = gradeByDesignerId.get(u.id);
@@ -287,6 +307,21 @@ export default async function AdminUsersPage() {
       // считаем в клиенте через lib/gradingPlan, чтобы оно не устаревало
       // между рендерами страницы.
       employmentType: u.employmentType,
+      plannedRaise: (() => {
+        if (!u.plannedRaiseSetAt || !canViewCompensation(viewer, u)) return null;
+        const hr = hrLogs.get(u.email.toLowerCase());
+        const state = plannedRaiseState(
+          { setAt: u.plannedRaiseSetAt.toISOString() },
+          hr?.log ?? [],
+          hr?.hiredAt ?? null,
+        );
+        if (state === 'done') return null;
+        return {
+          at: u.plannedRaiseAt?.toISOString() ?? null,
+          salary: u.plannedRaiseSalary,
+          note: u.plannedRaiseNote,
+        };
+      })(),
       nextGradingAt: u.nextGradingAt?.toISOString() ?? null,
       nextGradingSetAt: u.nextGradingSetAt?.toISOString() ?? null,
       nextGradingSetBy: u.nextGradingSetBy

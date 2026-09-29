@@ -1,13 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Avatar from '@/components/Avatar';
 import { ChevronDownIcon, SearchIcon } from '@/components/icons';
 import EmptyState from '@/components/EmptyState';
 import { getOnTimeZone } from '@/lib/perfScore';
 import type { UserRow, GradeThreshold, TeamStats, AttentionItem } from './UsersClient';
 import Tooltip from '@/components/Tooltip';
 import { PersonStatusIcon } from '@/components/GradingPlanChip';
+import AvatarWithRaise from '@/components/PlannedRaiseBadge';
 import { isHourly } from '@/lib/employment';
 
 const GRADE_LABELS: Record<string, string> = {
@@ -301,7 +301,7 @@ export default function LeaderboardView({
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-3">
-                    <Avatar name={u.fullName} avatarUrl={u.avatarUrl} size={32} />
+                    <AvatarWithRaise name={u.fullName} avatarUrl={u.avatarUrl} size={32} planned={u.plannedRaise} />
                     <div className="min-w-0">
                       <div className="font-medium leading-tight truncate flex items-center gap-1.5">
                         {u.fullName}
@@ -575,7 +575,7 @@ function PodiumCard({
               без причины */}
           <PersonStatusIcon user={user} />
         </div>
-        <Avatar name={user.fullName} avatarUrl={user.avatarUrl} size={36} />
+        <AvatarWithRaise name={user.fullName} avatarUrl={user.avatarUrl} size={36} planned={user.plannedRaise} />
       </div>
       {/* Чипы одной строкой, подтянуты к имени (Pavel) */}
       <div className="flex items-center gap-1 mt-1.5 whitespace-nowrap overflow-hidden">

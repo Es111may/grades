@@ -216,6 +216,20 @@ model User {
   // признака нет (work_format — это не он), поэтому ведём здесь.
   employmentType String @default("staff") // "staff" | "hourly"
 
+  // Phase 23.4 — плановый пересмотр з/п. Статус включён, когда задан
+  // plannedRaiseSetAt; дата, новая ставка и обоснование — по желанию.
+  // «Выполнен» не хранится: он выводится из HR-портала (утверждённое
+  // повышение с датой не раньше постановки статуса), см. lib/compensation.
+  plannedRaiseSetAt   DateTime?
+  plannedRaiseAt      DateTime?
+  plannedRaiseSalary  Int?      // ₽/мес на руки
+  plannedRaiseNote    String?
+  plannedRaiseSetById Int?
+  plannedRaiseSetBy   User?     @relation("PlannedRaiseSetter", fields: [plannedRaiseSetById], references: [id])
+  plannedRaisesSet    User[]    @relation("PlannedRaiseSetter")
+  bonuses             Bonus[]   @relation("BonusOwner")
+  bonusesCreated      Bonus[]   @relation("BonusCreator")
+
   // Phase 23.2 — планирование грейдирования.
   // Дату вписывают руками админ/лид/стардиз; к сезону НЕ привязана (Pavel:
   // сезоны «примерно май и октябрь-ноябрь», но смещаются). Факт проведения
@@ -561,4 +575,24 @@ model SkillEvidence {
 
   @@index([designerId, skillId])
   @@map("skill_evidences")
+}
+
+// ============================================================
+// BONUSES (Phase 23.4) — разовые премии. В HR-портале их нет, поэтому ведём
+// здесь. На ставку не влияют и в % роста не входят.
+// ============================================================
+
+model Bonus {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation("BonusOwner", fields: [userId], references: [id], onDelete: Cascade)
+  amount      Int      // ₽ на руки
+  paidAt      DateTime
+  note        String?
+  createdById Int
+  createdBy   User     @relation("BonusCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@map("bonuses")
 }

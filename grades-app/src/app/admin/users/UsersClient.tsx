@@ -19,6 +19,7 @@ import {
 } from '@/lib/teamScope';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
 import { isGradable, isHourly } from '@/lib/employment';
+import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -40,6 +41,9 @@ export type UserRow = {
   gradeFloorReason: string | null;
   /** Phase 23.4 — 'hourly' для почасовщика, иначе 'staff'. */
   employmentType?: string;
+  /** Phase 23.4 — плановый пересмотр з/п. Сервер кладёт его только тем, кому
+   *  можно видеть деньги (админ, лид по своим), и только невыполненный. */
+  plannedRaise?: PlannedRaiseRow | null;
   // Phase 23.2 — план грейдирования
   nextGradingAt?: string | null;
   nextGradingSetAt?: string | null;
@@ -412,6 +416,13 @@ export default function UsersClient({
           meRole={meRole}
           onClose={() => setCard360User(null)}
           onEdit={handleEditFrom360}
+          onPlannedRaiseChange={(id, planned) => {
+            // Бейдж на аватарке появляется и пропадает сразу, не закрывая попап
+            const apply = <T extends { id: number }>(u: T) =>
+              u.id === id ? { ...u, plannedRaise: planned } : u;
+            setUsers((prev) => prev.map(apply));
+            setCard360User((curr) => (curr ? apply(curr) : curr));
+          }}
           onGradingCleared={(id) => {
             // Сбрасываем и в списке (исчезает иконка таймера), и в открытой
             // карточке — чтобы результат был виден сразу, не закрывая попап.

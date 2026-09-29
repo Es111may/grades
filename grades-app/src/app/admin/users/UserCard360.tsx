@@ -68,6 +68,9 @@ import { formatDateShort as formatDate } from '@/lib/dates';
 import GradingPlanChip from '@/components/GradingPlanChip';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { isHourly } from '@/lib/employment';
+import { canEditPlannedRaise, canViewCompensation } from '@/lib/compPermissions';
+import CompensationBlock from './CompensationBlock';
+import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
 
 export default function UserCard360({
   user,
@@ -78,6 +81,7 @@ export default function UserCard360({
   onEdit,
   onDeactivated,
   onGradingCleared,
+  onPlannedRaiseChange,
 }: {
   user: UserRow;
   /** Позиция в рейтинге по composite среди активных дизайнеров («№1»). */
@@ -89,6 +93,8 @@ export default function UserCard360({
   onDeactivated: (id: number) => void;
   /** Дата грейдирования сброшена — обновить список и открытую карточку. */
   onGradingCleared: (id: number) => void;
+  /** Плановый пересмотр поставлен, изменён или снят — обновить бейдж в списке. */
+  onPlannedRaiseChange: (id: number, planned: PlannedRaiseRow | null) => void;
 }) {
   // Закрытие по Escape
   useEffect(() => {
@@ -284,7 +290,31 @@ export default function UserCard360({
 
   const canImpersonate = meRole === 'admin' && !isSelf && user.active;
   const canHardDelete = meRole === 'admin' && !isSelf;
-  const hasMenu = canImpersonate || canImportLeadReview || canDeactivate || canHardDelete;
+  // Phase 23.4 — компенсации: админ всех, лид своих (сервер проверяет тоже)
+  const viewer = meId !== null ? { id: meId, role: meRole } : null;
+  const canViewComp = canViewCompensation(viewer, user);
+  const canPlan = canEditPlannedRaise(viewer, user) && user.active;
+  const hasPlan = !!user.plannedRaise;
+  const [planSignal, setPlanSignal] = useState(0);
+  async function startPlan() {
+    setMenuOpen(false);
+    if (!hasPlan) {
+      const res = await fetch(`/api/users/${user.id}/planned-raise`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (!res.ok) return;
+      onPlannedRaiseChange(user.id, { at: null, salary: null, note: null });
+    }
+    setPlanSignal((n) => n + 1);
+  }
+  async function clearPlan() {
+    setMenuOpen(false);
+    const res = await fetch(`/api/users/${user.id}/planned-raise`, { method: 'DELETE' });
+    if (res.ok) onPlannedRaiseChange(user.id, null);
+  }
+  const hasMenu = canPlan || canImpersonate || canImportLeadReview || canDeactivate || canHardDelete;
 
   async function handleHardDelete() {
     const res = await fetch(`/api/users/${user.id}?hard=true`, { method: 'DELETE' });
@@ -454,7 +484,13 @@ export default function UserCard360({
                 </span>
               </div>
             )}
-            <RaiseRow user={user} meRole={meRole} meId={meId} />
+            {canViewComp && (
+              <CompensationBlock
+                userId={user.id}
+                editSignal={planSignal}
+                onPlannedChange={(p) => onPlannedRaiseChange(user.id, p)}
+              />
+            )}
           </div>
 
           {/* ---------- График роста + последняя оценка ---------- */}
@@ -653,6 +689,24 @@ export default function UserCard360({
             onMouseLeave={menuLeave}
             className="absolute right-3 bottom-[58px] w-max z-20 card p-1.5 shadow-soft-lg animate-scale-in"
           >
+            {canPlan && (
+              <button
+                type="button"
+                onClick={startPlan}
+                className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+              >
+                {hasPlan ? 'Изменить пересмотр' : 'Запланировать пересмотр'}
+              </button>
+            )}
+            {canPlan && hasPlan && (
+              <button
+                type="button"
+                onClick={clearPlan}
+                className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+              >
+                Снять пересмотр
+              </button>
+            )}
             {canImpersonate && (
               <button
                 type="button"
@@ -872,115 +926,4 @@ function pluralResp(n: number): string {
   if (mod10 === 1) return 'респондент';
   if (mod10 >= 2 && mod10 <= 4) return 'респондента';
   return 'респондентов';
-}
-
-/**
- * «Пересмотр з/п» — мета-строка с глазом (каркас Pavel 12.07.2026):
- * значение скрыто до клика (лид может стримить экран), данные тянутся
- * лениво из ClickHouse-копии HR-портала. Видимость: admin — все
- * дизайнеры/стардизы, lead — только свои.
- */
-function RaiseRow({
-  user,
-  meRole,
-  meId,
-}: {
-  user: UserRow;
-  meRole: string;
-  meId: number | null;
-}) {
-  const isTarget = user.role === 'designer' || user.role === 'stardiz';
-  const isMineForLead = meRole === 'lead' && meId !== null && user.leadId === meId;
-  const canView = meRole === 'admin' || isMineForLead;
-
-  const [open, setOpen] = useState(false);
-  const [data, setData] = useState<{ lastRaiseAt: string | null } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    if (!open || data !== null || loading) return;
-    setLoading(true);
-    setError(false);
-    fetch(`/api/users/${user.id}/last-raise`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-      .then((j) => setData(j))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, [open, user.id, data, loading]);
-
-  if (!isTarget || !canView) return null;
-
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-stone">Пересмотр з/п</span>
-      {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="ml-auto inline-flex items-center gap-1.5 text-stone hover:text-ink transition-colors"
-        >
-          <EyeIcon className="w-4 h-4" />
-          Раскрыть
-        </button>
-      ) : (
-        /* Повторный клик — скрыть обратно (Pavel) */
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="ml-auto text-ink text-right hover:text-stone transition-colors"
-        >
-          {loading && <span className="text-stone italic">Загрузка…</span>}
-          {!loading && error && (
-            <span className="text-ash italic">Данные недоступны</span>
-          )}
-          {!loading && !error && data && (
-            data.lastRaiseAt ? (
-              formatRaisePeriod(data.lastRaiseAt)
-            ) : (
-              <span className="text-ash italic">Не зафиксировано</span>
-            )
-          )}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function EyeIcon({ className = 'w-4 h-4' }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 3C17.392 3 21.878 6.88 22.819 12C21.879 17.12 17.392 21 12 21C6.60803 21 2.12215 17.12 1.18164 12C2.12119 6.88 6.60803 3 12 3ZM12 19C16.2359 19 19.8603 16.052 20.7777 12C19.8603 7.948 16.2359 5 12 5C7.76412 5 4.13965 7.948 3.22227 12C4.13965 16.052 7.76412 19 12 19ZM12 16.5C9.51472 16.5 7.5 14.4853 7.5 12C7.5 9.51472 9.51472 7.5 12 7.5C14.4853 7.5 16.5 9.51472 16.5 12C16.5 14.4853 14.4853 16.5 12 16.5ZM12 14.5C13.3807 14.5 14.5 13.3807 14.5 12C14.5 10.6193 13.3807 9.5 12 9.5C10.6193 9.5 9.5 10.6193 9.5 12C9.5 13.3807 10.6193 14.5 12 14.5Z" />
-    </svg>
-  );
-}
-
-/** Сколько прошло с даты повышения — в человеческих годах/месяцах. */
-function formatRaisePeriod(iso: string): string {
-  const start = new Date(iso);
-  const now = new Date();
-  let months =
-    (now.getFullYear() - start.getFullYear()) * 12 +
-    (now.getMonth() - start.getMonth());
-  if (now.getDate() < start.getDate()) months--;
-  if (months < 1) return 'Меньше месяца';
-  const years = Math.floor(months / 12);
-  const m = months % 12;
-  const yearWord = (n: number) => {
-    const last = n % 10;
-    const lastTwo = n % 100;
-    if (lastTwo >= 11 && lastTwo <= 14) return 'лет';
-    if (last === 1) return 'год';
-    if (last >= 2 && last <= 4) return 'года';
-    return 'лет';
-  };
-  const monthWord = (n: number) => {
-    const last = n % 10;
-    const lastTwo = n % 100;
-    if (lastTwo >= 11 && lastTwo <= 14) return 'мес.';
-    return 'мес.';
-  };
-  if (years === 0) return `${m} ${monthWord(m)}`;
-  if (m === 0) return `${years} ${yearWord(years)}`;
-  return `${years} ${yearWord(years)} ${m} ${monthWord(m)}`;
 }
