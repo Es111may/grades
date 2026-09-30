@@ -93,6 +93,17 @@ export function canEditUser(me: Me, target: Target): boolean {
 }
 
 /**
+ * Может ли поправить в своей карточке имя и аватар — тем, кто открывает
+ * модалку «Изменить» (админ, лид). Админу это и так даёт canEditUser, а лиду
+ * свою карточку canEditUser не открывает (он не «свой» сам себе). Какие поля
+ * можно менять при такой правке — lib/userUpdate (selfEditLockedFields).
+ */
+export function canEditOwnProfile(me: Me, target: { id: number }): boolean {
+  if (!me) return false;
+  return me.id === target.id && (me.role === 'admin' || me.role === 'lead');
+}
+
+/**
  * Может ли сменить человеку лида. Лиду — только передача своего человека
  * другому лиду: «снять лида» (null) и «назначить себя» нельзя. Что новый
  * лид существует, активен и в роли lead/admin — проверяет сервер.

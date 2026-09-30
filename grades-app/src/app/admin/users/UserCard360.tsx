@@ -48,7 +48,10 @@ const ROLE_LABEL: Record<string, string> = {
 const ROLE_TONE: Record<string, string> = {
   admin: 'bg-sunset/15 text-sunset',
   lead: 'bg-lime/15 text-lime-dark',
-  stardiz: 'bg-[#bf5af2]/15 text-[#bf5af2]',
+  // Токен violet: в тёмной теме тот же #bf5af2. В светлой фиолетовый текст
+  // на фиолетовой подложке — 3,4:1, мелкому тексту мало; текст основным
+  // цветом, подложка остаётся фиолетовой (как у .chip-gold).
+  stardiz: 'bg-violet/15 text-violet [html[data-theme=light]_&]:text-ink',
   designer: 'bg-cloud/60 text-stone',
 };
 
@@ -65,9 +68,13 @@ const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 import { formatDateShort as formatDate } from '@/lib/dates';
-import GradingPlanChip from '@/components/GradingPlanChip';
-import { canSetGradingDate } from '@/lib/gradingPlan';
-import { isHourly } from '@/lib/employment';
+import GradingPlanChip, {
+  GradingDateEditor,
+  putGradingDate,
+  type GradingPlanFields,
+} from '@/components/GradingPlanChip';
+import { canSetGradingDate, gradingPlanStatus } from '@/lib/gradingPlan';
+import { isGradable, isHourly } from '@/lib/employment';
 import {
   DISMISSAL_TYPE_LABELS,
   canViewDismissalDate,
@@ -76,12 +83,9 @@ import {
   showsDismissal,
 } from '@/lib/dismissal';
 import { canEditBonuses, canEditPlannedRaise, canViewCompensation } from '@/lib/compPermissions';
-import { canDeactivateUser, canEditUser } from '@/lib/permissions';
+import { canDeactivateUser, canEditOwnProfile, canEditUser } from '@/lib/permissions';
 import SalaryBlock, { useCompensation } from '@/components/SalaryBlock';
 import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
-
-/** Ответ PUT /api/users/[id]/grading-date — поля плана для строки списка. */
-type GradingPlanFields = Pick<UserRow, 'nextGradingAt' | 'nextGradingSetAt' | 'nextGradingSetBy'>;
 
 export default function UserCard360({
   user,
@@ -108,14 +112,21 @@ export default function UserCard360({
   /** Плановый пересмотр поставлен, изменён или снят — обновить бейдж в списке. */
   onPlannedRaiseChange: (id: number, planned: PlannedRaiseRow | null) => void;
 }) {
-  // Закрытие по Escape
+  // Редактор даты грейдирования — объявлен до обработчика Escape: тот
+  // закрывает сначала редактор, потом поп-ап.
+  const [gradingEditing, setGradingEditing] = useState(false);
+
+  // Закрытие по Escape. defaultPrevented — Escape уже обработал кто-то
+  // внутри (редактор даты гасит его сам, когда фокус в нём).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (gradingEditing) setGradingEditing(false);
+      else onClose();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, gradingEditing]);
 
   // Phase 14: сводка самооценки — количество и свежесть (для чипа).
   const [selfInfo, setSelfInfo] = useState<{ count: number; last: string | null } | null>(
@@ -166,34 +177,67 @@ export default function UserCard360({
     if (res.ok) setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }
 
-  // Сброс даты грейдирования — крестиком в пилюле срока (Pavel). Отдельный
-  // эндпоинт, а не PATCH карточки: PATCH стардизу закрыт (403), а дату
-  // своим подопечным он ставить вправе.
+  // Дата грейдирования — прямо в поп-апе (Pavel): назначить, изменить по
+  // клику на пилюлю, сбросить крестиком. Через PUT /grading-date, а не PATCH
+  // карточки: стардизу PATCH закрыт, а дату своим он ставить вправе.
+  // Права — админ всем, лид и стардиз своим подопечным. Ставят дату только
+  // грейдируемым (активным штатным дизайнерам и стардизам), снять можно у
+  // любого, у кого она осталась.
+  const canSetGrading =
+    meId !== null && canSetGradingDate({ id: meId, role: meRole }, user);
+  const canEditGrading = canSetGrading && isGradable(user);
+  const gradingState = gradingPlanStatus({
+    nextGradingAt: user.nextGradingAt ?? null,
+    nextGradingSetAt: user.nextGradingSetAt ?? null,
+    lastPublishedAt: user.lastAssessedAt ?? null,
+  }).state;
+  // «Назначить» — когда даты нет или прошлое грейдирование уже проведено:
+  // пилюля «проведено» остаётся фактом, рядом назначают следующее.
+  const canAssignGrading =
+    canEditGrading && (gradingState === 'none' || gradingState === 'done');
+  const [gradingInitial, setGradingInitial] = useState('');
+  const [gradingErr, setGradingErr] = useState<string | null>(null);
   const [clearingGrading, setClearingGrading] = useState(false);
+
+  // Другой человек в том же поп-апе — редактор закрыт, ошибки нет
+  useEffect(() => {
+    setGradingEditing(false);
+    setGradingErr(null);
+  }, [user.id]);
+
+  function openGradingEditor(initial: string) {
+    setGradingInitial(initial);
+    setGradingErr(null);
+    setGradingEditing(true);
+  }
+
+  function gradingSaved(plan: GradingPlanFields) {
+    setGradingEditing(false);
+    onGradingChanged(user.id, plan);
+  }
+
   async function clearGradingDate() {
     setClearingGrading(true);
-    const res = await fetch(`/api/users/${user.id}/grading-date`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nextGradingAt: null }),
-    });
+    setGradingErr(null);
+    const r = await putGradingDate(user.id, null, 'Не удалось сбросить дату');
     setClearingGrading(false);
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      alert(`Не удалось сбросить дату: ${j.error ?? res.statusText}`);
+    if ('error' in r) {
+      setGradingErr(r.error);
       return;
     }
-    const plan: GradingPlanFields = await res.json();
-    onGradingChanged(user.id, {
-      nextGradingAt: plan.nextGradingAt ?? null,
-      nextGradingSetAt: plan.nextGradingSetAt ?? null,
-      nextGradingSetBy: plan.nextGradingSetBy ?? null,
-    });
+    onGradingChanged(user.id, r.plan);
   }
-  // Крестик показываем только тем, кто вправе менять дату: админ — всем,
-  // лид и стардиз — своим подопечным.
-  const canClearGrading =
-    meId !== null && canSetGradingDate({ id: meId, role: meRole }, user);
+
+  // Редактор закрылся — фокус обратно в строку (пилюля или «Назначить»),
+  // а не в никуда: с клавиатуры можно продолжить с того же места.
+  const gradingRowRef = useRef<HTMLDivElement | null>(null);
+  const gradingWasEditing = useRef(false);
+  useEffect(() => {
+    if (gradingWasEditing.current && !gradingEditing) {
+      gradingRowRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    }
+    gradingWasEditing.current = gradingEditing;
+  }, [gradingEditing]);
 
   // Ленивая подгрузка истории оценок (Assessment'ов и LeadReview'ов).
   const [history, setHistory] = useState<HistoryData | null>(null);
@@ -221,10 +265,12 @@ export default function UserCard360({
       (meRole === 'stardiz' && (user.stardizId === meId || user.leadId === meId)));
 
   // Правка и деактивация — lib/permissions: админ всех, лид только своих
-  // дизайнеров и стардизов. Стардизу «Изменить» не показываем: PATCH карточки
-  // ему закрыт, дату грейдирования он сбрасывает крестиком в пилюле.
+  // дизайнеров и стардизов. Свою карточку лид тоже открывает — модалка сама
+  // оставит в ней только имя и аватар (canEditOwnProfile). Стардизу
+  // «Изменить» не показываем: PATCH карточки ему закрыт, дату грейдирования
+  // он ставит прямо в строке «Грейдирование».
   const viewer = meId !== null ? { id: meId, role: meRole } : null;
-  const canEdit = canEditUser(viewer, user);
+  const canEdit = canEditUser(viewer, user) || canEditOwnProfile(viewer, user);
 
   const canAssess =
     user.role === 'designer' &&
@@ -549,22 +595,55 @@ export default function UserCard360({
               </div>
             )}
             {/* Phase 23.2 — план грейдирования. Показываем для грейдируемых
-                ролей; чип сам решает тон (просрочено / подходит / проведено). */}
+                ролей; чип сам решает тон (просрочено / подходит / проведено).
+                Без даты строка есть только у тех, кто может её назначить. */}
             {(user.role === 'designer' || user.role === 'stardiz') &&
               !isHourly(user) &&
-              user.nextGradingAt && (
-                <div className="flex items-center gap-3">
-                  <span className="text-stone">Грейдирование</span>
-                  <span className="ml-auto text-right">
-                    <GradingPlanChip
-                      user={user}
-                      size="md"
-                      onClear={canClearGrading ? clearGradingDate : undefined}
-                      clearing={clearingGrading}
-                    />
-                  </span>
+              (user.nextGradingAt || canEditGrading) &&
+              (gradingEditing && canEditGrading ? (
+                <GradingDateEditor
+                  userId={user.id}
+                  initial={gradingInitial}
+                  onSaved={gradingSaved}
+                  onCancel={() => setGradingEditing(false)}
+                />
+              ) : (
+                <div ref={gradingRowRef}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-stone">Грейдирование</span>
+                    <span className="ml-auto flex items-center gap-3">
+                      {user.nextGradingAt && (
+                        <GradingPlanChip
+                          user={user}
+                          size="md"
+                          onClear={canSetGrading ? clearGradingDate : undefined}
+                          onEdit={
+                            canEditGrading
+                              ? () => openGradingEditor(user.nextGradingAt?.slice(0, 10) ?? '')
+                              : undefined
+                          }
+                          clearing={clearingGrading}
+                        />
+                      )}
+                      {/* Хит-зона 32px по высоте, строка остаётся в 24px;
+                          -mx-2 гасит поля — текст ровно по краю значений */}
+                      {canAssignGrading && (
+                        <button
+                          type="button"
+                          onClick={() => openGradingEditor('')}
+                          className="-my-1.5 -mx-2 h-8 px-2 text-xs text-stone hover:text-ink
+                                     transition-colors"
+                        >
+                          Назначить
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                  {gradingErr && (
+                    <p className="text-xs text-blaze text-right mt-1">{gradingErr}</p>
+                  )}
                 </div>
-              )}
+              ))}
             {user.role === 'designer' && selfInfo && selfInfo.count > 0 && (
               <div className="flex items-center gap-3">
                 <span className="text-stone">Самооценка</span>

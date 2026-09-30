@@ -1,4 +1,5 @@
 import { CSSProperties } from 'react';
+import { withAvatarSize } from '@/lib/avatarShared';
 
 function initials(name: string) {
   return name
@@ -12,6 +13,10 @@ function initials(name: string) {
 /**
  * Аватар пользователя. Если avatarUrl задан — показываем картинку,
  * иначе кружок с инициалами. Размер задаётся в пикселях.
+ *
+ * avatarUrl — ссылка /api/avatar (сервер строит её через lib/avatar) или
+ * data URL (превью в модалке до сохранения). У ссылки размер картинки
+ * подбираем под кружок: список рисует 24–40 px, поп-ап и портрет — крупнее.
  */
 export default function Avatar({
   name,
@@ -33,8 +38,10 @@ export default function Avatar({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={avatarUrl}
+        src={withAvatarSize(avatarUrl, size)}
         alt={name}
+        loading="lazy"
+        decoding="async"
         style={style}
         className={`rounded-pill object-cover bg-cloud shrink-0 ${className}`}
       />

@@ -38,7 +38,10 @@ const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plu
 const ROLE_TONE: Record<string, string> = {
   admin: 'bg-sunset/15 text-sunset',
   lead: 'bg-lime/15 text-lime-dark',
-  stardiz: 'bg-[#bf5af2]/15 text-[#bf5af2]',
+  // Токен violet: в тёмной теме тот же #bf5af2. В светлой фиолетовый текст
+  // на фиолетовой подложке — 3,4:1, мелкому тексту мало; текст основным
+  // цветом, подложка остаётся фиолетовой (как у .chip-gold).
+  stardiz: 'bg-violet/15 text-violet [html[data-theme=light]_&]:text-ink',
   designer: 'bg-cloud/60 text-stone',
 };
 

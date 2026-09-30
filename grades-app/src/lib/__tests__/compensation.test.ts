@@ -4,8 +4,9 @@ import {
   formatPct,
   formatThousands,
   groupEventsByYear,
+  NO_RAISES_BASELINE,
   pctChange,
-  plannedRaiseStartAt,
+  plannedRaiseBaseline,
   plannedRaiseState,
   shouldRestartPlan,
   type HrLogRow,
@@ -262,34 +263,93 @@ describe('новый плановый пересмотр после выполн
     expect(shouldRestartPlan('active', true)).toBe(true);
   });
 
-  const NOW = new Date('2026-09-30T12:00:00Z');
   const hired = '2024-01-01';
-  it('прошлое повышение — отметка «сейчас», новый статус активен', () => {
+  it('после выполненного: база — повышение, закрывшее прежний статус; новый им не закрыт', () => {
     const log: HrLogRow[] = [{ date: '2026-09-01', from: 120 * K, to: 130 * K }];
-    const at = plannedRaiseStartAt(NOW, log, hired);
-    expect(at).toEqual(NOW);
-    expect(plannedRaiseState({ setAt: at.toISOString() }, log, hired)).toBe('active');
+    // Прежний статус (без базы, от 15.08) закрыт этим повышением
+    expect(plannedRaiseState({ setAt: '2026-08-15T10:00:00Z' }, log, hired)).toBe('done');
+    const baselineAt = plannedRaiseBaseline(log, hired);
+    expect(baselineAt).toBe('2026-09-01');
+    const next = { setAt: '2026-09-30T12:00:00Z', baselineAt };
+    expect(plannedRaiseState(next, log, hired)).toBe('active');
+    // Следующее повышение закрывает новый статус как обычно
+    const more = [...log, { date: '2027-03-01', from: 130 * K, to: 145 * K }];
+    expect(plannedRaiseState(next, more, hired)).toBe('done');
   });
-  it('повышение сегодня или «с 1-го» — отметка после него, новый не закрыт им же', () => {
-    const today: HrLogRow[] = [{ date: '2026-09-30', from: 120 * K, to: 130 * K }];
-    expect(plannedRaiseStartAt(NOW, today, hired).toISOString()).toBe('2026-10-01T00:00:00.000Z');
+  it('будущее повышение, внесённое заранее («с 1-го»), — в базе, новый им не закрыт', () => {
     const log: HrLogRow[] = [
       { date: '2026-09-01', from: 110 * K, to: 120 * K },
       { date: '2026-10-01', from: 120 * K, to: 130 * K },
     ];
-    const at = plannedRaiseStartAt(NOW, log, hired);
-    expect(at.toISOString()).toBe('2026-10-02T00:00:00.000Z');
-    expect(plannedRaiseState({ setAt: at.toISOString() }, log, hired)).toBe('active');
-    // Следующее повышение после отметки закрывает новый статус как обычно
-    const next = [...log, { date: '2027-03-01', from: 130 * K, to: 145 * K }];
-    expect(plannedRaiseState({ setAt: at.toISOString() }, next, hired)).toBe('done');
+    const baselineAt = plannedRaiseBaseline(log, hired);
+    expect(baselineAt).toBe('2026-10-01');
+    expect(plannedRaiseState({ setAt: '2026-09-30T12:00:00Z', baselineAt }, log, hired)).toBe('active');
   });
-  it('будущее снижение и стартовая ставка отметку не сдвигают', () => {
+  it('будущее снижение и стартовая ставка базу не сдвигают', () => {
     const log: HrLogRow[] = [
+      { date: '2026-03-01', from: 110 * K, to: 120 * K },
       { date: '2026-10-01', from: 130 * K, to: 120 * K },
-      { date: '2026-10-05', from: 100 * K, to: 110 * K },
     ];
-    expect(plannedRaiseStartAt(NOW, log, '2026-10-05')).toEqual(NOW);
+    expect(plannedRaiseBaseline(log, hired)).toBe('2026-03-01');
+    const onlyHire: HrLogRow[] = [{ date: '2026-10-05', from: 100 * K, to: 110 * K }];
+    expect(plannedRaiseBaseline(onlyHire, '2026-10-05')).toBe(NO_RAISES_BASELINE);
+    expect(plannedRaiseBaseline([], null)).toBe(NO_RAISES_BASELINE);
+  });
+});
+
+describe('плановый пересмотр: повышение задним числом', () => {
+  const hired = '2024-01-01';
+  // Статус поставили 03.10; HR знал только повышение от 01.03
+  const known: HrLogRow[] = [{ date: '2026-03-01', from: 110 * K, to: 120 * K }];
+  const baselineAt = plannedRaiseBaseline(known, hired);
+  const plan = { setAt: '2026-10-03T09:00:00Z', baselineAt };
+  // 10.10 HR вносит повышение «с 01.10» — дата раньше постановки
+  const retro = [...known, { date: '2026-10-01', from: 120 * K, to: 135 * K }];
+
+  it('повышение с датой раньше постановки, но после базы — выполнен', () => {
+    expect(plannedRaiseState(plan, known, hired)).toBe('active');
+    expect(plannedRaiseState(plan, retro, hired)).toBe('done');
+  });
+  it('старый статус без базы — прежнее правило: такое повышение не закрывает', () => {
+    expect(plannedRaiseState({ setAt: plan.setAt }, retro, hired)).toBe('active');
+    expect(plannedRaiseState({ setAt: plan.setAt, baselineAt: null }, retro, hired)).toBe('active');
+    const after = [...known, { date: '2026-10-03', from: 120 * K, to: 135 * K }];
+    expect(plannedRaiseState({ setAt: plan.setAt, baselineAt: null }, after, hired)).toBe('done');
+  });
+  it('повышение, которое HR уже знал (дата = база), новый статус не закрывает', () => {
+    const fresh = { setAt: '2026-10-03T09:00:00Z', baselineAt: plannedRaiseBaseline(retro, hired) };
+    expect(fresh.baselineAt).toBe('2026-10-01');
+    expect(plannedRaiseState(fresh, retro, hired)).toBe('active');
+  });
+  it('повышений не было — первое же, даже задним числом, закрывает статус', () => {
+    const hire: HrLogRow[] = [{ date: '2026-03-02', from: 90 * K, to: 100 * K }];
+    const first = { setAt: '2026-10-03T09:00:00Z', baselineAt: plannedRaiseBaseline(hire, '2026-03-02') };
+    expect(first.baselineAt).toBe(NO_RAISES_BASELINE);
+    expect(plannedRaiseState(first, hire, '2026-03-02')).toBe('active');
+    const raised = [...hire, { date: '2026-10-01', from: 100 * K, to: 115 * K }];
+    expect(plannedRaiseState(first, raised, '2026-03-02')).toBe('done');
+  });
+  it('стартовая ставка при найме после базы статус не закрывает', () => {
+    const plan2 = { setAt: '2026-08-01T10:00:00Z', baselineAt: NO_RAISES_BASELINE };
+    const hire: HrLogRow[] = [{ date: '2026-08-03', from: 100 * K, to: 110 * K }];
+    expect(plannedRaiseState(plan2, hire, '2026-08-03')).toBe('active');
+  });
+  it('будущее утверждённое повышение после базы тоже закрывает', () => {
+    const fut = [...known, { date: '2026-12-01', from: 120 * K, to: 140 * K }];
+    expect(plannedRaiseState(plan, fut, hired)).toBe('done');
+  });
+  it('снижение после базы не закрывает', () => {
+    const down = [...known, { date: '2026-10-01', from: 120 * K, to: 110 * K }];
+    expect(plannedRaiseState(plan, down, hired)).toBe('active');
+  });
+  it('база с временем (как из БД) сравнивается по дню', () => {
+    const db = { setAt: plan.setAt, baselineAt: '2026-10-01T00:00:00.000Z' };
+    expect(plannedRaiseState(db, retro, hired)).toBe('active');
+    const later = [...retro, { date: '2026-10-02', from: 135 * K, to: 140 * K }];
+    expect(plannedRaiseState(db, later, hired)).toBe('done');
+  });
+  it('без статуса база не важна — none', () => {
+    expect(plannedRaiseState({ setAt: null, baselineAt: NO_RAISES_BASELINE }, retro, hired)).toBe('none');
   });
 });
 

@@ -103,3 +103,42 @@ export function mentorError(
   if (!mentor || !mentor.active) return MENTOR_ERROR[kind];
   return (MENTOR_ROLES[kind] as readonly string[]).includes(mentor.role) ? null : MENTOR_ERROR[kind];
 }
+
+// ── Правка своей карточки ────────────────────────────────────────────────
+//
+// Лид правит у себя только имя и аватар (lib/permissions → canEditOwnProfile).
+// Модалка в этом случае их одни и шлёт, но запрос можно собрать руками —
+// поэтому остальные поля сервер сверяет с текущими, как и при обычной правке:
+// пришло то же значение — не правка.
+
+/** Поля, которые можно менять в своей карточке. */
+export const SELF_EDITABLE_FIELDS: readonly string[] = ['fullName', 'avatarUrl'];
+
+const DATE_FIELDS = new Set(['hiredAt', 'nextGradingAt', 'dismissedAt']);
+
+/** Значение для сравнения: пустое — null, даты — по дню, email — без регистра. */
+function comparable(key: string, v: unknown): unknown {
+  if (v === undefined || v === null || v === '') return null;
+  if (DATE_FIELDS.has(key)) {
+    const d = v instanceof Date ? v : new Date(String(v));
+    return Number.isNaN(d.getTime()) ? `invalid:${String(v)}` : dayKey(d);
+  }
+  if (key === 'email' && typeof v === 'string') return v.toLowerCase();
+  return v;
+}
+
+/**
+ * Поля, кроме имени и аватара, которые запрос на правку своей карточки
+ * меняет относительно текущих значений. Пусто — правку можно пропускать.
+ */
+export function selfEditLockedFields(
+  data: Record<string, unknown>,
+  existing: Record<string, unknown>,
+): string[] {
+  return Object.keys(data).filter(
+    (k) =>
+      data[k] !== undefined &&
+      !SELF_EDITABLE_FIELDS.includes(k) &&
+      comparable(k, data[k]) !== comparable(k, existing[k]),
+  );
+}

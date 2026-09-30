@@ -232,6 +232,11 @@ model User {
   plannedRaiseSalary  Int?      // ₽/мес на руки
   plannedRaiseNote    String?
   plannedRaiseSetById Int?
+  // Дата последнего повышения, которое HR уже знал при постановке статуса.
+  // «Выполнен» = в HR появилось повышение позже неё — даже задним числом
+  // (HR вносит «с 1-го» уже после постановки). null — старые статусы,
+  // для них прежнее правило по plannedRaiseSetAt.
+  plannedRaiseBaselineAt DateTime?
   plannedRaiseSetBy   User?     @relation("PlannedRaiseSetter", fields: [plannedRaiseSetById], references: [id])
   plannedRaisesSet    User[]    @relation("PlannedRaiseSetter")
   bonuses             Bonus[]   @relation("BonusOwner")

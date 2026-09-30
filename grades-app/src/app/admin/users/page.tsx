@@ -18,6 +18,7 @@ import { canViewDismissalDate, canViewDismissalStatus } from '@/lib/dismissal';
 import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
 import { fetchHrCompensationBatch, fetchHrLogsByEmail } from '@/lib/hrSalary';
 import { todayMoscowIso } from '@/lib/dates';
+import { avatarSrc } from '@/lib/avatar';
 import { SEASONS, type Season } from '@/lib/assessmentSeason';
 import type { BuildCode } from '@/lib/types';
 import UsersClient from './UsersClient';
@@ -55,6 +56,7 @@ const USER_ROW_SELECT = {
   plannedRaiseAt: true,
   plannedRaiseSalary: true,
   plannedRaiseNote: true,
+  plannedRaiseBaselineAt: true,
   nextGradingAt: true,
   nextGradingSetAt: true,
   nextGradingSetBy: { select: { id: true, fullName: true } },
@@ -477,7 +479,9 @@ export default async function AdminUsersPage() {
       active: u.active,
       gradeFloor: u.gradeFloor,
       gradeFloorReason: u.gradeFloorReason,
-      avatarUrl: u.avatarUrl,
+      // Ссылка /api/avatar вместо data URL: ~17 КБ base64 на строку уходили
+      // дважды (HTML + RSC) и без кэша.
+      avatarUrl: avatarSrc(u),
       // Phase 23.2 — план грейдирования. Состояние («проведено», «просрочено»)
       // считаем в клиенте через lib/gradingPlan, чтобы оно не устаревало
       // между рендерами страницы.
@@ -507,7 +511,10 @@ export default async function AdminUsersPage() {
         if (!u.plannedRaiseSetAt || !canViewCompensation(viewer, u)) return null;
         const hr = hrLogs.get(u.email.toLowerCase());
         const state = plannedRaiseState(
-          { setAt: u.plannedRaiseSetAt.toISOString() },
+          {
+            setAt: u.plannedRaiseSetAt.toISOString(),
+            baselineAt: u.plannedRaiseBaselineAt?.toISOString() ?? null,
+          },
           hr?.log ?? [],
           hr?.hiredAt ?? null,
         );

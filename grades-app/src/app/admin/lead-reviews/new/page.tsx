@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
+import { avatarSrc } from '@/lib/avatar';
 import NewLeadReviewForm from './NewLeadReviewForm';
 
 /**
@@ -34,7 +35,8 @@ export default async function NewLeadReviewPage({
         id: target.id,
         fullName: target.fullName,
         role: target.role,
-        avatarUrl: target.avatarUrl,
+        // Ссылка /api/avatar, а не data URL (lib/avatar)
+        avatarUrl: avatarSrc(target),
       }}
     />
   );

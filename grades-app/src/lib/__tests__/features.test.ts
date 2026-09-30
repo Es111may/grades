@@ -144,4 +144,25 @@ describe('данные страницы', () => {
     expect(new Set(ids(UPDATES)).size).toBe(UPDATES.length);
     expect(new Set(ids(SECTIONS)).size).toBe(SECTIONS.length);
   });
+
+  it('«Что нового» — сверху новое, даты YYYY-MM-DD', () => {
+    for (const x of UPDATES) expect(x.date, x.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const dates = UPDATES.map((x) => x.date);
+    expect(dates).toEqual([...dates].sort().reverse());
+  });
+
+  it('пункт адресован только тем, кому видна сама запись', () => {
+    // Иначе пункт для роли, которой запись не показывается, не увидит никто,
+    // кроме админа
+    for (const x of UPDATES) {
+      for (const d of x.details) {
+        for (const r of d.roles ?? []) expect(x.roles.includes(r), `${x.id}: ${d.text}`).toBe(true);
+      }
+    }
+    for (const s of SECTIONS) {
+      for (const i of s.items) {
+        for (const r of i.roles ?? []) expect(s.roles.includes(r), `${s.id}: ${i.title}`).toBe(true);
+      }
+    }
+  });
 });

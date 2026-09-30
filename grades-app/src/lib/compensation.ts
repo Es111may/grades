@@ -29,6 +29,8 @@ export type HrLogRow = { date: string; from: number; to: number };
 export type BonusRow = { id: number; amount: number; paidAt: string; note: string | null };
 export type PlannedRaiseInput = {
   setAt: string | null;
+  /** База «что HR уже знал» (plannedRaiseBaseline); null — старый статус. */
+  baselineAt?: string | null;
   at: string | null;
   salary: number | null;
   note: string | null;
@@ -192,18 +194,51 @@ export type PlannedRaiseState = 'none' | 'active' | 'done';
 
 /**
  * Состояние планового пересмотра. «Выполнен» не хранится флагом: он
- * выводится из HR — есть повышение (не стартовая ставка) с датой не раньше
- * постановки статуса. Так же устроена дата грейдирования (lib/gradingPlan).
+ * выводится из HR — появилось повышение (не стартовая ставка), которого
+ * не было при постановке статуса. Так же устроена дата грейдирования
+ * (lib/gradingPlan).
+ *
+ * У журнала HR нет даты внесения записи — только дата вступления в силу, и
+ * HR часто вносит повышение позже «с 1-го». Поэтому «новое» считаем не от
+ * даты постановки, а от базы (`baselineAt`) — даты последнего повышения,
+ * которое HR уже знал, когда статус ставили (plannedRaiseBaseline):
+ * выполнен, если есть повышение строго позже неё — даже задним числом.
+ * Старые статусы без базы (и поставленные без HR) — по прежнему правилу:
+ * повышение с датой не раньше постановки.
  */
 export function plannedRaiseState(
-  planned: Pick<PlannedRaiseInput, 'setAt'>,
+  planned: Pick<PlannedRaiseInput, 'setAt' | 'baselineAt'>,
   log: HrLogRow[],
   hiredAt: string | null,
 ): PlannedRaiseState {
   if (!planned.setAt) return 'none';
+  const raises = planRaises(log, hiredAt);
+  if (typeof planned.baselineAt === 'string') {
+    const known = day(planned.baselineAt);
+    return raises.some((r) => r.date > known) ? 'done' : 'active';
+  }
   const since = day(planned.setAt);
-  const raised = planRaises(log, hiredAt).some((r) => r.date >= since);
-  return raised ? 'done' : 'active';
+  return raises.some((r) => r.date >= since) ? 'done' : 'active';
+}
+
+/**
+ * База, когда повышений в журнале нет: любое повышение будет новым. Нужна
+ * именно дата, а не null, — null значит «базы нет» и прежнее правило по дате
+ * постановки, а оно пропустило бы первое повышение, внесённое задним числом.
+ */
+export const NO_RAISES_BASELINE = '1970-01-01';
+
+/**
+ * База для нового статуса — дата последнего повышения в журнале HR (включая
+ * будущее, уже внесённое «с 1-го»: оно закрыло прежний статус и не должно
+ * сразу закрыть новый). Повышений нет — NO_RAISES_BASELINE. Считать только
+ * по данным HR; если HR недоступен или человека там нет, базу не ставим
+ * (null) — чем она окажется, неизвестно.
+ */
+export function plannedRaiseBaseline(log: HrLogRow[], hiredAt: string | null): string {
+  const raises = planRaises(log, hiredAt);
+  // Журнал отсортирован по возрастанию — последнее повышение в конце
+  return raises.length ? raises[raises.length - 1].date : NO_RAISES_BASELINE;
 }
 
 /** Повышения, которые закрывают плановый пересмотр: без стартовой ставки. */
@@ -212,28 +247,14 @@ function planRaises(log: HrLogRow[], hiredAt: string | null): HrLogRow[] {
 }
 
 /**
- * PUT планового пересмотра: начать новый статус (новая отметка постановки)
+ * PUT планового пересмотра: начать новый статус (новые отметка и база)
  * или уточнить текущий. Новый — если статуса нет, прежний уже выполнен
- * (от старой отметки новый сразу выглядел бы выполненным) или клиент явно
+ * (со старой базой новый сразу выглядел бы выполненным) или клиент явно
  * начинает новый (fresh). state = null — HR недоступен и выполнен ли
  * прежний, неизвестно: без fresh уточняем текущий.
  */
 export function shouldRestartPlan(state: PlannedRaiseState | null, fresh = false): boolean {
   return fresh || state === 'none' || state === 'done';
-}
-
-/**
- * Отметка постановки нового статуса. Обычно — сейчас. Но повышение, которое
- * уже есть в HR с датой от сегодня и позже (оформили заранее, «с 1-го»),
- * закрыло прежний статус и не должно сразу закрыть новый: тогда отметка —
- * начало следующего за ним дня (UTC, как и сравнение в plannedRaiseState).
- */
-export function plannedRaiseStartAt(now: Date, log: HrLogRow[], hiredAt: string | null): Date {
-  const today = now.toISOString().slice(0, 10);
-  const ahead = planRaises(log, hiredAt).filter((r) => r.date >= today);
-  // Журнал отсортирован по возрастанию — последнее повышение в конце
-  const last = ahead[ahead.length - 1];
-  return last ? new Date(`${addDays(last.date, 1)}T00:00:00Z`) : now;
 }
 
 /** Изменение «было → стало» в процентах; null, если «было» нет (ставка с нуля). */

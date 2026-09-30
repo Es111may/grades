@@ -7,6 +7,7 @@
 
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { avatarSrc } from '@/lib/avatar';
 import { calcGrade, type SkillSnapshot, type ScoreInput, type GradeThreshold } from '@/lib/grade';
 import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
@@ -43,6 +44,9 @@ export const PORTRAIT_DESIGNER_SELECT = {
   id: true,
   email: true,
   role: true,
+  // active + employmentType — для isGradable (кнопка «К форме оценки»)
+  active: true,
+  employmentType: true,
   leadId: true,
   stardizId: true,
   fullName: true,
@@ -278,7 +282,8 @@ export async function loadPortraitData(
     assessmentId: assessment.id,
     designer: {
       fullName: designer.fullName,
-      avatarUrl: designer.avatarUrl,
+      // Ссылка /api/avatar, а не data URL (lib/avatar) — крупно, в шапке портрета
+      avatarUrl: avatarSrc(designer, 256),
       buildCode: (designer.build?.code as BuildCode) ?? null,
       buildName: designer.build?.name ?? '—',
       department: designer.department,

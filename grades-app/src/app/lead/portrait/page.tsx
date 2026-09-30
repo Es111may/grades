@@ -9,6 +9,8 @@ import { findPortraitDesigner, loadPortraitData } from '@/lib/portrait';
 import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
 import { PAGE_BUDGET_MS, withTimeout } from '@/lib/perfCache';
 import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
+import { canGradeDesigner } from '@/lib/permissions';
+import { isGradable } from '@/lib/employment';
 import { getNineBoxTitle, getTeamGrowthMedian } from '@/lib/teamMetrics';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
@@ -84,6 +86,13 @@ export default async function LeadPortraitPage({
 
   if (result.kind === 'not_found') redirect('/admin/users');
 
+  // Звать к форме оценки — только если её откроют: человек грейдируется
+  // (не почасовщик, активен, дизайнер/стардиз) и зритель вправе его
+  // оценивать. Иначе /lead/assess вернёт назад или скажет «не грейдируется».
+  // Те же условия — у кнопок «Продолжить черновик» и «Новый цикл» в hero.
+  const gradable = isGradable(designer);
+  const canAssess = gradable && canGradeDesigner(user, designer);
+
   if (result.kind === 'no_assessment') {
     return (
       <main className="max-w-[1240px] mx-auto px-8 pt-8 pb-16">
@@ -103,12 +112,22 @@ export default async function LeadPortraitPage({
           <div className="font-display text-2xl font-medium tracking-tight mb-2">
             Оценка не опубликована
           </div>
-          <p className="text-stone mb-6">
-            Чтобы увидеть портрет — заполни и опубликуй первую оценку.
-          </p>
-          <Link href={`/lead/assess?id=${designerId}`} className="btn-accent">
-            К форме оценки
-          </Link>
+          {canAssess ? (
+            <>
+              <p className="text-stone mb-6">
+                Чтобы увидеть портрет — заполни и опубликуй первую оценку.
+              </p>
+              <Link href={`/lead/assess?id=${designerId}`} className="btn-accent">
+                К форме оценки
+              </Link>
+            </>
+          ) : (
+            <p className="text-stone">
+              {gradable
+                ? 'Оценку проводит лид или стардиз этого человека.'
+                : 'Сейчас не грейдируется — форма оценки недоступна.'}
+            </p>
+          )}
         </div>
         {result.designer.gradeFloor && (
           <div className="bg-lime-light/60 border border-lime/30 rounded-card p-5 mt-5">
@@ -153,6 +172,7 @@ export default async function LeadPortraitPage({
             designerId={designerId}
             publishedAssessmentId={result.data.assessmentId}
             hasDraft={!!draft}
+            canAssess={canAssess}
           />
         }
         siblingHrefPrefix={`/lead/portrait?id=${designerId}&assessmentId=`}

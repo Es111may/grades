@@ -10,6 +10,7 @@ import {
   canAssignAdminRole,
   canChangeLead,
   canDeactivateUser,
+  canEditOwnProfile,
   canEditUser,
   canManageUsers,
 } from '@/lib/permissions';
@@ -17,14 +18,24 @@ import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType } from '@/lib/employment';
 import { DISMISSAL_TYPES, canEditDismissal } from '@/lib/dismissal';
 import { userForViewer } from '@/lib/userResponse';
+import { parseAvatarInput } from '@/lib/avatarShared';
 import { AUDIT_ACTIONS } from '@/lib/audit';
 import {
   canHaveGradingDate,
   gradingDateChange,
   mentorError,
   needsDismissalDate,
+  selfEditLockedFields,
   todayMoscowDate,
 } from '@/lib/userUpdate';
+
+/** Связи в ответе PATCH/DELETE — те же, что в строке списка. */
+const USER_RESPONSE_INCLUDE = {
+  build: true,
+  lead: { select: { id: true, fullName: true } },
+  stardiz: { select: { id: true, fullName: true } },
+  nextGradingSetBy: { select: { id: true, fullName: true } },
+} as const;
 
 const updateUserSchema = z.object({
   fullName: z.string().min(1).optional(),
@@ -38,7 +49,9 @@ const updateUserSchema = z.object({
   active: z.boolean().optional(),
   gradeFloor: z.string().nullable().optional(),
   gradeFloorReason: z.string().nullable().optional(),
-  avatarUrl: z.string().max(300_000).nullable().optional(),
+  // data URL новой картинки или null — удалить. Прочие строки (ссылка
+  // /api/avatar из строки списка) не сохраняем — см. parseAvatarInput.
+  avatarUrl: z.string().nullable().optional(),
   // Phase 23.2 — дата ближайшего грейдирования. Права на неё свои (см. ниже):
   // стардиз тоже ставит дату своим, но карточку править не может — для него
   // отдельный PUT /api/users/[id]/grading-date.
@@ -68,7 +81,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const data = parsed.data;
+  const input = parsed.data;
   const existing = await prisma.user.findUnique({ where: { id: userId } });
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -80,12 +93,31 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const viewer = { id: me.id, role: me.role };
   const isAdmin = me.role === 'admin';
 
-  // Лид правит только своих дизайнеров и стардизов (решение Pavel).
-  if (!canEditUser(viewer, existing)) {
+  // Лид правит только своих дизайнеров и стардизов (решение Pavel). Свою
+  // карточку — только имя и аватар: остальное в ней меняет админ.
+  const canEdit = canEditUser(viewer, existing);
+  const selfEdit = !canEdit && canEditOwnProfile(viewer, existing);
+  if (!canEdit && !selfEdit) {
     return NextResponse.json(
       { error: 'Править можно только своих дизайнеров и стардизов' },
       { status: 403 },
     );
+  }
+  if (selfEdit && selfEditLockedFields(input, existing).length > 0) {
+    return NextResponse.json(
+      { error: 'У себя можно поменять только имя и аватар — остальное меняет админ' },
+      { status: 403 },
+    );
+  }
+  // При правке себя дальше идут только имя и аватар: остальные поля совпали
+  // с текущими, и переписывать их (даже тем же значением) незачем.
+  const data: typeof input = selfEdit
+    ? { fullName: input.fullName, avatarUrl: input.avatarUrl }
+    : input;
+
+  const avatar = parseAvatarInput(data.avatarUrl);
+  if (avatar.kind === 'error') {
+    return NextResponse.json({ error: avatar.error }, { status: 400 });
   }
 
   const roleChanged = data.role !== undefined && data.role !== existing.role;
@@ -345,14 +377,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           ...(data.gradeFloorReason !== undefined && {
             gradeFloorReason: data.gradeFloorReason,
           }),
-          ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
+          ...(avatar.kind === 'set' && { avatarUrl: avatar.value }),
         },
-        include: {
-          build: true,
-          lead: { select: { id: true, fullName: true } },
-          stardiz: { select: { id: true, fullName: true } },
-          nextGradingSetBy: { select: { id: true, fullName: true } },
-        },
+        include: USER_RESPONSE_INCLUDE,
       });
       if (audits.length > 0) {
         await tx.auditLog.createMany({
@@ -400,6 +427,10 @@ function dayKey(d: Date | null): string | null {
  *   иначе       — soft-delete (active=false) по canDeactivateUser: лид —
  *                 только своих дизайнеров и стардизов. Заодно ставится дата
  *                 увольнения, если её нет (см. needsDismissalDate).
+ *                 Ответ: { ok, user } — строка через userForViewer, чтобы
+ *                 клиент увидел поставленную сервером дату; dismissedAt
+ *                 дублируем на верхнем уровне для старого клиента
+ *                 (UserCard360 читает его оттуда).
  */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
@@ -567,14 +598,19 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!target) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
-  if (!canDeactivateUser({ id: me.id, role: me.role }, target)) {
+  const viewer = { id: me.id, role: me.role };
+  if (!canDeactivateUser(viewer, target)) {
     return NextResponse.json(
       { error: 'Деактивировать можно только своих дизайнеров и стардизов' },
       { status: 403 },
     );
   }
   if (!target.active) {
-    return NextResponse.json({ ok: true });
+    const current = await prisma.user.findUnique({
+      where: { id: userId },
+      include: USER_RESPONSE_INCLUDE,
+    });
+    return deactivatedResponse(current, viewer);
   }
 
   // Деактивация сама ставит дату увольнения — сегодня по Москве, если даты
@@ -582,10 +618,11 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const autoDismissal = needsDismissalDate(target);
   const dismissedAt = autoDismissal ? todayMoscowDate() : target.dismissedAt;
 
-  await prisma.$transaction([
+  const [updated] = await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },
       data: { active: false, ...(autoDismissal && { dismissedAt }) },
+      include: USER_RESPONSE_INCLUDE,
     }),
     prisma.auditLog.create({
       data: {
@@ -619,7 +656,21 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   ]);
   forgetSessionUser(userId);
 
-  return NextResponse.json({ ok: true });
+  return deactivatedResponse(updated, viewer);
+}
+
+/** Ответ деактивации: строка под зрителя + дата увольнения, если её можно видеть. */
+function deactivatedResponse<T extends { id: number; leadId: number | null }>(
+  user: T | null,
+  viewer: { id: number; role: string },
+) {
+  if (!user) return NextResponse.json({ ok: true });
+  const row = userForViewer(user, viewer) as Partial<T> & { dismissedAt?: Date | null };
+  return NextResponse.json({
+    ok: true,
+    user: row,
+    ...(row.dismissedAt !== undefined && { dismissedAt: row.dismissedAt }),
+  });
 }
 
 const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];

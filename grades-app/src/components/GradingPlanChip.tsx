@@ -1,11 +1,12 @@
 'use client';
 
+import { useId, useState, type KeyboardEvent } from 'react';
 import {
   gradingPlanStatus,
   gradingPlanTone,
   type GradingPlanState,
 } from '@/lib/gradingPlan';
-import { formatDateShort } from '@/lib/dates';
+import { formatDateShort, todayLocalIso } from '@/lib/dates';
 import { CloseIcon, HourglassIcon, TimerIcon } from '@/components/icons';
 import { isHourly } from '@/lib/employment';
 import Tooltip from '@/components/Tooltip';
@@ -25,6 +26,56 @@ const TONE_CLASS: Record<ReturnType<typeof gradingPlanTone>, string> = {
   ok: 'bg-emerald/10 text-emerald border-emerald/15',
   muted: 'bg-ink/5 text-stone border-ink/10',
 };
+
+// Ховер пилюли, которую можно открыть на правку, — тот же тон, плотнее.
+const TONE_HOVER: Record<ReturnType<typeof gradingPlanTone>, string> = {
+  danger: 'hover:bg-blaze/15',
+  warn: 'hover:bg-sunset/15',
+  ok: 'hover:bg-emerald/15',
+  muted: 'hover:bg-ink/10',
+};
+
+/** План грейдирования из ответа PUT /api/users/[id]/grading-date. */
+export type GradingPlanFields = {
+  nextGradingAt: string | null;
+  nextGradingSetAt: string | null;
+  nextGradingSetBy: { id: number; fullName: string } | null;
+};
+
+/**
+ * Поставить (YYYY-MM-DD) или снять (null) дату грейдирования. Отдельный
+ * эндпоинт, а не PATCH карточки: PATCH стардизу закрыт, а дату своим
+ * подопечным он ставить вправе. Ошибку отдаёт готовым текстом: служебные
+ * ответы сервера («Forbidden», «Not found») — по-английски, вместо них
+ * показываем fallback.
+ */
+export async function putGradingDate(
+  userId: number,
+  nextGradingAt: string | null,
+  fallbackError: string,
+): Promise<{ plan: GradingPlanFields } | { error: string }> {
+  try {
+    const res = await fetch(`/api/users/${userId}/grading-date`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nextGradingAt }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const own = typeof j.error === 'string' && /[а-яё]/i.test(j.error);
+      return { error: own ? j.error : fallbackError };
+    }
+    return {
+      plan: {
+        nextGradingAt: j.nextGradingAt ?? null,
+        nextGradingSetAt: j.nextGradingSetAt ?? null,
+        nextGradingSetBy: j.nextGradingSetBy ?? null,
+      },
+    };
+  } catch {
+    return { error: fallbackError };
+  }
+}
 
 /** Короткая подпись состояния — для чипа и для строки в поп-апе. */
 export function gradingPlanLabel(
@@ -98,6 +149,7 @@ export default function GradingPlanChip({
   size = 'sm',
   showLabel = true,
   onClear,
+  onEdit,
   clearing = false,
 }: {
   user: GradingPlanSource;
@@ -109,6 +161,12 @@ export default function GradingPlanChip({
    * тогда в пилюле появляется крестик. Pavel: сбрасывать прямо в поп-апе.
    */
   onClear?: () => void;
+  /**
+   * Правка даты — по клику на пилюлю (права те же, что у onClear). Кнопка
+   * «Изменить» рядом не влезает: «просрочено на 15 дн.» с крестиком уже
+   * занимают почти всю ширину значения в поп-апе.
+   */
+  onEdit?: () => void;
   clearing?: boolean;
 }) {
   const st = gradingPlanStatus({
@@ -128,23 +186,45 @@ export default function GradingPlanChip({
   // Для «проведено» показываем фактическую дату — Pavel: важно видеть, что
   // грейдирование состоялось, и когда именно.
   const shown = st.state === 'done' ? st.completedAt : st.plannedAt;
+  const shownText = shown ? formatDateShort(shown.toISOString()) : '—';
+  // Проведённое — факт, его не правят: следующую дату назначают отдельно.
+  const editable = !!onEdit && st.state !== 'done';
+
+  const body = (
+    <>
+      <span className="tabular-nums">{shownText}</span>
+      {showLabel && <span className="opacity-70">{label}</span>}
+    </>
+  );
 
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-pill border px-2 h-6
                   whitespace-nowrap ${TONE_CLASS[tone]} ${
-                    size === 'md' ? 'text-xs' : 'text-[11px]'
-                  }`}
+                    editable ? `transition-colors ${TONE_HOVER[tone]}` : ''
+                  } ${size === 'md' ? 'text-xs' : 'text-[11px]'}`}
       title={
         st.state === 'done' && st.plannedAt
           ? `План — ${formatDateShort(st.plannedAt.toISOString())}`
           : undefined
       }
     >
-      <span className="tabular-nums">
-        {shown ? formatDateShort(shown.toISOString()) : '—'}
-      </span>
-      {showLabel && <span className="opacity-70">{label}</span>}
+      {editable ? (
+        // Кнопка забирает левый отступ и всю высоту пилюли — хит-зона
+        // от края до крестика
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={clearing}
+          title="Изменить дату"
+          aria-label={`Изменить дату грейдирования: ${shownText}, ${label}`}
+          className="-ml-2 pl-2 self-stretch inline-flex items-center gap-1.5 rounded-l-pill"
+        >
+          {body}
+        </button>
+      ) : (
+        body
+      )}
       {/* Крестик — сброс даты. После проведения грейдирования сбрасывать
           нечего: там уже факт, а не план. */}
       {onClear && st.state !== 'done' && (
@@ -161,6 +241,107 @@ export default function GradingPlanChip({
         </button>
       )}
     </span>
+  );
+}
+
+/**
+ * Инлайн-редактор даты грейдирования — встаёт на место строки в поп-апе 360.
+ * Разметка — как у редактора планового пересмотра (PlannedRow в SalaryBlock).
+ *
+ * Поле без даты по умолчанию: подставленная дата легко уходит в сохранение
+ * незамеченной. min — сегодня по часам браузера (поле тоже браузерное);
+ * вписанную руками прошедшую дату ловим сами — сервер её не запрещает.
+ * Enter сохраняет, Escape отменяет и дальше не всплывает, чтобы поп-ап
+ * не закрылся вместе с редактором.
+ */
+export function GradingDateEditor({
+  userId,
+  initial,
+  onSaved,
+  onCancel,
+}: {
+  userId: number;
+  /** YYYY-MM-DD текущей плановой даты или '' — назначаем новую. */
+  initial: string;
+  onSaved: (plan: GradingPlanFields) => void;
+  onCancel: () => void;
+}) {
+  const inputId = useId();
+  const [value, setValue] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const today = todayLocalIso();
+
+  async function save() {
+    if (busy || !value) return;
+    // Дата та же — сохранять нечего (и просроченная не упрётся в min)
+    if (value === initial) {
+      onCancel();
+      return;
+    }
+    if (value < today) {
+      setErr('Выбери дату не раньше сегодняшней');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    const r = await putGradingDate(userId, value, 'Не удалось сохранить дату');
+    setBusy(false);
+    if ('error' in r) {
+      setErr(r.error);
+      return;
+    }
+    onSaved(r.plan);
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') {
+      // preventDefault — ещё и метка для оконного обработчика поп-апа
+      e.preventDefault();
+      e.stopPropagation();
+      if (!busy) onCancel();
+    } else if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+      // Только из поля: Enter на «Отмене» — её собственный клик
+      e.preventDefault();
+      void save();
+    }
+  }
+
+  return (
+    <div
+      className="rounded-card border border-cloud p-3 flex flex-col gap-2.5"
+      onKeyDown={onKeyDown}
+    >
+      <label htmlFor={inputId} className="text-stone">
+        Грейдирование
+      </label>
+      <input
+        id={inputId}
+        type="date"
+        className="input"
+        min={today}
+        value={value}
+        autoFocus
+        onChange={(e) => {
+          setValue(e.target.value);
+          setErr(null);
+        }}
+      />
+      {err && <p className="text-xs text-blaze">{err}</p>}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={busy || !value}
+          onClick={() => void save()}
+        >
+          Сохранить
+        </button>
+        <button type="button" className="btn-ghost" disabled={busy} onClick={onCancel}>
+          Отмена
+        </button>
+      </div>
+    </div>
   );
 }
 

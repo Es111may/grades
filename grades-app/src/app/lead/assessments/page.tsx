@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { avatarSrc } from '@/lib/avatar';
 import AssessmentsClient, {
   type AssessmentRow,
   type DraftRow,
@@ -40,8 +41,10 @@ export default async function LeadAssessmentsPage() {
 
   // Явный select: списку не нужен snapshot оценки (большой JSON на каждую
   // строку) и полные строки людей — у лида свой аватар и хэш пароля.
+  // Аватар уходит клиенту ссылкой /api/avatar, а не data URL (lib/avatar).
   const designerSelect = {
     select: {
+      id: true,
       fullName: true,
       email: true,
       avatarUrl: true,
@@ -85,7 +88,7 @@ export default async function LeadAssessmentsPage() {
     designerId: a.designerId,
     designerName: a.designer.fullName,
     designerEmail: a.designer.email,
-    designerAvatarUrl: a.designer.avatarUrl,
+    designerAvatarUrl: avatarSrc(a.designer),
     buildCode: a.designer.build?.code ?? null,
     buildName: a.designer.build?.name ?? null,
     department: a.designer.department,
@@ -100,7 +103,7 @@ export default async function LeadAssessmentsPage() {
     designerId: a.designerId,
     designerName: a.designer.fullName,
     designerEmail: a.designer.email,
-    designerAvatarUrl: a.designer.avatarUrl,
+    designerAvatarUrl: avatarSrc(a.designer),
     buildCode: a.designer.build?.code ?? null,
     buildName: a.designer.build?.name ?? null,
     leadName: a.lead?.fullName ?? null,

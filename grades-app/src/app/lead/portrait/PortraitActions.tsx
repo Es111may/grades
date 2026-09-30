@@ -8,10 +8,17 @@ export default function PortraitActions({
   designerId,
   publishedAssessmentId,
   hasDraft,
+  canAssess,
 }: {
   designerId: number;
   publishedAssessmentId: number;
   hasDraft: boolean;
+  /**
+   * Зритель вправе оценивать, а человек грейдируется (page.tsx: isGradable +
+   * canGradeDesigner). Нет — ссылок в форму оценки не даём: /lead/assess
+   * вернёт назад или скажет «не грейдируется».
+   */
+  canAssess: boolean;
 }) {
   const router = useRouter();
   // Двухступенчатое удаление — confirm() в некоторых браузерах
@@ -49,7 +56,7 @@ export default function PortraitActions({
   return (
     // Рендерится внутри hero портрета (слот actions) — по центру под чипами
     <div className="flex items-center justify-center gap-1 flex-wrap">
-      {hasDraft && (
+      {canAssess && hasDraft && (
         <Link
           href={`/lead/assess?id=${designerId}`}
           className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
@@ -62,14 +69,16 @@ export default function PortraitActions({
       {/* «Новый цикл» — всегда создаёт свежий draft поверх опубликованной.
           AssessPage по ?new=1 принудительно создаёт новую assessment, копируя
           scores из последней опубликованной как стартовую точку. */}
-      <Link
-        href={`/lead/assess?id=${designerId}&new=1`}
-        className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
-                   bg-snow/60 backdrop-blur-md border border-cloud/40
-                   hover:bg-snow/80 transition-colors"
-      >
-        Новый цикл
-      </Link>
+      {canAssess && (
+        <Link
+          href={`/lead/assess?id=${designerId}&new=1`}
+          className="inline-flex items-center rounded-pill px-4 h-9 text-sm text-ink
+                     bg-snow/60 backdrop-blur-md border border-cloud/40
+                     hover:bg-snow/80 transition-colors"
+        >
+          Новый цикл
+        </Link>
+      )}
       {!deleteArmed ? (
         <button
           type="button"

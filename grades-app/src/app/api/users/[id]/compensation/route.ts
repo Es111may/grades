@@ -38,6 +38,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       active: true,
       employmentType: true,
       plannedRaiseSetAt: true,
+      plannedRaiseBaselineAt: true,
       plannedRaiseAt: true,
       plannedRaiseSalary: true,
       plannedRaiseNote: true,
@@ -91,7 +92,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const planned = {
     state: plannedRaiseState(
-      { setAt: target.plannedRaiseSetAt?.toISOString() ?? null },
+      {
+        setAt: target.plannedRaiseSetAt?.toISOString() ?? null,
+        baselineAt: target.plannedRaiseBaselineAt?.toISOString() ?? null,
+      },
       hr?.log ?? [],
       hr?.hr?.hiredAt ?? null,
     ),

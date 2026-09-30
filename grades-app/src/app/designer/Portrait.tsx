@@ -1,26 +1,14 @@
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import {
-  Chart as ChartJS,
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  // Alias: имя Tooltip занято нашим UI-компонентом хинтов
-  Tooltip as ChartJsTooltip,
-  Legend,
-} from 'chart.js';
-import { Radar } from 'react-chartjs-2';
 import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon, InfoIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
 import ProjectsField from '@/components/ProjectsField';
-import PerformanceDashboard from '@/components/performance/PerformanceDashboard';
-import ChecklistsSection from '@/components/checklists/ChecklistsSection';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import type { Role } from '@/lib/checklistPermissions';
 import { useTheme, CHART_AXIS } from '@/lib/theme';
@@ -28,9 +16,37 @@ import { useTheme, CHART_AXIS } from '@/lib/theme';
 import { onest } from '@/app/fonts';
 import TitleAurora from '@/components/TitleAurora';
 import Tooltip from '@/components/Tooltip';
-import SalaryCard from '@/components/SalaryCard';
+import {
+  ChecklistsSkeleton,
+  PerformanceSkeleton,
+  RadarSkeleton,
+  SalaryCardSkeleton,
+} from '@/components/Skeletons';
 
-ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartJsTooltip, Legend);
+// Тяжёлые куски портрета — лениво, вне First Load: chart.js (радары и
+// графики перформанса), дашборд перформанса, ИПР и «Зарплата» (SalaryBlock
+// нужен только админу и лиду — дизайнеру его код вообще не приезжает).
+// Все четыре на сервере рисуют лишь состояние загрузки (данные тянут
+// после mount), поэтому ssr: false ничего не теряет: на их месте
+// заглушка той же высоты, код догружается сразу после гидрации.
+const PortraitRadar = dynamic(() => import('./PortraitRadar'), {
+  ssr: false,
+  loading: RadarSkeleton,
+});
+const PerformanceDashboard = dynamic(
+  () => import('@/components/performance/PerformanceDashboard'),
+  { ssr: false, loading: PerformanceSkeleton },
+);
+const ChecklistsSection = dynamic(() => import('@/components/checklists/ChecklistsSection'), {
+  ssr: false,
+  loading: ChecklistsSkeleton,
+});
+// Заглушка — с тем же flex-1, что у карточки в слоте 9-Box (единственное
+// место, где SalaryCard стоит на портрете)
+const SalaryCard = dynamic(() => import('@/components/SalaryCard'), {
+  ssr: false,
+  loading: () => <SalaryCardSkeleton className="flex-1" />,
+});
 
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
 const TAXONOMY_COLOR: Record<string, string> = {
@@ -790,7 +806,7 @@ export default function Portrait({
             </span>
           </div>
           <div style={{ height: 320 }}>
-            <Radar data={chartData} options={chartOptions} />
+            <PortraitRadar data={chartData} options={chartOptions} />
           </div>
         </div>
         <GrowthPanel
@@ -1337,7 +1353,7 @@ function GroupBreakdown({
           height: compact ? 180 : 240,
         }}
       >
-        <Radar data={chartData} options={opts} />
+        <PortraitRadar data={chartData} options={opts} />
       </div>
     </div>
   );

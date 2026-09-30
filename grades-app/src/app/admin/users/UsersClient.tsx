@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, createContext, useContext } from 'react';
+import dynamic from 'next/dynamic';
 import { ChevronDownIcon } from '@/components/icons';
 import SearchInput from '@/components/SearchInput';
-import UserModal from './UserModal';
-import KanbanView from './KanbanView';
-import MatrixView from './MatrixView';
-import UserCard360 from './UserCard360';
 import LeaderboardView from './LeaderboardView';
 import TitleAurora from '@/components/TitleAurora';
+import { KanbanSkeleton, MatrixSkeleton } from '@/components/Skeletons';
 import {
   buildTeamOptions,
   countMentees,
@@ -23,6 +21,50 @@ import { canViewCompensation } from '@/lib/compPermissions';
 import { canViewDismissalDate } from '@/lib/dismissal';
 import { needsDismissalDate, todayMoscowDate } from '@/lib/userUpdate';
 import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
+
+// ─── Ленивые куски страницы ─────────────────────────────────────────────
+// В First Load — только лидерборд (вид по умолчанию). Поп-апы 360 и
+// «Изменить», канбан и 9-Box (с @dnd-kit) — отдельными чанками: их код
+// докачивается в простое после загрузки, а если человек успел раньше —
+// по намерению: ховер/фокус списка, кнопки «Добавить» или вкладки вида.
+
+/** Высота прежнего вида на момент переключения вкладки. Её держит
+ *  скелетон ленивого вида, пока едет код: страница не схлопывается и
+ *  скролл не прыгает. undefined — переключений ещё не было. */
+const PrevViewHeight = createContext<number | undefined>(undefined);
+
+function KanbanLoading() {
+  const minHeight = useContext(PrevViewHeight);
+  return <KanbanSkeleton minHeight={minHeight} />;
+}
+
+function MatrixLoading() {
+  const minHeight = useContext(PrevViewHeight);
+  return <MatrixSkeleton minHeight={minHeight} />;
+}
+
+// Поп-апы до загрузки кода не рисуем вовсе — появляются сразу целиком.
+const UserModal = dynamic(() => import('./UserModal'), { loading: () => null });
+const UserCard360 = dynamic(() => import('./UserCard360'), { loading: () => null });
+const KanbanView = dynamic(() => import('./KanbanView'), { loading: KanbanLoading });
+const MatrixView = dynamic(() => import('./MatrixView'), { loading: MatrixLoading });
+
+/** Загрузка кода заранее — один раз. Повторный import() webpack берёт из
+ *  кэша; если сеть упала, флаг снимаем — следующий ховер попробует снова. */
+function prefetchOnce(load: () => Promise<unknown>) {
+  let started = false;
+  return () => {
+    if (started) return;
+    started = true;
+    load().catch(() => {
+      started = false;
+    });
+  };
+}
+const prefetchUserModal = prefetchOnce(() => import('./UserModal'));
+const prefetchCard360 = prefetchOnce(() => import('./UserCard360'));
+const prefetchKanban = prefetchOnce(() => import('./KanbanView'));
+const prefetchMatrix = prefetchOnce(() => import('./MatrixView'));
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -134,6 +176,12 @@ type ViewMode =
   | 'kanban-grade'
   | 'matrix';
 
+/** Код вида по вкладке заранее. Канбан один на три группировки. */
+function prefetchView(key: ViewMode) {
+  if (key === 'matrix') prefetchMatrix();
+  else if (key !== 'leaderboard') prefetchKanban();
+}
+
 type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
 /**
  * Подиум топ-3 над таблицей временно скрыт (Pavel 29.09.2026): все — просто
@@ -177,6 +225,39 @@ export default function UsersClient({
   const [isNew, setIsNew] = useState(false);
   const [view, setView] = useState<ViewMode>('leaderboard');
   const [card360User, setCard360User] = useState<UserRow | null>(null);
+  // Контейнер текущего вида и его высота на момент переключения — для
+  // скелетона ленивого вида (см. PrevViewHeight)
+  const viewRef = useRef<HTMLDivElement | null>(null);
+  const [prevViewHeight, setPrevViewHeight] = useState<number | undefined>(undefined);
+
+  function switchView(next: ViewMode) {
+    if (next === view) return;
+    setPrevViewHeight(viewRef.current?.offsetHeight);
+    setView(next);
+  }
+
+  // В простое после загрузки докачиваем код того, что этой роли доступно
+  // (модалка и 9-Box — только админу и лиду). Клик не ждёт сети, а вкладка,
+  // открытая до деплоя, не ловит ChunkLoadError: чанков старой сборки на
+  // сервере после выкладки уже нет. First Load это не утяжеляет.
+  useEffect(() => {
+    const manage = meRole === 'admin' || meRole === 'lead';
+    const run = () => {
+      prefetchCard360();
+      prefetchKanban();
+      if (manage) {
+        prefetchUserModal();
+        prefetchMatrix();
+      }
+    };
+    // Safari requestIdleCallback не умеет — там просто таймер
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(run, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const t = setTimeout(run, 1500);
+    return () => clearTimeout(t);
+  }, [meRole]);
 
   // Свитчер «Все/Мои» виден только админу и лиду. Стардиз и так видит
   // только своих (фильтр на сервере), дизайнеры сюда не попадают.
@@ -379,7 +460,10 @@ export default function UsersClient({
           ] as Array<[ViewMode, string]>).map(([key, label]) => (
             <button
               key={key}
-              onClick={() => setView(key)}
+              onClick={() => switchView(key)}
+              // Ховер/фокус вкладки — начинаем качать код вида до клика
+              onPointerEnter={() => prefetchView(key)}
+              onFocus={() => prefetchView(key)}
               className={`segmented-item ${view === key ? 'segmented-item-active' : ''}`}
             >
               {label}
@@ -397,6 +481,8 @@ export default function UsersClient({
         {(meRole === 'admin' || meRole === 'lead') && (
           <button
             onClick={openNew}
+            onPointerEnter={prefetchUserModal}
+            onFocus={prefetchUserModal}
             className="btn-accent h-10 py-0 shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
                        hover:-translate-y-px hover:shadow-[0_0_34px_rgb(var(--lime-glow-rgb)_/_0.3)]"
           >
@@ -407,41 +493,51 @@ export default function UsersClient({
 
       {/* key={view} — при переключении вкладки контейнер пересоздаётся, и
           новый контент плавно «въезжает» (fade-up). Лёгкий переход между
-          представлениями вместо резкой подмены. */}
-      <div key={view} className="animate-fade-up">
-        {view === 'matrix' ? (
-          <MatrixView users={filtered} />
-        ) : view === 'leaderboard' ? (
-          <LeaderboardView
-            users={filtered}
-            gradeThresholds={gradeThresholds}
-            onRowClick={open360}
-            teamStats={scoped.stats}
-            nineBox={scoped.nineBox}
-            attention={scoped.attention}
-            searching={search.trim().length > 0}
-            showPodium={PODIUM_ENABLED && meRole !== 'stardiz'}
-            showSalary={meRole === 'admin'}
-            includeStardiz={meRole !== 'stardiz'}
-          />
-        ) : (
-          <KanbanView
-            users={filtered}
-            leads={leads}
-            groupBy={
-              view === 'kanban-dept'
-                ? 'department'
-                : view === 'kanban-lead'
-                  ? 'lead'
-                  : 'grade'
-            }
-            meId={meId}
-            meRole={meRole}
-            onCardClick={(u) => open360(u as UserRow)}
-            onMoved={(u) => mergeRow(u as UserRow)}
-          />
-        )}
-      </div>
+          представлениями вместо резкой подмены.
+          Ховер/фокус списка — намерение открыть человека: подтягиваем код
+          поп-апа 360, чтобы по клику он открылся без ожидания. */}
+      <PrevViewHeight.Provider value={prevViewHeight}>
+        <div
+          key={view}
+          ref={viewRef}
+          className="animate-fade-up"
+          onPointerOver={prefetchCard360}
+          onFocus={prefetchCard360}
+        >
+          {view === 'matrix' ? (
+            <MatrixView users={filtered} />
+          ) : view === 'leaderboard' ? (
+            <LeaderboardView
+              users={filtered}
+              gradeThresholds={gradeThresholds}
+              onRowClick={open360}
+              teamStats={scoped.stats}
+              nineBox={scoped.nineBox}
+              attention={scoped.attention}
+              searching={search.trim().length > 0}
+              showPodium={PODIUM_ENABLED && meRole !== 'stardiz'}
+              showSalary={meRole === 'admin'}
+              includeStardiz={meRole !== 'stardiz'}
+            />
+          ) : (
+            <KanbanView
+              users={filtered}
+              leads={leads}
+              groupBy={
+                view === 'kanban-dept'
+                  ? 'department'
+                  : view === 'kanban-lead'
+                    ? 'lead'
+                    : 'grade'
+              }
+              meId={meId}
+              meRole={meRole}
+              onCardClick={(u) => open360(u as UserRow)}
+              onMoved={(u) => mergeRow(u as UserRow)}
+            />
+          )}
+        </div>
+      </PrevViewHeight.Provider>
 
       {modalOpen && (
         <UserModal

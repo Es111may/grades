@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
+import { avatarSrc } from '@/lib/avatar';
 import Avatar from '@/components/Avatar';
 import Link from 'next/link';
 
@@ -69,7 +70,7 @@ export default async function LeadReviewsLandingPage({
       </div>
 
       <div className="flex items-center gap-4 mb-8">
-        <Avatar name={target.fullName} avatarUrl={target.avatarUrl} size={64} />
+        <Avatar name={target.fullName} avatarUrl={avatarSrc(target)} size={64} />
         <div>
           <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
             {target.fullName}

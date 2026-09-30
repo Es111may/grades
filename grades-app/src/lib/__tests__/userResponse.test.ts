@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { userForViewer } from '../userResponse';
+import { avatarVersion } from '../avatar';
 
 // Выдуманная запись: ни имён, ни реальных сумм
 const row = {
@@ -18,6 +19,8 @@ const row = {
   plannedRaiseSalary: 100_000,
   plannedRaiseNote: 'после проекта',
   plannedRaiseSetById: 10,
+  plannedRaiseBaselineAt: new Date('2026-07-01'),
+  avatarUrl: 'data:image/jpeg;base64,AAAA',
 };
 
 const admin = { id: 1, role: 'admin' };
@@ -55,6 +58,7 @@ describe('userForViewer', () => {
       'plannedRaiseSalary',
       'plannedRaiseNote',
       'plannedRaiseSetById',
+      'plannedRaiseBaselineAt',
     ]) {
       expect(r).not.toHaveProperty(k);
     }
@@ -76,5 +80,18 @@ describe('userForViewer', () => {
     expect(r.active).toBe(false);
     expect(row.passwordHash).toBe('$2a$10$fake');
     expect(row.dismissalType).toBe('voluntary');
+  });
+
+  it('аватар — ссылкой /api/avatar, без base64', () => {
+    for (const me of [admin, ownLead, stardiz, null]) {
+      expect(userForViewer(row, me).avatarUrl).toBe(
+        `/api/avatar/7?v=${avatarVersion(row.avatarUrl)}&s=96`,
+      );
+    }
+    expect(row.avatarUrl).toMatch(/^data:/);
+  });
+
+  it('нет аватара — null', () => {
+    expect(userForViewer({ ...row, avatarUrl: null }, admin).avatarUrl).toBeNull();
   });
 });

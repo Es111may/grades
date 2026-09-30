@@ -6,7 +6,12 @@ import { EditIcon, CloseIcon } from '@/components/icons';
 import { formatDateShort, todayLocalIso } from '@/lib/dates';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType } from '@/lib/employment';
-import { canChangeLead, canDeactivateUser } from '@/lib/permissions';
+import {
+  canChangeLead,
+  canDeactivateUser,
+  canEditOwnProfile,
+  canEditUser,
+} from '@/lib/permissions';
 import {
   DISMISSAL_TYPES,
   DISMISSAL_TYPE_LABELS,
@@ -40,6 +45,7 @@ type UserData = {
   active: boolean;
   gradeFloor: string | null;
   gradeFloorReason: string | null;
+  /** Ссылка /api/avatar из строки списка (не data URL). */
   avatarUrl?: string | null;
   // Phase 23.2 — план грейдирования
   nextGradingAt?: string | null;
@@ -176,6 +182,12 @@ export default function UserModal({
   const handingOff =
     meRole === 'lead' && !!user && user.leadId === meId && form.leadId !== user.leadId;
   const canDeactivate = !isNew && !!user && canDeactivateUser(me, user);
+  // Лид в своей карточке: правит только имя и аватар (lib/permissions →
+  // canEditOwnProfile), остальные поля видны, но заблокированы. Сервер
+  // проверяет то же самое.
+  const profileOnly =
+    !isNew && !!user && !canEditUser(me, user) && canEditOwnProfile(me, user);
+  const lockedCls = profileOnly ? 'disabled:opacity-50 disabled:cursor-not-allowed' : '';
 
   // Дата увольнения подставлена автоматически при выключении «Активен».
   // Если админ передумал и включил обратно — убираем подстановку, чтобы не
@@ -185,7 +197,11 @@ export default function UserModal({
   const [floorEnabled, setFloorEnabled] = useState(!!user?.gradeFloor);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
+  // В строке — ссылка /api/avatar. Серверу шлём аватар, только если его
+  // сменили (data URL) или удалили (null): ссылку сервер бы и не сохранил.
+  const initialAvatarUrl = user?.avatarUrl ?? null;
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
+  const avatarChanged = avatarUrl !== initialAvatarUrl;
   const [avatarBusy, setAvatarBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -260,10 +276,11 @@ export default function UserModal({
   }
 
   const loadNotes = useCallback(async () => {
-    if (!user?.id) return;
+    // Заметки о себе лиду не показываем — они для тех, кто ведёт человека
+    if (!user?.id || profileOnly) return;
     const res = await fetch(`/api/users/${user.id}/notes`);
     if (res.ok) setNotes(await res.json());
-  }, [user?.id]);
+  }, [user?.id, profileOnly]);
 
   useEffect(() => {
     loadNotes();
@@ -309,42 +326,45 @@ export default function UserModal({
     setSaving(true);
     setError('');
 
-    const payload = {
-      fullName: form.fullName.trim(),
-      email: form.email.trim(),
-      role: form.role,
-      buildId: hasBuild ? form.buildId : null,
-      department: form.department || null,
-      // Лид может быть и у дизайнера, и у стардиза (стардизы тоже грейдируются).
-      leadId:
-        form.role === 'designer' || form.role === 'stardiz' ? form.leadId : null,
-      stardizId: form.role === 'designer' ? form.stardizId : null,
-      hiredAt: form.hiredAt || null,
-      active: form.active,
-      gradeFloor: floorEnabled && form.gradeFloor ? form.gradeFloor : null,
-      gradeFloorReason:
-        floorEnabled && form.gradeFloor ? form.gradeFloorReason || null : null,
-      avatarUrl,
-      // Дату грейдирования отправляем только для грейдируемых ролей. Если поле
-      // не показывали, значение равно исходному — сервер увидит «не менялось»
-      // и не будет проверять права (см. api/users/[id]).
-      ...(form.role === 'designer' || form.role === 'stardiz'
-        ? { nextGradingAt: form.nextGradingAt || null }
-        : {}),
-      // Формат занятости: у дизайнера — из формы (не меняли — значение равно
-      // исходному, и сервер права не проверяет), у остальных — всегда штатный.
-      employmentType,
-      // Увольнение — только от админа: лиду сервер ответит 403 на само
-      // присутствие полей. Скрытые поля шлём как есть — значения не теряются,
-      // если человек снова стал активным.
-      ...(canDismiss
-        ? {
-            dismissedAt: form.dismissedAt || null,
-            dismissalType: form.dismissalType || null,
-            dismissalReason: form.dismissalReason.trim() || null,
-          }
-        : {}),
-    };
+    const avatarPart = avatarChanged ? { avatarUrl } : {};
+    const payload = profileOnly
+      ? { fullName: form.fullName.trim(), ...avatarPart }
+      : {
+          fullName: form.fullName.trim(),
+          email: form.email.trim(),
+          role: form.role,
+          buildId: hasBuild ? form.buildId : null,
+          department: form.department || null,
+          // Лид может быть и у дизайнера, и у стардиза (стардизы тоже грейдируются).
+          leadId:
+            form.role === 'designer' || form.role === 'stardiz' ? form.leadId : null,
+          stardizId: form.role === 'designer' ? form.stardizId : null,
+          hiredAt: form.hiredAt || null,
+          active: form.active,
+          gradeFloor: floorEnabled && form.gradeFloor ? form.gradeFloor : null,
+          gradeFloorReason:
+            floorEnabled && form.gradeFloor ? form.gradeFloorReason || null : null,
+          ...avatarPart,
+          // Дату грейдирования отправляем только для грейдируемых ролей. Если поле
+          // не показывали, значение равно исходному — сервер увидит «не менялось»
+          // и не будет проверять права (см. api/users/[id]).
+          ...(form.role === 'designer' || form.role === 'stardiz'
+            ? { nextGradingAt: form.nextGradingAt || null }
+            : {}),
+          // Формат занятости: у дизайнера — из формы (не меняли — значение равно
+          // исходному, и сервер права не проверяет), у остальных — всегда штатный.
+          employmentType,
+          // Увольнение — только от админа: лиду сервер ответит 403 на само
+          // присутствие полей. Скрытые поля шлём как есть — значения не теряются,
+          // если человек снова стал активным.
+          ...(canDismiss
+            ? {
+                dismissedAt: form.dismissedAt || null,
+                dismissalType: form.dismissalType || null,
+                dismissalReason: form.dismissalReason.trim() || null,
+              }
+            : {}),
+        };
 
     const url = isNew ? '/api/users' : `/api/users/${user!.id}`;
     const method = isNew ? 'POST' : 'PATCH';
@@ -522,6 +542,11 @@ export default function UserModal({
             <div className="text-xs  text-stone mb-3">
               Основное
             </div>
+            {profileOnly && (
+              <p className="text-xs text-stone -mt-1.5 mb-3">
+                У себя можно поменять имя и аватар — остальное меняет админ
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-stone mb-1.5">ФИО</label>
@@ -534,7 +559,8 @@ export default function UserModal({
               <div>
                 <label className="block text-xs text-stone mb-1.5">Email</label>
                 <input
-                  className="input"
+                  className={`input ${lockedCls}`}
+                  disabled={profileOnly}
                   value={form.email}
                   onChange={(e) => set('email', e.target.value)}
                 />
@@ -542,7 +568,8 @@ export default function UserModal({
               <div>
                 <label className="block text-xs text-stone mb-1.5">Роль</label>
                 <select
-                  className="input"
+                  className={`input ${lockedCls}`}
+                  disabled={profileOnly}
                   value={form.role}
                   onChange={(e) => set('role', e.target.value)}
                 >
@@ -561,7 +588,8 @@ export default function UserModal({
                 <div>
                   <label className="block text-xs text-stone mb-1.5">Билд</label>
                   <select
-                    className="input"
+                    className={`input ${lockedCls}`}
+                    disabled={profileOnly}
                     value={form.buildId ?? ''}
                     onChange={(e) =>
                       set('buildId', e.target.value ? Number(e.target.value) : null)
@@ -579,7 +607,8 @@ export default function UserModal({
               <div>
                 <label className="block text-xs text-stone mb-1.5">Отдел</label>
                 <select
-                  className="input"
+                  className={`input ${lockedCls}`}
+                  disabled={profileOnly}
                   value={form.department ?? ''}
                   onChange={(e) => set('department', e.target.value)}
                 >
@@ -595,7 +624,8 @@ export default function UserModal({
                 <div>
                   <label className="block text-xs text-stone mb-1.5">Лид</label>
                   <select
-                    className="input"
+                    className={`input ${lockedCls}`}
+                    disabled={profileOnly}
                     value={form.leadId ?? ''}
                     onChange={(e) =>
                       set('leadId', e.target.value ? Number(e.target.value) : null)
@@ -624,7 +654,8 @@ export default function UserModal({
                     <span className="text-ash">(дополнительный наставник)</span>
                   </label>
                   <select
-                    className="input"
+                    className={`input ${lockedCls}`}
+                    disabled={profileOnly}
                     value={form.stardizId ?? ''}
                     onChange={(e) =>
                       set('stardizId', e.target.value ? Number(e.target.value) : null)
@@ -645,7 +676,8 @@ export default function UserModal({
                 <label className="block text-xs text-stone mb-1.5">Дата найма</label>
                 <input
                   type="date"
-                  className="input"
+                  className={`input ${lockedCls}`}
+                  disabled={profileOnly}
                   value={form.hiredAt}
                   onChange={(e) => set('hiredAt', e.target.value)}
                 />
@@ -680,7 +712,12 @@ export default function UserModal({
               <div>
                 <label className="block text-xs text-stone mb-1.5">Активен</label>
                 <div className="flex items-center gap-3 pt-2.5">
-                  <Switch on={form.active} onToggle={toggleActive} label="Активен" />
+                  <Switch
+                    on={form.active}
+                    onToggle={toggleActive}
+                    label="Активен"
+                    disabled={profileOnly}
+                  />
                   <span className="text-sm">
                     {form.active ? 'Учётка активна' : 'Деактивирован'}
                   </span>
@@ -773,6 +810,7 @@ export default function UserModal({
               </div>
               <Switch
                 on={floorEnabled}
+                disabled={profileOnly}
                 onToggle={() => {
                   setFloorEnabled(!floorEnabled);
                   if (floorEnabled) {
@@ -790,7 +828,7 @@ export default function UserModal({
                 </label>
                 <select
                   className="input disabled:opacity-50"
-                  disabled={!floorEnabled}
+                  disabled={!floorEnabled || profileOnly}
                   value={form.gradeFloor}
                   onChange={(e) => set('gradeFloor', e.target.value)}
                 >
@@ -807,7 +845,7 @@ export default function UserModal({
                 </label>
                 <input
                   className="input disabled:opacity-50"
-                  disabled={!floorEnabled}
+                  disabled={!floorEnabled || profileOnly}
                   placeholder="Например: переход со старой системы"
                   value={form.gradeFloorReason}
                   onChange={(e) => set('gradeFloorReason', e.target.value)}
@@ -854,8 +892,8 @@ export default function UserModal({
             </div>
           </section>
 
-          {/* Notes */}
-          {!isNew && (
+          {/* Notes — не в своей карточке */}
+          {!isNew && !profileOnly && (
             <section>
               <div className="text-xs  text-stone mb-3">
                 Заметка по дизайнеру
@@ -1116,10 +1154,12 @@ function Switch({
   on,
   onToggle,
   label,
+  disabled = false,
 }: {
   on: boolean;
   onToggle: () => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -1128,7 +1168,8 @@ function Switch({
       aria-checked={on}
       aria-label={label}
       onClick={onToggle}
-      className={`relative w-9 h-5 rounded-full transition-colors ${
+      disabled={disabled}
+      className={`relative w-9 h-5 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
         on ? 'bg-emerald' : 'bg-cloud'
       }`}
     >

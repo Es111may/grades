@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { avatarSrc } from '@/lib/avatar';
 import UserMenu from './UserMenu';
 import HeaderNav from './HeaderNav';
 import BrandLogo from './BrandLogo';
@@ -12,7 +13,8 @@ type NavItem = { href: string; label: string };
  * Шапка приложения. user.fullName/role приходят из JWT-сессии и могут
  * быть устаревшими (правки админа не отражаются в сессии до релогина),
  * поэтому актуальные fullName + avatarUrl подтягиваем из БД при каждом
- * SSR-рендере страницы.
+ * SSR-рендере страницы. Аватар отдаём ссылкой /api/avatar (lib/avatar): data
+ * URL уходил в HTML и RSC каждой страницы.
  */
 export default async function AppHeader({
   user,
@@ -31,7 +33,7 @@ export default async function AppHeader({
     });
     if (fresh) {
       fullName = fresh.fullName;
-      avatarUrl = fresh.avatarUrl;
+      avatarUrl = avatarSrc({ id: user.id, avatarUrl: fresh.avatarUrl });
     }
   }
 

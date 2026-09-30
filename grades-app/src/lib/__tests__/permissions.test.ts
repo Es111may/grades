@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   canChangeLead,
   canDeactivateUser,
+  canEditOwnProfile,
   canEditUser,
   canViewUserDetails,
 } from '../permissions';
@@ -107,5 +108,26 @@ describe('canViewUserDetails', () => {
   });
   it('без сессии — нет', () => {
     expect(canViewUserDetails(null, target)).toBe(false);
+  });
+});
+
+describe('canEditOwnProfile', () => {
+  it('лид и админ — свою карточку', () => {
+    expect(canEditOwnProfile(lead, { id: 10 })).toBe(true);
+    expect(canEditOwnProfile(admin, { id: 1 })).toBe(true);
+  });
+  it('лиду свою карточку canEditUser не открывает — поэтому и нужен этот хелпер', () => {
+    expect(canEditUser(lead, { id: 10, role: 'lead', leadId: null })).toBe(false);
+  });
+  it('чужую — нет', () => {
+    expect(canEditOwnProfile(lead, { id: 11 })).toBe(false);
+    expect(canEditOwnProfile(lead, myDesigner)).toBe(false);
+  });
+  it('стардиз и дизайнер модалку «Изменить» не открывают — нет', () => {
+    expect(canEditOwnProfile(stardiz, { id: 20 })).toBe(false);
+    expect(canEditOwnProfile(designer, { id: 30 })).toBe(false);
+  });
+  it('без сессии — нет', () => {
+    expect(canEditOwnProfile(null, { id: 10 })).toBe(false);
   });
 });

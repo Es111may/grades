@@ -4,6 +4,7 @@ import {
   gradingDateChange,
   mentorError,
   needsDismissalDate,
+  selfEditLockedFields,
   todayMoscowDate,
 } from '../userUpdate';
 
@@ -122,5 +123,84 @@ describe('mentorError', () => {
   });
   it('у нового человека id нет — проверяется только роль', () => {
     expect(mentorError('lead', lead)).toBeNull();
+  });
+});
+
+describe('selfEditLockedFields — лид правит свою карточку', () => {
+  // Выдуманная строка лида в БД
+  const me = {
+    id: 10,
+    fullName: 'Тест Лидов',
+    email: 'lead@example.com',
+    role: 'lead',
+    buildId: null,
+    department: 'Криэйт',
+    leadId: null,
+    stardizId: null,
+    hiredAt: d('2024-03-01T00:00:00.000Z'),
+    active: true,
+    gradeFloor: null,
+    gradeFloorReason: null,
+    avatarUrl: 'data:image/jpeg;base64,AAAA',
+    nextGradingAt: null,
+    employmentType: 'staff',
+    dismissedAt: null,
+    dismissalType: null,
+    dismissalReason: null,
+  };
+
+  it('имя и аватар — можно', () => {
+    expect(
+      selfEditLockedFields({ fullName: 'Новое Имя', avatarUrl: 'data:image/jpeg;base64,BBBB' }, me),
+    ).toEqual([]);
+    expect(selfEditLockedFields({ avatarUrl: null }, me)).toEqual([]);
+  });
+
+  it('карточка целиком с теми же значениями — не правка', () => {
+    expect(
+      selfEditLockedFields(
+        {
+          fullName: 'Новое Имя',
+          email: 'LEAD@example.com',
+          role: 'lead',
+          buildId: null,
+          department: 'Криэйт',
+          leadId: null,
+          stardizId: null,
+          hiredAt: '2024-03-01',
+          active: true,
+          gradeFloor: null,
+          gradeFloorReason: null,
+          employmentType: 'staff',
+        },
+        me,
+      ),
+    ).toEqual([]);
+  });
+
+  it('пустая строка — то же, что пусто', () => {
+    expect(selfEditLockedFields({ department: '' }, { ...me, department: null })).toEqual([]);
+  });
+
+  it('любое другое изменённое поле — нельзя', () => {
+    expect(selfEditLockedFields({ role: 'admin' }, me)).toEqual(['role']);
+    expect(selfEditLockedFields({ email: 'other@example.com' }, me)).toEqual(['email']);
+    expect(selfEditLockedFields({ department: 'Инхаус' }, me)).toEqual(['department']);
+    expect(selfEditLockedFields({ leadId: 11 }, me)).toEqual(['leadId']);
+    expect(selfEditLockedFields({ active: false }, me)).toEqual(['active']);
+    expect(selfEditLockedFields({ hiredAt: '2024-03-02' }, me)).toEqual(['hiredAt']);
+    expect(selfEditLockedFields({ gradeFloor: 'senior' }, me)).toEqual(['gradeFloor']);
+    expect(selfEditLockedFields({ nextGradingAt: '2026-10-15' }, me)).toEqual(['nextGradingAt']);
+    expect(selfEditLockedFields({ dismissalType: 'voluntary' }, me)).toEqual(['dismissalType']);
+  });
+
+  it('несколько полей — все в списке, имя с ними не прячется', () => {
+    expect(
+      selfEditLockedFields({ fullName: 'X', role: 'admin', active: false }, me).sort(),
+    ).toEqual(['active', 'role']);
+  });
+
+  it('кривая дата — считается правкой', () => {
+    expect(selfEditLockedFields({ hiredAt: 'не дата' }, me)).toEqual(['hiredAt']);
   });
 });

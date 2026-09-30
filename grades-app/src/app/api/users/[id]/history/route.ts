@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { canViewUserDetails } from '@/lib/permissions';
 import type { LeadReviewAggregates } from '@/lib/leadSurvey';
 
 /**
@@ -11,11 +12,8 @@ import type { LeadReviewAggregates } from '@/lib/leadSurvey';
  * Возвращает историю оценок пользователя — Assessment'ы для дизайнера,
  * LeadReview'ы для лида/стардиза. Используется лениво в UserCard360.
  *
- * Права:
- *   - сам пользователь (targetId === me.id) — всегда.
- *   - admin — всегда.
- *   - lead — если target.leadId === me.id.
- *   - stardiz — если target.stardizId === me.id или target.leadId === me.id.
+ * Права — общие canViewUserDetails (те же, кто открывает портрет): сам
+ * человек, админ, его лид и стардиз.
  */
 export async function GET(
   _req: NextRequest,
@@ -39,14 +37,7 @@ export async function GET(
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const isSelf = targetId === me.id;
-  const canView =
-    isSelf ||
-    me.role === 'admin' ||
-    (me.role === 'lead' && target.leadId === me.id) ||
-    (me.role === 'stardiz' &&
-      (target.stardizId === me.id || target.leadId === me.id));
-  if (!canView) {
+  if (!canViewUserDetails({ id: me.id, role: me.role }, target)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

@@ -12,6 +12,7 @@ import {
 import { canSetEmploymentType } from '@/lib/employment';
 import { DISMISSAL_TYPES, canEditDismissal } from '@/lib/dismissal';
 import { userForViewer } from '@/lib/userResponse';
+import { parseAvatarInput } from '@/lib/avatarShared';
 import { mentorError } from '@/lib/userUpdate';
 
 const createUserSchema = z.object({
@@ -26,8 +27,9 @@ const createUserSchema = z.object({
   active: z.boolean().optional(),
   gradeFloor: z.string().nullable().optional(),
   gradeFloorReason: z.string().nullable().optional(),
-  // Аватар как data URL — ресайзим на клиенте до 256×256, ограничение ~200KB.
-  avatarUrl: z.string().max(300_000).nullable().optional(),
+  // Аватар как data URL — ресайзим на клиенте до 256×256 (~17 КБ). Предел и
+  // что делать с не-data URL — parseAvatarInput (lib/avatarShared).
+  avatarUrl: z.string().nullable().optional(),
   // Phase 23.4 — почасовщик. Права — отдельно, см. canSetEmploymentType.
   employmentType: z.enum(['staff', 'hourly']).optional(),
   // Phase 23.4 — увольнение (например, почасовщик, выведенный из штата).
@@ -142,6 +144,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Некорректная дата найма' }, { status: 400 });
   }
 
+  const avatar = parseAvatarInput(data.avatarUrl);
+  if (avatar.kind === 'error') {
+    return NextResponse.json({ error: avatar.error }, { status: 400 });
+  }
+
   const existing = await prisma.user.findUnique({
     where: { email: data.email.toLowerCase() },
   });
@@ -165,7 +172,7 @@ export async function POST(req: NextRequest) {
         active: data.active ?? true,
         gradeFloor: data.gradeFloor ?? null,
         gradeFloorReason: data.gradeFloorReason ?? null,
-        avatarUrl: data.avatarUrl ?? null,
+        avatarUrl: avatar.kind === 'set' ? avatar.value : null,
         employmentType: hourly ? 'hourly' : 'staff',
         dismissedAt,
         dismissalType: data.dismissalType ?? null,

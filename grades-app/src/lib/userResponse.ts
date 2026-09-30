@@ -6,10 +6,15 @@
 //   • дата увольнения — только админу и лиду, тип и причина — только админу
 //     (lib/dismissal);
 //   • плановый пересмотр з/п — тем, кому можно видеть деньги этого человека
-//     (lib/compPermissions). Премии — отдельная таблица, в строку не входят.
+//     (lib/compPermissions). Премии — отдельная таблица, в строку не входят;
+//   • аватар — ссылкой /api/avatar вместо data URL (lib/avatar): ответ
+//     сливается в строку списка, и base64 не должен туда вернуться.
+//
+// Только для сервера: lib/avatar тянет node:crypto.
 
 import { canViewCompensation } from './compPermissions';
 import { canViewDismissalDate, canViewDismissalStatus } from './dismissal';
+import { avatarSrc } from './avatar';
 
 type Viewer = { id: number; role: string } | null;
 
@@ -19,6 +24,7 @@ const PLANNED_RAISE_KEYS = [
   'plannedRaiseSalary',
   'plannedRaiseNote',
   'plannedRaiseSetById',
+  'plannedRaiseBaselineAt',
 ] as const;
 
 export function userForViewer<T extends { id: number; leadId: number | null }>(
@@ -34,6 +40,9 @@ export function userForViewer<T extends { id: number; leadId: number | null }>(
   }
   if (!canViewCompensation(me, user)) {
     for (const k of PLANNED_RAISE_KEYS) delete out[k];
+  }
+  if (typeof out.avatarUrl === 'string') {
+    out.avatarUrl = avatarSrc({ id: user.id, avatarUrl: out.avatarUrl });
   }
   return out as Partial<T>;
 }

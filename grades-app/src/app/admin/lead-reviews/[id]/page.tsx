@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { redirect, notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
+import { avatarSrc } from '@/lib/avatar';
 import { canCreateChecklistFor } from '@/lib/checklistPermissions';
 import type { LeadReviewAggregates } from '@/lib/leadSurvey';
 import LeadReviewView from './LeadReviewView';
@@ -114,7 +115,11 @@ export default async function LeadReviewPage({
             }
           : null
       }
-      target={review.targetUser}
+      // Аватар — ссылкой /api/avatar, а не data URL (lib/avatar)
+      target={{
+        ...review.targetUser,
+        avatarUrl: avatarSrc(review.targetUser, 256),
+      }}
       siblings={allReviews.map((r) => ({
         id: r.id,
         period: r.period,

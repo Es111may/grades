@@ -1,8 +1,12 @@
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { canGradeDesigner } from '@/lib/permissions';
+import { avatarSrc } from '@/lib/avatar';
+import { isGradable, isHourly } from '@/lib/employment';
 import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import { currentCycle } from '@/lib/cycle';
@@ -32,14 +36,19 @@ export default async function AssessPage({
     include: { build: true },
   });
 
-  if (!designer || !designer.build) redirect('/admin/users');
+  if (!designer) redirect('/admin/users');
 
-  // lead/stardiz могут оценивать только своих подопечных. admin — всех.
-  if (user.role === 'lead' || user.role === 'stardiz') {
-    const isMine =
-      designer.leadId === user.id || designer.stardizId === user.id;
-    if (!isMine) redirect('/admin/users');
+  // Права и грейдируемость — те же хелперы, что у API оценок: иначе страница
+  // создала бы черновик, а сохранение баллов и публикация упёрлись бы в
+  // 403/400. Кто оценивает: admin — всех, лид — своих (leadId), стардиз —
+  // своих подопечных (lib/permissions). Чужого — назад в команду.
+  if (!canGradeDesigner(user, designer)) redirect('/admin/users');
+  // Почасовщика и неактивного не грейдируют: черновик не создаём и старый
+  // не открываем — баллы в нём всё равно не сохранить. Объясняем, почему.
+  if (!isGradable(designer)) {
+    return <NotGradable fullName={designer.fullName} reason={notGradableReason(designer)} />;
   }
+  if (!designer.build) redirect('/admin/users');
 
   const buildCode = designer.build.code as BuildCode;
 
@@ -208,7 +217,8 @@ export default async function AssessPage({
       designer={{
         id: designer.id,
         fullName: designer.fullName,
-        avatarUrl: designer.avatarUrl,
+        // Ссылка на /api/avatar, а не data URL: он раздувал HTML страницы
+        avatarUrl: avatarSrc(designer, 256),
         buildCode,
         buildName: designer.build.name,
         department: designer.department,
@@ -225,5 +235,39 @@ export default async function AssessPage({
       selfBySkill={selfBySkill}
       evidencesBySkill={evidencesBySkill}
     />
+  );
+}
+
+/** Почему человека не грейдируют — для экрана вместо формы. */
+function notGradableReason(u: { role: string; active: boolean; employmentType: string | null }): string {
+  if (!u.active) return 'Учётка неактивна, а неактивных не грейдируют.';
+  if (isHourly(u)) return 'Это почасовщик — у почасовщиков нет оценок и дат грейдирования.';
+  return 'Грейдируют только дизайнеров и стардизов.';
+}
+
+function NotGradable({ fullName, reason }: { fullName: string; reason: string }) {
+  return (
+    <main className="max-w-[1240px] mx-auto px-8 pt-8 pb-16">
+      <div className="text-xs text-stone mb-3">
+        <Link href="/admin/users" className="hover:text-ink transition-colors">
+          Команда
+        </Link>
+        <span className="text-ash mx-1.5">/</span>
+        <span>{fullName}</span>
+      </div>
+      <div className="mb-8">
+        <h1 className="font-display text-4xl font-medium tracking-tight mb-2">{fullName}</h1>
+      </div>
+      <div className="card p-10 text-center">
+        <div className="font-display text-2xl font-medium tracking-tight mb-2">
+          Оценку не заполнить
+        </div>
+        <p className="text-stone mb-6">{reason}</p>
+        {/* В команду, а не на портрет: портрет без оценок сам ведёт сюда */}
+        <Link href="/admin/users" className="btn-secondary">
+          К команде
+        </Link>
+      </div>
+    </main>
   );
 }
