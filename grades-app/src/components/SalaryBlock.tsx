@@ -381,13 +381,19 @@ export default function SalaryBlock({
       </div>
       {view?.state === 'ok' && data && (
         /* Раскрытие — grid-rows 0fr → 1fr: переход прерываемый, высоту
-           знать не нужно. -mt-3 гасит gap-3 родителя, пока панель свёрнута;
-           -mx-2/px-2 — запас, чтобы overflow-hidden не резал обводку фокуса.
-           Сама история — на подложке (Pavel): края — по краям строк выше,
-           внутри 8px со всех сторон, без линий между записями. Подложка —
+           знать не нужно. -mt-3 гасит gap-3 родителя, пока панель свёрнута.
+           Сама история — на подложке (Pavel): подложка выходит из колонки
+           строк и стоит в 8px от краёв поп-апа, текст внутри — ровно по
+           колонке строк выше. Обе оболочки (поп-ап 360 и поп-ап «Зарплата»
+           в SalaryCard) дают телу px-6, поэтому: обрезка раскрытия — -mx-6
+           до краёв поп-апа, px-2 — те 8px; у подложки px-4 (24 − 8)
+           возвращает текст в колонку. Обрезка до самых краёв, а не по
+           подложке, — чтобы не резать обводку фокуса и хит-зону «×» (см.
+           HistoryList). Сменится паддинг оболочки — менять и здесь.
+           Сверху и снизу 12px, без линий между записями. Подложка —
            bg-canvas, вложенная поверхность из токенов: читается в обеих
-           темах. Радиус 12px: концентричный поп-апу (26 − 24) вышел бы 2px,
-           а 12 — уже принятый радиус вложенных плашек. */
+           темах. Радиус 12px: концентричный поп-апу (26 − 8) вышел бы 18px
+           и спорил бы с плашками, а 12 — уже принятый радиус вложенных. */
         <div
           ref={historyPanelRef}
           id={historyId}
@@ -398,9 +404,9 @@ export default function SalaryBlock({
             if (e.target === e.currentTarget && !historyOpen) setAddingBonus(false);
           }}
         >
-          <div className="min-h-0 overflow-hidden -mx-2 px-2">
+          <div className="min-h-0 overflow-hidden -mx-6 px-2">
             <div className="pt-3">
-              <div className="rounded-[12px] bg-canvas p-2 flex flex-col gap-4">
+              <div className="rounded-[12px] bg-canvas px-4 py-3 flex flex-col gap-4">
                 {bonusForm}
                 {showList && (
                   <HistoryList events={events} onRemoveBonus={canBonus ? removeBonus : undefined} />
@@ -724,7 +730,8 @@ function HistoryToggle({
  * события за несколько лет — подпись года перед группой, в строках «1 мар.».
  * Стоит на подложке: линий между записями нет, шаг строк — 12px, как у
  * строк поп-апа; поля по краям даёт подложка, у самого списка их нет —
- * даты начинаются ровно от её внутреннего отступа.
+ * даты начинаются от лейблов строк выше, суммы кончаются по их значениям.
+ * Колонки под «×» нет: он — в правом поле подложки (см. ниже).
  */
 function HistoryList({
   events,
@@ -740,17 +747,13 @@ function HistoryList({
   const groups = groupEventsByYear(events);
   const byYear = groups.length > 1;
   return (
-    <div
-      className={`grid gap-x-4 gap-y-2 ${
-        onRemoveBonus ? 'grid-cols-[auto_1fr_auto_auto]' : 'grid-cols-[auto_1fr_auto]'
-      }`}
-    >
+    <div className="grid grid-cols-[auto_1fr_auto] gap-x-4 gap-y-2">
       {groups.map((g, gi) => (
         <HistoryGroup key={g.year} year={byYear ? g.year : null} first={gi === 0}>
           {g.events.map((e, i) => (
             <li
               key={`${e.kind}-${e.date}-${i}`}
-              className="col-span-full grid grid-cols-subgrid items-baseline"
+              className="group/row relative col-span-full grid grid-cols-subgrid items-baseline"
             >
               <span className="text-stone tabular-nums whitespace-nowrap">
                 {byYear ? formatDayMonth(e.date) : formatDateShort(e.date)}
@@ -780,16 +783,23 @@ function HistoryList({
                   tys(e.to)
                 )}
               </span>
-              {/* Видимый «×» — 20px в своей колонке (суммы не сдвигаются),
-                  хит-зона 32px — псевдоэлементом, без влияния на сетку */}
+              {/* «×» ширины у сетки не берёт: absolute сразу за краем строки,
+                  в правом поле подложки (16px), по центру первой строки
+                  (top 2px: 16px в строке 20px). Виден при наведении на
+                  строку и по фокусу с клавиатуры; где наведения нет (тач) —
+                  всегда. Хит-зона 24×32 — псевдоэлементом: на сумму не
+                  заходит (удаление без подтверждения — промах по сумме не
+                  должен удалять премию), 8px уходит в зазор до края поп-апа. */}
               {onRemoveBonus && e.kind === 'bonus' && (
                 <button
                   type="button"
                   onClick={() => onRemoveBonus(e.id)}
                   aria-label={`Удалить премию от ${formatDateShort(e.date)}`}
-                  className="relative self-start -ml-1 w-5 h-5 flex items-center justify-center rounded-full
-                             text-ash hover:text-blaze transition-colors
-                             before:absolute before:-inset-1.5 before:content-['']"
+                  className="absolute left-full top-0.5 w-4 h-4 flex items-center justify-center rounded-full
+                             text-ash hover:text-blaze opacity-0 group-hover/row:opacity-100
+                             focus-visible:opacity-100 [@media(hover:none)]:opacity-100
+                             transition-[color,opacity] duration-150 ease-out
+                             before:absolute before:-inset-y-2 before:left-0 before:-right-2 before:content-['']"
                 >
                   <CloseIcon className="w-3.5 h-3.5" />
                 </button>
