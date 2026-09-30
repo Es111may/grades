@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { signIn } from 'next-auth/react';
 import Avatar from '@/components/Avatar';
 import { CloseIcon, CoinsIcon } from '@/components/icons';
@@ -434,6 +434,31 @@ export default function UserCard360({
     }
   }
 
+  // ---------- Секции поп-апа (Pavel, 30.09.2026) ----------
+  // Секцию без строк для этого зрителя не рисуем — ни заголовка, ни линии.
+  // Линия стоит перед секцией, если выше есть видимая секция. «Зарплату»
+  // прячет глаз в шапке — CSS, без перерисовки, — поэтому её линии живут
+  // внутри неё: сверху — если выше «Команда»; если выше пусто, а ниже
+  // что-то есть — снизу. Тогда при скрытых зарплатах нет ни двойной линии,
+  // ни линии над пустотой.
+  const showDismissalDateRow = seeDismissalDate && (!!dismissedAt || seeDismissalStatus);
+  const hasTeam =
+    !!user.lead || !!user.stardiz || !!user.hiredAt || showDismissalDateRow || seeDismissalStatus;
+  const showGradingRow =
+    (user.role === 'designer' || user.role === 'stardiz') &&
+    !isHourly(user) &&
+    (!!user.nextGradingAt || canEditGrading);
+  const showSelfRow = user.role === 'designer' && !!selfInfo && selfInfo.count > 0;
+  const showTrend = !!history && history.assessments.length > 0 && user.role !== 'admin';
+  const trendPoints =
+    showTrend && history ? [...history.assessments].reverse().map((a) => a.totalXp ?? 0) : [];
+  // TrendSparkline рисует от двух точек
+  const hasTrendChart = trendPoints.length >= 2;
+  const hasGrading = showGradingRow || showSelfRow || showTrend;
+  const showNotes = canSeeNotes && notes.length > 0;
+  const showLeadReviews = isLeadOrStardiz && !!history && history.leadReviews.length > 0;
+  const afterSalary = hasGrading || showNotes || showLeadReviews;
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16 pb-10">
       {/* Затемнение без blur. backdrop-blur здесь был на весь экран и сэмплил
@@ -443,8 +468,10 @@ export default function UserCard360({
           60-процентным чёрным двухпиксельный блюр почти не читался, так что
           внешне потеря незаметна. */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      {/* Каркас Pavel (12.07.2026): hero по центру с авророй → мета
-          «лейбл—значение» → график роста → действия текстом + меню «⋯». */}
+      {/* Каркас Pavel (12.07.2026, секции — 30.09.2026): hero по центру с
+          авророй → секции «лейбл—значение» (Команда · Зарплата ·
+          Грейдирование с графиком роста) → заметки → действия текстом +
+          меню «⋯». */}
       <div className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg flex flex-col max-h-[calc(100dvh-104px)]">
         <div className="overflow-hidden rounded-modal flex flex-col min-h-0">
           {/* Скролл живёт внутри попапа (overscroll-contain — фон не
@@ -534,237 +561,254 @@ export default function UserCard360({
             </div>
           </div>
 
-          {/* ---------- Мета: лейбл слева, значение справа ---------- */}
-          <div className="px-6 pt-[60px] pb-5 flex flex-col gap-3 text-sm">
-            {user.lead && (
-              <div className="flex items-center gap-3">
-                <span className="text-stone">Лид</span>
-                <span className="ml-auto text-ink text-right">{user.lead.fullName}</span>
-              </div>
-            )}
-            {user.stardiz && (
-              <div className="flex items-center gap-3">
-                <span className="text-stone">Стардиз</span>
-                <span className="ml-auto text-ink text-right">{user.stardiz.fullName}</span>
-              </div>
-            )}
-            {user.hiredAt && (
-              <div className="flex items-center gap-3">
-                <span className="text-stone">Дата найма</span>
-                <span className="ml-auto text-ink text-right">
-                  {formatDate(user.hiredAt)}
-                  {tenure && <span className="text-stone"> · {tenure}</span>}
-                </span>
-              </div>
-            )}
-            {/* Без даты: админу — «не указана» (заполнит в «Изменить»),
-                лиду строку не показываем. */}
-            {seeDismissalDate && (dismissedAt || seeDismissalStatus) && (
-              <div className="flex items-center gap-3">
-                <span className="text-stone">Дата увольнения</span>
-                <span className="ml-auto text-right">
-                  {dismissedAt ? (
-                    <span className="text-ink">{formatDate(dismissedAt)}</span>
-                  ) : (
-                    <span className="text-ash">не указана</span>
-                  )}
-                </span>
-              </div>
-            )}
-            {seeDismissalStatus && (
-              <div className="flex items-baseline gap-3">
-                <span className="text-stone shrink-0">Статус</span>
-                <span className="ml-auto text-right min-w-0 break-words">
-                  {isDismissalType(user.dismissalType) ? (
-                    <span className="text-ink">{DISMISSAL_TYPE_LABELS[user.dismissalType]}</span>
-                  ) : !user.dismissalReason ? (
-                    <span className="text-ash">не указан</span>
-                  ) : null}
-                  {user.dismissalReason && (
-                    <span
-                      className={
-                        isDismissalType(user.dismissalType)
-                          ? 'block text-xs text-stone mt-0.5'
-                          : 'text-ink'
-                      }
-                    >
-                      {user.dismissalReason}
-                    </span>
-                  )}
-                </span>
-              </div>
-            )}
-            {/* Phase 23.2 — план грейдирования. Показываем для грейдируемых
-                ролей; чип сам решает тон (просрочено / подходит / проведено).
-                Без даты строка есть только у тех, кто может её назначить. */}
-            {(user.role === 'designer' || user.role === 'stardiz') &&
-              !isHourly(user) &&
-              (user.nextGradingAt || canEditGrading) &&
-              (gradingEditing && canEditGrading ? (
-                <GradingDateEditor
-                  userId={user.id}
-                  initial={gradingInitial}
-                  onSaved={gradingSaved}
-                  onCancel={() => setGradingEditing(false)}
-                />
-              ) : (
-                <div ref={gradingRowRef}>
+          {/* ---------- Секции: Команда · Зарплата · Грейдирование ----------
+              Pavel (30.09.2026): информация — секциями с моно-заголовком,
+              как у «Заметок»; между секциями линия с воздухом по 20px, строки
+              внутри — прежний шаг 12px. Какие секции и линии есть — см.
+              hasTeam / hasGrading выше. pt-10 + заголовок с отступом 12px:
+              первая строка — там же, где была при прежних 60px. */}
+          <div className="px-6 pt-10 pb-5 text-sm">
+            {hasTeam && (
+              <PopupSection title="Команда">
+                {user.lead && (
                   <div className="flex items-center gap-3">
-                    <span className="text-stone">Грейдирование</span>
-                    <span className="ml-auto flex items-center gap-3">
-                      {user.nextGradingAt && (
-                        <GradingPlanChip
-                          user={user}
-                          size="md"
-                          onClear={canSetGrading ? clearGradingDate : undefined}
-                          onEdit={
-                            canEditGrading
-                              ? () => openGradingEditor(user.nextGradingAt?.slice(0, 10) ?? '')
-                              : undefined
-                          }
-                          clearing={clearingGrading}
-                        />
-                      )}
-                      {/* Хит-зона 32px по высоте, строка остаётся в 24px;
-                          -mx-2 гасит поля — текст ровно по краю значений */}
-                      {canAssignGrading && (
-                        <button
-                          type="button"
-                          onClick={() => openGradingEditor('')}
-                          className="-my-1.5 -mx-2 h-8 px-2 text-xs text-stone hover:text-ink
-                                     transition-colors"
-                        >
-                          Назначить
-                        </button>
+                    <span className="text-stone">Лид</span>
+                    <span className="ml-auto text-ink text-right">{user.lead.fullName}</span>
+                  </div>
+                )}
+                {user.stardiz && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-stone">Стардиз</span>
+                    <span className="ml-auto text-ink text-right">{user.stardiz.fullName}</span>
+                  </div>
+                )}
+                {user.hiredAt && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-stone">Дата найма</span>
+                    <span className="ml-auto text-ink text-right">
+                      {formatDate(user.hiredAt)}
+                      {tenure && <span className="text-stone"> · {tenure}</span>}
+                    </span>
+                  </div>
+                )}
+                {/* Без даты: админу — «Не указана» (заполнит в «Изменить»),
+                    лиду строку не показываем. */}
+                {showDismissalDateRow && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-stone">Дата увольнения</span>
+                    <span className="ml-auto text-right">
+                      {dismissedAt ? (
+                        <span className="text-ink">{formatDate(dismissedAt)}</span>
+                      ) : (
+                        <span className="text-ash">Не указана</span>
                       )}
                     </span>
                   </div>
-                  {gradingErr && (
-                    <p className="text-xs text-blaze text-right mt-1">{gradingErr}</p>
-                  )}
-                </div>
-              ))}
-            {user.role === 'designer' && selfInfo && selfInfo.count > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-stone">Самооценка</span>
-                <span className="ml-auto text-ink text-right">
-                  {selfInfo.count}{' '}
-                  {plural(selfInfo.count, ['навык', 'навыка', 'навыков'])}
-                  {selfInfo.last && (
-                    <span className="text-stone"> · {formatDate(selfInfo.last)}</span>
-                  )}
-                </span>
-              </div>
-            )}
-            {canViewComp && (
-              <SalaryBlock
-                userId={user.id}
-                variant="popup"
-                source={comp}
-                editSignal={planSignal}
-                bonusSignal={bonusSignal}
-                onPlannedChange={(p) => onPlannedRaiseChange(user.id, p)}
-                onBonusReadyChange={setBonusReady}
-              />
-            )}
-          </div>
-
-          {/* ---------- График роста + последняя оценка ---------- */}
-          {history && history.assessments.length > 0 && user.role !== 'admin' && (
-            <>
-            {/* Разделитель — по ширине текстовых блоков, не в края */}
-            <div className="mx-6 h-px bg-cloud" />
-            <div className="px-6 pt-8 pb-7">
-              <TrendSparkline
-                points={[...history.assessments].reverse().map((a) => a.totalXp ?? 0)}
-                height={110}
-              />
-              <div className="flex items-baseline gap-2.5 mt-4 text-sm">
-                <span className="font-medium">
-                  {lastA?.effectiveGrade
-                    ? GRADE_NAMES[lastA.effectiveGrade] ?? lastA.effectiveGrade
-                    : '—'}
-                </span>
-                <span className="text-stone tabular-nums">
-                  {lastA?.totalXp ?? 0} XP
-                </span>
-                {lastDelta !== null && lastDelta !== 0 && (
-                  <span
-                    className={`font-medium tabular-nums ${
-                      lastDelta > 0 ? 'text-emerald' : 'text-blaze'
-                    }`}
-                  >
-                    {lastDelta > 0 ? '+' : ''}
-                    {lastDelta}
-                  </span>
                 )}
-                <span className="ml-auto text-stone text-sm tabular-nums">
-                  {formatDate(lastA?.publishedAt ?? null)}
-                </span>
-              </div>
-            </div>
-            </>
-          )}
-
-          {/* Заметки по дизайнеру — приватные (admin/lead), с удалением */}
-          {canSeeNotes && notes.length > 0 && (
-            <>
-              <div className="mx-6 h-px bg-cloud" />
-              <div className="px-6 pt-6 pb-5">
-                <div className="label-mono text-stone mb-3">Заметки</div>
-                <div className="space-y-2.5">
-                  {notes.map((n) => (
-                    <div
-                      key={n.id}
-                      className="bg-canvas border border-cloud rounded-card p-3.5 relative group"
-                    >
-                      {(meRole === 'admin' || n.authorId === meId) && (
-                        <button
-                          type="button"
-                          onClick={() => deleteNote(n.id)}
-                          className="absolute top-2 right-2 w-6 h-6 rounded-pill
-                                     flex items-center justify-center text-ash
-                                     hover:text-blaze hover:bg-blaze/10
-                                     opacity-0 group-hover:opacity-100 transition-all"
-                          aria-label="Удалить заметку"
+                {seeDismissalStatus && (
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-stone shrink-0">Статус</span>
+                    <span className="ml-auto text-right min-w-0 break-words">
+                      {isDismissalType(user.dismissalType) ? (
+                        <span className="text-ink">{DISMISSAL_TYPE_LABELS[user.dismissalType]}</span>
+                      ) : !user.dismissalReason ? (
+                        <span className="text-ash">Не указан</span>
+                      ) : null}
+                      {user.dismissalReason && (
+                        <span
+                          className={
+                            isDismissalType(user.dismissalType)
+                              ? 'block text-xs text-stone mt-0.5'
+                              : 'text-ink'
+                          }
                         >
-                          ×
-                        </button>
+                          {user.dismissalReason}
+                        </span>
                       )}
-                      <div className="text-sm whitespace-pre-wrap leading-relaxed pr-6">
-                        {n.text}
+                    </span>
+                  </div>
+                )}
+              </PopupSection>
+            )}
+
+            {/* Зарплата — только тем, кто видит деньги. Глаз в шапке прячет
+                секцию целиком (salary-sensitive), вместе с её линиями. Первая
+                строка блока — «Ставка»: «Зарплата» теперь заголовок. */}
+            {canViewComp && (
+              <div className="salary-sensitive">
+                {hasTeam && <SectionDivider />}
+                <PopupSection title="Зарплата">
+                  <SalaryBlock
+                    userId={user.id}
+                    variant="popup"
+                    source={comp}
+                    label="Ставка"
+                    editSignal={planSignal}
+                    bonusSignal={bonusSignal}
+                    onPlannedChange={(p) => onPlannedRaiseChange(user.id, p)}
+                    onBonusReadyChange={setBonusReady}
+                  />
+                </PopupSection>
+                {!hasTeam && afterSalary && <SectionDivider />}
+              </div>
+            )}
+
+            {hasGrading && (
+              <>
+                {hasTeam && <SectionDivider />}
+                <PopupSection title="Грейдирование">
+                  {/* Phase 23.2 — план грейдирования. Показываем для
+                      грейдируемых ролей; чип сам решает тон (просрочено /
+                      подходит / проведено). Без даты строка есть только у
+                      тех, кто может её назначить. */}
+                  {showGradingRow &&
+                    (gradingEditing && canEditGrading ? (
+                      <GradingDateEditor
+                        userId={user.id}
+                        initial={gradingInitial}
+                        onSaved={gradingSaved}
+                        onCancel={() => setGradingEditing(false)}
+                      />
+                    ) : (
+                      <div ref={gradingRowRef}>
+                        <div className="flex items-center gap-3">
+                          <span className="text-stone">Грейдирование</span>
+                          <span className="ml-auto flex items-center gap-3">
+                            {user.nextGradingAt && (
+                              <GradingPlanChip
+                                user={user}
+                                size="md"
+                                onClear={canSetGrading ? clearGradingDate : undefined}
+                                onEdit={
+                                  canEditGrading
+                                    ? () => openGradingEditor(user.nextGradingAt?.slice(0, 10) ?? '')
+                                    : undefined
+                                }
+                                clearing={clearingGrading}
+                              />
+                            )}
+                            {/* Хит-зона 32px по высоте, строка остаётся в 24px;
+                                -mx-2 гасит поля — текст ровно по краю значений */}
+                            {canAssignGrading && (
+                              <button
+                                type="button"
+                                onClick={() => openGradingEditor('')}
+                                className="-my-1.5 -mx-2 h-8 px-2 text-xs text-stone hover:text-ink
+                                           transition-colors"
+                              >
+                                Назначить
+                              </button>
+                            )}
+                          </span>
+                        </div>
+                        {gradingErr && (
+                          <p className="text-xs text-blaze text-right mt-1">{gradingErr}</p>
+                        )}
                       </div>
-                      <div className="text-xs text-stone mt-1.5">
-                        {n.author.fullName} · {formatDate(n.createdAt)}
+                    ))}
+                  {showSelfRow && selfInfo && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-stone">Самооценка</span>
+                      <span className="ml-auto text-ink text-right">
+                        {selfInfo.count}{' '}
+                        {plural(selfInfo.count, ['навык', 'навыка', 'навыков'])}
+                        {selfInfo.last && (
+                          <span className="text-stone"> · {formatDate(selfInfo.last)}</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  {/* График роста + последняя оценка. Над графиком — 20px
+                      от строк (pt-2 к шагу 12px); без строк выше — вплотную
+                      к заголовку. Точка одна — графика нет, подпись встаёт
+                      обычной строкой. */}
+                  {showTrend && (
+                    <div className={hasTrendChart ? 'pt-2 first:pt-0' : undefined}>
+                      <TrendSparkline points={trendPoints} height={110} />
+                      <div className={`flex items-baseline gap-2.5 ${hasTrendChart ? 'mt-4' : ''}`}>
+                        <span className="font-medium">
+                          {lastA?.effectiveGrade
+                            ? GRADE_NAMES[lastA.effectiveGrade] ?? lastA.effectiveGrade
+                            : '—'}
+                        </span>
+                        <span className="text-stone tabular-nums">
+                          {lastA?.totalXp ?? 0} XP
+                        </span>
+                        {lastDelta !== null && lastDelta !== 0 && (
+                          <span
+                            className={`font-medium tabular-nums ${
+                              lastDelta > 0 ? 'text-emerald' : 'text-blaze'
+                            }`}
+                          >
+                            {lastDelta > 0 ? '+' : ''}
+                            {lastDelta}
+                          </span>
+                        )}
+                        <span className="ml-auto text-stone tabular-nums">
+                          {formatDate(lastA?.publishedAt ?? null)}
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
+                  )}
+                </PopupSection>
+              </>
+            )}
 
-          {/* 360-опросы (лид/стардиз): график eNPS + список циклов.
-              Хронология — по дате из строки периода (importedAt врёт для
-              исторических импортов). */}
-          {isLeadOrStardiz && history && history.leadReviews.length > 0 && (() => {
-            const sorted = [...history.leadReviews].sort((a, b) => {
-              const da =
-                parsePeriodDate(a.period)?.getTime() ??
-                new Date(a.importedAt).getTime();
-              const db =
-                parsePeriodDate(b.period)?.getTime() ??
-                new Date(b.importedAt).getTime();
-              return db - da; // свежие сверху
-            });
-            const points = [...sorted]
-              .reverse()
-              .map((r) => r.enps)
-              .filter((v): v is number => v !== null);
-            return (
+            {/* Заметки по дизайнеру — приватные (admin/lead), с удалением */}
+            {showNotes && (
               <>
-                <div className="mx-6 h-px bg-cloud" />
-                <div className="px-6 pt-8 pb-7">
+                {(hasTeam || hasGrading) && <SectionDivider />}
+                <PopupSection title="Заметки">
+                  <div className="space-y-2.5">
+                    {notes.map((n) => (
+                      <div
+                        key={n.id}
+                        className="bg-canvas border border-cloud rounded-card p-3.5 relative group"
+                      >
+                        {(meRole === 'admin' || n.authorId === meId) && (
+                          <button
+                            type="button"
+                            onClick={() => deleteNote(n.id)}
+                            className="absolute top-2 right-2 w-6 h-6 rounded-pill
+                                       flex items-center justify-center text-ash
+                                       hover:text-blaze hover:bg-blaze/10
+                                       opacity-0 group-hover:opacity-100 transition-all"
+                            aria-label="Удалить заметку"
+                          >
+                            ×
+                          </button>
+                        )}
+                        <div className="whitespace-pre-wrap leading-relaxed pr-6">{n.text}</div>
+                        <div className="text-xs text-stone mt-1.5">
+                          {n.author.fullName} · {formatDate(n.createdAt)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </PopupSection>
+              </>
+            )}
+
+            {/* 360-опросы (лид/стардиз): график eNPS + список циклов.
+                Хронология — по дате из строки периода (importedAt врёт для
+                исторических импортов). */}
+            {showLeadReviews && history && (() => {
+              const sorted = [...history.leadReviews].sort((a, b) => {
+                const da =
+                  parsePeriodDate(a.period)?.getTime() ??
+                  new Date(a.importedAt).getTime();
+                const db =
+                  parsePeriodDate(b.period)?.getTime() ??
+                  new Date(b.importedAt).getTime();
+                return db - da; // свежие сверху
+              });
+              const points = [...sorted]
+                .reverse()
+                .map((r) => r.enps)
+                .filter((v): v is number => v !== null);
+              return (
+                <>
+                  {(hasTeam || hasGrading || showNotes) && <SectionDivider />}
                   <div className="mb-5">
                     <TrendSparkline points={points} height={110} deltaDigits={1} />
                   </div>
@@ -775,7 +819,7 @@ export default function UserCard360({
                         <a
                           key={r.id}
                           href={`/admin/lead-reviews/${r.id}`}
-                          className="flex items-baseline gap-2.5 py-1.5 px-2 -mx-2 rounded-card text-sm hover:bg-canvas/60 transition-colors"
+                          className="flex items-baseline gap-2.5 py-1.5 px-2 -mx-2 rounded-card hover:bg-canvas/60 transition-colors"
                         >
                           {r.enps !== null && (
                             <span className="font-medium tabular-nums shrink-0">
@@ -793,10 +837,10 @@ export default function UserCard360({
                       );
                     })}
                   </div>
-                </div>
-              </>
-            );
-          })()}
+                </>
+              );
+            })()}
+          </div>
 
           </div>
 
@@ -959,6 +1003,24 @@ export default function UserCard360({
       </div>
     </div>
   );
+}
+
+/**
+ * Секция поп-апа: моно-заголовок (как у «Заметок»), под ним через 12px —
+ * строки с шагом 12px. Заголовок — h3: имя в hero — h2.
+ */
+function PopupSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h3 className="label-mono text-stone mb-3">{title}</h3>
+      <div className="flex flex-col gap-3">{children}</div>
+    </section>
+  );
+}
+
+/** Линия между секциями: по 20px воздуха сверху и снизу, по ширине строк. */
+function SectionDivider() {
+  return <div aria-hidden className="my-5 border-t border-cloud" />;
 }
 
 /**

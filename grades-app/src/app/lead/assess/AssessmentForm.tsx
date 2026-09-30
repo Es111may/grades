@@ -477,7 +477,7 @@ export default function AssessmentForm({
           <div className="flex items-center gap-3">
             {saveStatus === 'error' ? (
               <span className="text-xs text-blaze font-medium">
-                не сохранилось — обнови страницу
+                Не сохранилось — обнови страницу
               </span>
             ) : (
               <span
@@ -485,7 +485,7 @@ export default function AssessmentForm({
                   saveStatus === 'saved' ? 'opacity-100' : 'opacity-0'
                 }`}
               >
-                сохранено
+                Сохранено
               </span>
             )}
             {!discardArmed ? (
@@ -693,7 +693,7 @@ export default function AssessmentForm({
                     saveStatus === 'saved' ? 'opacity-100' : 'opacity-0'
                   }`}
                 >
-                  сохранено
+                  Сохранено
                 </span>
                 {!discardArmed ? (
                   <button

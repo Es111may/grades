@@ -900,7 +900,7 @@ function ScopeOption({
       <span className="flex items-center gap-1.5 min-w-0">
         <span className="truncate">{option.label}</span>
         {option.role === 'stardiz' && (
-          <span className="text-[10px] text-ash shrink-0">стардиз</span>
+          <span className="text-[10px] text-ash shrink-0">Стардиз</span>
         )}
       </span>
       <span className="text-ash shrink-0">{option.count}</span>

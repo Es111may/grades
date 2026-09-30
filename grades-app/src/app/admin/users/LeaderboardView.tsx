@@ -233,7 +233,7 @@ export default function LeaderboardView({
     keyId: SortKey;
     children: React.ReactNode;
     align?: 'left' | 'center' | 'right';
-    /** Нативный browser tooltip — показывается при наведении на заголовок. */
+    /** Хинт к заголовку — по ховеру и по фокусу с клавиатуры. */
     tooltip?: string;
     className?: string;
   }) {
@@ -249,7 +249,9 @@ export default function LeaderboardView({
         onClick={() => toggleSort(keyId)}
         className={`label-mono py-2.5 px-4 text-stone cursor-pointer select-none hover:text-ink transition-colors ${alignClass} ${className}`}
       >
-        <Tooltip text={tooltip ?? null} maxWidth={340}>
+        {/* portal: карточка таблицы — overflow: hidden, и при 1–2 строках
+            (поиск) длинный хинт «Топ» обрезался её нижним краем */}
+        <Tooltip text={tooltip ?? null} maxWidth={340} portal>
           <span className="inline-flex items-center gap-1">
             {children}
             {active && (
@@ -360,8 +362,11 @@ export default function LeaderboardView({
                   <div className="flex items-center gap-3">
                     <AvatarWithRaise name={u.fullName} avatarUrl={u.avatarUrl} size={32} planned={u.plannedRaise} />
                     <div className="min-w-0">
-                      <div className="font-medium leading-tight truncate flex items-center gap-1.5">
-                        {u.fullName}
+                      {/* Обрезается только имя, иконка — соседом: внутри
+                          overflow: hidden длинное имя прятало её, а фокус с
+                          клавиатуры прокручивал имя вбок */}
+                      <div className="font-medium leading-tight flex items-center gap-1.5">
+                        <span className="truncate">{u.fullName}</span>
                         {/* Иконка — только у тех, у кого грейдирование
                             запланировано; после проведения исчезает (Pavel) */}
                         <PersonStatusIcon user={u} />
@@ -632,8 +637,9 @@ function PodiumCard({
                  hover:shadow-soft-md hover:-translate-y-1 hover:border-ash"
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="font-medium text-[15px] leading-tight truncate min-w-0 flex-1 flex items-center gap-1.5">
-          {user.fullName}
+        {/* Обрезается только имя — иконка остаётся видна, как в списке */}
+        <div className="font-medium text-[15px] leading-tight min-w-0 flex-1 flex items-center gap-1.5">
+          <span className="truncate">{user.fullName}</span>
           {/* Тот же признак, что в списке — иначе у топ-3 иконка исчезала бы
               без причины */}
           <PersonStatusIcon user={user} />

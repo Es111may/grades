@@ -157,7 +157,7 @@ export default function NewSkillModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="например: Анимация интерфейсов"
+              placeholder="Например: Анимация интерфейсов"
               className="input"
             />
           </div>
@@ -170,7 +170,7 @@ export default function NewSkillModal({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="курсивная подсказка к скиллу"
+              placeholder="Курсивная подсказка к скиллу"
               rows={2}
               className="input"
             />
@@ -256,7 +256,7 @@ export default function NewSkillModal({
                   type="text"
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="например: Анимация"
+                  placeholder="Например: Анимация"
                   className="input"
                 />
               </div>
@@ -323,7 +323,7 @@ export default function NewSkillModal({
                         return next;
                       });
                     }}
-                    placeholder="например: Базовое освоение"
+                    placeholder="Например: Базовое освоение"
                     className="input input-sm flex-1"
                   />
                 </div>

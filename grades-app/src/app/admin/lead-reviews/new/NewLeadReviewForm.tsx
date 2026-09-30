@@ -124,7 +124,7 @@ export default function NewLeadReviewForm({ target }: { target: Target }) {
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
               className="input"
-              placeholder="например, «Q2 2026» или «Май 2026»"
+              placeholder="Например, «Q2 2026» или «Май 2026»"
               maxLength={120}
             />
             <p className="text-xs text-ash mt-1.5">

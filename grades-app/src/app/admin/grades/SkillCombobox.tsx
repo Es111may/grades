@@ -8,7 +8,7 @@ export default function SkillCombobox({
   skills,
   value,
   onChange,
-  placeholder = '+ навык…',
+  placeholder = '+ Навык…',
 }: {
   skills: Skill[];
   value: number | null;
@@ -112,7 +112,7 @@ export default function SkillCombobox({
       )}
       {open && filtered.length === 0 && query && (
         <div className="absolute left-0 right-0 top-full mt-1.5 bg-snow border border-cloud rounded-card shadow-soft px-3 py-2 text-xs text-ash italic">
-          ничего не найдено
+          Ничего не найдено
         </div>
       )}
     </div>

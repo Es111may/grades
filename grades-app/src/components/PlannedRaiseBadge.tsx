@@ -40,10 +40,19 @@ export default function AvatarWithRaise({
   return (
     <span className="relative inline-flex shrink-0">
       <Avatar name={name} avatarUrl={avatarUrl} size={size} />
-      {/* Позиционирует обёртка: Tooltip сам ставит себе relative, и
-          absolute на нём проиграл бы порядку классов Tailwind */}
+      {/* Позиционирует обёртка, а не Tooltip: в CSS-режиме он ставит себе
+          relative, и absolute на нём проиграл бы порядку классов Tailwind.
+          portal — карточка таблицы (overflow: hidden) обрезала хинт; поповер
+          живёт в body и не наследует salary-sensitive обёртки — вешаем
+          класс на него самого. */}
       <span className="salary-sensitive absolute -right-1 -bottom-1">
-        <Tooltip text={plannedRaiseHint(planned)} align="center">
+        <Tooltip
+          text={plannedRaiseHint(planned)}
+          align="center"
+          portal
+          className="rounded-full"
+          tipClassName="salary-sensitive"
+        >
           <span
             className="w-4 h-4 rounded-full bg-lime text-black ring-2 ring-snow
                        flex items-center justify-center"

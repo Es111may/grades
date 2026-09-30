@@ -119,17 +119,20 @@ export function SalaryHeadline({
             <BandChip view={ok} />
           </>
         )}
-        {view && !ok && <span className="text-ash">нет данных</span>}
+        {view && !ok && <span className="text-ash">Нет данных</span>}
       </Row>
     );
   }
 
   return (
     <div className="min-w-0">
-      {/* Ряд подписи — высотой в чип: с чипом и без него ставка на месте */}
-      <div className="min-h-6 flex items-center gap-2 flex-wrap">
+      {/* Ряд подписи — 24px, как у позиции 9-Box над карточкой: с чипом и
+          без него ставка на месте. Чип компактный (20px) и стоит по центру
+          ряда вместе с подписью; полный чип в узкой колонке bento не влезал
+          в строку и падал под подпись. */}
+      <div className="min-h-6 flex items-center gap-x-2 gap-y-1 flex-wrap">
         <span className="label-mono text-stone">{label}</span>
-        {ok && <BandChip view={ok} />}
+        {ok && <BandChip view={ok} size="sm" />}
       </div>
       <div className="mt-1.5 min-h-[25px] flex items-center">
         {ok ? (
@@ -159,23 +162,31 @@ function briefReason(data: CompensationData): string {
   return '';
 }
 
-/** Чип вилки: почасовка, выше вилки на N, в вилке или ниже. */
-function BandChip({ view }: { view: OkView }) {
-  if (view.hourly) return <span className="chip-neutral h-6">почасовка</span>;
+/**
+ * Чип вилки: почасовка, выше вилки на N, в вилке или ниже.
+ * md — в строке поп-апа (24px, как соседние чипы); sm — у моно-подписи
+ * карточки (20px, текст 10px — как компактные чипы-метки).
+ */
+function BandChip({ view, size = 'md' }: { view: OkView; size?: 'md' | 'sm' }) {
+  const sz = size === 'sm' ? 'h-5 px-2 py-0 text-[10px] leading-none whitespace-nowrap' : 'h-6';
+  if (view.hourly) return <span className={`chip-neutral ${sz}`}>Почасовка</span>;
   if (!view.band) return null;
   return view.band.state === 'above' ? (
-    <span className="chip-danger h-6">выше вилки на {formatThousands(view.band.overBy)}</span>
+    <span className={`chip-danger ${sz}`}>Выше вилки на {formatThousands(view.band.overBy)}</span>
   ) : (
-    <span className="chip-success h-6">{view.band.state === 'within' ? 'в вилке' : 'ниже вилки'}</span>
+    <span className={`chip-success ${sz}`}>
+      {view.band.state === 'within' ? 'В вилке' : 'Ниже вилки'}
+    </span>
   );
 }
 
 /**
  * Блок «Зарплата» (Phase 23.4) — в поп-апе 360 и в поп-апе карточки
- * «Зарплата» на странице дизайнера (по «+»). Под линией: ставка и вилка,
- * рост, последний пересмотр; история свёрнута, открывается «История» в
- * строке последнего пересмотра. Пересмотр и премию запускает меню «⋯» того
- * поп-апа, где блок стоит (editSignal, bonusSignal).
+ * «Зарплата» на странице дизайнера (по «+»). Ставка и вилка, рост,
+ * последний пересмотр; история свёрнута, открывается «История» в строке
+ * последнего пересмотра. Линию и заголовок секции ставит сам поп-ап.
+ * Пересмотр и премию запускает меню «⋯» того поп-апа, где блок стоит
+ * (editSignal, bonusSignal).
  *
  * Данные — из /api/users/[id]/compensation; права проверяет сервер, блок
  * рендерят только админу и лиду по своим людям. Прятать суммы при показе
@@ -308,7 +319,7 @@ export default function SalaryBlock({
   const showList = events.length > 0 || !bonusForm;
 
   return (
-    <div className="salary-sensitive flex flex-col gap-3 border-t border-cloud pt-3 first:border-t-0 first:pt-0">
+    <div className="salary-sensitive flex flex-col gap-3">
       <SalaryHeadline comp={{ data, loading, error }} label={label} />
       <div className="flex flex-col gap-3">
         {notice}
@@ -325,14 +336,14 @@ export default function SalaryBlock({
             {view.since && (
               <Row label={view.since.label === 'с найма' ? 'С найма' : 'С начала года'}>
                 {view.since.pct === 0 || view.since.pct == null ? (
-                  <span className="text-stone">без изменений</span>
+                  <span className="text-stone">Без изменений</span>
                 ) : (
                   <span className="text-ink">
                     {formatThousands(view.since.from)} → {formatThousands(view.current)}
                     <span className="text-stone"> · {formatPct(view.since.pct)}</span>
                   </span>
                 )}
-                {view.since.warn && <span className="chip-warn h-6">рост больше 30%</span>}
+                {view.since.warn && <span className="chip-warn h-6">Рост больше 30%</span>}
               </Row>
             )}
             <Row label="Последний пересмотр">
@@ -371,7 +382,12 @@ export default function SalaryBlock({
       {view?.state === 'ok' && data && (
         /* Раскрытие — grid-rows 0fr → 1fr: переход прерываемый, высоту
            знать не нужно. -mt-3 гасит gap-3 родителя, пока панель свёрнута;
-           -mx-2/px-2 — запас, чтобы overflow-hidden не резал хит-зону «×». */
+           -mx-2/px-2 — запас, чтобы overflow-hidden не резал обводку фокуса.
+           Сама история — на подложке (Pavel): края — по краям строк выше,
+           внутри 8px со всех сторон, без линий между записями. Подложка —
+           bg-canvas, вложенная поверхность из токенов: читается в обеих
+           темах. Радиус 12px: концентричный поп-апу (26 − 24) вышел бы 2px,
+           а 12 — уже принятый радиус вложенных плашек. */
         <div
           ref={historyPanelRef}
           id={historyId}
@@ -383,13 +399,13 @@ export default function SalaryBlock({
           }}
         >
           <div className="min-h-0 overflow-hidden -mx-2 px-2">
-            <div className="pt-3 flex flex-col gap-3">
-              {bonusForm}
-              {showList && (
-                <div className="border-t border-cloud">
+            <div className="pt-3">
+              <div className="rounded-[12px] bg-canvas p-2 flex flex-col gap-4">
+                {bonusForm}
+                {showList && (
                   <HistoryList events={events} onRemoveBonus={canBonus ? removeBonus : undefined} />
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -623,10 +639,10 @@ function PlannedRow({
       <span className="text-stone shrink-0">Плановый пересмотр</span>
       <span className="ml-auto text-right">
         {planned.state === 'done' ? (
-          <span className="text-emerald">выполнен — в HR есть повышение</span>
+          <span className="text-emerald">Выполнен — в HR есть повышение</span>
         ) : (
           <span className="text-ink">
-            {planned.at ? formatDateShort(planned.at) : 'дата не назначена'}
+            {planned.at ? formatDateShort(planned.at) : 'Дата не назначена'}
             {planned.salary && (
               <>
                 {' '}→ {formatThousands(planned.salary)}
@@ -706,6 +722,9 @@ function HistoryToggle({
  * Список событий истории. Одна сетка на весь список
  * (строки — subgrid), поэтому даты, типы и суммы стоят колонками. Если
  * события за несколько лет — подпись года перед группой, в строках «1 мар.».
+ * Стоит на подложке: линий между записями нет, шаг строк — 12px, как у
+ * строк поп-апа; поля по краям даёт подложка, у самого списка их нет —
+ * даты начинаются ровно от её внутреннего отступа.
  */
 function HistoryList({
   events,
@@ -716,13 +735,13 @@ function HistoryList({
   onRemoveBonus?: (id: number) => void;
 }) {
   if (events.length === 0) {
-    return <p className="py-2.5 text-xs text-ash">Пересмотров в HR-портале пока нет.</p>;
+    return <p className="text-xs text-ash">Пересмотров в HR-портале пока нет.</p>;
   }
   const groups = groupEventsByYear(events);
   const byYear = groups.length > 1;
   return (
     <div
-      className={`grid gap-x-4 ${
+      className={`grid gap-x-4 gap-y-2 ${
         onRemoveBonus ? 'grid-cols-[auto_1fr_auto_auto]' : 'grid-cols-[auto_1fr_auto]'
       }`}
     >
@@ -731,9 +750,7 @@ function HistoryList({
           {g.events.map((e, i) => (
             <li
               key={`${e.kind}-${e.date}-${i}`}
-              className={`col-span-full grid grid-cols-subgrid items-baseline py-2.5 ${
-                i > 0 ? 'border-t border-cloud/50' : ''
-              }`}
+              className="col-span-full grid grid-cols-subgrid items-baseline"
             >
               <span className="text-stone tabular-nums whitespace-nowrap">
                 {byYear ? formatDayMonth(e.date) : formatDateShort(e.date)}
@@ -744,7 +761,7 @@ function HistoryList({
                   <span className="block text-xs text-stone mt-0.5">{e.note}</span>
                 )}
                 {(e.kind === 'raise' || e.kind === 'decrease') && e.future && (
-                  <span className="block text-xs text-sunset mt-0.5">вступит в силу</span>
+                  <span className="block text-xs text-sunset mt-0.5">Вступит в силу</span>
                 )}
               </span>
               <span className="text-right text-ink tabular-nums whitespace-nowrap">
@@ -785,7 +802,11 @@ function HistoryList({
   );
 }
 
-/** Группа года: подпись (если есть) и сам список — оба на всю ширину сетки. */
+/**
+ * Группа года: подпись (если есть) и сам список — оба на всю ширину сетки.
+ * Подпись → строки 8px (gap-y-2 сетки); перед следующим годом ещё 12px —
+ * 20px от прошлой группы. Первая подпись — вплотную к отступу подложки.
+ */
 function HistoryGroup({
   year,
   first,
@@ -798,14 +819,18 @@ function HistoryGroup({
   return (
     <>
       {year && (
-        <div className={`col-span-full label-mono text-ash ${first ? 'pt-3' : 'pt-4'}`}>{year}</div>
+        <div className={`col-span-full label-mono text-ash ${first ? '' : 'pt-3'}`}>{year}</div>
       )}
-      <ul className="col-span-full grid grid-cols-subgrid">{children}</ul>
+      <ul className="col-span-full grid grid-cols-subgrid gap-y-3">{children}</ul>
     </>
   );
 }
 
-/** Форма премии — рамкой, как редактор планового пересмотра. */
+/**
+ * Форма премии — сверху на подложке истории. Своей рамки нет: рамка —
+ * сама подложка (вложенная рамка со скруглением 22px внутри 12px смотрелась
+ * бы чужой). Поля — bg-snow, на подложке читаются в обеих темах.
+ */
 function BonusForm({
   userId,
   onSaved,
@@ -851,7 +876,7 @@ function BonusForm({
   }
 
   return (
-    <div className="rounded-card border border-cloud p-3 flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2.5">
       <div className="text-stone">Премия</div>
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1 text-xs text-stone">

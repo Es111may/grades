@@ -74,7 +74,7 @@ export default async function DesignerPortraitPage({
             {me.fullName}
           </h1>
           <p className="text-stone text-sm">
-            {me.buildName ?? '— билд не назначен'} · {me.department ?? '—'}
+            {me.buildName ?? 'Билд не назначен'} · {me.department ?? '—'}
           </p>
         </div>
 

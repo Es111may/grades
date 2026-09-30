@@ -38,14 +38,17 @@ export default function SalaryCard({
   }, []);
 
   return (
-    // pt-[13px] + ряд подписи в 24px: подпись на той же высоте, что у
-    // соседних карточек bento с p-5
-    <div className={`salary-sensitive card flex gap-3 px-5 pt-[13px] pb-4 ${className}`}>
+    // py-[13px] + ряд подписи в 24px: подпись на той же высоте, что у
+    // соседних карточек bento с p-5 (центр подписи — 25px от верха против
+    // 24,75px у них). Поля сверху и снизу равны — «+» по self-center стоит
+    // ровно по центру карточки, а не на полтора пикселя выше.
+    <div className={`salary-sensitive card flex gap-3 px-5 py-[13px] ${className}`}>
       <div className="flex-1 min-w-0">
         <SalaryHeadline comp={comp} variant="card" />
       </div>
       {/* «+» — когда данные пришли: в поп-апе всегда есть что показать —
-          цифры, причину, почему их нет, или меню пересмотра */}
+          цифры, причину, почему их нет, или меню пересмотра. 32px с иконкой
+          16px (Pavel: 40px — слишком крупно); хит-зона — те же 32px. */}
       {comp.data && (
         <button
           ref={plusRef}
@@ -54,11 +57,11 @@ export default function SalaryCard({
           aria-label="Подробнее о зарплате"
           aria-haspopup="dialog"
           aria-expanded={open}
-          className="self-center shrink-0 w-10 h-10 rounded-pill bg-ink/5 hover:bg-ink/10 text-ink
+          className="self-center shrink-0 w-8 h-8 rounded-pill bg-ink/5 hover:bg-ink/10 text-ink
                      flex items-center justify-center active:scale-[0.96]
                      transition-[background-color,transform] duration-150 ease-out"
         >
-          <PlusIcon className="w-5 h-5" />
+          <PlusIcon className="w-4 h-4" />
         </button>
       )}
       {open && comp.data && (

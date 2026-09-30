@@ -81,7 +81,7 @@ export function ChecklistsSkeleton() {
 export function SalaryCardSkeleton({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`salary-sensitive card flex gap-3 px-5 pt-[13px] pb-4 ${className}`}
+      className={`salary-sensitive card flex gap-3 px-5 py-[13px] ${className}`}
       aria-busy="true"
     >
       <div className="flex-1 min-w-0">

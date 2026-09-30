@@ -123,6 +123,8 @@ export function GradingPlanIcon({ user }: { user: GradingPlanSource }) {
   const color =
     tone === 'danger' ? 'text-blaze' : tone === 'warn' ? 'text-sunset' : 'text-ash';
 
+  // portal: иконка стоит в строке таблицы, а карточка таблицы —
+  // overflow: hidden; CSS-хинт там обрезался и не был виден
   return (
     <Tooltip
       text={`Грейдирование — ${formatDateShort(st.plannedAt.toISOString())} · ${gradingPlanLabel(
@@ -130,6 +132,8 @@ export function GradingPlanIcon({ user }: { user: GradingPlanSource }) {
         st.daysLeft,
       )}`}
       align="center"
+      portal
+      className="rounded-sm"
     >
       <TimerIcon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
     </Tooltip>
@@ -176,6 +180,10 @@ export default function GradingPlanChip({
   });
   const tone = gradingPlanTone(st.state);
   const label = gradingPlanLabel(st.state, st.daysLeft);
+  // В пилюле подпись — отдельный элемент после даты, поэтому с заглавной
+  // (Pavel: новые фразы — с заглавной везде). В подсказке таймера и aria-label
+  // та же подпись идёт продолжением после «·» / запятой и остаётся строчной.
+  const chipLabel = label.charAt(0).toUpperCase() + label.slice(1);
 
   if (st.state === 'none') {
     return (
@@ -193,7 +201,7 @@ export default function GradingPlanChip({
   const body = (
     <>
       <span className="tabular-nums">{shownText}</span>
-      {showLabel && <span className="opacity-70">{label}</span>}
+      {showLabel && <span className="opacity-70">{chipLabel}</span>}
     </>
   );
 
@@ -353,8 +361,20 @@ export function GradingDateEditor({
  */
 export function PersonStatusIcon({ user }: { user: GradingPlanSource }) {
   if (isHourly(user)) {
+    // portal — как у таймера: иначе хинт обрезает карточка таблицы.
+    // «9-Box» не рвём по дефису — при ширине 280 он переносился «9-/Box»
     return (
-      <Tooltip text="Почасовщик — не грейдируется, в рейтинг и 9-Box не входит" align="center">
+      <Tooltip
+        text={
+          <>
+            Почасовщик — не грейдируется, в рейтинг и{' '}
+            <span className="whitespace-nowrap">9-Box</span> не входит
+          </>
+        }
+        align="center"
+        portal
+        className="rounded-sm"
+      >
         <CoinsIcon className="w-4 h-4 shrink-0 text-gold" />
       </Tooltip>
     );
