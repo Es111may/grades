@@ -7,7 +7,13 @@
 // держать её в кэше год (immutable) и не перепроверять.
 
 import { createHash } from 'node:crypto';
-import { DEFAULT_AVATAR_SIZE, AVATAR_ROUTE, parseImageDataUrl, type AvatarSize } from './avatarShared';
+import {
+  DEFAULT_AVATAR_SIZE,
+  AVATAR_ROUTE,
+  parseImageDataUrl,
+  sniffImageFormat,
+  type AvatarSize,
+} from './avatarShared';
 
 /** Версия картинки для ссылки и ETag: первые 10 hex sha1 от data URL. */
 export function avatarVersion(dataUrl: string): string {
@@ -26,16 +32,28 @@ export function avatarSrc(
   return `${AVATAR_ROUTE}${user.id}?v=${avatarVersion(user.avatarUrl)}&s=${size}`;
 }
 
+/** Предел исходника, пикселей: больше аватару не нужно, а «бомба» в пару
+ *  сотен КБ PNG иначе развернётся в сотни МБ памяти. */
+const AVATAR_MAX_INPUT_PIXELS = 4096 * 4096;
+
 /**
- * Квадрат `size`×`size` в WebP из data URL в БД. Не data URL — null.
- * sharp грузим лениво: avatarSrc нужен шапке каждой страницы, а нативный
- * libvips — только роуту /api/avatar.
+ * Квадрат `size`×`size` в WebP из data URL в БД. Не data URL или по байтам
+ * не JPEG/PNG/WebP — null; слишком большой или битый исходник — исключение
+ * (роут отвечает 404). sharp грузим лениво: avatarSrc нужен шапке каждой
+ * страницы, а нативный libvips — только роуту /api/avatar.
  */
 export async function renderAvatar(dataUrl: string, size: AvatarSize): Promise<Buffer | null> {
   const parsed = parseImageDataUrl(dataUrl);
   if (!parsed) return null;
+  const input = Buffer.from(parsed.base64, 'base64');
+  // Сверяем байты ещё раз: в БД могли остаться записи до проверки формата
+  // в parseAvatarInput, а у sharp 0.33 известная уязвимость в декодировании —
+  // прочие форматы до него не пускаем.
+  if (!sniffImageFormat(input)) return null;
   const { default: sharp } = await import('sharp');
-  return sharp(Buffer.from(parsed.base64, 'base64'))
+  // failOn: 'warning' — значение sharp по умолчанию и самое строгое: разбор
+  // обрывается на любом предупреждении декодера. 'error' было бы мягче.
+  return sharp(input, { limitInputPixels: AVATAR_MAX_INPUT_PIXELS, failOn: 'warning' })
     .resize(size, size, { fit: 'cover', position: 'centre' })
     .webp({ quality: 80 })
     .toBuffer();

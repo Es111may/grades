@@ -1,12 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import sharp from 'sharp';
 import { LruCache, avatarSrc, avatarVersion, renderAvatar } from '../avatar';
 import {
+  AVATAR_FORMAT_ERROR,
   AVATAR_MAX_CHARS,
   avatarSizeFor,
   parseAvatarInput,
   parseAvatarSize,
   parseImageDataUrl,
+  sniffImageFormat,
   withAvatarSize,
 } from '../avatarShared';
 
@@ -19,6 +21,24 @@ async function fakeDataUrl(side = 256): Promise<string> {
     .toBuffer();
   return `data:image/jpeg;base64,${jpg.toString('base64')}`;
 }
+
+// Крошечная картинка в нужном формате: sharp пишет и GIF, и AVIF
+async function sample(
+  format: 'jpeg' | 'png' | 'webp' | 'gif' | 'avif',
+  side = 16,
+): Promise<Buffer> {
+  return sharp({
+    create: { width: side, height: side, channels: 3, background: { r: 200, g: 120, b: 60 } },
+  })
+    .toFormat(format)
+    .toBuffer();
+}
+
+const dataUrl = (mime: string, bytes: Buffer | string) =>
+  `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`;
+
+const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"/>';
+const FORMAT_ERROR = { kind: 'error', error: AVATAR_FORMAT_ERROR };
 
 describe('avatarVersion', () => {
   it('10 hex, одинаковый для одной картинки и разный для разных', () => {
@@ -87,21 +107,83 @@ describe('parseAvatarInput — что сохраняем из PATCH/POST', () =>
   it('null — удалить', () => {
     expect(parseAvatarInput(null)).toEqual({ kind: 'set', value: null });
   });
-  it('data URL картинки — сохранить', () => {
-    const data = 'data:image/jpeg;base64,AAAA';
-    expect(parseAvatarInput(data)).toEqual({ kind: 'set', value: data });
-    expect(parseAvatarInput('data:image/png;base64,AAAA').kind).toBe('set');
+  it('настоящие JPEG, PNG и WebP — сохранить', async () => {
+    for (const f of ['jpeg', 'png', 'webp'] as const) {
+      const data = dataUrl(`image/${f}`, await sample(f));
+      expect(parseAvatarInput(data)).toEqual({ kind: 'set', value: data });
+    }
+    // Как шлёт модалка: canvas.toDataURL('image/jpeg') от 256×256
+    const fromModal = await fakeDataUrl();
+    expect(parseAvatarInput(fromModal)).toEqual({ kind: 'set', value: fromModal });
   });
-  it('ссылку /api/avatar и прочие строки — не сохраняем', () => {
+  it('ссылку /api/avatar и прочие не data URL — не сохраняем', () => {
     expect(parseAvatarInput('/api/avatar/5?v=abc&s=96')).toEqual({ kind: 'skip' });
     expect(parseAvatarInput('https://example.com/a.png')).toEqual({ kind: 'skip' });
-    expect(parseAvatarInput('data:image/svg+xml;base64,AAAA')).toEqual({ kind: 'skip' });
-    expect(parseAvatarInput('data:text/html;base64,AAAA')).toEqual({ kind: 'skip' });
     expect(parseAvatarInput('')).toEqual({ kind: 'skip' });
   });
-  it('слишком большой data URL — ошибка', () => {
+  it('GIF, AVIF, SVG и не картинки — ошибка формата', async () => {
+    expect(parseAvatarInput(dataUrl('image/gif', await sample('gif')))).toEqual(FORMAT_ERROR);
+    expect(parseAvatarInput(dataUrl('image/avif', await sample('avif')))).toEqual(FORMAT_ERROR);
+    expect(parseAvatarInput(dataUrl('image/heic', await sample('avif')))).toEqual(FORMAT_ERROR);
+    expect(parseAvatarInput(dataUrl('image/svg+xml', SVG))).toEqual(FORMAT_ERROR);
+    expect(parseAvatarInput('data:text/html;base64,AAAA')).toEqual(FORMAT_ERROR);
+    // Не base64
+    expect(parseAvatarInput('data:image/jpeg,%FF%D8%FF')).toEqual(FORMAT_ERROR);
+  });
+  it('подпись MIME не совпала с байтами — ошибка формата', async () => {
+    const jpeg = await sample('jpeg');
+    expect(parseAvatarInput(dataUrl('image/jpeg', await sample('gif')))).toEqual(FORMAT_ERROR);
+    expect(parseAvatarInput(dataUrl('image/jpeg', await sample('avif')))).toEqual(FORMAT_ERROR);
+    expect(parseAvatarInput(dataUrl('image/png', SVG))).toEqual(FORMAT_ERROR);
+    // Даже между разрешёнными форматами подпись должна быть честной
+    expect(parseAvatarInput(dataUrl('image/jpeg', await sample('png')))).toEqual(FORMAT_ERROR);
+    expect(parseAvatarInput(dataUrl('image/webp', jpeg))).toEqual(FORMAT_ERROR);
+    // Мусор и обрывки
+    expect(parseAvatarInput('data:image/jpeg;base64,AAAA')).toEqual(FORMAT_ERROR);
+    expect(parseAvatarInput('data:image/jpeg;base64,')).toEqual(FORMAT_ERROR);
+    expect(parseAvatarInput('data:image/jpeg;base64,/9j')).toEqual(FORMAT_ERROR);
+    expect(parseAvatarInput('data:image/jpeg;base64,!!!!' + jpeg.toString('base64'))).toEqual(
+      FORMAT_ERROR,
+    );
+  });
+  it('без Buffer тоже работает — код общий с браузером', async () => {
+    const good = dataUrl('image/jpeg', await sample('jpeg'));
+    const bad = dataUrl('image/jpeg', await sample('gif'));
+    vi.stubGlobal('Buffer', undefined);
+    let kinds: string[];
+    try {
+      kinds = [parseAvatarInput(good).kind, parseAvatarInput(bad).kind];
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(kinds).toEqual(['set', 'error']);
+  });
+  it('слишком большой data URL — ошибка размера', () => {
     const big = `data:image/jpeg;base64,${'A'.repeat(AVATAR_MAX_CHARS)}`;
-    expect(parseAvatarInput(big).kind).toBe('error');
+    const res = parseAvatarInput(big);
+    expect(res.kind).toBe('error');
+    expect(res).not.toEqual(FORMAT_ERROR);
+  });
+});
+
+describe('sniffImageFormat', () => {
+  it('JPEG, PNG, WebP — по сигнатуре', async () => {
+    expect(sniffImageFormat(await sample('jpeg'))).toBe('jpeg');
+    expect(sniffImageFormat(await sample('png'))).toBe('png');
+    expect(sniffImageFormat(await sample('webp'))).toBe('webp');
+  });
+  it('прочие сигнатуры и обрывки — null', async () => {
+    expect(sniffImageFormat(await sample('gif'))).toBeNull();
+    expect(sniffImageFormat(await sample('avif'))).toBeNull();
+    // AVIF/HEIF — контейнер ISO BMFF: «ftyp» с 4-го байта
+    expect(sniffImageFormat(Buffer.from('\0\0\0\x1cftypavif\0\0\0\0', 'latin1'))).toBeNull();
+    expect(sniffImageFormat(Buffer.from('\0\0\0\x18ftypheic\0\0\0\0', 'latin1'))).toBeNull();
+    // RIFF, но не WebP
+    expect(sniffImageFormat(Buffer.from('RIFF\0\0\0\0WAVEfmt ', 'latin1'))).toBeNull();
+    expect(sniffImageFormat(Buffer.from(SVG))).toBeNull();
+    expect(sniffImageFormat([])).toBeNull();
+    expect(sniffImageFormat([0xff, 0xd8])).toBeNull();
+    expect(sniffImageFormat([0x89, 0x50, 0x4e, 0x47])).toBeNull();
   });
 });
 
@@ -168,5 +250,28 @@ describe('renderAvatar', () => {
   });
   it('не data URL — null', async () => {
     expect(await renderAvatar('/api/avatar/1', 96)).toBeNull();
+  });
+  it('PNG и WebP — тоже в WebP', async () => {
+    for (const f of ['png', 'webp'] as const) {
+      const out = await renderAvatar(dataUrl(`image/${f}`, await sample(f, 64)), 48);
+      const meta = await sharp(out!).metadata();
+      expect([meta.format, meta.width, meta.height]).toEqual(['webp', 48, 48]);
+    }
+  });
+  it('старые записи в БД: GIF, AVIF, SVG — null, даже под видом JPEG', async () => {
+    const gif = await sample('gif');
+    const avif = await sample('avif');
+    expect(await renderAvatar(dataUrl('image/gif', gif), 96)).toBeNull();
+    expect(await renderAvatar(dataUrl('image/jpeg', gif), 96)).toBeNull();
+    expect(await renderAvatar(dataUrl('image/avif', avif), 96)).toBeNull();
+    expect(await renderAvatar(dataUrl('image/jpeg', avif), 96)).toBeNull();
+    expect(await renderAvatar(dataUrl('image/svg+xml', SVG), 96)).toBeNull();
+  });
+  it('больше 4096×4096 пикселей — не декодирует', async () => {
+    // Однотонный PNG 5000×5000 весит ~80 КБ: проходит и предел длины, и
+    // проверку формата при загрузке — остановить его должен limitInputPixels
+    const big = dataUrl('image/png', await sample('png', 5000));
+    expect(parseAvatarInput(big).kind).toBe('set');
+    await expect(renderAvatar(big, 96)).rejects.toThrow(/pixel limit/);
   });
 });

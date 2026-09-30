@@ -398,6 +398,19 @@ grades-app/
 - `import-team.ts` **отключён** из start.ts. Запускать вручную если нужно (хоть и не нужно после первичного импорта).
 - Если деплой завис — `git commit --allow-empty -m "trigger redeploy"` или bump version.
 - Sharp как dep работает на Railway Linux x64 из коробки (prebuilt binaries).
+- **С 0.72.1 есть `grades-app/package-lock.json`** (npm 11, lockfile v3). Railpack
+  всё равно зовёт `npm install`, но с lock версии фиксированы. Строгий
+  `npm ci` — переменная Railway `RAILPACK_NODE_NPM_INSTALL="npm ci"` (не
+  включали). Зависимости меняем только через `npm install <pkg>` в
+  `grades-app/`, lock коммитим вместе с `package.json`.
+- Next 14.2.35 (последняя 14.x). Остаток `npm audit --omit=dev`: next —
+  лечится только Next 15.5+/React 19 (отдельный проект); `images:
+  { unoptimized: true }` в `next.config.js` закрывает дыры оптимизатора
+  картинок (next/image не используем); sharp 0.33 — фикс только в 0.35+
+  (нужен Node ≥ 20.9), до него декодер принимает только JPEG/PNG/WebP с
+  проверкой сигнатуры; xlsx — только в `scripts/import-excel.ts`.
+  `@auth/prisma-adapter` удалён (не использовался, тянул уязвимый `@auth/core`).
+- `/api/health` — SELECT 1; healthcheck в Railway на него пока не включён.
 
 ## Подводные камни
 

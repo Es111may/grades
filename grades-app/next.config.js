@@ -15,6 +15,12 @@ const PUBLIC_ASSET_CACHE = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Оптимизатор картинок (/_next/image) выключен: next/image в сервисе не
+  // используется (аватары отдаёт свой /api/avatar), а эндпоинт публичный —
+  // мимо middleware — и на ветке 14.x в нём остаются неисправленные
+  // уязвимости (RCE через AVIF, DoS, неограниченный дисковый кэш; фикс только
+  // в Next 15.5+). С unoptimized: true Next отвечает на /_next/image 404.
+  images: { unoptimized: true },
   async headers() {
     return [
       // Анимированный логотип в шапке (BrandLogo)

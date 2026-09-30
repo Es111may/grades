@@ -54,12 +54,46 @@ export function withAvatarSize(src: string, px: number): string {
 // или удалили (null). Любую другую строку — например, ссылку /api/avatar,
 // вернувшуюся из строки списка, — не сохраняем: иначе в БД вместо картинки
 // окажется ссылка на саму себя.
+//
+// Формат — только JPEG, PNG и WebP, и не по одной подписи MIME, а по первым
+// байтам: у sharp 0.33 известная уязвимость в декодировании, поэтому до
+// роута /api/avatar не должно доходить ничего, кроме этих трёх форматов.
+// Модалка и так всегда перегоняет картинку в JPEG 256×256.
 
 /** Предел длины data URL, символов (~400 КБ). Клиент ужимает до ~17 КБ. */
 export const AVATAR_MAX_CHARS = 400_000;
 
-// Только растровые форматы: их и умеет ужимать модалка, а SVG нам не нужен.
-const DATA_URL_RE = /^data:(image\/(?:jpeg|png|webp|gif|avif));base64,/;
+export const AVATAR_FORMAT_ERROR = 'Аватар — только JPEG, PNG или WebP';
+
+const DATA_URL_RE = /^data:image\/(jpeg|png|webp);base64,/;
+
+export type AvatarFormat = 'jpeg' | 'png' | 'webp';
+
+/**
+ * Формат по сигнатуре в начале файла: JPEG — FF D8 FF, PNG — 89 50 4E 47
+ * 0D 0A 1A 0A, WebP — «RIFF», 4 байта длины, «WEBP». Остальное (GIF,
+ * AVIF/HEIF, SVG, TIFF…) — null. По этим же байтам libvips выбирает
+ * декодер, так что прочие декодеры sharp такие данные не увидят.
+ */
+export function sniffImageFormat(bytes: ArrayLike<number>): AvatarFormat | null {
+  const has = (at: number, sig: readonly number[]) => sig.every((b, i) => bytes[at + i] === b);
+  if (has(0, [0xff, 0xd8, 0xff])) return 'jpeg';
+  if (has(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'png';
+  if (has(0, [0x52, 0x49, 0x46, 0x46]) && has(8, [0x57, 0x45, 0x42, 0x50])) return 'webp';
+  return null;
+}
+
+/**
+ * Первые 18 байт base64 (24 символа) — хватает на любую сигнатуру выше.
+ * Через atob, без Buffer: функция нужна и в браузере. Не base64 — null.
+ */
+function base64Head(base64: string): Uint8Array | null {
+  try {
+    return Uint8Array.from(atob(base64.slice(0, 24)), (c) => c.charCodeAt(0));
+  } catch {
+    return null;
+  }
+}
 
 export type AvatarInput =
   | { kind: 'skip' }
@@ -69,15 +103,24 @@ export type AvatarInput =
 export function parseAvatarInput(raw: string | null | undefined): AvatarInput {
   if (raw === undefined) return { kind: 'skip' };
   if (raw === null) return { kind: 'set', value: null };
-  if (!DATA_URL_RE.test(raw)) return { kind: 'skip' };
+  if (!raw.startsWith('data:')) return { kind: 'skip' };
   if (raw.length > AVATAR_MAX_CHARS) {
     return { kind: 'error', error: 'Аватар слишком большой — нужен файл поменьше' };
+  }
+  // data URL не JPEG/PNG/WebP — ошибка, а не молчаливый пропуск: модалка
+  // такого не шлёт, значит, запрос собран вручную. Подпись MIME должна
+  // совпасть с байтами: GIF или AVIF под видом image/jpeg не пройдут.
+  const m = DATA_URL_RE.exec(raw);
+  const head = m ? base64Head(raw.slice(m[0].length)) : null;
+  if (!m || !head || sniffImageFormat(head) !== m[1]) {
+    return { kind: 'error', error: AVATAR_FORMAT_ERROR };
   }
   return { kind: 'set', value: raw };
 }
 
-// Из БД читаем мягче, чем принимаем: старые записи могли прийти в любом
-// image/* — sharp всё равно перегонит их в WebP.
+// Из БД читаем мягче, чем принимаем: у старых записей подпись MIME могла
+// быть любой image/*. Формат по байтам всё равно сверяет renderAvatar
+// (lib/avatar) — в sharp уходят только JPEG, PNG и WebP.
 const STORED_DATA_URL_RE = /^data:(image\/[a-z0-9.+-]+);base64,/i;
 
 /** Разбор data URL из БД: MIME и байты в base64. Не data URL — null. */
