@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import Avatar from '@/components/Avatar';
-import { CloseIcon, HourglassIcon } from '@/components/icons';
+import { CloseIcon, CoinsIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
 import TitleAurora from '@/components/TitleAurora';
 
@@ -526,7 +526,7 @@ export default function UserCard360({
                 )}
               {isHourly(user) && (
                 <span className="chip-gold h-6 inline-flex items-center gap-1">
-                  <HourglassIcon className="w-3 h-3 text-gold" />
+                  <CoinsIcon className="w-3 h-3 text-gold" />
                   Почасовщик
                 </span>
               )}

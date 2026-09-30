@@ -7,7 +7,7 @@ import {
   type GradingPlanState,
 } from '@/lib/gradingPlan';
 import { formatDateShort, todayLocalIso } from '@/lib/dates';
-import { CloseIcon, HourglassIcon, TimerIcon } from '@/components/icons';
+import { CloseIcon, CoinsIcon, TimerIcon } from '@/components/icons';
 import { isHourly } from '@/lib/employment';
 import Tooltip from '@/components/Tooltip';
 
@@ -347,7 +347,7 @@ export function GradingDateEditor({
 
 /**
  * Статусная иконка у имени человека в списке (Phase 23.4). Одно место —
- * одна иконка: у почасовщика жёлтые песочные часы (залитые, 16px — чтобы
+ * одна иконка: у почасовщика жёлтые монетки (залитые, 16px — чтобы
  * бросались в глаза), у остальных — таймер грейдирования, если он
  * запланирован. Вместе они не встречаются: почасовщиков не грейдируют.
  */
@@ -355,7 +355,7 @@ export function PersonStatusIcon({ user }: { user: GradingPlanSource }) {
   if (isHourly(user)) {
     return (
       <Tooltip text="Почасовщик — не грейдируется, в рейтинг и 9-Box не входит" align="center">
-        <HourglassIcon className="w-4 h-4 shrink-0 text-gold" />
+        <CoinsIcon className="w-4 h-4 shrink-0 text-gold" />
       </Tooltip>
     );
   }
