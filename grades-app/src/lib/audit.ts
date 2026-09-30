@@ -35,6 +35,10 @@ export const AUDIT_ACTIONS = {
   USER_ACTIVATED: 'user_activated',
   USER_DELETED: 'user_deleted',
   USER_PASSWORD_CHANGED: 'user_password_changed',
+  USER_ROLE_CHANGED: 'user_role_changed',
+  USER_EMAIL_CHANGED: 'user_email_changed',
+  USER_LEAD_CHANGED: 'user_lead_changed',
+  USER_STARDIZ_CHANGED: 'user_stardiz_changed',
   GRADE_FLOOR_CHANGED: 'grade_floor_changed',
   GRADING_DATE_SET: 'grading_date_set',
   GRADING_DATE_CLEARED: 'grading_date_cleared',
@@ -71,6 +75,10 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   user_activated: 'Активирован',
   user_deleted: 'Удалён',
   user_password_changed: 'Пароль изменён',
+  user_role_changed: 'Сменена роль',
+  user_email_changed: 'Сменён email',
+  user_lead_changed: 'Сменён лид',
+  user_stardiz_changed: 'Сменён стардиз',
   grade_floor_changed: 'Зафиксированный грейд изменён',
   // Эти два писались в лог, но подписи не имели — в аудите выводились
   // без названия. Добавлены 29.07.2026.

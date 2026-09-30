@@ -5,6 +5,7 @@
  * Возвращает PortraitData либо null, если опубликованных оценок нет.
  */
 
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { calcGrade, type SkillSnapshot, type ScoreInput, type GradeThreshold } from '@/lib/grade';
 import { GRADE_NAMES } from '@/lib/types';
@@ -32,61 +33,104 @@ async function safeReadLeadComment(assessmentId: number): Promise<string | null>
   }
 }
 
+/**
+ * Поля человека, нужные портрету и проверкам прав на странице. Явный select:
+ * без passwordHash и полной строки лида (у того свой аватар — data URL).
+ * Страница лида берёт человека этим же select'ом для проверки прав и
+ * передаёт строку сюда — второй раз в БД за ним не ходим.
+ */
+export const PORTRAIT_DESIGNER_SELECT = {
+  id: true,
+  email: true,
+  role: true,
+  leadId: true,
+  stardizId: true,
+  fullName: true,
+  avatarUrl: true,
+  buildId: true,
+  department: true,
+  gradeFloor: true,
+  nextGradingAt: true,
+  nextGradingSetAt: true,
+  build: { select: { code: true, name: true } },
+  lead: { select: { fullName: true } },
+} satisfies Prisma.UserSelect;
+
+export type PortraitDesigner = Prisma.UserGetPayload<{
+  select: typeof PORTRAIT_DESIGNER_SELECT;
+}>;
+
+export function findPortraitDesigner(id: number): Promise<PortraitDesigner | null> {
+  return prisma.user.findUnique({ where: { id }, select: PORTRAIT_DESIGNER_SELECT });
+}
+
+/** Кто владелец портрета — для прав на странице (ИПР, зарплата). */
+export type PortraitTarget = Pick<
+  PortraitDesigner,
+  'id' | 'email' | 'role' | 'leadId' | 'stardizId'
+>;
+
+// Явный select по только тем колонкам, которые точно были в схеме до
+// Phase 22.1 — чтобы запрос не падал, если новая колонка leadComment
+// ещё не успела добавиться в БД. Из оценок берём только то, что рисует
+// портрет: без snapshot (большой JSON) и без комментариев к навыкам.
+const ASSESSMENT_SELECT = {
+  id: true,
+  matrixVersionId: true,
+  cycle: true,
+  publishedAt: true,
+  scores: { select: { skillId: true, masteryLevel: true } },
+} satisfies Prisma.AssessmentSelect;
+
 export async function loadPortraitData(
-  designerId: number,
+  designerOrId: number | PortraitDesigner,
   assessmentId?: number,
 ): Promise<
-  | { kind: 'no_assessment'; designer: { fullName: string; gradeFloor: GradeCode | null } }
-  | { kind: 'ok'; data: PortraitData }
+  | {
+      kind: 'no_assessment';
+      designer: {
+        fullName: string;
+        gradeFloor: GradeCode | null;
+        buildName: string | null;
+        department: string | null;
+      };
+    }
+  | { kind: 'ok'; data: PortraitData; target: PortraitTarget }
   | { kind: 'not_found' }
 > {
-  const designer = await prisma.user.findUnique({
-    where: { id: designerId },
-    include: { build: true, lead: true },
-  });
+  const designerId = typeof designerOrId === 'number' ? designerOrId : designerOrId.id;
+  const published = { designerId, status: 'published' };
+
+  // Человек, список опубликованных оценок и сама оценка зависят только от
+  // designerId — параллельно.
+  //  - Все опубликованные — для переключателя циклов.
+  //  - Если в URL пришёл явный assessmentId — открываем его (если он
+  //    принадлежит дизайнеру и опубликован); иначе — последнюю опубликованную.
+  const [designer, allPublished, requested] = await Promise.all([
+    typeof designerOrId === 'number' ? findPortraitDesigner(designerId) : designerOrId,
+    prisma.assessment.findMany({
+      where: published,
+      orderBy: { publishedAt: 'desc' },
+      select: { id: true, publishedAt: true, effectiveGrade: true, totalXp: true },
+    }),
+    prisma.assessment.findFirst({
+      where: assessmentId ? { ...published, id: assessmentId } : published,
+      orderBy: { publishedAt: 'desc' },
+      select: ASSESSMENT_SELECT,
+    }),
+  ]);
   if (!designer) return { kind: 'not_found' };
 
-  // Все опубликованные оценки этого дизайнера — для переключателя циклов.
-  // Явный select по только тем колонкам, которые точно были в схеме до
-  // Phase 22.1 — чтобы запрос не падал, если новая колонка leadComment
-  // ещё не успела добавиться в БД.
-  const allPublished = await prisma.assessment.findMany({
-    where: { designerId, status: 'published' },
-    orderBy: { publishedAt: 'desc' },
-    select: { id: true, publishedAt: true, effectiveGrade: true, totalXp: true },
-  });
-
-  // Если в URL пришёл явный assessmentId — открываем его (если он принадлежит
-  // дизайнеру и опубликован); иначе — последнюю опубликованную.
-  // Используем явный select без leadComment — чтобы запрос не падал, если
-  // новая колонка (Phase 22.1) ещё не успела добавиться в БД.
-  const assessmentSelect = {
-    id: true,
-    designerId: true,
-    leadId: true,
-    matrixVersionId: true,
-    cycle: true,
-    status: true,
-    publishedAt: true,
-    totalXp: true,
-    calculatedGrade: true,
-    effectiveGrade: true,
-    scores: true,
-  };
-
-  let assessment = assessmentId
-    ? await prisma.assessment.findFirst({
-        where: { id: assessmentId, designerId, status: 'published' },
-        select: assessmentSelect,
-      })
-    : null;
-  if (!assessment) {
-    assessment = await prisma.assessment.findFirst({
-      where: { designerId, status: 'published' },
-      orderBy: { publishedAt: 'desc' },
-      select: assessmentSelect,
-    });
-  }
+  // Чужой или неопубликованный assessmentId — откатываемся на последнюю
+  // опубликованную (она первая в allPublished).
+  const assessment =
+    requested ??
+    (assessmentId && allPublished.length
+      ? await prisma.assessment.findUnique({
+          where: { id: allPublished[0].id },
+          select: ASSESSMENT_SELECT,
+        })
+      : null);
 
   if (!assessment) {
     return {
@@ -94,6 +138,8 @@ export async function loadPortraitData(
       designer: {
         fullName: designer.fullName,
         gradeFloor: designer.gradeFloor as GradeCode | null,
+        buildName: designer.build?.name ?? null,
+        department: designer.department,
       },
     };
   }
@@ -102,15 +148,31 @@ export async function loadPortraitData(
   const [skills, gradeLevels, leadComment] = await Promise.all([
     prisma.skill.findMany({
       where: { matrixVersionId: assessment.matrixVersionId, active: true },
-      include: {
-        weights: { where: { buildId: designer.buildId! } },
-        group: { include: { taxonomy: true } },
-        masteries: { orderBy: { level: 'asc' } },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        description: true,
+        active: true,
+        maxMasteryLevel: true,
+        weights: { where: { buildId: designer.buildId! }, select: { weight: true } },
+        group: { select: { name: true, taxonomy: { select: { code: true, name: true } } } },
+        masteries: {
+          orderBy: { level: 'asc' },
+          select: { level: true, title: true, criteria: true },
+        },
       },
     }),
     prisma.gradeLevel.findMany({
       where: { matrixVersionId: assessment.matrixVersionId },
-      include: { gates: { where: { buildId: designer.buildId! } } },
+      select: {
+        code: true,
+        xpThresholds: true,
+        gates: {
+          where: { buildId: designer.buildId! },
+          select: { skillId: true, requiredMastery: true },
+        },
+      },
       orderBy: { sortOrder: 'asc' },
     }),
     safeReadLeadComment(assessment.id),
@@ -246,7 +308,17 @@ export async function loadPortraitData(
     })),
   };
 
-  return { kind: 'ok', data };
+  return {
+    kind: 'ok',
+    data,
+    target: {
+      id: designer.id,
+      email: designer.email,
+      role: designer.role,
+      leadId: designer.leadId,
+      stardizId: designer.stardizId,
+    },
+  };
 }
 
 export function gradeName(code: GradeCode) {

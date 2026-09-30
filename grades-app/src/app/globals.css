@@ -2,41 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* === Onest (Variable) === */
-/* Pavel: переход на Onest (как на ida-ai-report). Вариативный файл из
-   официального репозитория Google Fonts, полная кириллица, сбалансированные
-   метрики (typoAscender 970 / typoDescender −305, USE_TYPO_METRICS) — текст
-   центрируется в кнопках/полях/чипах без костылей.
-
-   font-weight: 100 500 — диапазон намеренно обрезан сверху на Medium (500).
-   Браузер клампит любой запрос тяжелее 500 к 500, так что «максимум Medium»
-   гарантирован на уровне шрифта. */
-@font-face {
-  font-family: 'Onest';
-  src: url('/fonts/onest/Onest-Variable.ttf') format('truetype-variations');
-  font-weight: 100 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* === JetBrains Mono === */
-/* Моноширинный — для лейблов колонок, названий характеристик и тегов
-   (тот же приём, что на rating.idaproject.com: .thead там набран mono +
-   uppercase). Полная кириллица. Только Regular + Medium — тяжелее не нужно. */
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/jetbrains-mono/JetBrainsMono-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
+/* === Шрифты === */
+/* Onest (Variable, max Medium) и JetBrains Mono подключаются через
+   next/font/local — src/app/fonts.ts. Там же комментарии про выбор файлов,
+   веса и fallback. Сюда приходят CSS-переменные --font-onest и
+   --font-jetbrains-mono (классы на <html>); свои @font-face не заводим. */
 
 @layer base {
   /* ============================================================
@@ -131,7 +101,7 @@
     background-repeat: no-repeat;
     min-height: 100vh;
     color: rgb(var(--c-ink));
-    font-family: 'Onest', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: var(--font-onest), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;

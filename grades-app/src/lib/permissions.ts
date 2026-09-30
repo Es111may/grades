@@ -69,3 +69,64 @@ export function canGradeDesigner(
     return true;
   return false;
 }
+
+// ── Правка людей (лид — только своих) ────────────────────────────────────
+//
+// Решение Pavel: лид правит только своих дизайнеров и стардизов и может
+// передать их другому лиду; перекладывать людей между чужими командами —
+// только админ. Лид не трогает админов и других лидов, даже если формально
+// указан у них лидом.
+
+type Me = { id: number; role: string } | null;
+type Target = { id: number; role: string; leadId: number | null };
+
+/** Может ли править карточку человека (отдел, стардиза, билд и т.п.)? */
+export function canEditUser(me: Me, target: Target): boolean {
+  if (!me) return false;
+  if (me.role === 'admin') return true;
+  if (me.role === 'lead') {
+    return (
+      target.leadId === me.id && (target.role === 'designer' || target.role === 'stardiz')
+    );
+  }
+  return false;
+}
+
+/**
+ * Может ли сменить человеку лида. Лиду — только передача своего человека
+ * другому лиду: «снять лида» (null) и «назначить себя» нельзя. Что новый
+ * лид существует, активен и в роли lead/admin — проверяет сервер.
+ */
+export function canChangeLead(me: Me, target: Target, newLeadId: number | null): boolean {
+  if (!me) return false;
+  if (me.role === 'admin') return true;
+  if (me.role === 'lead') {
+    return canEditUser(me, target) && newLeadId !== null && newLeadId !== me.id;
+  }
+  return false;
+}
+
+/**
+ * Может ли деактивировать (уволить). Админ — кого угодно, кроме себя: иначе
+ * можно остаться без единого админа. Лид — только своих. Удаление навсегда —
+ * отдельно, только админ.
+ */
+export function canDeactivateUser(me: Me, target: Target): boolean {
+  if (!me) return false;
+  if (me.role === 'admin') return target.id !== me.id;
+  if (me.role === 'lead') return canEditUser(me, target);
+  return false;
+}
+
+/**
+ * Может ли видеть подробности о человеке (проекты и т.п.) — те же, кто
+ * открывает его портрет: сам человек, админ, его лид и стардиз.
+ */
+export function canViewUserDetails(
+  me: Me,
+  target: { id: number; leadId: number | null; stardizId: number | null },
+): boolean {
+  if (!me) return false;
+  if (me.role === 'admin' || me.id === target.id) return true;
+  return target.leadId === me.id || target.stardizId === me.id;
+}

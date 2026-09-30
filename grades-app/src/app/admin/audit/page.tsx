@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { canViewCompensation } from '@/lib/compPermissions';
+import { auditVisibilityWhere } from '@/lib/auditVisibility';
 import AuditView from './AuditView';
 
 /**
@@ -11,7 +13,9 @@ import AuditView from './AuditView';
  * Доступ:
  *   - admin: видит все события
  *   - lead:  видит события, где он сам actor, ИЛИ target — его подопечный
- *            (target=user, leadId/stardizId === me.id)
+ *            (target=user, leadId/stardizId === me.id); деньги (плановый
+ *            пересмотр, премии) — только про тех, чьи деньги ему можно
+ *            видеть (lib/auditVisibility), как и в /api/audit
  *
  * Чтобы не таскать большую таблицу руками, ограничиваем выдачу 200 свежими
  * событиями + дальнейший load-more на клиенте (через query-param `before`).
@@ -25,13 +29,16 @@ export default async function AdminAuditPage() {
   }
 
   // Для лида — список id его подопечных, нужен в `where` для фильтра.
+  const viewer = { id: me.id, role: me.role };
   let leadScopeUserIds: number[] = [];
+  let compViewableIds: number[] = [];
   if (me.role === 'lead') {
     const reportees = await prisma.user.findMany({
       where: { OR: [{ leadId: me.id }, { stardizId: me.id }] },
-      select: { id: true },
+      select: { id: true, leadId: true },
     });
     leadScopeUserIds = reportees.map((u) => u.id);
+    compViewableIds = reportees.filter((u) => canViewCompensation(viewer, u)).map((u) => u.id);
   }
 
   // Грузим actor'ов отдельным запросом — JSON для UI становится плоским.
@@ -41,11 +48,16 @@ export default async function AdminAuditPage() {
     me.role === 'admin'
       ? {}
       : {
-          OR: [
-            { actorId: me.id },
-            ...(leadScopeUserIds.length > 0
-              ? [{ targetType: 'user', targetId: { in: leadScopeUserIds } }]
-              : []),
+          AND: [
+            {
+              OR: [
+                { actorId: me.id },
+                ...(leadScopeUserIds.length > 0
+                  ? [{ targetType: 'user', targetId: { in: leadScopeUserIds } }]
+                  : []),
+              ],
+            },
+            auditVisibilityWhere(viewer, compViewableIds),
           ],
         };
 

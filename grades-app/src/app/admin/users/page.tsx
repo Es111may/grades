@@ -7,7 +7,9 @@ import { canAccessUsers } from '@/lib/permissions';
 import {
   fetchOnTimeStatsByEmail,
   fetchTeamMonthlyOnTime,
+  type OnTimeStatsByEmail,
 } from '@/lib/clickhousePerfBatch';
+import { PAGE_BUDGET_MS, withTimeout } from '@/lib/perfCache';
 import { computeScore, nineBoxLevelFromString } from '@/lib/perfScore';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
 import { isGradable, isHourly } from '@/lib/employment';
@@ -15,8 +17,148 @@ import { canViewCompensation } from '@/lib/compPermissions';
 import { canViewDismissalDate, canViewDismissalStatus } from '@/lib/dismissal';
 import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
 import { fetchHrCompensationBatch, fetchHrLogsByEmail } from '@/lib/hrSalary';
+import { todayMoscowIso } from '@/lib/dates';
+import { SEASONS, type Season } from '@/lib/assessmentSeason';
 import type { BuildCode } from '@/lib/types';
 import UsersClient from './UsersClient';
+
+/**
+ * Последний снапшот NIPC, записанный этим процессом: «дата|значения».
+ * Пишем, только когда сменился день или цифры — а не на каждый рендер.
+ */
+let lastNipcSnapshotKey: string | null = null;
+
+// Выборка людей — только поля, которые уходят в строки списка и расчёты.
+// passwordHash и прочее из users не тянем.
+const USER_ROW_SELECT = {
+  id: true,
+  email: true,
+  fullName: true,
+  role: true,
+  buildId: true,
+  build: { select: { id: true, code: true, name: true } },
+  department: true,
+  leadId: true,
+  lead: { select: { id: true, fullName: true } },
+  stardizId: true,
+  stardiz: { select: { id: true, fullName: true } },
+  hiredAt: true,
+  active: true,
+  gradeFloor: true,
+  gradeFloorReason: true,
+  avatarUrl: true,
+  employmentType: true,
+  dismissedAt: true,
+  dismissalType: true,
+  dismissalReason: true,
+  plannedRaiseSetAt: true,
+  plannedRaiseAt: true,
+  plannedRaiseSalary: true,
+  plannedRaiseNote: true,
+  nextGradingAt: true,
+  nextGradingSetAt: true,
+  nextGradingSetBy: { select: { id: true, fullName: true } },
+} as const;
+
+type HrLogs = Map<string, { hiredAt: string | null; log: { date: string; from: number; to: number }[] }>;
+type HrBatch = Awaited<ReturnType<typeof fetchHrCompensationBatch>>;
+
+/**
+ * Внешние источники страницы (ClickHouse: «в срок», спарклайн, HR) —
+ * параллельно, каждый не дольше PAGE_BUDGET_MS. Раньше шли по очереди, и
+ * страница однажды ждала 22,6 с — запрос упёрся в 20-секундный таймаут
+ * клиента. Не успевший запрос дорабатывает в фоне и кладёт результат в
+ * кэш: следующий заход уже с цифрами. Упавший или не успевший источник
+ * деградирует ровно как раньше: «в срок» пустой (composite опустится в
+ * xpNorm), спарклайна нет, колонка «Зарплата» пустая, статус пересмотра —
+ * как есть.
+ */
+async function loadExternal(
+  usersRaw: Array<{
+    id: number;
+    email: string;
+    role: string;
+    active: boolean;
+    leadId: number | null;
+    plannedRaiseSetAt: Date | null;
+  }>,
+  me: { id: number; role: string },
+): Promise<{
+  onTimeByEmail: OnTimeStatsByEmail;
+  onTimeSpark: number[];
+  hrBatch: HrBatch | null;
+  hrLogs: HrLogs;
+}> {
+  // Phase 16: батч-агрегат «% попадания в срок за 6 мес». Тянем сразу
+  // для всех дизайнеров — один CH-запрос на «в срок» и спарклайн, потом
+  // кэш 15 мин. Инхаус (creator) тоже отправляем — внутри запроса они
+  // отфильтруются фильтрами «had estimate / completed / worked-hard» (т.к.
+  // в трекерах их задач нет), а если что-то найдётся — это всё равно мусор:
+  // для них perfScore не применяется (см. perfScore.ts).
+  const designerEmails = usersRaw
+    .filter((u) => (u.role === 'designer' || u.role === 'stardiz') && u.active && u.email)
+    .map((u) => u.email);
+
+  // Phase 23.4 — плановый пересмотр. Бейдж видят только те, кому можно
+  // видеть деньги; выполненный (в HR уже есть повышение после постановки
+  // статуса) не показываем. В HR ходим только за теми, у кого статус стоит.
+  const viewer = { id: me.id, role: me.role };
+  const withPlan = usersRaw.filter(
+    (u) => u.plannedRaiseSetAt && u.email && canViewCompensation(viewer, u),
+  );
+  // Админу — ещё и колонка «Зарплата»: один батч по всей странице, из него же
+  // берём журналы для плановых пересмотров. Лиду — только журналы тех, у кого
+  // стоит статус.
+  const loadHr = async (): Promise<{ hrBatch: HrBatch | null; hrLogs: HrLogs }> => {
+    if (me.role === 'admin') {
+      const hrBatch = await fetchHrCompensationBatch(usersRaw.map((u) => u.email).filter(Boolean));
+      const hrLogs: HrLogs = new Map();
+      for (const [em, c] of hrBatch) hrLogs.set(em, { hiredAt: c.hr?.hiredAt ?? null, log: c.log });
+      return { hrBatch, hrLogs };
+    }
+    if (withPlan.length) {
+      return { hrBatch: null, hrLogs: await fetchHrLogsByEmail(withPlan.map((u) => u.email)) };
+    }
+    return { hrBatch: null, hrLogs: new Map() };
+  };
+
+  const hasDesigners = designerEmails.length > 0;
+  const [onTime, spark, hr] = await Promise.allSettled([
+    hasDesigners
+      ? withTimeout(fetchOnTimeStatsByEmail(designerEmails), PAGE_BUDGET_MS, 'fetchOnTimeStatsByEmail')
+      : Promise.resolve<OnTimeStatsByEmail>(new Map()),
+    // Спарклайн «в срок» по месяцам — для bento-карточки. Тот же SQL, что
+    // и у «в срок»: оба вызова ждут один запрос (склейка в perfCache).
+    hasDesigners
+      ? withTimeout(fetchTeamMonthlyOnTime(designerEmails), PAGE_BUDGET_MS, 'fetchTeamMonthlyOnTime')
+      : Promise.resolve<number[]>([]),
+    withTimeout(loadHr(), PAGE_BUDGET_MS, 'HR data'),
+  ]);
+
+  if (onTime.status === 'rejected') {
+    // Fall through: всем onTime = null, composite опустится в xpNorm.
+    console.error('[/admin/users] fetchOnTimeStatsByEmail failed:', onTime.reason);
+  }
+  if (spark.status === 'rejected') {
+    console.error('[/admin/users] fetchTeamMonthlyOnTime failed:', spark.reason);
+  }
+  if (hr.status === 'rejected') {
+    // HR недоступен — колонка пустая, статус пересмотра показываем как есть
+    console.error('[/admin/users] HR data failed:', hr.reason);
+  }
+  return {
+    onTimeByEmail: onTime.status === 'fulfilled' ? onTime.value : new Map(),
+    onTimeSpark: spark.status === 'fulfilled' ? spark.value : [],
+    hrBatch: hr.status === 'fulfilled' ? hr.value.hrBatch : null,
+    hrLogs: hr.status === 'fulfilled' ? hr.value.hrLogs : new Map(),
+  };
+}
+
+/** Старт сезона оценок в году — полночь UTC, как даты снапшотов NIPC. */
+function seasonStartUtc(season: Season, year: number): Date {
+  const { month, day } = SEASONS[season].start;
+  return new Date(Date.UTC(year, month - 1, day));
+}
 
 export default async function AdminUsersPage() {
   const me = await getCurrentUser();
@@ -36,81 +178,166 @@ export default async function AdminUsersPage() {
         }
       : {};
 
-  const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
+  // Все чтения БД друг от друга не зависят (кроме пары «матрица → веса /
+  // грейды») — одним Promise.all вместо девяти последовательных шагов.
+  // Внешние источники стартуют, как только известен список людей, и идут
+  // параллельно с остальными чтениями. Promise.resolve — чтобы ленивый
+  // PrismaPromise выполнился один раз, сколько бы .then на нём ни висело.
+  const matrixP = Promise.resolve(
+    prisma.matrixVersion.findFirst({ where: { isCurrent: true }, select: { id: true } }),
+  );
+  const usersP = Promise.resolve(
+    prisma.user.findMany({
+      where: userWhere,
+      select: USER_ROW_SELECT,
+      // active desc — активные сверху, деактивированные в конце.
+      orderBy: [{ active: 'desc' }, { role: 'asc' }, { fullName: 'asc' }],
+    }),
+  );
+  const externalP = usersP.then((list) => loadExternal(list, { id: me.id, role: me.role }));
 
-  // Phase 16: maxXp по билду — нужно для xpNorm в composite score.
-  // Грузим SkillWeight + Skill, считаем sum(weight × maxMasteryLevel) по
-  // активным навыкам, группируя по buildId. Одинаково для всех дизайнеров
-  // одного билда — поэтому считаем тут один раз, в page.
-  const skillWeightsForMax = matrix
-    ? await prisma.skillWeight.findMany({
-        where: { matrixVersionId: matrix.id },
-        include: { skill: { select: { active: true, maxMasteryLevel: true } } },
-      })
-    : [];
+  // «Сегодня» — по Москве: сервер в UTC, и с 00:00 до 03:00 МСК
+  // toISOString() дал бы вчерашнюю дату.
+  const todayIso = todayMoscowIso();
+  // Phase 25: динамика NIPC «за цикл» — база цикла. Цикл начинается со
+  // старта сезона оценок из SEASONS (1 апреля и 1 октября). Раньше старт
+  // был 16.04/16.10 — после дедлайнов прежних сезонов; с 30.09.2026 сезоны
+  // 1.04–1.05 и 1.10–1.11, оценки идут внутри сезона, и база «за цикл» —
+  // состояние команды до них: перестановки 9-Box по итогам сезона попадают
+  // в дельту. Даты снапшотов — полночь UTC московской даты.
+  const todayDate = new Date(`${todayIso}T00:00:00Z`);
+  const year = todayDate.getUTCFullYear();
+  const spring = seasonStartUtc('spring', year);
+  const autumn = seasonStartUtc('autumn', year);
+  const cycleStart =
+    todayDate >= autumn ? autumn : todayDate >= spring ? spring : seasonStartUtc('autumn', year - 1);
+  // У стардиза NIPC частичный — дельту ему не считаем (см. ниже).
+  const nipcBaselineP =
+    me.role === 'stardiz'
+      ? Promise.resolve(null)
+      : Promise.resolve(
+          prisma.nipcSnapshot.findFirst({
+            where: { date: { gte: cycleStart } },
+            orderBy: { date: 'asc' },
+            select: { date: true, percent: true },
+          }),
+        ).catch((err: unknown) => {
+          console.error('[/admin/users] nipc snapshot failed:', err);
+          return null;
+        });
+
+  const [
+    skillWeightsForMax,
+    usersRaw,
+    builds,
+    leadsRaw,
+    stardizesRaw,
+    latestGrades,
+    gradeLevels,
+    draftRows,
+    growthRows,
+    selfAgg,
+    matrixCells,
+    nipcBaseline,
+    { onTimeByEmail, onTimeSpark, hrBatch, hrLogs },
+  ] = await Promise.all([
+    // Phase 16: maxXp по билду — нужно для xpNorm в composite score.
+    // Грузим SkillWeight + Skill, считаем sum(weight × maxMasteryLevel) по
+    // активным навыкам, группируя по buildId. Одинаково для всех дизайнеров
+    // одного билда — поэтому считаем тут один раз, в page.
+    matrixP.then((matrix) =>
+      matrix
+        ? prisma.skillWeight.findMany({
+            where: { matrixVersionId: matrix.id },
+            select: {
+              buildId: true,
+              weight: true,
+              skill: { select: { active: true, maxMasteryLevel: true } },
+            },
+          })
+        : [],
+    ),
+    usersP,
+    prisma.build.findMany({ orderBy: { sortOrder: 'asc' } }),
+    prisma.user.findMany({
+      where: { role: { in: ['lead', 'admin'] }, active: true },
+      select: { id: true, fullName: true },
+      orderBy: { fullName: 'asc' },
+    }),
+    prisma.user.findMany({
+      where: { role: { in: ['stardiz', 'lead', 'admin'] }, active: true },
+      select: { id: true, fullName: true },
+      orderBy: { fullName: 'asc' },
+    }),
+    // Последний published-ассессмент: грейд, дата, totalXp и xpByTaxonomy
+    // (последнее достаём из jsonb snapshot.result.xpByTaxonomy).
+    prisma.$queryRaw<
+      Array<{
+        designerId: number;
+        effectiveGrade: string | null;
+        publishedAt: Date | null;
+        totalXp: number | null;
+        xpByTaxonomy: Record<string, number> | null;
+        xpNeeded: number | null;
+        nextGradeCode: string | null;
+      }>
+    >`
+      SELECT DISTINCT ON ("designerId")
+        "designerId",
+        "effectiveGrade",
+        "publishedAt",
+        "totalXp",
+        snapshot->'result'->'xpByTaxonomy' AS "xpByTaxonomy",
+        NULLIF(snapshot->'result'->'nextGrade'->>'xpNeeded', '')::int AS "xpNeeded",
+        snapshot->'result'->'nextGrade'->>'code' AS "nextGradeCode"
+      FROM assessments
+      WHERE status = 'published' AND "effectiveGrade" IS NOT NULL
+      ORDER BY "designerId", "publishedAt" DESC
+    `,
+    matrixP.then((matrix) =>
+      matrix
+        ? prisma.gradeLevel.findMany({
+            where: { matrixVersionId: matrix.id },
+            select: { code: true, name: true, sortOrder: true, xpThresholds: true },
+            orderBy: { sortOrder: 'asc' },
+          })
+        : [],
+    ),
+    // Черновики: по каждому дизайнеру свежайший updatedAt — для статус-чипов
+    // в лидерборде и сигнала «черновики без движения».
+    prisma.assessment.findMany({
+      where: { status: 'draft' },
+      select: { designerId: true, updatedAt: true },
+    }),
+    // Скорость роста: прирост totalXp между двумя последними published-оценками
+    // каждого дизайнера. Медиана по команде — bento-ячейка + сравнение на портрете.
+    prisma.$queryRaw<Array<{ designerId: number; totalXp: number | null; rn: bigint }>>`
+      SELECT "designerId", "totalXp",
+             ROW_NUMBER() OVER (PARTITION BY "designerId" ORDER BY "publishedAt" DESC) AS rn
+      FROM assessments
+      WHERE status = 'published' AND "totalXp" IS NOT NULL
+    `,
+    // Phase 14: последняя правка самооценки по каждому дизайнеру — для
+    // флага «обновил после последней оценки» (сигнал лиду).
+    prisma.selfAssessment.groupBy({
+      by: ['designerId'],
+      _max: { updatedAt: true },
+    }),
+    // Phase 16.2: позиция в 9-Box матрице потенциала. Используется как
+    // третья компонента composite score (вес 20%).
+    prisma.teamMatrixCell.findMany({
+      select: { userId: true, potentialLevel: true, performanceLevel: true },
+    }),
+    nipcBaselineP,
+    externalP,
+  ]);
+
   const maxXpByBuildId = new Map<number, number>();
   for (const sw of skillWeightsForMax) {
     if (!sw.skill.active) continue;
     const cur = maxXpByBuildId.get(sw.buildId) ?? 0;
     maxXpByBuildId.set(sw.buildId, cur + sw.weight * sw.skill.maxMasteryLevel);
   }
-
-  const [usersRaw, builds, leadsRaw, stardizesRaw, latestGrades, gradeLevels] =
-    await Promise.all([
-      prisma.user.findMany({
-        where: userWhere,
-        include: {
-          build: true,
-          lead: { select: { id: true, fullName: true } },
-          stardiz: { select: { id: true, fullName: true } },
-          nextGradingSetBy: { select: { id: true, fullName: true } },
-        },
-        // active desc — активные сверху, деактивированные в конце.
-        orderBy: [{ active: 'desc' }, { role: 'asc' }, { fullName: 'asc' }],
-      }),
-      prisma.build.findMany({ orderBy: { sortOrder: 'asc' } }),
-      prisma.user.findMany({
-        where: { role: { in: ['lead', 'admin'] }, active: true },
-        select: { id: true, fullName: true },
-        orderBy: { fullName: 'asc' },
-      }),
-      prisma.user.findMany({
-        where: { role: { in: ['stardiz', 'lead', 'admin'] }, active: true },
-        select: { id: true, fullName: true },
-        orderBy: { fullName: 'asc' },
-      }),
-      // Последний published-ассессмент: грейд, дата, totalXp и xpByTaxonomy
-      // (последнее достаём из jsonb snapshot.result.xpByTaxonomy).
-      prisma.$queryRaw<
-        Array<{
-          designerId: number;
-          effectiveGrade: string | null;
-          publishedAt: Date | null;
-          totalXp: number | null;
-          xpByTaxonomy: Record<string, number> | null;
-          xpNeeded: number | null;
-          nextGradeCode: string | null;
-        }>
-      >`
-        SELECT DISTINCT ON ("designerId")
-          "designerId",
-          "effectiveGrade",
-          "publishedAt",
-          "totalXp",
-          snapshot->'result'->'xpByTaxonomy' AS "xpByTaxonomy",
-          NULLIF(snapshot->'result'->'nextGrade'->>'xpNeeded', '')::int AS "xpNeeded",
-          snapshot->'result'->'nextGrade'->>'code' AS "nextGradeCode"
-        FROM assessments
-        WHERE status = 'published' AND "effectiveGrade" IS NOT NULL
-        ORDER BY "designerId", "publishedAt" DESC
-      `,
-      matrix
-        ? prisma.gradeLevel.findMany({
-            where: { matrixVersionId: matrix.id },
-            orderBy: { sortOrder: 'asc' },
-          })
-        : Promise.resolve([]),
-    ]);
 
   const gradeByDesignerId = new Map<
     number,
@@ -137,28 +364,12 @@ export default async function AdminUsersPage() {
   }
 
   // === Данные для редизайна «Команды» (концепт v4) ============
-  // Черновики: по каждому дизайнеру свежайший updatedAt — для статус-чипов
-  // в лидерборде и сигнала «черновики без движения».
-  const draftRows = await prisma.assessment.findMany({
-    where: { status: 'draft' },
-    select: { designerId: true, updatedAt: true },
-  });
   const draftUpdatedAt = new Map<number, Date>();
   for (const d of draftRows) {
     const prev = draftUpdatedAt.get(d.designerId);
     if (!prev || d.updatedAt > prev) draftUpdatedAt.set(d.designerId, d.updatedAt);
   }
 
-  // Скорость роста: прирост totalXp между двумя последними published-оценками
-  // каждого дизайнера. Медиана по команде — bento-ячейка + сравнение на портрете.
-  const growthRows = await prisma.$queryRaw<
-    Array<{ designerId: number; totalXp: number | null; rn: bigint }>
-  >`
-    SELECT "designerId", "totalXp",
-           ROW_NUMBER() OVER (PARTITION BY "designerId" ORDER BY "publishedAt" DESC) AS rn
-    FROM assessments
-    WHERE status = 'published' AND "totalXp" IS NOT NULL
-  `;
   const lastTwo = new Map<number, { cur?: number; prev?: number }>();
   for (const r of growthRows) {
     const n = Number(r.rn);
@@ -183,73 +394,17 @@ export default async function AdminUsersPage() {
     xpThresholds: g.xpThresholds as Record<string, number>,
   }));
 
-  // Phase 14: последняя правка самооценки по каждому дизайнеру — для
-  // флага «обновил после последней оценки» (сигнал лиду).
-  const selfAgg = await prisma.selfAssessment.groupBy({
-    by: ['designerId'],
-    _max: { updatedAt: true },
-  });
   const selfMaxByDesigner = new Map(
     selfAgg.map((g) => [g.designerId, g._max.updatedAt]),
   );
 
-  // Phase 16.2: позиция в 9-Box матрице потенциала. Используется как
-  // третья компонента composite score (вес 20%).
-  const matrixCells = await prisma.teamMatrixCell.findMany({
-    select: { userId: true, potentialLevel: true, performanceLevel: true },
-  });
   const cellByUserId = new Map(matrixCells.map((c) => [c.userId, c]));
 
-  // Phase 16: батч-агрегат «% попадания в срок за 6 мес». Тянем сразу
-  // для всех дизайнеров — один CH-запрос, потом кэш 15 мин.
-  // Инхаус (creator) тоже отправляем — внутри запроса они отфильтруются
-  // фильтрами «had estimate / completed / worked-hard» (т.к. в трекерах
-  // их задач нет), а если что-то найдётся — это всё равно мусор: для них
-  // perfScore не применяется (см. perfScore.ts).
-  const designerEmails = usersRaw
-    .filter((u) => (u.role === 'designer' || u.role === 'stardiz') && u.active && u.email)
-    .map((u) => u.email);
-  let onTimeByEmail = new Map<string, { onTimePercent: number | null; totalTasks: number }>();
-  let onTimeSpark: number[] = [];
-  if (designerEmails.length > 0) {
-    try {
-      onTimeByEmail = await fetchOnTimeStatsByEmail(designerEmails);
-    } catch (err) {
-      console.error('[/admin/users] fetchOnTimeStatsByEmail failed:', err);
-      // Fall through: всем onTime = null, composite опустится в xpNorm.
-    }
-    try {
-      // Спарклайн «в срок» по месяцам — для bento-карточки
-      onTimeSpark = await fetchTeamMonthlyOnTime(designerEmails);
-    } catch (err) {
-      console.error('[/admin/users] fetchTeamMonthlyOnTime failed:', err);
-    }
-  }
-
-  // Phase 23.4 — плановый пересмотр. Бейдж видят только те, кому можно
-  // видеть деньги; выполненный (в HR уже есть повышение после постановки
-  // статуса) не показываем. В HR ходим только за теми, у кого статус стоит.
   const viewer = me?.id ? { id: me.id, role: me.role } : null;
-  const withPlan = usersRaw.filter(
-    (u) => u.plannedRaiseSetAt && u.email && canViewCompensation(viewer, u),
-  );
-  let hrLogs = new Map<string, { hiredAt: string | null; log: { date: string; from: number; to: number }[] }>();
-  // Админу — ещё и колонка «Зарплата»: один батч по всей странице, из него же
-  // берём журналы для плановых пересмотров. Лиду — только журналы тех, у кого
-  // стоит статус.
-  let hrBatch: Awaited<ReturnType<typeof fetchHrCompensationBatch>> | null = null;
-  try {
-    if (me?.role === 'admin') {
-      hrBatch = await fetchHrCompensationBatch(usersRaw.map((u) => u.email).filter(Boolean));
-      for (const [em, c] of hrBatch) hrLogs.set(em, { hiredAt: c.hr?.hiredAt ?? null, log: c.log });
-    } else if (withPlan.length) {
-      hrLogs = await fetchHrLogsByEmail(withPlan.map((u) => u.email));
-    }
-  } catch (err) {
-    // HR недоступен — колонка пустая, статус пересмотра показываем как есть
-    console.error('[/admin/users] HR data failed:', err);
-  }
-  const todayIso = new Date().toISOString().slice(0, 10);
+  // Стардиз видит в списке и себя, но его собственные позиция в 9-Box и
+  // composite ему не показываются (свою позицию стардиз не видит и на
+  // портрете): ни в строке, ни в счётчиках карты — там только подопечные.
+  const isOwnHiddenTalent = (id: number) => me.role === 'stardiz' && id === me.id;
   // Увольнение: дату видят админ и лид, тип и причину — только админ.
   // Остальным поля не кладём вовсе — ни в данные страницы, ни в JSON.
   const seeDismissalDate = canViewDismissalDate(me);
@@ -264,7 +419,8 @@ export default async function AdminUsersPage() {
     const onTimeTotalTasks = perfStat?.totalTasks ?? 0;
 
     // Данные для пересчёта bento-агрегатов под скоуп «Мои» на клиенте.
-    const cellForScope = cellByUserId.get(u.id);
+    const hideTalent = isOwnHiddenTalent(u.id);
+    const cellForScope = hideTalent ? undefined : cellByUserId.get(u.id);
     const twoGrades = lastTwo.get(u.id);
     const growthDelta =
       twoGrades && twoGrades.cur !== undefined && twoGrades.prev !== undefined
@@ -282,7 +438,12 @@ export default async function AdminUsersPage() {
     let compositeScore: number | null = null;
     // Стардизы ранжируются вместе с дизайнерами (Pavel 29.09.2026);
     // почасовщики — нет: их XP заморожен (Phase 23.4).
-    if ((u.role === 'designer' || u.role === 'stardiz') && last?.totalXp != null && !isHourly(u)) {
+    if (
+      (u.role === 'designer' || u.role === 'stardiz') &&
+      last?.totalXp != null &&
+      !isHourly(u) &&
+      !hideTalent
+    ) {
       const cell = cellByUserId.get(u.id);
       const nineBoxPerf = nineBoxLevelFromString(cell?.performanceLevel);
       const nineBoxPot = nineBoxLevelFromString(cell?.potentialLevel);
@@ -398,7 +559,8 @@ export default async function AdminUsersPage() {
   // и дизайнеров, И СТАРДИЗОВ (как в самой матрице 9-Box, где размещаются
   // обе роли). Формула: (звёзды + выс.потенциал + выс.производительность −
   // обе зоны внимания − ошибка подбора) / все размещаемые (дизайнеры+стардизы).
-  const nineBoxEligible = users.filter(isGradable);
+  // У стардиза — без него самого: карта и NIPC только по подопечным.
+  const nineBoxEligible = users.filter((u) => isGradable(u) && !isOwnHiddenTalent(u.id));
   const nineBoxIds = new Set(nineBoxEligible.map((u) => u.id));
   const nineBox: Record<string, number> = {};
   for (const c of matrixCells) {
@@ -416,54 +578,43 @@ export default async function AdminUsersPage() {
 
   // Phase 25: динамика NIPC «за цикл». Пишем дневной снапшот (upsert по
   // дате) и сравниваем с самым ранним снапшотом текущего оценочного цикла
-  // (циклы: с 16 апреля и с 16 октября — после дедлайнов сезонов).
+  // (база прочитана выше вместе с остальными данными, старт цикла — там же).
   // История копится с момента деплоя фазы; ошибки не блокируют страницу.
   // ВАЖНО: у стардиза выборка users серверно обрезана до его подопечных —
   // его NIPC частичный, снапшот команды им затирать нельзя.
   let nipcDelta: number | null = null;
   if (nipcPercent !== null && me.role !== 'stardiz') {
-    try {
-      const nowD = new Date();
-      const todayDate = new Date(
-        Date.UTC(nowD.getFullYear(), nowD.getMonth(), nowD.getDate()),
-      );
-      const y = nowD.getFullYear();
-      const apr16 = new Date(Date.UTC(y, 3, 16));
-      const oct16 = new Date(Date.UTC(y, 9, 16));
-      const cycleStart =
-        todayDate >= oct16 ? oct16 : todayDate >= apr16 ? apr16 : new Date(Date.UTC(y - 1, 9, 16));
+    const snapshot = {
+      percent: nipcPercent,
+      stars: nb('high_high'),
+      hpot: nb('high_mid'),
+      hperf: nb('mid_high'),
+      risk: nb('mid_low') + nb('low_mid') + nb('low_low'),
+      total: nineBoxEligible.length,
+    };
+    // Запись снапшота — фоном и только когда сменился день или цифры:
+    // рендер её не ждёт, и на каждый заход в БД не пишем. Упала — сбросим
+    // отметку, следующий рендер попробует снова.
+    const snapshotKey = `${todayIso}|${JSON.stringify(snapshot)}`;
+    if (lastNipcSnapshotKey !== snapshotKey) {
+      lastNipcSnapshotKey = snapshotKey;
+      prisma.nipcSnapshot
+        .upsert({
+          where: { date: todayDate },
+          update: snapshot,
+          create: { date: todayDate, ...snapshot },
+        })
+        .catch((err: unknown) => {
+          if (lastNipcSnapshotKey === snapshotKey) lastNipcSnapshotKey = null;
+          console.error('[/admin/users] nipc snapshot failed:', err);
+        });
+    }
 
-      await prisma.nipcSnapshot.upsert({
-        where: { date: todayDate },
-        update: {
-          percent: nipcPercent,
-          stars: nb('high_high'),
-          hpot: nb('high_mid'),
-          hperf: nb('mid_high'),
-          risk: nb('mid_low') + nb('low_mid') + nb('low_low'),
-          total: nineBoxEligible.length,
-        },
-        create: {
-          date: todayDate,
-          percent: nipcPercent,
-          stars: nb('high_high'),
-          hpot: nb('high_mid'),
-          hperf: nb('mid_high'),
-          risk: nb('mid_low') + nb('low_mid') + nb('low_low'),
-          total: nineBoxEligible.length,
-        },
-      });
-
-      const baseline = await prisma.nipcSnapshot.findFirst({
-        where: { date: { gte: cycleStart } },
-        orderBy: { date: 'asc' },
-      });
-      // Дельта осмысленна только когда база старше сегодняшнего снапшота
-      if (baseline && baseline.date.getTime() < todayDate.getTime()) {
-        nipcDelta = nipcPercent - baseline.percent;
-      }
-    } catch (err) {
-      console.error('[/admin/users] nipc snapshot failed:', err);
+    // Сегодняшний снапшот для дельты не нужен (база должна быть старше),
+    // поэтому базу читаем, не дожидаясь записи.
+    // Дельта осмысленна только когда база старше сегодняшнего снапшота
+    if (nipcBaseline && nipcBaseline.date.getTime() < todayDate.getTime()) {
+      nipcDelta = nipcPercent - nipcBaseline.percent;
     }
   }
 

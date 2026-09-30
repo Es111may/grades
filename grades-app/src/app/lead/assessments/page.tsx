@@ -38,21 +38,44 @@ export default async function LeadAssessmentsPage() {
   }
   // admin → все
 
+  // Явный select: списку не нужен snapshot оценки (большой JSON на каждую
+  // строку) и полные строки людей — у лида свой аватар и хэш пароля.
+  const designerSelect = {
+    select: {
+      fullName: true,
+      email: true,
+      avatarUrl: true,
+      department: true,
+      build: { select: { code: true, name: true } },
+    },
+  } as const;
+  const leadSelect = { select: { fullName: true } } as const;
+
   const [assessments, drafts] = await Promise.all([
     prisma.assessment.findMany({
       where: { ...publishedWhere, status: 'published' },
       orderBy: { publishedAt: 'desc' },
-      include: {
-        designer: { include: { build: true } },
-        lead: true,
+      select: {
+        id: true,
+        designerId: true,
+        publishedAt: true,
+        effectiveGrade: true,
+        totalXp: true,
+        designer: designerSelect,
+        lead: leadSelect,
       },
     }),
     prisma.assessment.findMany({
       where: { ...draftWhere, status: 'draft' },
       orderBy: { updatedAt: 'desc' },
-      include: {
-        designer: { include: { build: true } },
-        lead: true,
+      select: {
+        id: true,
+        designerId: true,
+        leadId: true,
+        updatedAt: true,
+        createdAt: true,
+        designer: designerSelect,
+        lead: leadSelect,
       },
     }),
   ]);

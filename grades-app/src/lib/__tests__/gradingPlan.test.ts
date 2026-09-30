@@ -50,6 +50,97 @@ describe('gradingPlanStatus — состояния', () => {
   });
 });
 
+// Сервер в UTC, пользователи в Москве (UTC+3). Моменты заданы с суффиксом Z,
+// поэтому тесты не зависят от пояса машины. Плановая дата — полночь UTC,
+// как её сохраняет API из input[type=date].
+describe('gradingPlanStatus — московский календарь', () => {
+  it('01:00 МСК в день грейдирования — «сегодня», а не «через 1 дн.»', () => {
+    // 2026-10-06T22:00Z = 7 окт 01:00 по Москве; по UTC ещё 6-е
+    const r = gradingPlanStatus(
+      { nextGradingAt: d('2026-10-07') },
+      new Date('2026-10-06T22:00:00Z'),
+    );
+    expect(r.daysLeft).toBe(0);
+    expect(r.state).toBe('soon');
+  });
+
+  it('ровно полночь МСК — уже новый день', () => {
+    expect(
+      gradingPlanStatus(
+        { nextGradingAt: d('2026-10-07') },
+        new Date('2026-10-06T21:00:00Z'),
+      ).daysLeft,
+    ).toBe(0);
+    // За минуту до полуночи МСК — ещё накануне
+    expect(
+      gradingPlanStatus(
+        { nextGradingAt: d('2026-10-07') },
+        new Date('2026-10-06T20:59:00Z'),
+      ).daysLeft,
+    ).toBe(1);
+  });
+
+  it('02:59 МСК на следующий день после плана — уже «просрочено на 1 дн.»', () => {
+    // 2026-10-07T23:59Z = 8 окт 02:59 по Москве
+    const r = gradingPlanStatus(
+      { nextGradingAt: d('2026-10-07') },
+      new Date('2026-10-07T23:59:00Z'),
+    );
+    expect(r.daysLeft).toBe(-1);
+    expect(r.state).toBe('due');
+  });
+
+  it('порог тревоги считается по московским суткам', () => {
+    // 22 окт 00:30 МСК (21-е по UTC): прошло 15 дней по Москве — тревога
+    const r = gradingPlanStatus(
+      { nextGradingAt: d('2026-10-07') },
+      new Date('2026-10-21T21:30:00Z'),
+    );
+    expect(r.daysLeft).toBe(-15);
+    expect(r.state).toBe('overdue');
+  });
+
+  it('граница «на подходе» — тоже по Москве', () => {
+    // 7 окт 01:00 МСК, план 15 окт: 8 дней — ещё «запланировано»
+    expect(
+      gradingPlanStatus(
+        { nextGradingAt: d('2026-10-15') },
+        new Date('2026-10-06T22:00:00Z'),
+      ).state,
+    ).toBe('planned');
+    // 8 окт 01:00 МСК: 7 дней — «на подходе»
+    expect(
+      gradingPlanStatus(
+        { nextGradingAt: d('2026-10-15') },
+        new Date('2026-10-07T22:00:00Z'),
+      ).state,
+    ).toBe('soon');
+  });
+
+  it('без отметки постановки: оценка в 01:00 МСК в плановый день — проведено', () => {
+    // 2026-10-06T22:00Z — по UTC раньше полуночи плановой даты, но по Москве
+    // это уже 7 октября
+    const r = gradingPlanStatus(
+      {
+        nextGradingAt: d('2026-10-07'),
+        lastPublishedAt: new Date('2026-10-06T22:00:00Z'),
+      },
+      new Date('2026-10-25T12:00:00Z'),
+    );
+    expect(r.state).toBe('done');
+    // А накануне по Москве — всё ещё не проведено
+    expect(
+      gradingPlanStatus(
+        {
+          nextGradingAt: d('2026-10-07'),
+          lastPublishedAt: new Date('2026-10-06T20:00:00Z'),
+        },
+        new Date('2026-10-25T12:00:00Z'),
+      ).state,
+    ).toBe('overdue');
+  });
+});
+
 describe('gradingPlanStatus — «проведено»', () => {
   it('оценка после постановки даты — проведено, с фактической датой', () => {
     // Сценарий Pavel: дату поставили 1 окт на 7 окт, провели 13 окт

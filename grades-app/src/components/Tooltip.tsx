@@ -43,7 +43,7 @@ export default function Tooltip({
           className={`pointer-events-none absolute top-full mt-2 ${pos} z-40
                       card p-3 text-left text-xs text-stone leading-relaxed shadow-soft-lg
                       font-normal normal-case tracking-normal whitespace-normal break-words
-                      [font-family:Onest,sans-serif]
+                      font-sans
                       opacity-0 translate-y-1 transition-all duration-150
                       group-hover/tt:opacity-100 group-hover/tt:translate-y-0`}
           style={{ maxWidth, width: 'max-content' }}

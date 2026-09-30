@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDownIcon, CheckIcon, PencilIcon, TrashIcon, SearchIcon } from '@/components/icons';
 import EmptyState from '@/components/EmptyState';
-import { AUDIT_ACTION_LABEL, AUDIT_TARGET_TYPE_LABEL } from '@/lib/audit';
+import { AUDIT_ACTIONS, AUDIT_ACTION_LABEL, AUDIT_TARGET_TYPE_LABEL } from '@/lib/audit';
 import TitleAurora from '@/components/TitleAurora';
 
 interface ActorInfo {
@@ -31,6 +31,17 @@ export interface AuditEntry {
   details: unknown;
   actor: ActorInfo;
 }
+
+/**
+ * События про деньги: в details — суммы планового пересмотра и премий.
+ * Кнопка-глаз в шапке прячет их, как и остальное salary-sensitive.
+ */
+const MONEY_ACTIONS = new Set<string>([
+  AUDIT_ACTIONS.PLANNED_RAISE_SET,
+  AUDIT_ACTIONS.PLANNED_RAISE_CLEARED,
+  AUDIT_ACTIONS.BONUS_CREATED,
+  AUDIT_ACTIONS.BONUS_DELETED,
+]);
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Админ',
@@ -332,6 +343,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
   const [expanded, setExpanded] = useState(false);
 
   const actionLabel = AUDIT_ACTION_LABEL[entry.action] ?? entry.action;
+  const isMoney = MONEY_ACTIONS.has(entry.action);
   const targetTypeLabel = AUDIT_TARGET_TYPE_LABEL[entry.targetType] ?? entry.targetType;
 
   return (
@@ -381,9 +393,17 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
       {expanded && (
         <tr className="bg-canvas/30">
           <td colSpan={5} className="py-3 px-4">
-            <pre className="text-[11px] font-mono text-stone whitespace-pre-wrap break-words leading-relaxed">
+            <pre
+              className={`text-[11px] font-mono text-stone whitespace-pre-wrap break-words leading-relaxed ${
+                isMoney ? 'salary-sensitive' : ''
+              }`}
+            >
               {JSON.stringify(entry.details, null, 2)}
             </pre>
+            {/* Зарплаты спрятаны — вместо сумм заглушка, строка не пустая */}
+            {isMoney && (
+              <span className="salary-hidden-only text-[11px] font-mono text-ash">Скрыто</span>
+            )}
           </td>
         </tr>
       )}

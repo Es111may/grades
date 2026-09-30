@@ -30,7 +30,7 @@
  *
  * Если хоть одна переменная не задана — клиент кинет понятную ошибку при
  * первом обращении; API-роут `/api/performance/tasks` поймает её и вернёт
- * 502 с пустым массивом задач (дашборд покажет «не удалось загрузить»).
+ * 502 «Данные о задачах временно недоступны» — дашборд покажет этот текст.
  */
 
 import { createClient, type ClickHouseClient } from '@clickhouse/client';
@@ -575,19 +575,32 @@ export interface FetchTasksResult {
     trackerCount: number;
     /** Сколько строк вернул бы collab.* БЕЗ фильтров (для дебага). */
     collabRawCount: number;
-    /** Сколько строк вернул бы manage.* БЕЗ фильтров (для дебага). */
-    trackerRawCount: number;
+    /**
+     * Сколько строк вернул бы manage.* БЕЗ фильтров (для дебага). null —
+     * сырой запрос не запускали (он только для `debug=1`).
+     */
+    trackerRawCount: number | null;
     /** Ошибки запросов, если были. */
     errors: string[];
   };
 }
 
+/** Основной запрос задач не выполнился — показывать «нет задач» нельзя. */
+export class TasksUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TasksUnavailableError';
+  }
+}
+
 /**
  * Подтягивает список задач дизайнера за весь доступный период (2024-01-01+).
  *
- * Запускает два параллельных запроса (collab + manage) и склеивает результат.
- * Если один из источников падает — возвращаем хотя бы то, что есть из другого
- * (как в Python-сервисе).
+ * Источник один — manage (collab.* больше не запрашиваем, см. ниже). Если
+ * основной запрос упал — бросаем TasksUnavailableError: пустой список
+ * читался бы как «задач нет», а это неправда. Сырой запрос без фильтров —
+ * такой же тяжёлый JOIN, нужен только для дебага, поэтому запускается лишь
+ * с `withRaw` (роут передаёт его при `debug=1`).
  *
  * Email нормализуем в нижний регистр — в ClickHouse `=` и `position()` работают
  * побайтово, а в проде встречались записи вида `Pg@idaproject.com` рядом с
@@ -595,6 +608,7 @@ export interface FetchTasksResult {
  */
 export async function fetchDesignerTasks(
   p: FetchTasksParams,
+  opts: { withRaw?: boolean } = {},
 ): Promise<FetchTasksResult> {
   const client = getClient();
   const email = p.email.trim().toLowerCase();
@@ -604,14 +618,16 @@ export async function fetchDesignerTasks(
 
   const errors: string[] = [];
 
-  const safeRun = async (sql: string, label: string): Promise<RawTaskRow[]> => {
+  // null — запрос упал. Email в лог не пишем: сообщение ClickHouse идёт как
+  // есть, а кто смотрел — логирует роут по userId.
+  const safeRun = async (sql: string, label: string): Promise<RawTaskRow[] | null> => {
     try {
       return await runQuery<RawTaskRow>(client, sql, queryParams);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[clickhousePerf] ${label} query failed:`, msg);
       errors.push(`${label}: ${msg}`);
-      return [];
+      return null;
     }
   };
 
@@ -627,8 +643,14 @@ export async function fetchDesignerTasks(
   };
   const [trackerRows, trackerRaw] = await Promise.all([
     safeRun(buildManageTrackerTasksSQL(p), 'manage filtered'),
-    safeRun(buildManageTrackerTasksSQL(rawParams), 'manage raw'),
+    opts.withRaw
+      ? safeRun(buildManageTrackerTasksSQL(rawParams), 'manage raw')
+      : Promise.resolve(null),
   ]);
+
+  if (trackerRows === null) {
+    throw new TasksUnavailableError(errors.join('; '));
+  }
 
   return {
     tasks: trackerRows.map((r) => mapRow(r, 'tracker')),
@@ -639,7 +661,7 @@ export async function fetchDesignerTasks(
       collabCount: 0,
       trackerCount: trackerRows.length,
       collabRawCount: 0,
-      trackerRawCount: trackerRaw.length,
+      trackerRawCount: trackerRaw ? trackerRaw.length : null,
       errors,
     },
   };

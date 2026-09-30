@@ -1,8 +1,21 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { canGradeDesigner } from '@/lib/permissions';
+import { isGradable } from '@/lib/employment';
+import { validateScores } from '@/lib/assessmentScores';
+
+/** Кого грейдируют: для canGradeDesigner и isGradable. */
+const designerSelect = {
+  leadId: true,
+  stardizId: true,
+  role: true,
+  active: true,
+  employmentType: true,
+} as const;
 
 /** GET /api/assessments?designerId=X — get or create draft assessment for current cycle */
 export async function GET(req: NextRequest) {
@@ -14,6 +27,22 @@ export async function GET(req: NextRequest) {
   const designerId = parseInt(req.nextUrl.searchParams.get('designerId') ?? '', 10);
   if (isNaN(designerId)) {
     return NextResponse.json({ error: 'designerId required' }, { status: 400 });
+  }
+
+  // GET здесь создаёт черновик — это запись, поэтому права как у оценки:
+  // только тот, кто грейдирует этого человека.
+  const designer = await prisma.user.findUnique({
+    where: { id: designerId },
+    select: designerSelect,
+  });
+  if (!designer) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  if (!canGradeDesigner(me, designer)) {
+    return NextResponse.json(
+      { error: 'Оценивать можно только своих подопечных' },
+      { status: 403 },
+    );
   }
 
   const now = new Date();
@@ -30,6 +59,12 @@ export async function GET(req: NextRequest) {
   });
 
   if (!assessment) {
+    if (!isGradable(designer)) {
+      return NextResponse.json(
+        { error: 'Почасовщиков и неактивных не грейдируют' },
+        { status: 400 },
+      );
+    }
     // Get current matrix version
     const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
     if (!matrix) {
@@ -59,10 +94,29 @@ export async function GET(req: NextRequest) {
  *     только для draft-оценки. Используется автосейвом формы.
  *   - `leadComment` — markdown-мнение лида/стардиза. Доступно и для
  *     published — на странице портрета можно дописать или поправить
- *     мнение позже без снятия публикации. Право проверяется отдельно:
- *     admin всегда, lead — если ведёт дизайнера, stardiz — если он лид
- *     или стардиз этого дизайнера.
+ *     мнение позже без снятия публикации.
+ * Права на оба набора — canGradeDesigner: admin всегда, lead — если ведёт
+ * дизайнера, stardiz — если он лид или стардиз этого дизайнера. Баллы —
+ * ещё и только грейдируемым (isGradable) и в пределах уровней навыка.
  */
+const postSchema = z.object({
+  assessmentId: z.number().int(),
+  // Каждый элемент может содержать либо masteryLevel, либо flagged,
+  // либо оба сразу — обновляем только то, что пришло. Диапазон уровня
+  // проверяет validateScores — с понятным текстом ошибки.
+  scores: z
+    .array(
+      z.object({
+        skillId: z.number().int(),
+        masteryLevel: z.number().optional(),
+        flagged: z.boolean().optional(),
+      }),
+    )
+    .max(1000)
+    .optional(),
+  leadComment: z.string().nullable().optional(),
+});
+
 export async function POST(req: NextRequest) {
   const me = await getCurrentUser();
   if (
@@ -73,30 +127,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const body = await req.json();
-  const { assessmentId, scores, leadComment } = body as {
-    assessmentId: number;
-    // Каждый элемент может содержать либо masteryLevel, либо flagged,
-    // либо оба сразу — обновляем только то, что пришло.
-    scores?: {
-      skillId: number;
-      masteryLevel?: number;
-      flagged?: boolean;
-    }[];
-    leadComment?: string | null;
-  };
-
-  if (!assessmentId) {
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  const parsed = postSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Некорректные данные' }, { status: 400 });
   }
+  const { assessmentId, scores, leadComment } = parsed.data;
 
   const assessment = await prisma.assessment.findUnique({
     where: { id: assessmentId },
-    select: { id: true, status: true, designerId: true },
+    select: {
+      id: true,
+      status: true,
+      matrixVersionId: true,
+      designer: { select: designerSelect },
+    },
   });
 
-  if (!assessment) {
+  if (!assessment || assessment.status === 'archived') {
     return NextResponse.json({ error: 'Assessment not found' }, { status: 404 });
+  }
+
+  // И баллы, и мнение пишет только тот, кто грейдирует этого человека:
+  // admin, его лид, его стардиз (canGradeDesigner). Раньше баллы мог
+  // переписать любой лид или стардиз по одному assessmentId.
+  if (!canGradeDesigner(me, assessment.designer)) {
+    return NextResponse.json(
+      { error: 'Только лид/стардиз этого дизайнера может менять оценку' },
+      { status: 403 },
+    );
   }
 
   const wantsScoresUpdate = Array.isArray(scores);
@@ -110,22 +168,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // leadComment — отдельная проверка прав на этого конкретного дизайнера
-  if (wantsLeadCommentUpdate) {
-    const designer = await prisma.user.findUnique({
-      where: { id: assessment.designerId },
-      select: { leadId: true, stardizId: true },
-    });
-    const canEditLeadComment =
-      me.role === 'admin' ||
-      (me.role === 'lead' && designer?.leadId === me.id) ||
-      (me.role === 'stardiz' &&
-        (designer?.stardizId === me.id || designer?.leadId === me.id));
-    if (!canEditLeadComment) {
+  if (wantsScoresUpdate && scores) {
+    // Почасовщик и неактивный не грейдируются (lib/employment). Мнение к
+    // уже проведённой оценке при этом поправить можно — это не грейдирование.
+    if (!isGradable(assessment.designer)) {
       return NextResponse.json(
-        { error: 'Только лид/стардиз этого дизайнера может писать мнение' },
-        { status: 403 },
+        { error: 'Почасовщиков и неактивных не грейдируют' },
+        { status: 400 },
       );
+    }
+    // Навыки — из матрицы этой оценки; уровень — целый от 0 до максимума навыка.
+    const skills = await prisma.skill.findMany({
+      where: {
+        matrixVersionId: assessment.matrixVersionId,
+        id: { in: Array.from(new Set(scores.map((s) => s.skillId))) },
+      },
+      select: { id: true, maxMasteryLevel: true },
+    });
+    const scoreError = validateScores(scores, skills);
+    if (scoreError) {
+      return NextResponse.json({ error: scoreError }, { status: 400 });
     }
   }
 

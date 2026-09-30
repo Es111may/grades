@@ -24,6 +24,8 @@ import ChecklistsSection from '@/components/checklists/ChecklistsSection';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import type { Role } from '@/lib/checklistPermissions';
 import { useTheme, CHART_AXIS } from '@/lib/theme';
+// Канвас Chart.js не понимает CSS-переменные — семейство берём из next/font
+import { onest } from '@/app/fonts';
 import TitleAurora from '@/components/TitleAurora';
 import Tooltip from '@/components/Tooltip';
 import SalaryCard from '@/components/SalaryCard';
@@ -408,7 +410,7 @@ export default function Portrait({
         grid: { color: axis.grid },
         angleLines: { color: axis.grid },
         pointLabels: {
-          font: { size: 14, family: 'Onest', weight: 500 as const },
+          font: { size: 14, family: onest.style.fontFamily, weight: 500 as const },
           color: axis.label,
         },
       },
@@ -1318,7 +1320,7 @@ function GroupBreakdown({
         grid: { color: axis.grid },
         angleLines: { color: axis.grid },
         pointLabels: {
-          font: { size: compact ? 9 : 11, family: 'Onest' },
+          font: { size: compact ? 9 : 11, family: onest.style.fontFamily },
           color: axis.label,
         },
       },

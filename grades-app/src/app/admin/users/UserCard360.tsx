@@ -76,8 +76,12 @@ import {
   showsDismissal,
 } from '@/lib/dismissal';
 import { canEditBonuses, canEditPlannedRaise, canViewCompensation } from '@/lib/compPermissions';
+import { canDeactivateUser, canEditUser } from '@/lib/permissions';
 import SalaryBlock, { useCompensation } from '@/components/SalaryBlock';
 import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
+
+/** Ответ PUT /api/users/[id]/grading-date — поля плана для строки списка. */
+type GradingPlanFields = Pick<UserRow, 'nextGradingAt' | 'nextGradingSetAt' | 'nextGradingSetBy'>;
 
 export default function UserCard360({
   user,
@@ -87,7 +91,7 @@ export default function UserCard360({
   onClose,
   onEdit,
   onDeactivated,
-  onGradingCleared,
+  onGradingChanged,
   onPlannedRaiseChange,
 }: {
   user: UserRow;
@@ -97,9 +101,10 @@ export default function UserCard360({
   meRole: string;
   onClose: () => void;
   onEdit: (user: UserRow) => void;
-  onDeactivated: (id: number) => void;
-  /** Дата грейдирования сброшена — обновить список и открытую карточку. */
-  onGradingCleared: (id: number) => void;
+  /** patch — поля, которые сервер проставил сам (дата увольнения), если вернул. */
+  onDeactivated: (id: number, patch?: Partial<UserRow>) => void;
+  /** Дата грейдирования поменялась — план из ответа сервера в список и карточку. */
+  onGradingChanged: (id: number, plan: GradingPlanFields) => void;
   /** Плановый пересмотр поставлен, изменён или снят — обновить бейдж в списке. */
   onPlannedRaiseChange: (id: number, planned: PlannedRaiseRow | null) => void;
 }) {
@@ -161,17 +166,29 @@ export default function UserCard360({
     if (res.ok) setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }
 
-  // Сброс даты грейдирования — крестиком в пилюле срока (Pavel).
+  // Сброс даты грейдирования — крестиком в пилюле срока (Pavel). Отдельный
+  // эндпоинт, а не PATCH карточки: PATCH стардизу закрыт (403), а дату
+  // своим подопечным он ставить вправе.
   const [clearingGrading, setClearingGrading] = useState(false);
   async function clearGradingDate() {
     setClearingGrading(true);
-    const res = await fetch(`/api/users/${user.id}`, {
-      method: 'PATCH',
+    const res = await fetch(`/api/users/${user.id}/grading-date`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nextGradingAt: null }),
     });
     setClearingGrading(false);
-    if (res.ok) onGradingCleared(user.id);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      alert(`Не удалось сбросить дату: ${j.error ?? res.statusText}`);
+      return;
+    }
+    const plan: GradingPlanFields = await res.json();
+    onGradingChanged(user.id, {
+      nextGradingAt: plan.nextGradingAt ?? null,
+      nextGradingSetAt: plan.nextGradingSetAt ?? null,
+      nextGradingSetBy: plan.nextGradingSetBy ?? null,
+    });
   }
   // Крестик показываем только тем, кто вправе менять дату: админ — всем,
   // лид и стардиз — своим подопечным.
@@ -203,7 +220,11 @@ export default function UserCard360({
     ((meRole === 'lead' && user.leadId === meId) ||
       (meRole === 'stardiz' && (user.stardizId === meId || user.leadId === meId)));
 
-  const canEdit = meRole === 'admin' || (isMine && (meRole === 'lead' || meRole === 'stardiz'));
+  // Правка и деактивация — lib/permissions: админ всех, лид только своих
+  // дизайнеров и стардизов. Стардизу «Изменить» не показываем: PATCH карточки
+  // ему закрыт, дату грейдирования он сбрасывает крестиком в пилюле.
+  const viewer = meId !== null ? { id: meId, role: meRole } : null;
+  const canEdit = canEditUser(viewer, user);
 
   const canAssess =
     user.role === 'designer' &&
@@ -212,7 +233,7 @@ export default function UserCard360({
     !isSelf &&
     (meRole === 'admin' || isMine);
 
-  const canDeactivate = meRole === 'admin' && !isSelf && user.active;
+  const canDeactivate = canDeactivateUser(viewer, user) && user.active;
 
   const canOpenPortrait = user.role === 'designer' && user.active;
 
@@ -227,6 +248,7 @@ export default function UserCard360({
   // клик-вне закрывает
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuBtnRef = useRef<HTMLButtonElement | null>(null);
   const menuTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function menuEnter() {
     if (menuTimer.current) clearTimeout(menuTimer.current);
@@ -243,10 +265,12 @@ export default function UserCard360({
   }, []);
   useEffect(() => {
     if (!menuOpen) return;
+    // Кнопка «⋯» — не «вне»: иначе mousedown закрывал меню, а click тут же
+    // открывал снова, и второй клик по «⋯» меню не закрывал
     function onDoc(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t) || menuBtnRef.current?.contains(t)) return;
+      setMenuOpen(false);
     }
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
@@ -265,7 +289,12 @@ export default function UserCard360({
   async function handleDeactivate() {
     const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
     if (res.ok) {
-      onDeactivated(user.id);
+      // Дату увольнения сервер ставит сам — если вернул, показываем сразу
+      const j = await res.json().catch(() => ({}));
+      onDeactivated(
+        user.id,
+        typeof j.dismissedAt === 'string' ? { dismissedAt: j.dismissedAt } : undefined,
+      );
       setDeactivateArmed(false);
     } else {
       const j = await res.json().catch(() => ({}));
@@ -307,7 +336,6 @@ export default function UserCard360({
   const canImpersonate = meRole === 'admin' && !isSelf && user.active;
   const canHardDelete = meRole === 'admin' && !isSelf;
   // Phase 23.4 — компенсации: админ всех, лид своих (сервер проверяет тоже)
-  const viewer = meId !== null ? { id: meId, role: meRole } : null;
   const canViewComp = canViewCompensation(viewer, user);
   const canPlan = canEditPlannedRaise(viewer, user) && user.active;
   const hasPlan = !!user.plannedRaise;
@@ -316,20 +344,11 @@ export default function UserCard360({
   // в блоке обновляется сразу, без переоткрытия.
   const comp = useCompensation(canViewComp ? user.id : null);
   const [planSignal, setPlanSignal] = useState(0);
-  // Статуса нет (или выполнен — список его уже не шлёт) — ставим новый:
-  // fresh, чтобы сервер не считал его от старой отметки, даже без HR. Потом
-  // сигнал блоку: он открывает редактор и перечитывает данные.
-  async function startPlan() {
+  // Только сигнал блоку: он открывает редактор и перечитывает данные. Сам
+  // статус появляется по «Сохранить» (PlannedRow в SalaryBlock), а не при
+  // открытии: иначе «Запланировать → Отмена» оставлял пустой статус и бейдж.
+  function startPlan() {
     setMenuOpen(false);
-    if (!hasPlan) {
-      const res = await fetch(`/api/users/${user.id}/planned-raise`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fresh: true }),
-      });
-      if (!res.ok) return;
-      onPlannedRaiseChange(user.id, { at: null, salary: null, note: null });
-    }
     setPlanSignal((n) => n + 1);
   }
   async function clearPlan() {
@@ -349,7 +368,8 @@ export default function UserCard360({
     setBonusSignal((n) => n + 1);
   }
   const hasMenu = canPlan || canImpersonate || canImportLeadReview || canDeactivate || canHardDelete;
-  // У лида в меню только пункты про пересмотр — при скрытых зарплатах
+  // Если в меню только пункты про пересмотр (у лида — когда человека он
+  // видит по деньгам, но деактивировать не вправе) — при скрытых зарплатах
   // прячем и саму кнопку, иначе откроется пустое меню. «Добавить премию»
   // тоже salary-sensitive и бывает только вместе с пунктами пересмотра.
   const menuOnlySalary = canPlan && !canImpersonate && !canImportLeadReview && !canDeactivate && !canHardDelete;
@@ -744,6 +764,7 @@ export default function UserCard360({
                 onMouseLeave={menuLeave}
               >
                 <button
+                  ref={menuBtnRef}
                   type="button"
                   onClick={() => setMenuOpen((v) => !v)}
                   className="w-9 h-9 rounded-pill flex items-center justify-center

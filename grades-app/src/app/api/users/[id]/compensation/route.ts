@@ -21,6 +21,7 @@ import {
 import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
 import { fetchHrCompensation } from '@/lib/hrSalary';
 import { isHourly } from '@/lib/employment';
+import { todayMoscowIso } from '@/lib/dates';
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
@@ -51,12 +52,19 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Грейд для вилки — из последней опубликованной оценки (уже с учётом floor)
-  const lastAssessment = await prisma.assessment.findFirst({
-    where: { designerId: id, status: 'published' },
-    orderBy: { publishedAt: 'desc' },
-    select: { effectiveGrade: true },
-  });
+  // Грейд для вилки — из последней опубликованной оценки (уже с учётом floor).
+  // HR запрашиваем параллельно: одно от другого не зависит.
+  const [lastAssessment, hr] = await Promise.all([
+    prisma.assessment.findFirst({
+      where: { designerId: id, status: 'published' },
+      orderBy: { publishedAt: 'desc' },
+      select: { effectiveGrade: true },
+    }),
+    fetchHrCompensation(target.email).catch((err) => {
+      console.error('[compensation] HR unavailable:', err);
+      return null;
+    }),
+  ]);
 
   const bonuses = target.bonuses.map((b) => ({
     id: b.id,
@@ -64,14 +72,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     paidAt: b.paidAt.toISOString(),
     note: b.note,
   }));
-  const today = new Date().toISOString().slice(0, 10);
-
-  let hr: Awaited<ReturnType<typeof fetchHrCompensation>> | null = null;
-  try {
-    hr = await fetchHrCompensation(target.email);
-  } catch (err) {
-    console.error('[compensation] HR unavailable:', err);
-  }
+  // «Сегодня» — по Москве: сервер в UTC, и с 00:00 до 03:00 МСК
+  // toISOString() дал бы вчерашнюю дату.
+  const today = todayMoscowIso();
 
   const view = hr
     ? buildCompensation({

@@ -7,14 +7,15 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { calcGrade, type SkillSnapshot, type ScoreInput, type GradeThreshold } from '@/lib/grade';
 import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
+import { canGradeDesigner } from '@/lib/permissions';
+import { isGradable } from '@/lib/employment';
 import type { BuildCode, GradeCode } from '@/lib/types';
 
 /** POST /api/assessments/[id]/publish */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentUser();
   // Stardiz тоже может оценивать своих дизайнеров (UserCard360.canAssess),
-  // значит должен мочь и публиковать. Scope-проверка ниже (assessment.designer
-  // leadId/stardizId === me.id) уже разрешает корректно.
+  // значит должен мочь и публиковать. Scope — canGradeDesigner ниже.
   if (
     !me ||
     (me.role !== 'lead' && me.role !== 'admin' && me.role !== 'stardiz')
@@ -23,6 +24,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const assessmentId = parseInt(params.id, 10);
+  if (isNaN(assessmentId)) {
+    return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  }
 
   const assessment = await prisma.assessment.findUnique({
     where: { id: assessmentId },
@@ -33,11 +37,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     },
   });
 
-  if (!assessment) {
+  if (!assessment || assessment.status === 'archived') {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
   if (assessment.status === 'published') {
     return NextResponse.json({ error: 'Already published' }, { status: 400 });
+  }
+  // Публикует только тот, кто грейдирует этого человека. Раньше scope-проверки
+  // здесь не было вовсе: любой лид или стардиз мог опубликовать чужую оценку.
+  if (!canGradeDesigner(me, assessment.designer)) {
+    return NextResponse.json(
+      { error: 'Публиковать можно только оценки своих подопечных' },
+      { status: 403 },
+    );
+  }
+  if (!isGradable(assessment.designer)) {
+    return NextResponse.json(
+      { error: 'Почасовщиков и неактивных не грейдируют' },
+      { status: 400 },
+    );
   }
 
   const buildCode = assessment.designer.build?.code as BuildCode;
@@ -152,20 +170,23 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   }
 
   const assessmentId = parseInt(params.id, 10);
-  const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId } });
+  if (isNaN(assessmentId)) {
+    return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  }
+  const assessment = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    include: { designer: { select: { leadId: true, stardizId: true } } },
+  });
 
   if (!assessment || assessment.status === 'archived') {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  // Permission: admin / lead / stardiz of the designer
-  if (me.role !== 'admin') {
-    const designer = await prisma.user.findUnique({ where: { id: assessment.designerId } });
-    const allowed =
-      designer && (designer.leadId === me.id || designer.stardizId === me.id);
-    if (!allowed) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+  // Права — те же, что на оценку (canGradeDesigner). Грейдируемость не
+  // проверяем: черновик, оставшийся у ставшего почасовщиком, должно быть
+  // можно убрать.
+  if (!canGradeDesigner(me, assessment.designer)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const wasPublished = assessment.status === 'published';

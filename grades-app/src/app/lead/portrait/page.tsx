@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { canViewCompensation } from '@/lib/compPermissions';
-import { loadPortraitData } from '@/lib/portrait';
+import { findPortraitDesigner, loadPortraitData } from '@/lib/portrait';
 import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
+import { PAGE_BUDGET_MS, withTimeout } from '@/lib/perfCache';
 import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
 import { getNineBoxTitle, getTeamGrowthMedian } from '@/lib/teamMetrics';
 import { GRADE_NAMES } from '@/lib/types';
@@ -25,8 +26,9 @@ export default async function LeadPortraitPage({
   const designerId = parseInt(searchParams.id ?? '', 10);
   if (isNaN(designerId)) redirect('/admin/users');
 
-  // Permission: admin / designer's lead / designer's stardiz
-  const designer = await prisma.user.findUnique({ where: { id: designerId } });
+  // Permission: admin / designer's lead / designer's stardiz. Строку берём
+  // select'ом портрета и отдаём в loadPortraitData — второй раз не читаем.
+  const designer = await findPortraitDesigner(designerId);
   if (!designer) redirect('/admin/users');
   const canView =
     user.role === 'admin' ||
@@ -37,10 +39,48 @@ export default async function LeadPortraitPage({
   const assessmentId = searchParams.assessmentId
     ? parseInt(searchParams.assessmentId, 10)
     : undefined;
-  const result = await loadPortraitData(
-    designerId,
-    Number.isFinite(assessmentId) ? assessmentId : undefined,
-  );
+
+  // Перформанс — только для designer/stardiz целевого пользователя.
+  // Лида/админа на собственном портрете тут вообще не открывают, но если
+  // вдруг будет ссылка — блок не покажем.
+  const showPerformance = designer.role === 'designer' || designer.role === 'stardiz';
+  // Редизайн v6: позиция 9-Box — ТОЛЬКО для admin/lead (стардиз не видит,
+  // решение Pavel). Медиана роста команды — admin/lead/stardiz.
+  const viewerRole = user.role ?? '';
+
+  // Всё ниже зависит только от designerId — одним Promise.all. Если оценки
+  // нет, лишними окажутся лёгкие чтения; «в срок» при этом почти всегда уже
+  // в кэше — его раскладывает командный запрос /admin/users.
+  const [result, draft, userProjects, onTime, nineBoxTitle, teamGrowthMedian] =
+    await Promise.all([
+      loadPortraitData(designer, Number.isFinite(assessmentId) ? assessmentId : undefined),
+      prisma.assessment.findFirst({
+        where: { designerId, status: 'draft' },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      }),
+      prisma.userProject.findMany({
+        where: { userId: designerId },
+        select: { project: { select: { id: true, name: true, category: true } } },
+        orderBy: [
+          { project: { category: 'asc' } },
+          { project: { sortOrder: 'asc' } },
+          { project: { name: 'asc' } },
+        ],
+      }),
+      showPerformance && designer.email
+        ? // Не дольше бюджета: медленный ClickHouse не держит портрет, чип
+          // просто не нарисуется, а запрос допишет кэш в фоне.
+          withTimeout(fetchOnTimeStatsByEmail([designer.email]), PAGE_BUDGET_MS, 'fetchOnTimeStatsByEmail')
+            .then((stats) => stats.get(designer.email.toLowerCase()) ?? null)
+            .catch((err) => {
+              console.error('[/lead/portrait] fetchOnTimeStatsByEmail failed:', err);
+              return null;
+            })
+        : null,
+      viewerRole === 'admin' || viewerRole === 'lead' ? getNineBoxTitle(designerId) : null,
+      ['admin', 'lead', 'stardiz'].includes(viewerRole) ? getTeamGrowthMedian() : null,
+    ]);
 
   if (result.kind === 'not_found') redirect('/admin/users');
 
@@ -89,52 +129,8 @@ export default async function LeadPortraitPage({
     );
   }
 
-  const draft = await prisma.assessment.findFirst({
-    where: { designerId, status: 'draft' },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  const userProjects = await prisma.userProject.findMany({
-    where: { userId: designerId },
-    include: {
-      project: { select: { id: true, name: true, category: true } },
-    },
-    orderBy: [
-      { project: { category: 'asc' } },
-      { project: { sortOrder: 'asc' } },
-      { project: { name: 'asc' } },
-    ],
-  });
-
-  // Перформанс — только для designer/stardiz целевого пользователя.
-  // Лида/админа на собственном портрете тут вообще не открывают, но если
-  // вдруг будет ссылка — блок не покажем.
-  const showPerformance = designer.role === 'designer' || designer.role === 'stardiz';
-  let onTimePercent: number | null = null;
-  let onTimeTotalTasks = 0;
-  if (showPerformance && designer.email) {
-    try {
-      const stats = await fetchOnTimeStatsByEmail([designer.email]);
-      const s = stats.get(designer.email.toLowerCase());
-      if (s) {
-        onTimePercent = s.onTimePercent;
-        onTimeTotalTasks = s.totalTasks;
-      }
-    } catch (err) {
-      console.error('[/lead/portrait] fetchOnTimeStatsByEmail failed:', err);
-    }
-  }
-
-  // Редизайн v6: позиция 9-Box — ТОЛЬКО для admin/lead (стардиз не видит,
-  // решение Pavel). Медиана роста команды — admin/lead/stardiz.
-  const viewerRole = user.role ?? '';
-  const nineBoxTitle =
-    viewerRole === 'admin' || viewerRole === 'lead'
-      ? await getNineBoxTitle(designerId)
-      : null;
-  const teamGrowthMedian = ['admin', 'lead', 'stardiz'].includes(viewerRole)
-    ? await getTeamGrowthMedian()
-    : null;
+  const onTimePercent = onTime?.onTimePercent ?? null;
+  const onTimeTotalTasks = onTime?.totalTasks ?? 0;
 
   // Phase 17 — ИПР: можно ли мне (зрителю) создавать чек-листы на портрете
   // target'а (designer).

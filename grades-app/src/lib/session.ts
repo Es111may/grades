@@ -18,7 +18,9 @@ import type { UserRole } from './types';
  */
 export const getCurrentUser = cache(async () => {
   const session = await getServerSession(authOptions);
-  return session?.user ?? null;
+  // Без id сессия недействительна (человек деактивирован или удалён — см.
+  // jwt-колбэк в lib/auth): для кода это «не вошёл».
+  return session?.user?.id ? session.user : null;
 });
 
 /**

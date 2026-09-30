@@ -60,7 +60,7 @@ async function main() {
 
   const candidates = await prisma.user.findMany({
     where: { department: null, buildId: { not: null } },
-    select: { id: true, fullName: true, buildId: true },
+    select: { id: true, buildId: true },
   });
   let assigned = 0;
   for (const u of candidates) {
@@ -70,7 +70,8 @@ async function main() {
     if (!dept) continue;
     await prisma.user.update({ where: { id: u.id }, data: { department: dept } });
     assigned++;
-    console.log(`  → ${u.fullName}: отдел ${dept}`);
+    // В лог — id, не имя: логи деплоя читают не только админы
+    console.log(`  → user #${u.id}: отдел ${dept}`);
   }
   if (assigned === 0) {
     console.log('  ↷ Всем уже проставлен отдел или нет билда');

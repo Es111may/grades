@@ -15,7 +15,13 @@
  *
  * Дебаг: добавь `&debug=1` (доступно только админу) — вернётся блок
  * `diagnostics` с тем, какой email пошёл в CH, сколько строк отдал каждый
- * источник с фильтрами и без, и ошибки запросов (если были).
+ * источник с фильтрами и без, и ошибки запросов (если были). Сырой запрос
+ * без фильтров — такой же тяжёлый, поэтому идёт только в дебаге, а дебаг
+ * всегда мимо кэша.
+ *
+ * Кэш: ответ держим в perfCache по userId + фильтрам (TTL 15 мин, как у
+ * агрегата «в срок»). Если ClickHouse не ответил — 502 с текстом для
+ * дашборда, а не пустой список «нет задач».
  */
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +29,10 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
-import { fetchDesignerTasks } from '@/lib/clickhousePerf';
+import { fetchDesignerTasks, type FetchTasksResult } from '@/lib/clickhousePerf';
+import { getOrCompute, DEFAULT_TTL_MS } from '@/lib/perfCache';
+
+const UNAVAILABLE = 'Данные о задачах временно недоступны';
 
 function parseBool(v: string | null, fallback: boolean): boolean {
   if (v === null) return fallback;
@@ -71,22 +80,29 @@ export async function GET(req: NextRequest) {
   const workedHardOnly = parseBool(url.searchParams.get('workedHardOnly'), true);
   const debug = parseBool(url.searchParams.get('debug'), false) && me.role === 'admin';
 
-  try {
-    const { tasks, diagnostics } = await fetchDesignerTasks({
-      email: target.email,
-      hasEstimate,
-      completedOnly,
-      workedHardOnly,
-    });
-
-    // В Railway-логи всегда — короткая сводка, чтобы можно было понять,
-    // почему дашборд пустой, не дёргая `debug=1`.
-    console.info(
-      `[/api/performance/tasks] userId=${userId} email=${diagnostics.email} ` +
-        `filtered=collab:${diagnostics.collabCount}+manage:${diagnostics.trackerCount} ` +
-        `raw=collab:${diagnostics.collabRawCount}+manage:${diagnostics.trackerRawCount} ` +
-        `errors=${diagnostics.errors.length}`,
+  const email = target.email;
+  const load = async (): Promise<FetchTasksResult> => {
+    const res = await fetchDesignerTasks(
+      { email, hasEstimate, completedOnly, workedHardOnly },
+      { withRaw: debug },
     );
+    // В Railway-логи — короткая сводка на каждый поход в ClickHouse, чтобы
+    // можно было понять, почему дашборд пустой, не дёргая `debug=1`.
+    // Только userId: email в логи не пишем.
+    const d = res.diagnostics;
+    console.info(
+      `[/api/performance/tasks] userId=${userId} ` +
+        `filtered=collab:${d.collabCount}+manage:${d.trackerCount} ` +
+        `raw=${d.trackerRawCount ?? 'skipped'} errors=${d.errors.length}`,
+    );
+    return res;
+  };
+
+  try {
+    const flags = `${+hasEstimate}${+completedOnly}${+workedHardOnly}`;
+    const { tasks, diagnostics } = debug
+      ? await load()
+      : await getOrCompute(`perf-tasks:${userId}:${flags}`, load, DEFAULT_TTL_MS);
 
     return NextResponse.json(
       debug
@@ -98,13 +114,10 @@ export async function GET(req: NextRequest) {
         : { tasks },
     );
   } catch (err) {
-    console.error('[/api/performance/tasks] ClickHouse error:', err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[/api/performance/tasks] userId=${userId} ClickHouse error:`, message);
     return NextResponse.json(
-      {
-        error: 'ClickHouse unavailable',
-        message: err instanceof Error ? err.message : String(err),
-        tasks: [],
-      },
+      debug ? { error: UNAVAILABLE, message } : { error: UNAVAILABLE },
       { status: 502 },
     );
   }

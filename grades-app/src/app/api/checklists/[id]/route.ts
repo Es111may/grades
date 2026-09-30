@@ -38,6 +38,9 @@ const PatchSchema = z.object({
     .optional(),
 });
 
+/** Пункт не из этого чек-листа (или удалён) — откатываем транзакцию. */
+class ForeignItemError extends Error {}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
@@ -72,46 +75,75 @@ export async function PATCH(
   }
   const { title, items } = parsed.data;
 
-  await prisma.$transaction(async (tx) => {
-    if (title !== undefined) {
-      await tx.checklist.update({
-        where: { id: checklistId },
-        data: { title },
+  // Пункты с id должны принадлежать этому чек-листу: иначе через свой
+  // чек-лист можно было переписать текст пункта в чужом.
+  if (items !== undefined) {
+    const requested = Array.from(
+      new Set(items.map((i) => i.id).filter((id): id is number => !!id)),
+    );
+    if (requested.length > 0) {
+      const own = await prisma.checklistItem.count({
+        where: { checklistId, id: { in: requested } },
       });
-    }
-
-    if (items !== undefined) {
-      // Удаляем то, чего нет в новом списке.
-      const keepIds = items.map((i) => i.id).filter((id): id is number => !!id);
-      await tx.checklistItem.deleteMany({
-        where: { checklistId, id: { notIn: keepIds.length > 0 ? keepIds : [-1] } },
-      });
-
-      // Апдейтим существующие, создаём новые. Параллельно обновляем sortOrder.
-      for (let i = 0; i < items.length; i++) {
-        const it = items[i];
-        if (it.id) {
-          await tx.checklistItem.update({
-            where: { id: it.id },
-            data: {
-              text: it.text,
-              sortOrder: i,
-              ...(it.checked !== undefined ? { checked: it.checked } : {}),
-            },
-          });
-        } else {
-          await tx.checklistItem.create({
-            data: {
-              checklistId,
-              text: it.text,
-              sortOrder: i,
-              checked: it.checked ?? false,
-            },
-          });
-        }
+      if (own !== requested.length) {
+        return NextResponse.json(
+          { error: 'Пункты не из этого чек-листа' },
+          { status: 400 },
+        );
       }
     }
-  });
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (title !== undefined) {
+        await tx.checklist.update({
+          where: { id: checklistId },
+          data: { title },
+        });
+      }
+
+      if (items !== undefined) {
+        // Удаляем то, чего нет в новом списке.
+        const keepIds = items.map((i) => i.id).filter((id): id is number => !!id);
+        await tx.checklistItem.deleteMany({
+          where: { checklistId, id: { notIn: keepIds.length > 0 ? keepIds : [-1] } },
+        });
+
+        // Апдейтим существующие, создаём новые. Параллельно обновляем sortOrder.
+        // updateMany со scope по чек-листу — вторая линия защиты: пункт мог
+        // уйти между проверкой и транзакцией.
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i];
+          if (it.id) {
+            const { count } = await tx.checklistItem.updateMany({
+              where: { id: it.id, checklistId },
+              data: {
+                text: it.text,
+                sortOrder: i,
+                ...(it.checked !== undefined ? { checked: it.checked } : {}),
+              },
+            });
+            if (count === 0) throw new ForeignItemError();
+          } else {
+            await tx.checklistItem.create({
+              data: {
+                checklistId,
+                text: it.text,
+                sortOrder: i,
+                checked: it.checked ?? false,
+              },
+            });
+          }
+        }
+      }
+    });
+  } catch (e) {
+    if (e instanceof ForeignItemError) {
+      return NextResponse.json({ error: 'Пункты не из этого чек-листа' }, { status: 400 });
+    }
+    throw e;
+  }
 
   const fresh = await prisma.checklist.findUnique({
     where: { id: checklistId },

@@ -44,7 +44,8 @@ async function readAvatarDataUrl(fullName: string): Promise<string | null> {
       .toBuffer();
     return `data:image/jpeg;base64,${buf.toString('base64')}`;
   } catch (e) {
-    console.warn(`  ⚠ Не удалось обработать аватар ${fileName}: ${(e as Error).message}`);
+    // Имя файла = ФИО — в лог не пишем (как и e-mail'ы ниже): только id/счётчики
+    console.warn(`  ⚠ Не удалось обработать аватар: ${(e as Error).message}`);
     return null;
   }
 }
@@ -100,13 +101,14 @@ function readCsv(): Row[] {
   const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
   const [, ...dataLines] = lines; // выкидываем header
   const rows: Row[] = [];
-  for (const line of dataLines) {
+  for (const [i, line] of dataLines.entries()) {
     const cols = splitCsvLine(line);
     if (cols.length < 7) continue;
     const [fullName, email, roleRu, buildRu, leadName, stardizName, hiredStr] = cols;
     const role = ROLE_MAP[roleRu];
     if (!role) {
-      console.warn(`  ⚠ Неизвестная роль «${roleRu}» у ${fullName} — пропускаю`);
+      // +2: нумерация с 1 и строка заголовка
+      console.warn(`  ⚠ Неизвестная роль «${roleRu}» в строке ${i + 2} — пропускаю`);
       continue;
     }
     rows.push({
@@ -170,7 +172,8 @@ async function main() {
       continue;
     }
     const avatarUrl = await readAvatarDataUrl(r.fullName);
-    await prisma.user.create({
+    const user = await prisma.user.create({
+      select: { id: true },
       data: {
         email: r.email,
         fullName: r.fullName,
@@ -183,7 +186,7 @@ async function main() {
     });
     created++;
     console.log(
-      `  ✓ создан ${r.role.padEnd(8)} ${r.fullName} <${r.email}>${avatarUrl ? ' [+аватар]' : ''}`,
+      `  ✓ создан ${r.role.padEnd(8)} user #${user.id}${avatarUrl ? ' [+аватар]' : ''}`,
     );
   }
   if (skipped > 0) {
@@ -215,9 +218,9 @@ async function main() {
         if (leadEmail) {
           const lead = await prisma.user.findUnique({ where: { email: leadEmail } });
           if (lead) data.leadId = lead.id;
-          else console.warn(`    ⚠ Лид ${r.leadName} (${leadEmail}) не найден в БД`);
+          else console.warn(`    ⚠ Лид для user #${target.id} не найден в БД`);
         } else {
-          console.warn(`    ⚠ Нет маппинга email для лида «${r.leadName}»`);
+          console.warn(`    ⚠ Нет маппинга email для лида (user #${target.id})`);
         }
       }
 
@@ -226,15 +229,15 @@ async function main() {
         if (stardizEmail) {
           const st = await prisma.user.findUnique({ where: { email: stardizEmail } });
           if (st) data.stardizId = st.id;
-          else console.warn(`    ⚠ Стардиз ${r.stardizName} (${stardizEmail}) не найден в БД`);
+          else console.warn(`    ⚠ Стардиз для user #${target.id} не найден в БД`);
         } else {
-          console.warn(`    ⚠ Нет маппинга email для стардиза «${r.stardizName}»`);
+          console.warn(`    ⚠ Нет маппинга email для стардиза (user #${target.id})`);
         }
       }
 
       if (Object.keys(data).length > 0) {
         await prisma.user.update({ where: { id: target.id }, data });
-        console.log(`    ${r.fullName}: ${JSON.stringify(data)}`);
+        console.log(`    user #${target.id}: ${JSON.stringify(data)}`);
       }
     }
   }

@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
+import { canChangeLead, canEditUser } from '@/lib/permissions';
+import { genitiveFirstName } from '@/lib/names';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -60,22 +61,33 @@ function initials(name: string) {
 const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
+/** Отложенная передача человека другому лиду — ждёт подтверждения. */
+type Handoff = { user: UserRow; newLeadId: number; leadName: string };
+
 export default function KanbanView({
   users,
   leads,
   groupBy,
+  meId,
+  meRole,
   onCardClick,
+  onMoved,
 }: {
   users: UserRow[];
   leads: Lead[];
   groupBy: GroupBy;
+  meId: number | null;
+  meRole: string;
   onCardClick: (user: UserRow) => void;
+  /** PATCH прошёл — строку из ответа сливаем в список (как после модалки). */
+  onMoved: (updated: UserRow) => void;
 }) {
-  const router = useRouter();
   const [dragId, setDragId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
+  const [handoff, setHandoff] = useState<Handoff | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const me = meId !== null ? { id: meId, role: meRole } : null;
 
   function scrollBy(delta: number) {
     scrollRef.current?.scrollBy({ left: delta, behavior: 'smooth' });
@@ -135,41 +147,31 @@ export default function KanbanView({
 
   const canDrop = groupBy === 'department' || groupBy === 'lead';
 
-  async function handleDrop(columnKey: string) {
-    if (!canDrop || dragId === null) return;
-    const user = users.find((u) => u.id === dragId);
-    if (!user) {
-      setDragId(null);
-      setDropTarget(null);
-      return;
-    }
+  // Тащить можно только тех, кого вправе править: админ — любого, лид —
+  // своих дизайнеров и стардизов. Стардизу и чужие карточки — только клик.
+  const canDrag = (u: UserRow) => canDrop && canEditUser(me, u);
+  const dragged = dragId !== null ? users.find((u) => u.id === dragId) ?? null : null;
 
-    let payload: Record<string, unknown> | null = null;
-    if (groupBy === 'department') {
-      const newDept = columnKey === '__none' ? null : columnKey;
-      if (user.department === newDept) {
-        setDragId(null);
-        setDropTarget(null);
-        return;
-      }
-      payload = { department: newDept };
-    } else if (groupBy === 'lead') {
-      if (user.role !== 'designer') {
-        setDragId(null);
-        setDropTarget(null);
-        return;
-      }
-      const newLeadId =
-        columnKey === '__none' ? null : Number.isFinite(Number(columnKey)) ? Number(columnKey) : null;
-      if (user.leadId === newLeadId) {
-        setDragId(null);
-        setDropTarget(null);
-        return;
-      }
-      payload = { leadId: newLeadId };
-    }
+  // Колонка «Лиды» → id лида; «Без лида» → null.
+  const leadIdOf = (columnKey: string): number | null =>
+    columnKey === '__none' ? null : Number.isFinite(Number(columnKey)) ? Number(columnKey) : null;
 
-    if (!payload) return;
+  // Примет ли колонка карточку. В «Лидах» лиду — только колонка другого
+  // лида (передача своего человека); «Без лида» — нет. Своя колонка — да,
+  // бросок туда ничего не меняет.
+  function accepts(columnKey: string): boolean {
+    if (!canDrop || !dragged) return false;
+    if (groupBy !== 'lead') return true;
+    const newLeadId = leadIdOf(columnKey);
+    return newLeadId === dragged.leadId || canChangeLead(me, dragged, newLeadId);
+  }
+
+  function resetDrag() {
+    setDragId(null);
+    setDropTarget(null);
+  }
+
+  async function move(user: UserRow, payload: Record<string, unknown>) {
     setMoving(true);
     try {
       const res = await fetch(`/api/users/${user.id}`, {
@@ -182,11 +184,40 @@ export default function KanbanView({
         alert(`Ошибка: ${j.error ?? 'не сохранилось'}`);
         return;
       }
-      router.refresh();
+      // Раньше тут был router.refresh(), но UsersClient держит список в
+      // useState(initialUsers) и новые пропсы не подхватывает — карточка
+      // оставалась в старой колонке до перезагрузки. Теперь ответ PATCH
+      // сливается в список сразу.
+      onMoved(await res.json());
     } finally {
       setMoving(false);
-      setDragId(null);
-      setDropTarget(null);
+    }
+  }
+
+  async function handleDrop(columnKey: string) {
+    const user = dragged;
+    resetDrag();
+    if (!user || !canDrag(user) || !accepts(columnKey)) return;
+
+    if (groupBy === 'department') {
+      const newDept = columnKey === '__none' ? null : columnKey;
+      if (user.department === newDept) return;
+      await move(user, { department: newDept });
+    } else if (groupBy === 'lead') {
+      if (user.role !== 'designer') return;
+      const newLeadId = leadIdOf(columnKey);
+      if (user.leadId === newLeadId) return;
+      // Лид отдаёт своего человека — после этого не увидит его зарплату и
+      // оценки. Необратимо для него самого, поэтому сначала спрашиваем.
+      if (meRole !== 'admin' && newLeadId !== null) {
+        setHandoff({
+          user,
+          newLeadId,
+          leadName: leads.find((l) => l.id === newLeadId)?.fullName ?? '',
+        });
+        return;
+      }
+      await move(user, { leadId: newLeadId });
     }
   }
 
@@ -198,7 +229,9 @@ export default function KanbanView({
           <div
             key={col.key}
             onDragOver={(e) => {
-              if (!canDrop) return;
+              // Без preventDefault браузер не даст бросить — колонка, куда
+              // нельзя, и не подсвечивается
+              if (!accepts(col.key)) return;
               e.preventDefault();
               setDropTarget(col.key);
             }}
@@ -227,47 +260,47 @@ export default function KanbanView({
               </span>
             </div>
             <div className="px-2 pb-2 space-y-1.5 min-h-[60px]">
-              {col.users.map((u) => (
-                <div
-                  key={u.id}
-                  draggable={canDrop && !moving}
-                  onDragStart={() => setDragId(u.id)}
-                  onDragEnd={() => {
-                    setDragId(null);
-                    setDropTarget(null);
-                  }}
-                  onClick={() => onCardClick(u)}
-                  className={`bg-snow border border-cloud rounded-[10px] px-3 py-2.5 shadow-soft hover:shadow-soft-md transition-all duration-150 ${
-                    !u.active ? 'opacity-50' : ''
-                  } ${dragId === u.id ? 'opacity-40' : ''}`}
-                  style={{ cursor: canDrop ? 'grab' : 'pointer' }}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Avatar name={u.fullName} avatarUrl={u.avatarUrl} size={28} />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate leading-tight">
-                        {u.fullName}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[10px] mt-1 flex-wrap">
-                        <span
-                          className={`px-1.5 py-0.5 rounded-pill font-medium ${ROLE_TONE[u.role] ?? ROLE_TONE.designer}`}
-                        >
-                          {ROLE_LABEL[u.role] ?? u.role}
-                        </span>
-                        {u.build && (
-                          <span className="chip-build">
-                            <span
-                              className="w-1.5 h-1.5 rounded-full"
-                              style={{ background: buildColor(u.build.code) }}
-                            />
-                            {u.build.name}
+              {col.users.map((u) => {
+                const draggable = canDrag(u);
+                return (
+                  <div
+                    key={u.id}
+                    draggable={draggable && !moving}
+                    // Чужие карточки не перетаскиваются вовсе — без обработчиков
+                    onDragStart={draggable ? () => setDragId(u.id) : undefined}
+                    onDragEnd={draggable ? resetDrag : undefined}
+                    onClick={() => onCardClick(u)}
+                    className={`bg-snow border border-cloud rounded-[10px] px-3 py-2.5 shadow-soft hover:shadow-soft-md transition-all duration-150 ${
+                      draggable ? 'cursor-grab' : 'cursor-pointer'
+                    } ${!u.active ? 'opacity-50' : ''} ${dragId === u.id ? 'opacity-40' : ''}`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Avatar name={u.fullName} avatarUrl={u.avatarUrl} size={28} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate leading-tight">
+                          {u.fullName}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] mt-1 flex-wrap">
+                          <span
+                            className={`px-1.5 py-0.5 rounded-pill font-medium ${ROLE_TONE[u.role] ?? ROLE_TONE.designer}`}
+                          >
+                            {ROLE_LABEL[u.role] ?? u.role}
                           </span>
-                        )}
+                          {u.build && (
+                            <span className="chip-build">
+                              <span
+                                className="w-1.5 h-1.5 rounded-full"
+                                style={{ background: buildColor(u.build.code) }}
+                              />
+                              {u.build.name}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {col.users.length === 0 && (
                 <div className="text-xs text-ash italic px-2 py-3 text-center">Пусто</div>
               )}
@@ -283,6 +316,8 @@ export default function KanbanView({
           <div className="text-xs text-ash italic">
             В этом виде drag-and-drop отключён — грейды не меняются вручную.
           </div>
+        ) : meRole === 'lead' ? (
+          <div className="text-xs text-ash italic">Перетащить можно только своих людей</div>
         ) : (
           <span />
         )}
@@ -300,6 +335,85 @@ export default function KanbanView({
             className="w-8 h-8 rounded-pill border border-cloud bg-snow text-stone hover:text-ink hover:border-ash flex items-center justify-center transition-colors"
           >
             <ChevronDownIcon className="w-4 h-4 -rotate-90" />
+          </button>
+        </div>
+      </div>
+
+      {handoff && (
+        <HandoffConfirm
+          person={handoff.user.fullName}
+          leadName={handoff.leadName}
+          busy={moving}
+          onCancel={() => setHandoff(null)}
+          onConfirm={async () => {
+            await move(handoff.user, { leadId: handoff.newLeadId });
+            setHandoff(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Подтверждение передачи своего человека другому лиду. Не нативный
+ * confirm() — он в некоторых браузерах не отрабатывал; оболочка — как у
+ * поп-апа 360 (затемнение, snow, rounded-modal), кнопки btn-sm — как в
+ * подтверждениях модалки «Изменить». Escape и клик по фону — отмена.
+ */
+function HandoffConfirm({
+  person,
+  leadName,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  person: string;
+  leadName: string;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const titleId = useId();
+  const textId = useId();
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !busy) onCancel();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [busy, onCancel]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[20vh]">
+      <div
+        className="absolute inset-0 bg-black/60 animate-fade-in"
+        onClick={busy ? undefined : onCancel}
+        aria-hidden
+      />
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={textId}
+        className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg p-6 animate-scale-in"
+      >
+        <h2 id={titleId} className="font-display text-xl font-medium tracking-tight">
+          Передать другому лиду?
+        </h2>
+        {/* Имя человека — подлежащим, лид — в родительном: без склонения
+            ФИО фраза остаётся грамотной */}
+        <p id={textId} className="text-sm text-stone mt-2 leading-relaxed">
+          {person} перейдёт в команду {leadName ? genitiveFirstName(leadName) : 'другого лида'}.
+          После передачи зарплата и оценки этого человека будут вам недоступны.
+        </p>
+        <div className="flex justify-end gap-2 mt-5">
+          {/* Фокус — на отмене: передачу нельзя отыграть самому */}
+          <button type="button" autoFocus onClick={onCancel} disabled={busy} className="btn-ghost btn-sm">
+            Отмена
+          </button>
+          <button type="button" onClick={onConfirm} disabled={busy} className="btn-primary btn-sm">
+            {busy ? 'Передаю…' : 'Передать'}
           </button>
         </div>
       </div>

@@ -27,3 +27,26 @@ export function todayLocalIso(now: Date = new Date()): string {
   const d = String(now.getDate()).padStart(2, '0');
   return `${now.getFullYear()}-${m}-${d}`;
 }
+
+/**
+ * Календарная дата момента `d` по Москве (YYYY-MM-DD) — независимо от пояса
+ * процесса. Сервер на Railway живёт в UTC, пользователи в Москве (UTC+3):
+ * с 00:00 до 03:00 по Москве UTC-дата ещё вчерашняя, и счётчики дней
+ * («через N дн.», «просрочено») съезжали бы на сутки.
+ * en-CA выбран ради готового формата YYYY-MM-DD.
+ */
+const MOSCOW_DATE_FORMAT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Moscow',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+export function moscowIsoDate(d: Date): string {
+  return MOSCOW_DATE_FORMAT.format(d);
+}
+
+/** Сегодня по Москве (YYYY-MM-DD) — для серверной логики и сравнения дат. */
+export function todayMoscowIso(now: Date = new Date()): string {
+  return moscowIsoDate(now);
+}

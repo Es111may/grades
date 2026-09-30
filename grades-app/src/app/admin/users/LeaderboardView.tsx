@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronDownIcon, SearchIcon, StarIcon } from '@/components/icons';
 import EmptyState from '@/components/EmptyState';
 import { getOnTimeZone } from '@/lib/perfScore';
@@ -98,6 +98,24 @@ export default function LeaderboardView({
   const [sortKey, setSortKey] = useState<SortKey>('composite');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
+  // Зарплаты спрятали кнопкой-глазом в шапке — колонка исчезла, а таблица
+  // осталась бы отсортированной по невидимым суммам (и порядок строк выдавал
+  // бы их). Возвращаем дефолтный рейтинг. Атрибут ставит salaryVisibility,
+  // React о нём не знает — следим за ним, пока сортировка по зарплате.
+  useEffect(() => {
+    if (sortKey !== 'salary') return;
+    const root = document.documentElement;
+    const resetIfHidden = () => {
+      if (root.getAttribute('data-salary') !== 'hidden') return;
+      setSortKey('composite');
+      setSortDir('desc');
+    };
+    resetIfHidden();
+    const mo = new MutationObserver(resetIfHidden);
+    mo.observe(root, { attributes: true, attributeFilter: ['data-salary'] });
+    return () => mo.disconnect();
+  }, [sortKey]);
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -124,10 +142,16 @@ export default function LeaderboardView({
         av = a.fullName.toLowerCase();
         bv = b.fullName.toLowerCase();
       } else if (sortKey === 'grade') {
-        const idx = (code: string | null | undefined) =>
-          code ? gradeThresholds.findIndex((g) => g.code === code) : -1;
-        av = idx(a.effectiveGrade);
-        bv = idx(b.effectiveGrade);
+        // Стардизы — верхний ярус, выше синьоров (у них в колонке «Стардиз»
+        // вместо уровня). Между собой равны — sort стабилен, порядок прежний.
+        const idx = (u: UserRow) =>
+          u.role === 'stardiz'
+            ? gradeThresholds.length
+            : u.effectiveGrade
+              ? gradeThresholds.findIndex((g) => g.code === u.effectiveGrade)
+              : -1;
+        av = idx(a);
+        bv = idx(b);
       } else if (sortKey === 'totalXp') {
         av = a.totalXp ?? -1;
         bv = b.totalXp ?? -1;
@@ -359,18 +383,9 @@ export default function LeaderboardView({
                   )}
                 </td>
                 <td className="py-3 px-4">
-                  {/* Стардиз — фиолетовая звёздочка перед грейдом вместо
-                      подписи у имени (Pavel) */}
-                  {u.role === 'stardiz' ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Tooltip text="Стардиз" align="center">
-                        <StarIcon className="w-3.5 h-3.5 shrink-0 text-violet" />
-                      </Tooltip>
-                      {grade}
-                    </span>
-                  ) : (
-                    grade
-                  )}
+                  {/* Стардиз — фиолетовая звёздочка и «Стардиз» вместо уровня
+                      (решение Pavel): подпись видна сразу, тултип не нужен */}
+                  {u.role === 'stardiz' ? <StardizMark /> : grade}
                 </td>
                 <td className="py-3 px-4 text-center">
                   {u.totalXp !== null && u.totalXp !== undefined ? (
@@ -416,6 +431,16 @@ export default function LeaderboardView({
 }
 
 /* ================= Компоненты редизайна (концепт v4) ================= */
+
+/** «Стардиз» в колонке «Грейд» — в стиле подписи уровня, со звёздочкой. */
+function StardizMark() {
+  return (
+    <span className="inline-flex items-center gap-1.5 font-display text-sm font-medium tracking-tight whitespace-nowrap">
+      <StarIcon className="w-3.5 h-3.5 shrink-0 text-violet" />
+      Стардиз
+    </span>
+  );
+}
 
 /** Спарклайн «в срок» команды по месяцам (стиль концепта: зелёная линия
  *  с заливкой, прижат к низу карточки). */
@@ -626,23 +651,16 @@ function PodiumCard({
           <b className="font-medium">{score}</b>
           <span className="text-white/75">№{place}</span>
         </span>
-        {/* Стардиз — та же звёздочка, что в списке. Без Tooltip: ряд
-            с overflow-hidden обрезал бы поповер, поэтому подпись sr-only. */}
-        {user.effectiveGrade ? (
+        {/* Стардиз — как в списке: звёздочка и «Стардиз» вместо уровня */}
+        {user.role === 'stardiz' ? (
           <span className={`${chipSm} bg-ink text-snow`}>
-            {user.role === 'stardiz' && (
-              <>
-                <StarIcon className="w-3.5 h-3.5 shrink-0 text-violet" />
-                <span className="sr-only">Стардиз</span>
-              </>
-            )}
-            {GRADE_LABELS[user.effectiveGrade] ?? user.effectiveGrade}
+            <StarIcon className="w-3.5 h-3.5 shrink-0 text-violet" />
+            Стардиз
           </span>
         ) : (
-          user.role === 'stardiz' && (
-            <span className="inline-flex shrink-0">
-              <StarIcon className="w-3.5 h-3.5 text-violet" />
-              <span className="sr-only">Стардиз</span>
+          user.effectiveGrade && (
+            <span className={`${chipSm} bg-ink text-snow`}>
+              {GRADE_LABELS[user.effectiveGrade] ?? user.effectiveGrade}
             </span>
           )
         )}

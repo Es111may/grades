@@ -19,6 +19,9 @@ import {
 } from '@/lib/teamScope';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
 import { isGradable, isHourly } from '@/lib/employment';
+import { canViewCompensation } from '@/lib/compPermissions';
+import { canViewDismissalDate } from '@/lib/dismissal';
+import { needsDismissalDate, todayMoscowDate } from '@/lib/userUpdate';
 import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
 
 type Build = { id: number; code: string; name: string };
@@ -250,8 +253,11 @@ export default function UsersClient({
     if (ownerId === null) {
       return { stats: teamStats, nineBox, attention };
     }
-    return computeScopedStats(users.filter((u) => isMenteeOf(u, ownerId)));
-  }, [ownerId, users, teamStats, nineBox, attention]);
+    return computeScopedStats(
+      users.filter((u) => isMenteeOf(u, ownerId)),
+      meRole === 'stardiz' ? meId : null,
+    );
+  }, [ownerId, users, teamStats, nineBox, attention, meRole, meId]);
 
   function openNew() {
     setModalUser(null);
@@ -277,7 +283,10 @@ export default function UsersClient({
   // Тумблер «Активен» из лидерборда убран (Pavel, v0.41) — управление
   // активностью осталось в модалке редактирования и карточке 360.
 
-  function handleSaved(saved: UserRow) {
+  // Ответ PATCH/POST — в строку списка. Общий путь для модалки «Изменить»
+  // и переноса карточки в канбане.
+  function mergeRow(saved: UserRow) {
+    const viewer = meId !== null ? { id: meId, role: meRole } : null;
     setUsers((prev) => {
       const idx = prev.findIndex((u) => u.id === saved.id);
       if (idx >= 0) {
@@ -286,20 +295,50 @@ export default function UsersClient({
         // XP, место и «в срок» считаются на странице. При замене они
         // пропадали из строки до перезагрузки. Почасовщик места не имеет —
         // снимаем сразу, не дожидаясь пересчёта (Phase 23.4).
-        next[idx] = {
+        const merged: UserRow = {
           ...prev[idx],
           ...saved,
           ...(isHourly(saved) ? { compositeScore: null } : {}),
         };
+        // Лид передал человека другому — деньги этого человека ему больше не
+        // положены: бейдж пересмотра и ставку убираем сразу, а не после
+        // перезагрузки (сервер их уже не пришлёт).
+        next[idx] = canViewCompensation(viewer, merged)
+          ? merged
+          : { ...merged, plannedRaise: null, salary: undefined };
         return next;
       }
       return [...prev, saved];
     });
+  }
+
+  function handleSaved(saved: UserRow) {
+    mergeRow(saved);
     setModalOpen(false);
   }
 
+  // Деактивация сама ставит дату увольнения (сервер, lib/userUpdate): если
+  // её нет или она раньше найма — сегодня по Москве. Ответ DELETE даты не
+  // несёт — применяем то же правило, чтобы поп-ап показал её без
+  // перезагрузки. Дата, которую вернул сервер (patch), главнее.
+  function deactivate<T extends UserRow>(u: T, patch?: Partial<UserRow>): T {
+    const seeDate = canViewDismissalDate({ role: meRole });
+    const auto = needsDismissalDate({
+      dismissedAt: u.dismissedAt ? new Date(u.dismissedAt) : null,
+      hiredAt: u.hiredAt ? new Date(u.hiredAt) : null,
+    })
+      ? todayMoscowDate().toISOString()
+      : u.dismissedAt ?? null;
+    return {
+      ...u,
+      ...patch,
+      active: false,
+      ...(seeDate ? { dismissedAt: patch?.dismissedAt ?? auto } : {}),
+    };
+  }
+
   function handleDeleted(id: number) {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, active: false } : u)));
+    setUsers((prev) => prev.map((u) => (u.id === id && u.active ? deactivate(u) : u)));
     setModalOpen(false);
   }
 
@@ -396,7 +435,10 @@ export default function UsersClient({
                   ? 'lead'
                   : 'grade'
             }
+            meId={meId}
+            meRole={meRole}
             onCardClick={(u) => open360(u as UserRow)}
+            onMoved={(u) => mergeRow(u as UserRow)}
           />
         )}
       </div>
@@ -444,26 +486,21 @@ export default function UsersClient({
             setUsers((prev) => prev.map(apply));
             setCard360User((curr) => (curr ? apply(curr) : curr));
           }}
-          onGradingCleared={(id) => {
-            // Сбрасываем и в списке (исчезает иконка таймера), и в открытой
-            // карточке — чтобы результат был виден сразу, не закрывая попап.
-            const clear = <T extends { id: number }>(u: T) =>
-              u.id === id
-                ? { ...u, nextGradingAt: null, nextGradingSetAt: null, nextGradingSetBy: null }
-                : u;
-            setUsers((prev) => prev.map(clear));
-            setCard360User((curr) => (curr ? clear(curr) : curr));
+          onGradingChanged={(id, plan) => {
+            // План из ответа сервера — и в список (иконка таймера), и в
+            // открытую карточку: результат виден сразу, не закрывая попап.
+            const apply = <T extends { id: number }>(u: T) =>
+              u.id === id ? { ...u, ...plan } : u;
+            setUsers((prev) => prev.map(apply));
+            setCard360User((curr) => (curr ? apply(curr) : curr));
           }}
-          onDeactivated={(id) => {
-            setUsers((prev) =>
-              prev.map((u) => (u.id === id ? { ...u, active: false } : u)),
-            );
+          onDeactivated={(id, patch) => {
+            const off = (u: UserRow) => (u.id === id && u.active ? deactivate(u, patch) : u);
+            setUsers((prev) => prev.map(off));
             // Не закрываем popup — обновляем локальное состояние карточки,
             // чтобы Pavel видел результат (появляется чип «Неактивен»,
             // кнопки действий исчезают).
-            setCard360User((curr) =>
-              curr && curr.id === id ? { ...curr, active: false } : curr,
-            );
+            setCard360User((curr) => (curr ? off(curr) : curr));
           }}
         />
       )}
@@ -476,8 +513,14 @@ export default function UsersClient({
  * логику из page.tsx, но по полям, уже лежащим на UserRow. Спарклайн
  * «в срок» по месяцам для подвыборки не считаем (нет помесячных данных
  * на клиенте) — отдаём пустой, карточка просто прячет линию.
+ *
+ * hiddenTalentId — зритель-стардиз: он видит в списке и себя, но в 9-Box и
+ * NIPC его нет — только подопечные (как isOwnHiddenTalent в page.tsx).
  */
-function computeScopedStats(list: UserRow[]): {
+function computeScopedStats(
+  list: UserRow[],
+  hiddenTalentId: number | null = null,
+): {
   stats: TeamStats;
   nineBox: Record<string, number>;
   attention: AttentionItem[];
@@ -502,10 +545,11 @@ function computeScopedStats(list: UserRow[]): {
   const activeDesigners = list.filter((u) => u.role === 'designer' && u.active);
   const talentDesigners = activeDesigners.filter((u) => !isHourly(u));
   const eligible = list.filter(isGradable);
+  const nineBoxEligible = eligible.filter((u) => u.id !== hiddenTalentId);
 
   // 9-Box подвыборки
   const nineBox: Record<string, number> = {};
-  for (const u of eligible) {
+  for (const u of nineBoxEligible) {
     if (!u.nineBoxCell) continue;
     const key = `${u.nineBoxCell.potential}_${u.nineBoxCell.performance}`;
     nineBox[key] = (nineBox[key] ?? 0) + 1;
@@ -513,8 +557,8 @@ function computeScopedStats(list: UserRow[]): {
   const nb = (k: string) => nineBox[k] ?? 0;
   const nipcNumerator =
     nb('high_high') + nb('high_mid') + nb('mid_high') - nb('mid_low') - nb('low_mid') - nb('low_low');
-  const nipcPercent = eligible.length
-    ? Math.round((nipcNumerator / eligible.length) * 100)
+  const nipcPercent = nineBoxEligible.length
+    ? Math.round((nipcNumerator / nineBoxEligible.length) * 100)
     : null;
 
   const onTimeValues = activeDesigners
@@ -532,7 +576,7 @@ function computeScopedStats(list: UserRow[]): {
   const stats: TeamStats = {
     nipcPercent,
     nipcDelta: null,
-    nipcTotal: eligible.length,
+    nipcTotal: nineBoxEligible.length,
     nipcStars: nb('high_high'),
     nipcHpot: nb('high_mid'),
     nipcHperf: nb('mid_high'),

@@ -218,7 +218,8 @@ export default function SalaryBlock({
   const [addingBonus, setAddingBonus] = useState(false);
   const historyId = useId();
 
-  // Меню «⋯» → «Запланировать пересмотр»: сразу редактор и свежие данные
+  // Меню «⋯» → «Запланировать пересмотр»: сразу редактор и свежие данные.
+  // Статус на сервере появится только по «Сохранить» — см. PlannedRow.
   useEffect(() => {
     if (editSignal > 0) {
       setEditing(true);
@@ -475,17 +476,40 @@ function PlannedRow({
   setEditing: (v: boolean) => void;
   onChanged: (next: PlannedRaiseRow | null) => Promise<void>;
 }) {
-  const [at, setAt] = useState(planned.at ? planned.at.slice(0, 10) : '');
-  const [salary, setSalary] = useState(planned.salary ? String(planned.salary / 1000) : '');
-  const [note, setNote] = useState(planned.note ?? '');
+  // Активный статус редактор уточняет; нет статуса или он выполнен —
+  // редактор начинает новый: поля пустые, а детали выполненного не
+  // переезжают в новый.
+  const isActive = planned.state === 'active';
+  const fields = isActive
+    ? {
+        at: planned.at ? planned.at.slice(0, 10) : '',
+        salary: planned.salary ? String(planned.salary / 1000) : '',
+        note: planned.note ?? '',
+      }
+    : { at: '', salary: '', note: '' };
+  const [at, setAt] = useState(fields.at);
+  const [salary, setSalary] = useState(fields.salary);
+  const [note, setNote] = useState(fields.note);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    setAt(planned.at ? planned.at.slice(0, 10) : '');
-    setSalary(planned.salary ? String(planned.salary / 1000) : '');
-    setNote(planned.note ?? '');
-  }, [planned.at, planned.salary, planned.note]);
+    setAt(fields.at);
+    setSalary(fields.salary);
+    setNote(fields.note);
+    // fields — производное от этих же значений
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, planned.at, planned.salary, planned.note]);
+
+  // Отмена ничего не пишет и забывает набранное: статуса, которого не было,
+  // и не появится, а при следующем открытии поля — как в статусе
+  function cancel() {
+    setAt(fields.at);
+    setSalary(fields.salary);
+    setNote(fields.note);
+    setErr(null);
+    setEditing(false);
+  }
 
   async function save() {
     setBusy(true);
@@ -496,10 +520,18 @@ function PlannedRow({
       setBusy(false);
       return;
     }
+    // Статус создаётся здесь, по «Сохранить», одним запросом. fresh — когда
+    // активного нет (или он выполнен): сервер начнёт новый с новой отметкой,
+    // даже если HR недоступен и сам он «выполнен» не распознает.
     const res = await fetch(`/api/users/${userId}/planned-raise`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ at: at || null, salary: rub, note: note.trim() || null }),
+      body: JSON.stringify({
+        at: at || null,
+        salary: rub,
+        note: note.trim() || null,
+        ...(isActive ? {} : { fresh: true }),
+      }),
     });
     setBusy(false);
     if (!res.ok) {
@@ -564,10 +596,11 @@ function PlannedRow({
           <button type="button" className="btn-primary" disabled={busy} onClick={save}>
             Сохранить
           </button>
-          <button type="button" className="btn-ghost" disabled={busy} onClick={() => setEditing(false)}>
+          <button type="button" className="btn-ghost" disabled={busy} onClick={cancel}>
             Отмена
           </button>
-          {planned.setAt && (
+          {/* Снять — только действующий; выполненный сам уйдёт из списка */}
+          {isActive && (
             <button
               type="button"
               className="ml-auto text-xs text-blaze hover:underline"

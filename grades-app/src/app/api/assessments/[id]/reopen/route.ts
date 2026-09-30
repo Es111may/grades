@@ -5,6 +5,8 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { currentCycle } from '@/lib/cycle';
 import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
+import { canGradeDesigner } from '@/lib/permissions';
+import { isGradable } from '@/lib/employment';
 
 /**
  * POST /api/assessments/[id]/reopen
@@ -26,17 +28,27 @@ export async function POST(
   }
 
   const refId = parseInt(params.id, 10);
-  const ref = await prisma.assessment.findUnique({ where: { id: refId } });
+  if (isNaN(refId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  const ref = await prisma.assessment.findUnique({
+    where: { id: refId },
+    include: {
+      designer: {
+        select: { leadId: true, stardizId: true, role: true, active: true, employmentType: true },
+      },
+    },
+  });
   if (!ref) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  // Permission: admin / lead / stardiz of the designer
-  if (me.role !== 'admin') {
-    const designer = await prisma.user.findUnique({ where: { id: ref.designerId } });
-    const allowed =
-      designer && (designer.leadId === me.id || designer.stardizId === me.id);
-    if (!allowed) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+  // Права — те же, что на оценку (canGradeDesigner); новый черновик —
+  // только тем, кого грейдируют (не почасовщикам и не неактивным).
+  if (!canGradeDesigner(me, ref.designer)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  if (!isGradable(ref.designer)) {
+    return NextResponse.json(
+      { error: 'Почасовщиков и неактивных не грейдируют' },
+      { status: 400 },
+    );
   }
 
   // Если активный draft уже есть — возвращаем его

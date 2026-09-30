@@ -6,6 +6,7 @@ import { EditIcon, CloseIcon } from '@/components/icons';
 import { formatDateShort, todayLocalIso } from '@/lib/dates';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType } from '@/lib/employment';
+import { canChangeLead, canDeactivateUser } from '@/lib/permissions';
 import {
   DISMISSAL_TYPES,
   DISMISSAL_TYPE_LABELS,
@@ -162,6 +163,20 @@ export default function UserModal({
     dismissalType: user?.dismissalType ?? '',
     dismissalReason: user?.dismissalReason ?? '',
   });
+  // Почасовщиком бывает только дизайнер: сменили роль — формат штатный,
+  // что бы ни осталось в форме (сервер делает так же).
+  const employmentType = form.role === 'designer' ? form.employmentType : 'staff';
+  // Билд — у дизайнера и стардиза; лиду и админу он не нужен
+  const hasBuild = form.role === 'designer' || form.role === 'stardiz';
+  const me = meId !== null ? { id: meId, role: meRole } : null;
+  // Лид правит только своих и может отдать человека другому лиду, но не
+  // снять лида вовсе — пункт «Не назначен» ему недоступен (lib/permissions).
+  const canUnsetLead = isNew || !user || canChangeLead(me, user, null);
+  // Лид отдаёт своего человека — предупреждаем, что доступ пропадёт
+  const handingOff =
+    meRole === 'lead' && !!user && user.leadId === meId && form.leadId !== user.leadId;
+  const canDeactivate = !isNew && !!user && canDeactivateUser(me, user);
+
   // Дата увольнения подставлена автоматически при выключении «Активен».
   // Если админ передумал и включил обратно — убираем подстановку, чтобы не
   // сохранить активному человеку случайную дату. Введённое руками не трогаем.
@@ -298,7 +313,7 @@ export default function UserModal({
       fullName: form.fullName.trim(),
       email: form.email.trim(),
       role: form.role,
-      buildId: form.role === 'designer' ? form.buildId : null,
+      buildId: hasBuild ? form.buildId : null,
       department: form.department || null,
       // Лид может быть и у дизайнера, и у стардиза (стардизы тоже грейдируются).
       leadId:
@@ -316,9 +331,9 @@ export default function UserModal({
       ...(form.role === 'designer' || form.role === 'stardiz'
         ? { nextGradingAt: form.nextGradingAt || null }
         : {}),
-      // Формат занятости — только у дизайнеров. Если не меняли, значение
-      // равно исходному, и сервер права не проверяет.
-      ...(form.role === 'designer' ? { employmentType: form.employmentType } : {}),
+      // Формат занятости: у дизайнера — из формы (не меняли — значение равно
+      // исходному, и сервер права не проверяет), у остальных — всегда штатный.
+      employmentType,
       // Увольнение — только от админа: лиду сервер ответит 403 на само
       // присутствие полей. Скрытые поля шлём как есть — значения не теряются,
       // если человек снова стал активным.
@@ -542,7 +557,7 @@ export default function UserModal({
                   )}
                 </select>
               </div>
-              {form.role === 'designer' && (
+              {hasBuild && (
                 <div>
                   <label className="block text-xs text-stone mb-1.5">Билд</label>
                   <select
@@ -586,13 +601,20 @@ export default function UserModal({
                       set('leadId', e.target.value ? Number(e.target.value) : null)
                     }
                   >
-                    <option value="">Не назначен</option>
+                    <option value="" disabled={!canUnsetLead}>
+                      Не назначен
+                    </option>
                     {leads.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.fullName}
                       </option>
                     ))}
                   </select>
+                  {handingOff && (
+                    <p className="text-[11px] text-sunset mt-1.5">
+                      После сохранения зарплата и оценки этого человека будут вам недоступны
+                    </p>
+                  )}
                 </div>
               )}
               {form.role === 'designer' && (
@@ -632,7 +654,7 @@ export default function UserModal({
                   кто грейдируется, и только тем, у кого есть на это права
                   (админ всем, лид/стардиз своим подопечным). */}
               {(user?.role === 'designer' || user?.role === 'stardiz') &&
-                form.employmentType !== 'hourly' &&
+                employmentType !== 'hourly' &&
                 canSetGradingDate({ id: meId ?? -1, role: meRole }, {
                   id: user.id,
                   leadId: form.leadId,
@@ -693,7 +715,7 @@ export default function UserModal({
               {/* Phase 23.4 — увольнение: у деактивированных и почасовщиков,
                   только админу. Реагирует на переключатели выше, с новой строки. */}
               {canDismiss &&
-                showsDismissal({ active: form.active, employmentType: form.employmentType }) && (
+                showsDismissal({ active: form.active, employmentType }) && (
                   <div className="col-span-2 grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs text-stone mb-1.5">Дата увольнения</label>
@@ -980,8 +1002,9 @@ export default function UserModal({
             </section>
           )}
 
-          {/* Danger zone */}
-          {!isNew && (
+          {/* Danger zone. Деактивировать — админ всех, кроме себя (сервер
+              себя и не даст), лид — своих; у админа себя и удалить нельзя */}
+          {canDeactivate && (
             <section>
               <div className="text-xs  text-stone mb-3">
                 Опасная зона

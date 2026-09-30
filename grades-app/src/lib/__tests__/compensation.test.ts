@@ -141,6 +141,69 @@ describe('buildCompensation — ставка и история', () => {
   });
 });
 
+describe('buildCompensation — грязный журнал HR', () => {
+  it('точный дубль строки — одно событие, а не два повышения', () => {
+    const log: HrLogRow[] = [
+      { date: '2026-03-01', from: 100 * K, to: 110 * K },
+      // Та же дата (время другое — сравниваем по дню) и те же суммы
+      { date: '2026-03-01T12:00:00', from: 100 * K, to: 110 * K },
+    ];
+    const v = ok(buildCompensation({ ...base, hr: hr(110 * K, '2024-02-01'), log }));
+    expect(v.events).toHaveLength(1);
+    expect(v.events[0]).toMatchObject({ kind: 'raise', date: '2026-03-01', delta: 10 * K });
+    expect(v.current).toBe(110 * K);
+    expect(v.since).toMatchObject({ label: 'с начала года', from: 100 * K });
+  });
+
+  it('не дубль: та же дата, но другие суммы — обе строки остаются', () => {
+    const log: HrLogRow[] = [
+      { date: '2026-03-01', from: 100 * K, to: 110 * K },
+      { date: '2026-03-01', from: 110 * K, to: 120 * K },
+    ];
+    const v = ok(buildCompensation({ ...base, hr: hr(120 * K, '2024-02-01'), log }));
+    expect(v.events).toHaveLength(2);
+  });
+
+  it('дубль стартовой ставки — одна запись о найме (правило 7 дней)', () => {
+    const log: HrLogRow[] = [
+      { date: '2026-08-03', from: 100 * K, to: 110 * K },
+      { date: '2026-08-03', from: 100 * K, to: 110 * K },
+    ];
+    const v = ok(buildCompensation({ ...base, hr: hr(110 * K, '2026-08-03'), log }));
+    expect(v.events).toEqual([{ kind: 'hire', date: '2026-08-03', to: 110 * K }]);
+    expect(v.lastChange).toBeNull();
+  });
+
+  it('строка «→ 0» — не ставка: нет «110 → 0 · −100%», текущая остаётся прежней', () => {
+    const log: HrLogRow[] = [
+      { date: '2025-05-01', from: 100 * K, to: 110 * K },
+      { date: '2026-04-01', from: 110 * K, to: 0 },
+    ];
+    const v = ok(buildCompensation({ ...base, hr: hr(110 * K, '2024-02-01'), log }));
+    expect(v.current).toBe(110 * K);
+    expect(v.events).toHaveLength(1);
+    expect(v.events[0]).toMatchObject({ kind: 'raise', date: '2025-05-01', to: 110 * K });
+    expect(v.events.some((e) => e.kind === 'decrease')).toBe(false);
+    expect(v.lastChange).toEqual({ date: '2025-05-01', delta: 10 * K });
+    expect(v.since).toMatchObject({ label: 'с начала года', from: 110 * K, pct: 0 });
+  });
+
+  it('только строки «→ 0» — ставка из карточки HR', () => {
+    const log: HrLogRow[] = [{ date: '2026-04-01', from: 90 * K, to: 0 }];
+    const v = ok(buildCompensation({ ...base, hr: hr(90 * K, '2024-02-01'), log }));
+    expect(v.current).toBe(90 * K);
+    expect(v.events).toEqual([]);
+    expect(v.lastChange).toBeNull();
+  });
+
+  it('отрицательная сумма «to» — тоже не ставка', () => {
+    const log: HrLogRow[] = [{ date: '2026-04-01', from: 90 * K, to: -1 }];
+    const v = ok(buildCompensation({ ...base, hr: hr(90 * K, '2024-02-01'), log }));
+    expect(v.current).toBe(90 * K);
+    expect(v.events).toEqual([]);
+  });
+});
+
 describe('вилки и цвет', () => {
   it('выше вилки — красный, с суммой превышения', () => {
     const v = ok(buildCompensation({ ...base, hr: hr(130 * K, '2023-03-01'), log: [] }));

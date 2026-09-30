@@ -4,23 +4,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { canViewUserDetails } from '@/lib/permissions';
 
 /**
  * GET /api/users/[id]/projects — список проектов пользователя.
- * Любой залогиненный (admin/lead/stardiz/designer) — список открыт.
+ * Видят те же, кто открывает портрет: сам человек, админ, его лид и
+ * стардиз (canViewUserDetails). Раньше список был открыт любому
+ * залогиненному.
  */
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
   const me = await getCurrentUser();
-  if (!me) {
+  if (!me?.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const userId = parseInt(params.id, 10);
   if (isNaN(userId)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, leadId: true, stardizId: true },
+  });
+  if (!target) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  if (!canViewUserDetails({ id: me.id, role: me.role }, target)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const rows = await prisma.userProject.findMany({

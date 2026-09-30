@@ -6,7 +6,7 @@
 // здесь только выборка.
 
 import { chQuery } from './clickhouse';
-import { getOrCompute, makeEmailsCacheKey, DEFAULT_TTL_MS } from './perfCache';
+import { getOrCompute, makeEmailsCacheKey, setCached, DEFAULT_TTL_MS } from './perfCache';
 import type { HrEmployee, HrLogRow } from './compensation';
 
 type EmpRow = { id: string; salary: number | string; hired: string; dismissed: string; arch: number | string };
@@ -29,11 +29,13 @@ function pickEmployee(rows: EmpRow[]): EmpRow | null {
 
 export type HrCompensation = { hr: HrEmployee | null; log: HrLogRow[] };
 
+/** Ключ кэша одного человека — общий для fetchHrCompensation и батча. */
+const compKey = (email: string) => `hr-comp:${email.trim().toLowerCase()}`;
+
 /** Ставка и журнал одного человека по рабочему email. Кэш 15 минут. */
 export async function fetchHrCompensation(email: string): Promise<HrCompensation> {
-  const key = `hr-comp:${email.trim().toLowerCase()}`;
   return getOrCompute(
-    key,
+    compKey(email),
     async () => {
       const emps = await chQuery<EmpRow>(
         `SELECT toString(id) AS id, salary,
@@ -108,6 +110,11 @@ export async function fetchHrLogsByEmail(
  * у админа. Два запроса на всю страницу (сотрудники + журналы), кэш 15 минут.
  * Текущую ставку считает тот же buildCompensation, что и поп-ап, — цифры в
  * таблице и в карточке не могут разойтись.
+ *
+ * Результат заодно раскладываем по ключам fetchHrCompensation: поп-ап,
+ * открытый после списка, берёт ставку из кэша, а не идёт в ClickHouse.
+ * Выборка та же — одна живая учётка через pickEmployee и её журнал, для
+ * email без учётки — `{ hr: null, log: [] }`, как и в одиночном запросе.
  */
 export async function fetchHrCompensationBatch(
   emails: string[],
@@ -164,6 +171,7 @@ export async function fetchHrCompensationBatch(
             : { hr: null, log: [] },
         );
       }
+      for (const [em, c] of result) setCached(compKey(em), c, DEFAULT_TTL_MS);
       return result;
     },
     DEFAULT_TTL_MS,

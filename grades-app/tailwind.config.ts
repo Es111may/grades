@@ -35,22 +35,23 @@ const config: Config = {
       // Шрифты: Onest (Variable, max Medium — как на ida-ai-report) для
       // display и sans. mono — JetBrains Mono: лейблы колонок, названия
       // характеристик, код/числа. SF Mono — системный fallback.
+      // Сами семейства — CSS-переменные next/font (src/app/fonts.ts).
       fontFamily: {
         display: [
-          'Onest',
+          'var(--font-onest)',
           '-apple-system',
           'BlinkMacSystemFont',
           'system-ui',
           'sans-serif',
         ],
         sans: [
-          'Onest',
+          'var(--font-onest)',
           '-apple-system',
           'BlinkMacSystemFont',
           'system-ui',
           'sans-serif',
         ],
-        mono: ['"JetBrains Mono"', '"SF Mono"', 'ui-monospace', 'monospace'],
+        mono: ['var(--font-jetbrains-mono)', '"SF Mono"', 'ui-monospace', 'monospace'],
       },
       // Тени — тоже per-theme (см. --shadow-* в globals.css): тёмная тема
       // строит глубину на светлом hairline, светлая — на слоистых серых тенях.

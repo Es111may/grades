@@ -12,7 +12,10 @@
 //   • запись журнала с датой в будущем — «вступит в силу», в текущую ставку
 //     не входит;
 //   • если в HR человек уволен, а в Грейдах работает (вернулся, а HR не
-//     обновили), старые цифры не показываем — это отдельное состояние.
+//     обновили), старые цифры не показываем — это отдельное состояние;
+//   • журнал HR бывает грязным: точные дубли строк (та же дата и те же
+//     суммы) схлопываем, а строки «→ 0» ставкой не считаем — иначе в истории
+//     «110 → 0 · −100%» и текущая ставка 0.
 
 import { bandFor, bandState, type BandState } from './salaryBands';
 
@@ -73,12 +76,26 @@ function isHireRow(r: HrLogRow, hiredAt: string | null): boolean {
   return d >= day(hiredAt) && d <= addDays(hiredAt, HIRE_WINDOW_DAYS);
 }
 
-/** Журнал по возрастанию даты, без записей «ставка не изменилась». */
+/**
+ * Журнал по возрастанию даты, без мусора:
+ *   • «ставка не изменилась» (from === to);
+ *   • «→ 0» и отрицательные — не ставка (обнуление при увольнении/ошибка
+ *     ввода), ни в историю, ни в текущую ставку;
+ *   • точные дубли — та же дата (по дню) и те же from/to: HR иногда пишет
+ *     одно изменение дважды, в истории оно было бы двумя повышениями.
+ */
 function normalized(log: HrLogRow[]): HrLogRow[] {
-  return log
-    .filter((r) => r.to !== r.from)
-    .map((r) => ({ ...r, date: day(r.date) }))
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const seen = new Set<string>();
+  const rows: HrLogRow[] = [];
+  for (const r of log) {
+    if (r.to === r.from || r.to <= 0) continue;
+    const row = { ...r, date: day(r.date) };
+    const key = `${row.date}|${row.from}|${row.to}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push(row);
+  }
+  return rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
 export function buildCompensation(input: {

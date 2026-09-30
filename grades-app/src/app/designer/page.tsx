@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { loadPortraitData } from '@/lib/portrait';
 import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
+import { PAGE_BUDGET_MS, withTimeout } from '@/lib/perfCache';
 import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
@@ -20,10 +21,38 @@ export default async function DesignerPortraitPage({
   const assessmentId = searchParams.assessmentId
     ? parseInt(searchParams.assessmentId, 10)
     : undefined;
-  const result = await loadPortraitData(
-    user.id,
-    Number.isFinite(assessmentId) ? assessmentId : undefined,
-  );
+
+  // Перформанс показываем только дизайнерам и стардизам (они работают
+  // руками в трекерах). Лиды/админы на собственном портрете блок не видят.
+  const showPerformance = user.role === 'designer' || user.role === 'stardiz';
+  const email = user.email;
+
+  // Портрет, проекты и «в срок» друг от друга не зависят — параллельно.
+  // Если оценки ещё нет, проекты окажутся лишним лёгким чтением.
+  const [result, userProjects, onTime] = await Promise.all([
+    loadPortraitData(user.id, Number.isFinite(assessmentId) ? assessmentId : undefined),
+    // Проекты дизайнера — справочник M:N. Дизайнер сам редактирует список.
+    prisma.userProject.findMany({
+      where: { userId: user.id },
+      select: { project: { select: { id: true, name: true, category: true } } },
+      orderBy: [
+        { project: { category: 'asc' } },
+        { project: { sortOrder: 'asc' } },
+        { project: { name: 'asc' } },
+      ],
+    }),
+    showPerformance && email
+      ? // Не дольше бюджета страницы: запрос допишет кэш в фоне.
+        withTimeout(fetchOnTimeStatsByEmail([email]), PAGE_BUDGET_MS, 'fetchOnTimeStatsByEmail')
+          .then((stats) => stats.get(email.toLowerCase()) ?? null)
+          .catch((err) => {
+            // ClickHouse недоступен — портрет всё равно показываем, чип просто
+            // не нарисуется (null).
+            console.error('[/designer] fetchOnTimeStatsByEmail failed:', err);
+            return null;
+          })
+      : null,
+  ]);
 
   if (result.kind === 'not_found') {
     return (
@@ -36,18 +65,16 @@ export default async function DesignerPortraitPage({
   }
 
   if (result.kind === 'no_assessment') {
-    const me = await prisma.user.findUnique({
-      where: { id: user.id },
-      include: { build: true, lead: true },
-    });
+    // Имя, билд, отдел и грейд-floor уже прочитаны загрузчиком портрета.
+    const me = result.designer;
     return (
       <main className="max-w-[1000px] mx-auto px-8 pt-8 pb-16">
         <div className="mb-8">
           <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
-            {me?.fullName}
+            {me.fullName}
           </h1>
           <p className="text-stone text-sm">
-            {me?.build?.name ?? '— билд не назначен'} · {me?.department ?? '—'}
+            {me.buildName ?? '— билд не назначен'} · {me.department ?? '—'}
           </p>
         </div>
 
@@ -61,7 +88,7 @@ export default async function DesignerPortraitPage({
           </p>
         </div>
 
-        {me?.gradeFloor && (
+        {me.gradeFloor && (
           <div className="bg-lime-light/60 border border-lime/30 rounded-card p-5">
             <div className="text-[11px]  text-graphite mb-1.5">
               Зафиксированный грейд
@@ -79,52 +106,17 @@ export default async function DesignerPortraitPage({
     );
   }
 
-  // Проекты дизайнера — справочник M:N. Дизайнер сам редактирует список.
-  const userProjects = await prisma.userProject.findMany({
-    where: { userId: user.id },
-    include: {
-      project: { select: { id: true, name: true, category: true } },
-    },
-    orderBy: [
-      { project: { category: 'asc' } },
-      { project: { sortOrder: 'asc' } },
-      { project: { name: 'asc' } },
-    ],
-  });
-
-  // Перформанс показываем только дизайнерам и стардизам (они работают
-  // руками в трекерах). Лиды/админы на собственном портрете блок не видят.
-  const showPerformance = user.role === 'designer' || user.role === 'stardiz';
-  let onTimePercent: number | null = null;
-  let onTimeTotalTasks = 0;
-  if (showPerformance && user.email) {
-    try {
-      const stats = await fetchOnTimeStatsByEmail([user.email]);
-      const s = stats.get(user.email.toLowerCase());
-      if (s) {
-        onTimePercent = s.onTimePercent;
-        onTimeTotalTasks = s.totalTasks;
-      }
-    } catch (err) {
-      // ClickHouse недоступен — портрет всё равно показываем, чип просто
-      // не нарисуется (null).
-      console.error('[/designer] fetchOnTimeStatsByEmail failed:', err);
-    }
-  }
+  const onTimePercent = onTime?.onTimePercent ?? null;
+  const onTimeTotalTasks = onTime?.totalTasks ?? 0;
 
   // Phase 17 — ИПР. Зритель здесь — сам owner портрета, т.е. user. У него
   // право создавать чек-листы себе (по матрице прав), значит canCreate=true.
-  // Но используем общий хелпер — он же гарантирует консистентность.
-  const meAsTarget = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true, role: true, leadId: true, stardizId: true },
-  });
-  const canCreateChecklists =
-    !!meAsTarget &&
-    canCreateChecklistFor(
-      { id: user.id, role: user.role ?? '' },
-      meAsTarget,
-    );
+  // Но используем общий хелпер — он же гарантирует консистентность. Строку
+  // владельца (роль, лид, стардиз) отдал загрузчик портрета — из той же БД.
+  const canCreateChecklists = canCreateChecklistFor(
+    { id: user.id, role: user.role ?? '' },
+    result.target,
+  );
 
   return (
     <Portrait

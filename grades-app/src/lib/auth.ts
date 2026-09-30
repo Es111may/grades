@@ -8,13 +8,19 @@
  *      Используется только для локальной разработки. Включается через AUTH_MODE=dev.
  */
 
-import type { NextAuthOptions } from 'next-auth';
+import type { NextAuthOptions, Session } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { getToken } from 'next-auth/jwt';
+import { getToken, type JWT } from 'next-auth/jwt';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { prisma } from './db';
 import { writeAudit } from './audit';
+import {
+  isRefreshDue,
+  resolveSessionRefresh,
+  sessionUserIds,
+  type SessionUserRow,
+} from './sessionFreshness';
 import type { BuildCode, GradeCode, UserRole } from './types';
 
 const authMode = process.env.AUTH_MODE || 'password';
@@ -72,13 +78,20 @@ providers.push(
       } catch {
         return null;
       }
-      if (!token?.numericId) return null;
+      if (!token?.numericId || token.invalid) return null;
 
-      const isAdmin = token.role === 'admin';
       const returningToSelf =
         typeof token.impersonatorId === 'number' &&
         token.impersonatorId === targetId;
-      if (!isAdmin && !returningToSelf) return null;
+      if (!returningToSelf) {
+        // Роль в cookie может отставать от БД (сессия живёт 8 часов, а
+        // getToken читает cookie как есть) — админство проверяем по БД.
+        const actor = await prisma.user.findUnique({
+          where: { id: token.numericId },
+          select: { role: true, active: true },
+        });
+        if (!actor?.active || actor.role !== 'admin') return null;
+      }
 
       const target = await prisma.user.findUnique({
         where: { id: targetId },
@@ -155,6 +168,50 @@ function userToAuthPayload(user: {
   };
 }
 
+// ── Свежесть сессии ──────────────────────────────────────────────────────
+//
+// Роль, активность и имя перечитываем из БД не реже раза в 5 минут (правила —
+// lib/sessionFreshness). Метка времени лежит в токене, но в серверных
+// компонентах и роутах getServerSession cookie не перезаписывает — токен
+// там каждый раз прежний. Поэтому держим ещё кеш процесса на те же 5 минут:
+// иначе каждый рендер ходил бы в БД.
+
+const sessionUserCache = new Map<number, { row: SessionUserRow | null; at: number }>();
+
+/** Строки для проверки сессии; null — БД не ответила, решать не берёмся. */
+async function loadSessionUsers(ids: number[], now: number): Promise<SessionUserRow[] | null> {
+  const stale = ids.filter((id) => {
+    const cached = sessionUserCache.get(id);
+    return !cached || isRefreshDue(cached.at, now);
+  });
+  if (stale.length > 0) {
+    try {
+      const rows = await prisma.user.findMany({
+        where: { id: { in: stale } },
+        select: { id: true, role: true, active: true, fullName: true },
+      });
+      for (const id of stale) {
+        sessionUserCache.set(id, { row: rows.find((r) => r.id === id) ?? null, at: now });
+      }
+    } catch (err) {
+      console.error('[auth] session refresh failed:', err);
+      return null;
+    }
+  }
+  return ids
+    .map((id) => sessionUserCache.get(id)?.row)
+    .filter((r): r is SessionUserRow => !!r);
+}
+
+/**
+ * Сбросить кеш сессии человека — после смены роли, деактивации или
+ * удаления. Подействует на ближайшей проверке токена: у токена, проверенного
+ * меньше 5 минут назад, она наступит, когда выйдет его метка.
+ */
+export function forgetSessionUser(id: number): void {
+  sessionUserCache.delete(id);
+}
+
 export const authOptions: NextAuthOptions = {
   providers,
   session: {
@@ -177,21 +234,46 @@ export const authOptions: NextAuthOptions = {
         token.department = (user as any).department;
         // Имперсонация: обычный вход всегда сбрасывает метку
         token.impersonatorId = (user as any).impersonatorId ?? null;
+        // Данные только что из БД (authorize) — перечитывать пока не нужно.
+        token.refreshedAt = Date.now();
+        delete token.invalid;
+        return token;
       }
+
+      if (token.invalid || !token.numericId) return token;
+      const now = Date.now();
+      if (!isRefreshDue(token.refreshedAt, now)) return token;
+
+      const rows = await loadSessionUsers(sessionUserIds(token), now);
+      if (!rows) return token;
+      const fresh = resolveSessionRefresh(token, rows);
+      if (!fresh.ok) {
+        // Удалён, деактивирован или вошедший «под» ним больше не админ —
+        // сессия мертва. Личность из токена убираем целиком, чтобы её не
+        // подхватил никто, кто читает cookie напрямую (getToken).
+        return { invalid: true } as unknown as JWT;
+      }
+      token.role = fresh.role as UserRole;
+      token.name = fresh.fullName;
+      token.refreshedAt = now;
       return token;
     },
 
     async session({ session, token }) {
-      if (token.numericId) {
-        session.user.id = token.numericId;
-        session.user.role = token.role;
-        session.user.buildId = token.buildId;
-        session.user.buildCode = token.buildCode;
-        session.user.leadId = token.leadId;
-        session.user.gradeFloor = token.gradeFloor;
-        session.user.department = token.department;
-        session.user.impersonatorId = token.impersonatorId ?? null;
-      }
+      // Мёртвая сессия — пустой ответ: getServerSession вернёт null, клиент
+      // увидит «не вошёл».
+      if (token.invalid || !token.numericId) return {} as Session;
+      session.user.id = token.numericId;
+      // Имя — из токена: его освежает jwt-колбэк, а session.user.name
+      // NextAuth собирает из исходного cookie.
+      session.user.name = token.name ?? session.user.name;
+      session.user.role = token.role;
+      session.user.buildId = token.buildId;
+      session.user.buildCode = token.buildCode;
+      session.user.leadId = token.leadId;
+      session.user.gradeFloor = token.gradeFloor;
+      session.user.department = token.department;
+      session.user.impersonatorId = token.impersonatorId ?? null;
       return session;
     },
   },

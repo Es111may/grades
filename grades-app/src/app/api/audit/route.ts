@@ -16,7 +16,9 @@
  *
  * Права:
  *   - admin — видит всё
- *   - lead  — только actorId=me ИЛИ target=user из его подопечных
+ *   - lead  — только actorId=me ИЛИ target=user из его подопечных; деньги
+ *             (плановый пересмотр, премии) — только про тех, чьи деньги ему
+ *             можно видеть (lib/auditVisibility)
  *   - остальные роли — Forbidden
  */
 
@@ -25,6 +27,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { canViewCompensation } from '@/lib/compPermissions';
+import { auditVisibilityWhere } from '@/lib/auditVisibility';
 
 const PAGE_SIZE = 50;
 
@@ -46,13 +50,16 @@ export async function GET(req: NextRequest) {
   const beforeIdRaw = url.searchParams.get('beforeId');
 
   // Scope для лида — только свой и события про подопечных.
+  const viewer = { id: me.id, role: me.role };
   let scopeFilter: object = {};
+  let compViewableIds: number[] = [];
   if (me.role === 'lead') {
     const reportees = await prisma.user.findMany({
       where: { OR: [{ leadId: me.id }, { stardizId: me.id }] },
-      select: { id: true },
+      select: { id: true, leadId: true },
     });
     const ids = reportees.map((u) => u.id);
+    compViewableIds = reportees.filter((u) => canViewCompensation(viewer, u)).map((u) => u.id);
     scopeFilter = {
       OR: [
         { actorId: me.id },
@@ -91,8 +98,12 @@ export async function GET(req: NextRequest) {
     if (Number.isFinite(bid)) userFilter.id = { lt: bid };
   }
 
+  // Деньги и увольнение — поверх скоупа, условием в запросе, а не фильтром
+  // после выборки: иначе «Загрузить ещё» решило бы, что событий больше нет.
+  const visibilityFilter = auditVisibilityWhere(viewer, compViewableIds);
+
   const where = {
-    AND: [scopeFilter, userFilter].filter((x) => Object.keys(x).length > 0),
+    AND: [scopeFilter, userFilter, visibilityFilter].filter((x) => Object.keys(x).length > 0),
   };
 
   const entries = await prisma.auditLog.findMany({

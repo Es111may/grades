@@ -32,6 +32,29 @@ run('npx tsx scripts/migrate-grades.ts');
 run('npx tsx scripts/import-historical-lead-reviews.ts');
 
 console.log('\n▶ Starting Next.js...\n');
-// npm start теперь указывает на этот скрипт, поэтому запускаем next напрямую (start:next)
-const next = spawn('npm', ['run', 'start:next'], { cwd: root, stdio: 'inherit' });
-next.on('exit', (code) => process.exit(code ?? 0));
+// Next запускаем бинарником напрямую, без `npm run start:next`: на процесс
+// меньше, сигналы и код выхода ходят без npm-прослойки.
+// Аргументы те же, что в start:next (`next start`); порт Next берёт из PORT.
+const next = spawn(path.join(root, 'node_modules/.bin/next'), ['start'], {
+  cwd: root,
+  stdio: 'inherit',
+});
+
+// Railway при остановке/передеплое шлёт SIGTERM этому процессу — отдаём его
+// Next, чтобы тот корректно закрыл соединения. Обработчики ставим только
+// здесь: во время execSync выше event loop занят, и перехват сигнала лишь
+// отложил бы остановку до конца шага.
+for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(sig, () => {
+    if (next.exitCode === null && next.signalCode === null) next.kill(sig);
+  });
+}
+
+next.on('error', (e) => {
+  console.error('✗ Не удалось запустить Next.js:', e.message);
+  process.exit(1);
+});
+// Код выхода — как у Next (на SIGTERM он сам выходит с 0). Убит сигналом
+// без своего выхода (OOM, SIGKILL — кода нет) — 1: для Railway это падение,
+// и политика ON_FAILURE перезапустит контейнер.
+next.on('exit', (code) => process.exit(code ?? 1));

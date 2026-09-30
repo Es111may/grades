@@ -10,6 +10,8 @@
 //
 // Чистые функции, без Prisma и React — поведение проверяется тестами.
 
+import { moscowIsoDate } from './dates';
+
 /** Порог, после которого просрочка считается тревогой. Pavel: две недели. */
 export const OVERDUE_AFTER_DAYS = 14;
 /** Насколько заранее дата считается «на подходе». */
@@ -57,11 +59,21 @@ function toDate(v: Date | string | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** Календарных дней между датами (по началу суток, без учёта времени). */
+/** YYYY-MM-DD → номер дня (полночь UTC этой даты в сутках от эпохи). */
+function isoDayNumber(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number);
+  return Date.UTC(y, m - 1, d) / 864e5;
+}
+
+/**
+ * Календарных дней между датами — по московскому календарю, без учёта времени.
+ * Раньше считали по UTC-датам, и с 00:00 до 03:00 по Москве в день
+ * грейдирования сервер (он в UTC) показывал «через 1 дн.» вместо «сегодня».
+ * Плановая дата хранится как полночь UTC (input[type=date] → new Date('YYYY-MM-DD')),
+ * по Москве это 03:00 того же дня — дата не сдвигается.
+ */
 function dayDiff(from: Date, to: Date): number {
-  const a = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
-  const b = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
-  return Math.round((b - a) / 864e5);
+  return isoDayNumber(moscowIsoDate(to)) - isoDayNumber(moscowIsoDate(from));
 }
 
 /**
@@ -87,8 +99,15 @@ export function gradingPlanStatus(
     return { state: 'none', plannedAt: null, completedAt: null, daysLeft: null };
   }
 
-  const doneSince = setAt ?? plannedAt;
-  if (published && published.getTime() >= doneSince.getTime()) {
+  // С отметкой постановки сравниваем моменты. Без неё — календарные даты
+  // по Москве: публикация в 01:00 МСК в сам плановый день (по UTC — ещё
+  // вчера, раньше полуночи UTC плановой даты) тоже «не раньше плана».
+  const isDone =
+    published !== null &&
+    (setAt
+      ? published.getTime() >= setAt.getTime()
+      : dayDiff(plannedAt, published) >= 0);
+  if (isDone) {
     return {
       state: 'done',
       plannedAt,

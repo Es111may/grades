@@ -171,24 +171,11 @@ function SalaryDialog({
     // Пункт исчезает вместе с меню — фокус оставляем в поп-апе
     panelRef.current?.focus();
   }
-  // Статуса нет — ставим пустой, потом открываем редактор (сигнал блоку,
-  // он же перечитывает данные). Выполненный пересмотр сперва снимаем:
-  // новый считался бы от старой отметки и сразу выглядел бы выполненным.
-  async function startPlan() {
+  // Только открываем редактор (сигнал блоку, он же перечитывает данные).
+  // Статус создаётся по «Сохранить» одним PUT с fresh: true — и поверх
+  // выполненного тоже, без прежних DELETE+PUT. «Отмена» ничего не пишет.
+  function startPlan() {
     pick();
-    const url = `/api/users/${userId}/planned-raise`;
-    if (!hasPlan) {
-      if (planned.state === 'done') {
-        const res = await fetch(url, { method: 'DELETE' });
-        if (!res.ok) return;
-      }
-      const res = await fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-      });
-      if (!res.ok) return;
-    }
     setPlanSignal((n) => n + 1);
   }
   async function clearPlan() {

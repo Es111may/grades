@@ -346,7 +346,8 @@ async function importOne(rec: HistoricalReview): Promise<void> {
     },
   });
   if (!target) {
-    console.log(`  ⊘ skip: лид/стардиз с именем «${rec.targetNameLike}» не найден`);
+    // В лог — период и id, без имён: логи деплоя читают не только админы
+    console.log(`  ⊘ skip «${rec.period}»: лид/стардиз не найден`);
     return;
   }
 
@@ -357,7 +358,7 @@ async function importOne(rec: HistoricalReview): Promise<void> {
   });
   if (existing) {
     console.log(
-      `  ✓ skip: LeadReview «${rec.period}» для ${target.fullName} уже есть (id=${existing.id})`,
+      `  ✓ skip: LeadReview «${rec.period}» для user #${target.id} уже есть (id=${existing.id})`,
     );
     return;
   }
@@ -387,7 +388,7 @@ async function importOne(rec: HistoricalReview): Promise<void> {
     },
   });
   console.log(
-    `  + created LeadReview «${rec.period}» для ${target.fullName} (target=${target.id}, by=${createdById})`,
+    `  + created LeadReview «${rec.period}» (target=${target.id}, by=${createdById})`,
   );
 }
 
@@ -398,7 +399,7 @@ async function main() {
       await importOne(rec);
     } catch (e) {
       // Не падаем — миграция не должна блокировать деплой.
-      console.error(`  ! ошибка при импорте «${rec.targetNameLike} / ${rec.period}»:`, e);
+      console.error(`  ! ошибка при импорте «${rec.period}»:`, e);
     }
   }
 }

@@ -14,8 +14,8 @@
  *   - таблицу задач (вкладка «Задачи»)
  *
  * Данные подтягиваются лениво (после mount) через GET /api/performance/tasks.
- * Если ClickHouse недоступен — показываем дружелюбное сообщение и не
- * валим весь портрет.
+ * Если ClickHouse недоступен — сервер отвечает 502 с текстом ошибки, его и
+ * показываем (а не «нет задач»), и не валим весь портрет.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -51,6 +51,9 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error' | 'empty';
 export default function PerformanceDashboard({ userId }: { userId: number }) {
   const [tasks, setTasks] = useState<TaskDetail[] | null>(null);
   const [state, setState] = useState<LoadState>('idle');
+  // Текст ошибки от сервера (502 «Данные о задачах временно недоступны»);
+  // null — показываем общий текст.
+  const [errorText, setErrorText] = useState<string | null>(null);
   const [filters, setFilters] = useState<FiltersState>(DEFAULT_FILTERS);
   const [periodType, setPeriodType] = useState<PeriodType>('quarter');
   const [periodValue, setPeriodValue] = useState<string>('');
@@ -62,6 +65,7 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
   useEffect(() => {
     let cancelled = false;
     setState('loading');
+    setErrorText(null);
     const url = new URL('/api/performance/tasks', window.location.origin);
     url.searchParams.set('userId', String(userId));
     url.searchParams.set('hasEstimate', filters.hasEstimate ? '1' : '0');
@@ -70,7 +74,11 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
 
     fetch(url.toString())
       .then(async (r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) {
+          const body = (await r.json().catch(() => null)) as { error?: string } | null;
+          if (!cancelled && r.status === 502 && body?.error) setErrorText(body.error);
+          throw new Error(`HTTP ${r.status}`);
+        }
         return r.json();
       })
       .then((data: { tasks: TaskDetail[] }) => {
@@ -224,8 +232,8 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
         )}
         {state === 'error' && (
           <div className="py-12 text-center text-sm text-blaze">
-            Не удалось загрузить данные перформанса. Возможно, ClickHouse
-            недоступен — попробуй обновить страницу позже.
+            {errorText ??
+              'Не удалось загрузить данные перформанса. Возможно, ClickHouse недоступен — попробуй обновить страницу позже.'}
           </div>
         )}
         {state === 'empty' && (
