@@ -73,7 +73,7 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.70.0 (Phase 23.4 — зарплаты, увольнения, почасовщики и стардизы в списке; «Функционал» с фильтрами; сезоны 1.04 и 1.10).
+**Версия в `package.json`:** 0.73.1 (Phase 23.4 + прогон на баги и скорость; секции поп-апа 360). Следующее — Phase 23.6 «Экономика», концепт `design-concepts/phase-23.6-economics.md`.
 
 **Phase 19 закрыто (0.24.0):**
 - `src/lib/audit.ts` — единый хелпер `writeAudit({actor, action, target, before?, after?, reason?, extra?})`. Падение записи не валит основной запрос. Словари `AUDIT_ACTIONS`, `AUDIT_ACTION_LABEL`, `AUDIT_TARGET_TYPE_LABEL` для UI.
