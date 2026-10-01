@@ -87,7 +87,7 @@ export default function ChurnCard({
   ];
 
   return (
-    <section className="card p-5 min-w-0 animate-fade-up" style={{ animationDelay: '420ms' }}>
+    <section data-comment-anchor="economics-churn" className="card p-5 min-w-0 animate-fade-up" style={{ animationDelay: '420ms' }}>
       <div className="flex items-baseline justify-between gap-4">
         <h3 className="text-base font-medium text-balance">Найм и уходы за 12 мес</h3>
         <span className="text-[11px] text-ash whitespace-nowrap tabular-nums">{windowLabel}</span>

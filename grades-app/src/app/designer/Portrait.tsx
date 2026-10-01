@@ -459,7 +459,7 @@ export default function Portrait({
       {/* Hero по центру (концепт v6): аватар → имя → чипы. Грейд — первый
           белый чип, выбор цикла — дропдаун-чип в том же ряду. Дата публикации
           переехала в XP-плашку bento. */}
-      <div className="mb-[164px] flex flex-col items-center text-center animate-fade-up title-halo">
+      <div data-comment-anchor="page-title" className="mb-[164px] flex flex-col items-center text-center animate-fade-up title-halo">
         <TitleAurora />
         {/* Аватар без кольца (Pavel: обводки вокруг аватарок убраны везде),
             бейдж «N% XP» остаётся */}

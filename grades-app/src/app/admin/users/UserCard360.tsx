@@ -476,13 +476,19 @@ export default function UserCard360({
           авророй → секции «лейбл—значение» (Команда · Зарплата ·
           Грейдирование с графиком роста) → заметки → действия текстом +
           меню «⋯». */}
-      <div className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg flex flex-col max-h-[calc(100dvh-104px)]">
+      <div
+        data-comment-anchor="popup-360"
+        className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg flex flex-col max-h-[calc(100dvh-104px)]"
+      >
         <div className="overflow-hidden rounded-modal flex flex-col min-h-0">
           {/* Скролл живёт внутри попапа (overscroll-contain — фон не
               уезжает); ряд кнопок ниже — закреплён */}
           <div className="overflow-y-auto overscroll-contain min-h-0">
           {/* ---------- Hero ---------- */}
-          <div className="relative text-center px-6 pt-10 pb-1 overflow-hidden isolation-isolate title-halo">
+          <div
+            data-comment-anchor="popup-360-hero"
+            className="relative text-center px-6 pt-10 pb-1 overflow-hidden isolation-isolate title-halo"
+          >
             {/* staticFrame: внутри скроллящегося поп-апа анимация заставляла
                 пересчитывать композицию на каждом кадре скролла. Один кадр —
                 то же мягкое свечение, но без моргания. */}
@@ -577,7 +583,7 @@ export default function UserCard360({
               первая строка — там же, где была при прежних 60px. */}
           <div className="px-6 pt-10 pb-5 text-sm">
             {hasTeam && (
-              <PopupSection title="Команда">
+              <PopupSection title="Команда" anchor="popup-360-team">
                 {user.lead && (
                   <div className="flex items-center gap-3">
                     <span className="text-stone">Лид</span>
@@ -647,7 +653,7 @@ export default function UserCard360({
             {canViewComp && (
               <div className="salary-sensitive">
                 {hasTeam && <SectionDivider />}
-                <PopupSection title="Зарплата">
+                <PopupSection title="Зарплата" anchor="popup-360-salary">
                   <SalaryBlock
                     userId={user.id}
                     variant="popup"
@@ -667,7 +673,7 @@ export default function UserCard360({
             {hasGrading && (
               <>
                 {hasTeam && <SectionDivider />}
-                <PopupSection title="Грейдирование">
+                <PopupSection title="Грейдирование" anchor="popup-360-grading">
                   {/* Phase 23.2 — план грейдирования. Показываем для
                       грейдируемых ролей; чип сам решает тон (просрочено /
                       подходит / проведено). Без даты строка есть только у
@@ -769,7 +775,7 @@ export default function UserCard360({
             {showNotes && (
               <>
                 {(hasTeam || hasGrading) && <SectionDivider />}
-                <PopupSection title="Заметки">
+                <PopupSection title="Заметки" anchor="popup-360-notes">
                   <div className="space-y-2.5">
                     {notes.map((n) => (
                       <div
@@ -1018,11 +1024,20 @@ export default function UserCard360({
 
 /**
  * Секция поп-апа: моно-заголовок (как у «Заметок»), под ним через 12px —
- * строки с шагом 12px. Заголовок — h3: имя в hero — h2.
+ * строки с шагом 12px. Заголовок — h3: имя в hero — h2. anchor — имя
+ * области для комментариев к интерфейсу (data-comment-anchor).
  */
-function PopupSection({ title, children }: { title: string; children: ReactNode }) {
+function PopupSection({
+  title,
+  anchor,
+  children,
+}: {
+  title: string;
+  anchor?: string;
+  children: ReactNode;
+}) {
   return (
-    <section>
+    <section data-comment-anchor={anchor}>
       <h3 className="label-mono text-stone mb-3">{title}</h3>
       <div className="flex flex-col gap-3">{children}</div>
     </section>

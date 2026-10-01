@@ -252,7 +252,7 @@ export default function KanbanView({
   }
 
   return (
-    <div>
+    <div data-comment-anchor="team-kanban">
       <div ref={scrollRef} className="overflow-x-auto pb-2 -mx-2 px-2 scroll-smooth">
         <div className="flex gap-3 min-w-max">
         {columns.map((col) => (

@@ -9,6 +9,7 @@ import {
 import AppHeader from '@/components/AppHeader';
 import AssessmentReminder from '@/components/AssessmentReminder';
 import DraftsReminder from '@/components/DraftsReminder';
+import CommentsLayer from '@/components/comments/CommentsLayer';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Phase 10: stardiz получает доступ к /admin/users — пускаем его
@@ -63,6 +64,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <DraftsReminder />
       </div>
       {children}
+      {/* Комментарии к интерфейсу (как в Figma) — только админу и лидам:
+          стардизу и дизайнеру слой не отдаём вовсе */}
+      {(user.role === 'admin' || user.role === 'lead') && (
+        <CommentsLayer
+          viewer={{ id: user.id, role: user.role, fullName: user.name ?? user.email ?? '—' }}
+        />
+      )}
     </>
   );
 }

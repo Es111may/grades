@@ -147,7 +147,7 @@ export default function LeadReviewView({
     <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
       {/* Hero по центру — как портрет дизайнера: аврора, аватар 96,
           имя 44px, чипы и glass-кнопки под ним. Хлебные крошки убраны. */}
-      <div className="mb-[164px] flex flex-col items-center text-center animate-fade-up title-halo">
+      <div data-comment-anchor="page-title" className="mb-[164px] flex flex-col items-center text-center animate-fade-up title-halo">
         <TitleAurora />
         <Avatar name={target.fullName} avatarUrl={target.avatarUrl} size={96} />
         <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6">

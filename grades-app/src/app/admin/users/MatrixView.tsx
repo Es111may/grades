@@ -787,7 +787,7 @@ export default function MatrixView({ users }: { users: UserRow[] }) {
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <AboutAccordion />
-      <div className="flex gap-5 items-stretch">
+      <div data-comment-anchor="team-9box" className="flex gap-5 items-stretch">
         <UnassignedZone users={usersByCell.unassigned} saving={saving} />
 
         {/* Контейнер матрицы с осями */}

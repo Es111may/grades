@@ -73,7 +73,7 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.74.1 (Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
+**Версия в `package.json`:** 0.75.0 (комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
 
 **Phase 19 закрыто (0.24.0):**
 - `src/lib/audit.ts` — единый хелпер `writeAudit({actor, action, target, before?, after?, reason?, extra?})`. Падение записи не валит основной запрос. Словари `AUDIT_ACTIONS`, `AUDIT_ACTION_LABEL`, `AUDIT_TARGET_TYPE_LABEL` для UI.
@@ -299,6 +299,17 @@
         Подписи — простыми словами («Годовой прирост зарплат», «Средний прирост
         на человека»), сокращения таблички — только в подсказке (`SheetTerm`).
       - Вилка лида — 160–240 (с 01.10.2026, `lib/salaryBands.ts`).
+    - **0.75.0 (01.10.2026) — комментарии к интерфейсу «как в Figma»** (админ и
+      лиды): кружок справа внизу (`components/comments/`), точка или рамка в
+      месте, треды, «Решено». Модель `UiComment`, API `/api/ui-comments`,
+      клиент импортирует только `lib/uiCommentsShared`. Привязка — к
+      `data-comment-anchor` / `id` / `role=dialog` / `main` + доли внутри
+      элемента (`lib/commentAnchor.ts`). Новые крупные блоки страниц
+      помечать `data-comment-anchor`.
+      **Работа с правками:** `npx tsx scripts/export-ui-comments.ts`
+      (открытые треды в Markdown по страницам, `--json`, `--status=`),
+      `--resolve=<id,…> [--actor=<email>]` — закрыть после правок. Запуск с
+      `DATABASE_URL` прод-базы (публичный URL сервиса Postgres).
     - 23.1 Реестр · 23.3 Сверка с HR · 23.5 Досев · 23.6 Экономика — не начаты.
 12. **Phase 24 — накопительные гейты (подтверждённый баг, Pavel 29.07.2026).**
     Сейчас `calcGrade` проверяет гейты **только того грейда, который выдаёт**, и

@@ -472,7 +472,10 @@ export default function UserModal({
         className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-2xl overflow-y-auto max-h-[calc(100vh-80px)] bg-snow rounded-modal shadow-soft-lg">
+      <div
+        data-comment-anchor="user-modal"
+        className="relative w-full max-w-2xl overflow-y-auto max-h-[calc(100vh-80px)] bg-snow rounded-modal shadow-soft-lg"
+      >
         {/* Header */}
         <div className="sticky top-0 px-7 py-4 flex items-center gap-4 rounded-t-modal border-b border-cloud z-10 bg-snow/95 backdrop-blur-md">
           {/* Аватар: hover → overlay «Загрузить/Заменить», в углу — X для удаления */}

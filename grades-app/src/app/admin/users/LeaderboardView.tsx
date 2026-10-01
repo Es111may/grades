@@ -281,6 +281,7 @@ export default function LeaderboardView({
       {/* Подиум топ-3 по composite (при поиске/у стардиза скрыт) */}
       {podiumVisible && podium.length > 0 && (
         <div
+          data-comment-anchor="team-podium"
           className="grid gap-3"
           style={{ gridTemplateColumns: `repeat(${podium.length}, minmax(0, 1fr))` }}
         >
@@ -296,7 +297,7 @@ export default function LeaderboardView({
         </div>
       )}
 
-      <div className="card overflow-hidden">
+      <div data-comment-anchor="team-leaderboard" className="card overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-ink/[0.03] border-b border-cloud">
@@ -504,7 +505,7 @@ function TeamBento({ stats }: { stats: TeamStats }) {
     ? Math.round((stats.gradedCount / stats.totalDesigners) * 100)
     : 0;
   return (
-    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+    <div data-comment-anchor="team-bento" className="grid grid-cols-2 xl:grid-cols-4 gap-3">
       {/* NIPC — та же анатомия, что у соседей: число · описание · бар */}
       <div className="card p-5 flex flex-col min-h-[188px]">
         <div className="label-mono text-stone">Dream Team Index · NIPC</div>
@@ -733,7 +734,7 @@ const NINE_CELLS: Array<{ key: string; title: string; tone: 'hot' | 'warn' | 'pl
 
 function PotentialMap({ nineBox }: { nineBox: Record<string, number> }) {
   return (
-    <div className="card p-5 h-full flex flex-col">
+    <div data-comment-anchor="team-potential-map" className="card p-5 h-full flex flex-col">
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="text-base font-medium">Карта потенциала</h3>
         <span className="text-[11px] text-ash">Производительность → · потенциал ↑</span>
@@ -782,7 +783,7 @@ function AttentionFeed({ items }: { items: AttentionItem[] }) {
     info: 'bg-sky',
   };
   return (
-    <div className="card p-5">
+    <div data-comment-anchor="team-attention" className="card p-5">
       <h3 className="text-base font-medium mb-4">Требует внимания</h3>
       {items.length === 0 ? (
         <div className="text-sm text-ash italic">Сигналов нет — команда в порядке</div>

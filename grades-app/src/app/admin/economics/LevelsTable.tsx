@@ -193,7 +193,7 @@ export default function LevelsTable({ rows, ceiling }: { rows: LevelRow[]; ceili
     });
 
   return (
-    <section className="card overflow-hidden animate-fade-up" style={{ animationDelay: '280ms' }}>
+    <section data-comment-anchor="economics-levels" className="card overflow-hidden animate-fade-up" style={{ animationDelay: '280ms' }}>
       <div className="flex items-baseline justify-between gap-4 px-5 pt-5 pb-4">
         <h3 className="text-base font-medium text-balance">По уровням</h3>
         <div className="flex items-center gap-4 text-[11px] text-stone flex-wrap justify-end">

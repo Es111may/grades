@@ -142,7 +142,7 @@ export default function MoneyBridge({
   const sgpzp = avgRaise(b);
 
   return (
-    <section className="card p-5 animate-fade-up" style={{ animationDelay: '210ms' }}>
+    <section data-comment-anchor="economics-bridge" className="card p-5 animate-fade-up" style={{ animationDelay: '210ms' }}>
       <div className="flex items-baseline justify-between gap-4 mb-2">
         <h3 className="text-base font-medium text-balance">Куда ушли деньги с 1 января</h3>
         <span className="text-[11px] text-ash whitespace-nowrap tabular-nums">

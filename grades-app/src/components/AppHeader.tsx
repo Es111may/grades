@@ -42,7 +42,7 @@ export default async function AppHeader({
     // Ширина — по контенту (w-fit), glass-блюр, мягкая тень. px-4 — чтобы
     // на узких экранах остров не липнул к краям; overflow-скролл внутри
     // капсулы на совсем маленьких ширинах.
-    <header className="sticky top-3 z-30 px-4">
+    <header data-comment-anchor="header" className="sticky top-3 z-30 px-4">
       {/* `group` — hover-зона для инлайн-меню (HeaderNav): раскрытие при
           наведении на любую часть острова, схлопывание при уходе с него */}
       <div

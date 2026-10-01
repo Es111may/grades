@@ -241,6 +241,9 @@ model User {
   plannedRaisesSet    User[]    @relation("PlannedRaiseSetter")
   bonuses             Bonus[]   @relation("BonusOwner")
   bonusesCreated      Bonus[]   @relation("BonusCreator")
+  // Комментарии к интерфейсу (как в Figma) — админ и лиды
+  commentsAuthored    UiComment[] @relation("UiCommentAuthor")
+  commentsResolved    UiComment[] @relation("UiCommentResolver")
 
   // Phase 23.2 — планирование грейдирования.
   // Дату вписывают руками админ/лид/стардиз; к сезону НЕ привязана (Pavel:
@@ -620,4 +623,33 @@ model Setting {
   updatedById Int?
 
   @@map("settings")
+}
+
+// Комментарии к интерфейсу «как в Figma»: точка или рамка в конкретном месте
+// страницы, тред ответов, статус «решено». Видят и пишут админ и лиды.
+// anchor (JSON): { kind: 'point'|'rect', selector?: string, rel?: {x,y,w?,h?}
+// — доли внутри элемента-якоря, abs: {x,y,w?,h?} — px от левого края
+// основного контейнера и верха документа (запасной вариант), viewportW,
+// snippet?: string — начало текста якоря, чтобы найти место в коде }.
+model UiComment {
+  id           Int         @id @default(autoincrement())
+  path         String      // pathname + search, без hash
+  anchor       Json?       // у ответов в треде — null
+  text         String      @db.Text
+  status       String      @default("open") // open | resolved (только у корня треда)
+  authorId     Int
+  author       User        @relation("UiCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  parentId     Int?
+  parent       UiComment?  @relation("UiCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      UiComment[] @relation("UiCommentReplies")
+  resolvedById Int?
+  resolvedBy   User?       @relation("UiCommentResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedAt   DateTime?
+  appVersion   String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([path, status])
+  @@index([parentId])
+  @@map("ui_comments")
 }

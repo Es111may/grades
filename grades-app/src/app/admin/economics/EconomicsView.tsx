@@ -172,7 +172,7 @@ export default function EconomicsView({
   return (
     <KContext.Provider value={k}>
       <main className="max-w-[1240px] mx-auto px-8 pt-[164px] pb-16">
-        <div className="text-center mb-[164px] animate-fade-up title-halo">
+        <div data-comment-anchor="page-title" className="text-center mb-[164px] animate-fade-up title-halo">
           <TitleAurora />
           <h1 className="font-display text-[64px] leading-none font-medium tracking-[-0.035em] text-balance">
             Экономика
@@ -180,7 +180,11 @@ export default function EconomicsView({
         </div>
 
         {/* Ряд контролов, как на «Команде»: фильтр слева, суммы и настройки справа */}
-        <div className="flex items-center gap-1.5 mb-5 flex-wrap animate-fade-up" style={{ animationDelay: '70ms' }}>
+        <div
+          data-comment-anchor="economics-controls"
+          className="flex items-center gap-1.5 mb-5 flex-wrap animate-fade-up"
+          style={{ animationDelay: '70ms' }}
+        >
           {dataset && <FilterDropdown label="Отдел" value={dept} options={deptOptions} onChange={setDept} />}
           {filtered && (
             <button

@@ -256,7 +256,7 @@ export default function MonthlyCard({ series, today }: { series: MonthPoint[]; t
   useEffect(() => () => store.set(null), [store]);
 
   return (
-    <section className="card p-5 min-w-0 animate-fade-up" style={{ animationDelay: '350ms' }}>
+    <section data-comment-anchor="economics-monthly" className="card p-5 min-w-0 animate-fade-up" style={{ animationDelay: '350ms' }}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-base font-medium text-balance">Динамика по месяцам</h3>

@@ -159,7 +159,7 @@ export default function Bento({ d }: { d: BentoData }) {
   const smallMedian = now.paidCount > 0 && now.paidCount <= 3;
 
   return (
-    <div className="grid grid-cols-4 gap-3 animate-fade-up" style={{ animationDelay: '140ms' }}>
+    <div data-comment-anchor="economics-bento" className="grid grid-cols-4 gap-3 animate-fade-up" style={{ animationDelay: '140ms' }}>
       <StatCard
         label="ФОТ / мес"
         info={
