@@ -1,8 +1,10 @@
 'use client';
 
 // «Куда ушли деньги с 1 января»: разложение ФОТ (было → +повышения →
-// −понижения → +наймы → −уходы → стало → пересмотры в плане), под ним ГПЗП,
-// СГПЗП и ориентир года. Ориентир — не бюджет: без «запаса» и без цвета-оценки.
+// −понижения → +наймы → −уходы → стало → пересмотры в плане), под ним годовой
+// прирост зарплат (ГПЗП), средний прирост на человека (СГПЗП) и ориентир года.
+// Сокращения таблички — только в подсказках. Ориентир — не бюджет: без «запаса»
+// и без цвета-оценки.
 
 import type { ReactNode } from 'react';
 import Tooltip from '@/components/Tooltip';
@@ -16,7 +18,7 @@ import {
   PEOPLE_FORMS,
   type Bridge,
 } from '@/lib/economics';
-import { Info, Mln, Rate, SignedSumK, SumK } from './ui';
+import { Info, Mln, Rate, SheetTerm, SignedSumK, SumK } from './ui';
 
 type Step = {
   key: string;
@@ -213,8 +215,16 @@ export default function MoneyBridge({
       <div className="grid grid-cols-3 gap-6 mt-6 pt-5 border-t border-cloud/60">
         <div>
           <div className="flex items-center gap-1.5 h-3.5">
-            <span className="label-mono text-stone">ГПЗП</span>
-            <Info text="Σ (текущая ставка − ставка на 1 января) по людям, у которых ставка выросла. Наймы и уходы не входят." />
+            <span className="label-mono text-stone">Годовой прирост зарплат</span>
+            <Info
+              text={
+                <>
+                  На сколько в месяц выросли ставки с 1 января: текущая ставка минус ставка на 1 января у всех, у
+                  кого она выросла. Наймы и уходы не входят.
+                  <SheetTerm term="ГПЗП" />
+                </>
+              }
+            />
           </div>
           <div className="font-display text-[22px] leading-none font-medium tracking-tight mt-3 tabular-nums">
             <SumK rub={b.raises} />
@@ -224,15 +234,24 @@ export default function MoneyBridge({
         </div>
         <div>
           <div className="flex items-center gap-1.5 h-3.5">
-            <span className="label-mono text-stone">СГПЗП</span>
-            <Info text="ГПЗП, делённый на число людей с ростом ставки." />
+            <span className="label-mono text-stone">Средний прирост на человека</span>
+            <Info
+              text={
+                <>
+                  Годовой прирост зарплат, делённый на число людей, у которых выросла ставка.
+                  <SheetTerm term="СГПЗП" />
+                </>
+              }
+            />
           </div>
           <div className="font-display text-[22px] leading-none font-medium tracking-tight mt-3 tabular-nums">
             {sgpzp == null ? '—' : <Rate rub={sgpzp} />}
             {sgpzp != null && <span className="text-sm text-ash font-normal tracking-normal ml-1">тыс.</span>}
           </div>
           <div className="text-xs text-stone mt-2 tabular-nums">
-            На человека · {b.raiseCount} {plural(b.raiseCount, ['повышение', 'повышения', 'повышений'])}
+            {b.raiseCount
+              ? `Среднее по ${b.raiseCount} ${plural(b.raiseCount, ['повышению', 'повышениям', 'повышениям'])}`
+              : 'Повышений с 1 января нет'}
           </div>
         </div>
         <div>

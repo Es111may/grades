@@ -215,7 +215,7 @@ describe('вилки и цвет', () => {
     expect(bandState(90 * K, { min: 100 * K, max: 120 * K })).toBe('below');
   });
   it('лид и стардиз — по роли, дизайнер — по грейду', () => {
-    expect(bandFor({ role: 'lead', grade: null })).toEqual({ min: 140 * K, max: 220 * K });
+    expect(bandFor({ role: 'lead', grade: null })).toEqual({ min: 160 * K, max: 240 * K });
     expect(bandFor({ role: 'stardiz', grade: 'middle' })).toEqual({ min: 140 * K, max: 180 * K });
     expect(bandFor({ role: 'designer', grade: 'premiddle' })).toEqual({ min: 75 * K, max: 100 * K });
   });

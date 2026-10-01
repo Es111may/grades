@@ -1,16 +1,16 @@
 'use client';
 
 // «По уровням»: вилка, численность, медиана, ставки точками на общей шкале
-// (язык BandMeter из поп-апа), выше/ниже вилки, ССЗП. Строка раскрывается в
-// список людей уровня.
+// (язык BandMeter из поп-апа), выше/ниже вилки, средняя ставка найма (ССЗП).
+// Строка раскрывается в список людей уровня.
 
 import { Fragment, useId, useState } from 'react';
 import Tooltip from '@/components/Tooltip';
 import Avatar from '@/components/Avatar';
 import Money from '@/components/Money';
 import { formatPct } from '@/lib/compensation';
-import { fmtDate, fmtDay, fmtRate, pctDelta, type LevelPerson, type LevelRow } from '@/lib/economics';
-import { Collapse, DeptChip, LevelName, Rate, ToggleButton, useK } from './ui';
+import { fmtDate, fmtDay, fmtRate, pctDelta, plural, type LevelPerson, type LevelRow } from '@/lib/economics';
+import { Collapse, DeptChip, LevelName, Rate, SheetTerm, ToggleButton, useK } from './ui';
 
 /** Шаг рисок шкалы в тысячах — 25, 50 или 100 в зависимости от размаха. */
 function niceTicks(lo: number, hi: number): number[] {
@@ -261,7 +261,12 @@ export default function LevelsTable({ rows, ceiling }: { rows: LevelRow[]; ceili
               <Tooltip
                 portal
                 align="center"
-                text="ССЗП — средняя стартовая ставка нанятых с 1 января (и уже ушедших), в скобках — сколько наймов."
+                text={
+                  <>
+                    Средняя стартовая ставка нанятых с 1 января, включая уже ушедших. В скобках — сколько наймов.
+                    <SheetTerm term="ССЗП" />
+                  </>
+                }
               >
                 <span>Найм, тыс.</span>
               </Tooltip>
@@ -299,7 +304,14 @@ export default function LevelsTable({ rows, ceiling }: { rows: LevelRow[]; ceili
                       {r.median == null ? '—' : <Rate rub={r.median} />}
                     </span>
                     {r.small && r.median != null && (
-                      <span className="text-[11px] text-ash ml-1.5 tabular-nums">n = {r.people.length}</span>
+                      <Tooltip
+                        portal
+                        align="center"
+                        className="ml-1.5"
+                        text={`Медиана по ${r.people.length} ${plural(r.people.length, ['человеку', 'людям', 'людям'])} — мало для выводов`}
+                      >
+                        <span className="text-[11px] text-ash tabular-nums">{r.people.length} чел.</span>
+                      </Tooltip>
                     )}
                   </td>
                   <td className="py-1.5 px-4">

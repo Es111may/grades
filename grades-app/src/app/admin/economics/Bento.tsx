@@ -1,7 +1,7 @@
 'use client';
 
 // Шапка «Экономики»: четыре карточки, как bento на «Команде» — число 44 px,
-// YoY, подпись и полоса снизу.
+// изменение за год (YoY), подпись и полоса снизу.
 
 import type { ReactNode } from 'react';
 import Tooltip from '@/components/Tooltip';
@@ -209,7 +209,10 @@ export default function Bento({ d }: { d: BentoData }) {
         unit={now.median == null ? undefined : 'тыс.'}
         delta={
           smallMedian ? (
-            <span className="text-[11px] text-ash">n = {now.paidCount}</span>
+            // Мало ставок — вместо изменения за год честно говорим, из скольких медиана
+            <span className="text-[11px] text-ash">
+              Всего {now.paidCount} {plural(now.paidCount, ['ставка', 'ставки', 'ставок'])}
+            </span>
           ) : yoy && medYoY != null ? (
             `${formatPct(medYoY)} за год`
           ) : null

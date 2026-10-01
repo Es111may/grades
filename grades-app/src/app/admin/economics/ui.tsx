@@ -76,6 +76,15 @@ export function Info({
   );
 }
 
+/**
+ * Вторичная строка подсказки: как показатель называется в табличке
+ * («Дэшборд 2026»: ГПЗП, ССЗП…). В подписях — простые слова, сокращение —
+ * только здесь.
+ */
+export function SheetTerm({ term }: { term: string }) {
+  return <span className="block mt-1 text-ash">В табличке — {term}</span>;
+}
+
 /** «−» в геометрии PlusIcon — как в «Функционале». */
 function MinusGlyph() {
   return (

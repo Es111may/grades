@@ -11,10 +11,11 @@ import {
   fmtDate,
   LEVEL_LABEL,
   NO_REASON_GROUP,
+  plural,
   type Churn,
   type ExitRow,
 } from '@/lib/economics';
-import { Collapse, DEPT_LABEL, Info, InitiatorChip, Rate, ToggleButton } from './ui';
+import { Collapse, DEPT_LABEL, Info, InitiatorChip, Rate, SheetTerm, ToggleButton } from './ui';
 
 function LeaverRow({ x, showInitiator }: { x: ExitRow; showInitiator: boolean }) {
   const p = x.p;
@@ -70,7 +71,9 @@ export default function ChurnCard({
       caption: `С 1 января — ${ytd.hires}`,
       info: hireAvg ? (
         <>
-          ССЗП — средняя стартовая ставка нанятых с 1 января: <Rate rub={hireAvg.avg} /> тыс. ({hireAvg.count}).
+          Средняя стартовая ставка нанятых с 1 января — <Rate rub={hireAvg.avg} /> тыс., по {hireAvg.count}{' '}
+          {plural(hireAvg.count, ['найму', 'наймам', 'наймам'])}.
+          <SheetTerm term="ССЗП" />
         </>
       ) : null,
     },
