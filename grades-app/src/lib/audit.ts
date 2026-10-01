@@ -48,6 +48,13 @@ export const AUDIT_ACTIONS = {
   PLANNED_RAISE_CLEARED: 'planned_raise_cleared',
   BONUS_CREATED: 'bonus_created',
   BONUS_DELETED: 'bonus_deleted',
+  // Phase 23.6a — реестр из HR-портала (scripts/sync-hr-registry.ts):
+  // карточка заведена по HR и пустые даты дозаполнены из HR. В details —
+  // роль и даты, без денег, типа и причины ухода (журнал видит лид).
+  USER_IMPORTED_FROM_HR: 'user_imported_from_hr',
+  USER_DATES_FROM_HR: 'user_dates_from_hr',
+  // Phase 23.6b — настройки «Экономики» (ориентир ФОТ, налоговая нагрузка, потолок)
+  SETTINGS_UPDATED: 'settings_updated',
   // --- Assessments ---
   ASSESSMENT_PUBLISHED: 'assessment_published',
   ASSESSMENT_REOPENED: 'assessment_reopened',
@@ -92,6 +99,9 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   planned_raise_cleared: 'Плановый пересмотр снят',
   bonus_created: 'Премия внесена',
   bonus_deleted: 'Премия удалена',
+  user_imported_from_hr: 'Добавлен из HR',
+  user_dates_from_hr: 'Даты дозаполнены из HR',
+  settings_updated: 'Настройки изменены',
   assessment_published: 'Оценка опубликована',
   assessment_reopened: 'Оценка возвращена в черновик',
   assessment_deleted: 'Оценка удалена',
@@ -117,6 +127,7 @@ export const AUDIT_TARGET_TYPE_LABEL: Record<string, string> = {
   project: 'Проект',
   skill: 'Навык',
   matrix: 'Матрица',
+  settings: 'Настройки',
 };
 
 // ============================================================

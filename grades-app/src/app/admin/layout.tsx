@@ -1,7 +1,11 @@
 export const dynamic = 'force-dynamic';
 
 import { requireRole } from '@/lib/session';
-import { ensureBuildNames, ensureProjectsSeeded } from '@/lib/oneTimeMigrations';
+import {
+  ensureBuildNames,
+  ensureNonGradingBuilds,
+  ensureProjectsSeeded,
+} from '@/lib/oneTimeMigrations';
 import AppHeader from '@/components/AppHeader';
 import AssessmentReminder from '@/components/AssessmentReminder';
 import DraftsReminder from '@/components/DraftsReminder';
@@ -14,6 +18,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Билды переименовали в названия отделов (май 2026) — миграция
   // идемпотентная, мгновенный no-op после первого срабатывания.
   await ensureBuildNames();
+  // Билд «Коммуникации» (без грейдов) — чтобы его можно было выбрать в
+  // «Изменить». Тоже no-op после первого срабатывания.
+  await ensureNonGradingBuilds();
   // Справочник проектов: один раз при первом запуске заливает
   // начальный список (Phase 24). Дальше — управляется через UI.
   await ensureProjectsSeeded();
@@ -25,6 +32,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: '/admin/matrix', label: 'Скиллы' },
         { href: '/admin/grades', label: 'Грейды' },
         { href: '/lead/assessments', label: 'Оценки' },
+        // «Экономика» (Phase 23.6b) — только админ; страница проверяет роль сама
+        ...(user.role === 'admin' ? [{ href: '/admin/economics', label: 'Экономика' }] : []),
         // Аудит-лог (Phase 19) — admin и lead. Стардизам не показываем,
         // как договорились с Pavel'ом.
         { href: '/admin/audit', label: 'Действия' },

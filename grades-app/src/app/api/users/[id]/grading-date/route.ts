@@ -22,6 +22,7 @@ import { getCurrentUser } from '@/lib/session';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { AUDIT_ACTIONS } from '@/lib/audit';
 import { canHaveGradingDate, gradingDateChange } from '@/lib/userUpdate';
+import { nonGradingBuildNote } from '@/lib/employment';
 
 const putSchema = z.object({
   nextGradingAt: z.string().nullable(),
@@ -58,6 +59,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       leadId: true,
       stardizId: true,
       employmentType: true,
+      // Билд без грейдов — даты не ставят (canHaveGradingDate)
+      build: { select: { code: true } },
+      active: true,
       nextGradingAt: true,
     },
   });
@@ -77,7 +81,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
   if (change.changed && change.nextGradingAt && !canHaveGradingDate(target)) {
     return NextResponse.json(
-      { error: 'Дату грейдирования ставят только штатным дизайнерам и стардизам' },
+      {
+        error:
+          nonGradingBuildNote(target) ??
+          'Дату грейдирования ставят только штатным дизайнерам и стардизам',
+      },
+      { status: 400 },
+    );
+  }
+  // Неактивного не грейдируют (Phase 23.6a: ушедшие из реестра HR). Снять
+  // оставшуюся дату можно — это не «назначить».
+  if (change.changed && change.nextGradingAt && !target.active) {
+    return NextResponse.json(
+      { error: 'Человек неактивен — дату грейдирования не ставят' },
       { status: 400 },
     );
   }

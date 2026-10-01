@@ -74,7 +74,7 @@ import GradingPlanChip, {
   type GradingPlanFields,
 } from '@/components/GradingPlanChip';
 import { canSetGradingDate, gradingPlanStatus } from '@/lib/gradingPlan';
-import { isGradable, isHourly } from '@/lib/employment';
+import { isGradable, isGradingExempt, isHourly } from '@/lib/employment';
 import {
   DISMISSAL_TYPE_LABELS,
   canViewDismissalDate,
@@ -181,8 +181,8 @@ export default function UserCard360({
   // клику на пилюлю, сбросить крестиком. Через PUT /grading-date, а не PATCH
   // карточки: стардизу PATCH закрыт, а дату своим он ставить вправе.
   // Права — админ всем, лид и стардиз своим подопечным. Ставят дату только
-  // грейдируемым (активным штатным дизайнерам и стардизам), снять можно у
-  // любого, у кого она осталась.
+  // грейдируемым (активным штатным дизайнерам и стардизам не из билда без
+  // грейдов), снять можно у любого, у кого она осталась.
   const canSetGrading =
     meId !== null && canSetGradingDate({ id: meId, role: meRole }, user);
   const canEditGrading = canSetGrading && isGradable(user);
@@ -275,7 +275,7 @@ export default function UserCard360({
   const canAssess =
     user.role === 'designer' &&
     user.active &&
-    !isHourly(user) &&
+    !isGradingExempt(user) &&
     !isSelf &&
     (meRole === 'admin' || isMine);
 
@@ -444,9 +444,13 @@ export default function UserCard360({
   const showDismissalDateRow = seeDismissalDate && (!!dismissedAt || seeDismissalStatus);
   const hasTeam =
     !!user.lead || !!user.stardiz || !!user.hiredAt || showDismissalDateRow || seeDismissalStatus;
+  // Неактивным строку плана не показываем: назначать некому, а оставшаяся
+  // с прошлого дата читалась бы как «просрочено». Почасовщику и билду без
+  // грейдов — тоже: их не грейдируют. Оценки, если были, — ниже, графиком.
   const showGradingRow =
     (user.role === 'designer' || user.role === 'stardiz') &&
-    !isHourly(user) &&
+    user.active &&
+    !isGradingExempt(user) &&
     (!!user.nextGradingAt || canEditGrading);
   const showSelfRow = user.role === 'designer' && !!selfInfo && selfInfo.count > 0;
   const showTrend = !!history && history.assessments.length > 0 && user.role !== 'admin';
@@ -505,7 +509,8 @@ export default function UserCard360({
             <div className="text-[13px] text-stone mt-0.5 truncate">{user.email}</div>
             {/* Ряд 1: номер · уровень · отдел (Pavel) */}
             <div className="flex items-center justify-center gap-1 mt-4 flex-wrap">
-              {user.role === 'designer' && user.compositeScore != null && (
+              {/* Рейтинг — только у активных: у ушедших места нет */}
+              {user.role === 'designer' && user.active && user.compositeScore != null && (
                 <span
                   className={`chip h-6 text-white ${
                     Math.round(user.compositeScore * 100) >= 60
@@ -524,7 +529,7 @@ export default function UserCard360({
                   {GRADE_NAMES[user.effectiveGrade] ?? user.effectiveGrade}
                 </span>
               )}
-              {user.build && (
+              {user.build ? (
                 <span className="chip-neutral h-6">
                   <span
                     className="w-1.5 h-1.5 rounded-full"
@@ -532,6 +537,9 @@ export default function UserCard360({
                   />
                   {user.build.name}
                 </span>
+              ) : (
+                // Прошлый отдел без билда (Lite, Самолет — у ушедших из HR)
+                user.department && <span className="chip-neutral h-6">{user.department}</span>
               )}
             </div>
             {/* Ряд 2: роль · в срок · floor · неактивен */}
@@ -539,7 +547,7 @@ export default function UserCard360({
               <span className={`chip h-6 ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
                 {ROLE_LABEL[user.role] ?? user.role}
               </span>
-              {user.role === 'designer' && user.onTimePercent != null && (
+              {user.role === 'designer' && user.active && user.onTimePercent != null && (
                 <span className="chip-neutral h-6">
                   {Math.round(user.onTimePercent)}% в срок
                 </span>
@@ -633,7 +641,9 @@ export default function UserCard360({
 
             {/* Зарплата — только тем, кто видит деньги. Глаз в шапке прячет
                 секцию целиком (salary-sensitive), вместе с её линиями. Первая
-                строка блока — «Ставка»: «Зарплата» теперь заголовок. */}
+                строка блока — «Ставка»: «Зарплата» теперь заголовок. У
+                неактивного — «Последняя ставка» и история, без вилки и
+                пересмотра (Phase 23.6a). */}
             {canViewComp && (
               <div className="salary-sensitive">
                 {hasTeam && <SectionDivider />}
@@ -642,7 +652,8 @@ export default function UserCard360({
                     userId={user.id}
                     variant="popup"
                     source={comp}
-                    label="Ставка"
+                    label={user.active ? 'Ставка' : 'Последняя ставка'}
+                    inactive={!user.active}
                     editSignal={planSignal}
                     bonusSignal={bonusSignal}
                     onPlannedChange={(p) => onPlannedRaiseChange(user.id, p)}

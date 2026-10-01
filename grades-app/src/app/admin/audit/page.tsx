@@ -85,10 +85,15 @@ export default async function AdminAuditPage() {
   const userTargetMap = new Map(userTargets.map((u) => [u.id, u.fullName]));
 
   // Для admin — список actors для фильтра, чтобы UI знал кого предлагать.
+  // Неактивные — только если в журнале что-то делали: ушедшие лиды из
+  // реестра HR (Phase 23.6a) действий не совершали, в фильтре им не место.
   const actors = await prisma.user.findMany({
     where:
       me.role === 'admin'
-        ? { role: { in: ['admin', 'lead', 'stardiz'] } }
+        ? {
+            role: { in: ['admin', 'lead', 'stardiz'] },
+            OR: [{ active: true }, { auditEntries: { some: {} } }],
+          }
         : { id: me.id },
     select: { id: true, fullName: true, role: true },
     orderBy: { fullName: 'asc' },

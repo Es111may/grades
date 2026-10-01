@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { canGradeDesigner } from '@/lib/permissions';
 import { avatarSrc } from '@/lib/avatar';
-import { isGradable, isHourly } from '@/lib/employment';
+import { isGradable, isHourly, nonGradingBuildNote, type WithBuild } from '@/lib/employment';
 import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import { currentCycle } from '@/lib/cycle';
@@ -43,8 +43,9 @@ export default async function AssessPage({
   // 403/400. Кто оценивает: admin — всех, лид — своих (leadId), стардиз —
   // своих подопечных (lib/permissions). Чужого — назад в команду.
   if (!canGradeDesigner(user, designer)) redirect('/admin/users');
-  // Почасовщика и неактивного не грейдируют: черновик не создаём и старый
-  // не открываем — баллы в нём всё равно не сохранить. Объясняем, почему.
+  // Почасовщика, неактивного и билд без грейдов не грейдируют: черновик не
+  // создаём и старый не открываем — баллы в нём всё равно не сохранить.
+  // Объясняем, почему.
   if (!isGradable(designer)) {
     return <NotGradable fullName={designer.fullName} reason={notGradableReason(designer)} />;
   }
@@ -239,9 +240,13 @@ export default async function AssessPage({
 }
 
 /** Почему человека не грейдируют — для экрана вместо формы. */
-function notGradableReason(u: { role: string; active: boolean; employmentType: string | null }): string {
+function notGradableReason(
+  u: { role: string; active: boolean; employmentType: string | null } & WithBuild,
+): string {
   if (!u.active) return 'Учётка неактивна, а неактивных не грейдируют.';
   if (isHourly(u)) return 'Это почасовщик — у почасовщиков нет оценок и дат грейдирования.';
+  const buildNote = nonGradingBuildNote(u);
+  if (buildNote) return `${buildNote}. Оценок и дат грейдирования у этого билда нет.`;
   return 'Грейдируют только дизайнеров и стардизов.';
 }
 

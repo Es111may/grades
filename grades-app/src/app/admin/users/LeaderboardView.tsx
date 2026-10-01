@@ -9,7 +9,7 @@ import Tooltip from '@/components/Tooltip';
 import { PersonStatusIcon } from '@/components/GradingPlanChip';
 import AvatarWithRaise from '@/components/PlannedRaiseBadge';
 import { formatThousands } from '@/lib/compensation';
-import { isHourly } from '@/lib/employment';
+import { isGradingExempt, isNonGradingBuild } from '@/lib/employment';
 
 const GRADE_LABELS: Record<string, string> = {
   junior: 'Джун',
@@ -28,13 +28,19 @@ const buildColor = (code: string) =>
 
 type SortKey = 'composite' | 'name' | 'grade' | 'totalXp' | 'onTime' | 'tenure' | 'salary' | TaxKey;
 
-function tenureMonths(hiredAt: string | null): number {
+/** Стаж в месяцах. until — дата увольнения: у ушедших стаж до неё, а не до сегодня. */
+function tenureMonths(hiredAt: string | null, until: string | null = null): number {
   if (!hiredAt) return -1;
   const s = new Date(hiredAt);
-  const n = new Date();
+  const n = until ? new Date(until) : new Date();
   let m = (n.getFullYear() - s.getFullYear()) * 12 + (n.getMonth() - s.getMonth());
   if (n.getDate() < s.getDate()) m--;
   return m;
+}
+
+/** До какой даты считать стаж: у неактивного — до увольнения, если она известна зрителю. */
+function tenureUntil(u: Pick<UserRow, 'active' | 'dismissedAt'>): string | null {
+  return !u.active && u.dismissedAt ? u.dismissedAt : null;
 }
 
 function formatTenure(months: number): string {
@@ -160,8 +166,8 @@ export default function LeaderboardView({
         av = a.onTimePercent ?? -1;
         bv = b.onTimePercent ?? -1;
       } else if (sortKey === 'tenure') {
-        av = tenureMonths(a.hiredAt);
-        bv = tenureMonths(b.hiredAt);
+        av = tenureMonths(a.hiredAt, tenureUntil(a));
+        bv = tenureMonths(b.hiredAt, tenureUntil(b));
       } else if (sortKey === 'salary') {
         av = a.salary ?? -1;
         bv = b.salary ?? -1;
@@ -194,12 +200,14 @@ export default function LeaderboardView({
     return sorted.filter((u) => !ids.has(u.id));
   }, [sorted, podium, podiumVisible]);
 
-  // Места в таблице: считаем подряд, пропуская почасовщиков — у них места
-  // нет, и они не должны оставлять дыр в нумерации (Phase 23.4).
+  // Места в таблице: считаем подряд, пропуская почасовщиков, билд без
+  // грейдов и неактивных — у них места нет, и они не должны оставлять дыр в
+  // нумерации (Phase 23.4; неактивные — Phase 23.6a: с реестром из HR в «Все»
+  // их под сотню).
   const rankById = useMemo(() => {
     const m = new Map<number, number>();
     let n = podiumVisible ? podium.length : 0;
-    for (const u of rest) if (!isHourly(u)) m.set(u.id, ++n);
+    for (const u of rest) if (u.active && !isGradingExempt(u)) m.set(u.id, ++n);
     return m;
   }, [rest, podium, podiumVisible]);
   // Нормировка мини-баров навыков на подиуме: максимум по каждой таксономии
@@ -339,9 +347,10 @@ export default function LeaderboardView({
             ) : u.hasDraft ? (
               <span className="chip-warn whitespace-nowrap">Черновик</span>
             ) : (
-              // Текстом в стиле грейда, серым — не чипом (Pavel)
+              // Текстом в стиле грейда, серым — не чипом (Pavel). У билда без
+              // грейдов оценки и не будет — «Без грейда», как в «Экономике»
               <span className="font-display text-sm font-medium tracking-tight text-ash whitespace-nowrap">
-                Без оценки
+                {isNonGradingBuild(u) ? 'Без грейда' : 'Без оценки'}
               </span>
             );
             return (
@@ -383,6 +392,9 @@ export default function LeaderboardView({
                       />
                       {u.build.name}
                     </span>
+                  ) : u.department ? (
+                    // Прошлый отдел без билда (у ушедших из реестра HR) — без точки
+                    <span className="chip-build">{u.department}</span>
                   ) : (
                     <span className="text-ash">—</span>
                   )}
@@ -412,7 +424,7 @@ export default function LeaderboardView({
                   </td>
                 ))}
                 <td className="py-3 px-4 text-center text-stone whitespace-nowrap">
-                  {formatTenure(tenureMonths(u.hiredAt))}
+                  {formatTenure(tenureMonths(u.hiredAt, tenureUntil(u)))}
                 </td>
                 {showSalary && (
                   <td className="salary-sensitive py-3 px-4 text-center tabular-nums whitespace-nowrap">

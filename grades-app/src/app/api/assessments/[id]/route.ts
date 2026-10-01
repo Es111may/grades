@@ -8,7 +8,7 @@ import { getCurrentUser } from '@/lib/session';
 import { calcGrade, type SkillSnapshot, type ScoreInput, type GradeThreshold } from '@/lib/grade';
 import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
 import { canGradeDesigner } from '@/lib/permissions';
-import { isGradable } from '@/lib/employment';
+import { isGradable, notGradableError } from '@/lib/employment';
 import type { BuildCode, GradeCode } from '@/lib/types';
 
 /** POST /api/assessments/[id]/publish */
@@ -52,10 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
   if (!isGradable(assessment.designer)) {
-    return NextResponse.json(
-      { error: 'Почасовщиков и неактивных не грейдируют' },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: notGradableError(assessment.designer) }, { status: 400 });
   }
 
   const buildCode = assessment.designer.build?.code as BuildCode;

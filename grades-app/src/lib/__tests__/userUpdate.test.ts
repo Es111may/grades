@@ -83,14 +83,21 @@ describe('gradingDateChange', () => {
 });
 
 describe('canHaveGradingDate', () => {
+  const creator = { code: 'creator' };
   it('дизайнер и стардиз на штате — да', () => {
-    expect(canHaveGradingDate({ role: 'designer', employmentType: 'staff' })).toBe(true);
-    expect(canHaveGradingDate({ role: 'stardiz' })).toBe(true);
+    expect(canHaveGradingDate({ role: 'designer', employmentType: 'staff', build: creator })).toBe(true);
+    expect(canHaveGradingDate({ role: 'stardiz', build: null })).toBe(true);
   });
   it('почасовщик, лид, админ — нет', () => {
-    expect(canHaveGradingDate({ role: 'designer', employmentType: 'hourly' })).toBe(false);
-    expect(canHaveGradingDate({ role: 'lead', employmentType: 'staff' })).toBe(false);
-    expect(canHaveGradingDate({ role: 'admin' })).toBe(false);
+    expect(canHaveGradingDate({ role: 'designer', employmentType: 'hourly', build: creator })).toBe(false);
+    expect(canHaveGradingDate({ role: 'lead', employmentType: 'staff', build: null })).toBe(false);
+    expect(canHaveGradingDate({ role: 'admin', build: null })).toBe(false);
+  });
+  it('билд без грейдов («Коммуникации») — нет', () => {
+    expect(
+      canHaveGradingDate({ role: 'designer', employmentType: 'staff', build: { code: 'communications' } }),
+    ).toBe(false);
+    expect(canHaveGradingDate({ role: 'designer', buildCode: 'communications' })).toBe(false);
   });
 });
 

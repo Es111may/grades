@@ -7,13 +7,17 @@ import {
   type GradingPlanState,
 } from '@/lib/gradingPlan';
 import { formatDateShort, todayLocalIso } from '@/lib/dates';
-import { CloseIcon, CoinsIcon, TimerIcon } from '@/components/icons';
-import { isHourly } from '@/lib/employment';
+import { CloseIcon, CoinsIcon, InfoIcon, TimerIcon } from '@/components/icons';
+import { isGradingExempt, isHourly, nonGradingBuildNote } from '@/lib/employment';
 import Tooltip from '@/components/Tooltip';
 
 export type GradingPlanSource = {
   /** 'hourly' — почасовщик: не грейдируется, таймера у него не бывает. */
   employmentType?: string;
+  /** Билд: у билда без грейдов («Коммуникации») таймера тоже не бывает. */
+  build: { code: string } | null;
+  /** false — неактивный: таймера нет, даже если дата осталась с прошлого. */
+  active?: boolean;
   nextGradingAt?: string | null;
   nextGradingSetAt?: string | null;
   /** publishedAt последней опубликованной оценки. */
@@ -111,7 +115,9 @@ export function gradingPlanLabel(
  * «не забыли ли» пришлось бы держать только в фиде.
  */
 export function GradingPlanIcon({ user }: { user: GradingPlanSource }) {
-  if (isHourly(user)) return null;
+  // Ушедшего, почасовщика и билд без грейдов не грейдируют: оставшаяся
+  // дата горела бы «просрочено»
+  if (isGradingExempt(user) || user.active === false) return null;
   const st = gradingPlanStatus({
     nextGradingAt: user.nextGradingAt ?? null,
     nextGradingSetAt: user.nextGradingSetAt ?? null,
@@ -356,8 +362,10 @@ export function GradingDateEditor({
 /**
  * Статусная иконка у имени человека в списке (Phase 23.4). Одно место —
  * одна иконка: у почасовщика жёлтые монетки (залитые, 16px — чтобы
- * бросались в глаза), у остальных — таймер грейдирования, если он
- * запланирован. Вместе они не встречаются: почасовщиков не грейдируют.
+ * бросались в глаза), у билда без грейдов — серый информер с причиной
+ * (иначе непонятно, почему у человека нет места и оценки), у остальных —
+ * таймер грейдирования, если он запланирован. Вместе они не встречаются:
+ * почасовщиков и билд без грейдов не грейдируют.
  */
 export function PersonStatusIcon({ user }: { user: GradingPlanSource }) {
   if (isHourly(user)) {
@@ -376,6 +384,24 @@ export function PersonStatusIcon({ user }: { user: GradingPlanSource }) {
         className="rounded-sm"
       >
         <CoinsIcon className="w-4 h-4 shrink-0 text-gold" />
+      </Tooltip>
+    );
+  }
+  const buildNote = nonGradingBuildNote(user);
+  if (buildNote) {
+    // Размер и цвет — как у таймера: признак справочный, не тревожный
+    return (
+      <Tooltip
+        text={
+          <>
+            {buildNote}, в рейтинг и <span className="whitespace-nowrap">9-Box</span> не входит
+          </>
+        }
+        align="center"
+        portal
+        className="rounded-sm"
+      >
+        <InfoIcon className="w-3.5 h-3.5 shrink-0 text-ash" />
       </Tooltip>
     );
   }

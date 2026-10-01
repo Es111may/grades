@@ -4,7 +4,9 @@
  *  - медиана прироста XP за цикл по команде (сравнение роста, admin/lead/stardiz).
  */
 
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { NON_GRADING_BUILD_CODES } from '@/lib/employment';
 
 /** Названия ячеек — синхронизированы с сеткой MatrixView. */
 export const NINE_BOX_TITLE: Record<string, string> = {
@@ -31,17 +33,23 @@ export async function getNineBoxTitle(userId: number): Promise<string | null> {
 
 /**
  * Медиана прироста totalXp между двумя последними published-оценками
- * по всем дизайнерам. Тот же расчёт, что в bento «Скорость роста»
- * на /admin/users.
+ * по активным штатным дизайнерам. Тот же расчёт и та же выборка, что в
+ * bento «Скорость роста» на /admin/users (talentDesigners): раньше сюда
+ * попадали и ушедшие, а с реестром из HR (Phase 23.6a) их под сотню.
+ * Билд без грейдов («Коммуникации») — вне выборки, как почасовщики.
  */
 export async function getTeamGrowthMedian(): Promise<number | null> {
   const rows = await prisma.$queryRaw<
     Array<{ designerId: number; totalXp: number | null; rn: bigint }>
   >`
-    SELECT "designerId", "totalXp",
-           ROW_NUMBER() OVER (PARTITION BY "designerId" ORDER BY "publishedAt" DESC) AS rn
-    FROM assessments
-    WHERE status = 'published' AND "totalXp" IS NOT NULL
+    SELECT a."designerId", a."totalXp",
+           ROW_NUMBER() OVER (PARTITION BY a."designerId" ORDER BY a."publishedAt" DESC) AS rn
+    FROM assessments a
+    JOIN users u ON u.id = a."designerId"
+    LEFT JOIN builds b ON b.id = u."buildId"
+    WHERE a.status = 'published' AND a."totalXp" IS NOT NULL
+      AND u.active AND u.role = 'designer' AND u."employmentType" <> 'hourly'
+      AND (b.code IS NULL OR b.code NOT IN (${Prisma.join(Array.from(NON_GRADING_BUILD_CODES))}))
   `;
   const lastTwo = new Map<number, { cur?: number; prev?: number }>();
   for (const r of rows) {

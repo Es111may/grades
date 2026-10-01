@@ -99,14 +99,19 @@ export function SalaryHeadline({
   comp,
   label = 'Зарплата',
   variant = 'row',
+  inactive = false,
 }: {
   comp: Pick<Compensation, 'data' | 'loading' | 'error'>;
   label?: string;
   variant?: 'row' | 'card';
+  /** Ушедший (Phase 23.6a): ставка — последняя, вилка к ней не относится. */
+  inactive?: boolean;
 }) {
   const { data, loading, error } = comp;
   const view = data?.view;
-  const ok = view?.state === 'ok' ? view : null;
+  // У ушедшего HR иногда обнуляет ставку в карточке, а журнала нет — «0 тыс.»
+  // читалось бы как зарплата; показываем «Нет данных»
+  const ok = view?.state === 'ok' && !(inactive && view.current <= 0) ? view : null;
 
   if (variant === 'row') {
     return (
@@ -116,7 +121,7 @@ export function SalaryHeadline({
         {ok && (
           <>
             <span className="text-ink">{tys(ok.current)} ₽/мес</span>
-            <BandChip view={ok} />
+            {!inactive && <BandChip view={ok} />}
           </>
         )}
         {view && !ok && <span className="text-ash">Нет данных</span>}
@@ -132,7 +137,7 @@ export function SalaryHeadline({
           в строку и падал под подпись. */}
       <div className="min-h-6 flex items-center gap-x-2 gap-y-1 flex-wrap">
         <span className="label-mono text-stone">{label}</span>
-        {ok && <BandChip view={ok} size="sm" />}
+        {ok && !inactive && <BandChip view={ok} size="sm" />}
       </div>
       <div className="mt-1.5 min-h-[25px] flex items-center">
         {ok ? (
@@ -193,11 +198,16 @@ function BandChip({ view, size = 'md' }: { view: OkView; size?: 'md' | 'sm' }) {
  * экрана — глобальный выключатель в шапке: корень помечен salary-sensitive.
  *
  * Суммы изменений (+30) не показываем — только «было → стало» и процент.
+ *
+ * У ушедшего (inactive, Phase 23.6a) — последняя ставка и история из HR:
+ * без вилки и роста «с начала года» (они про нынешнюю работу) и без
+ * планового пересмотра — его у ушедших не планируют.
  */
 export default function SalaryBlock({
   userId,
   source,
   label,
+  inactive = false,
   editSignal = 0,
   bonusSignal = 0,
   onPlannedChange,
@@ -213,6 +223,8 @@ export default function SalaryBlock({
   source?: Compensation;
   /** Подпись строки ставки. Под заголовком «Зарплата» — «Ставка». */
   label?: string;
+  /** Человек неактивен — показываем только последнюю ставку и историю. */
+  inactive?: boolean;
   /** Растёт при «Запланировать пересмотр» в меню «⋯» — открывает редактор. */
   editSignal?: number;
   /** Растёт при «Добавить премию» в меню «⋯» — раскрывает историю с формой. */
@@ -320,12 +332,12 @@ export default function SalaryBlock({
 
   return (
     <div className="salary-sensitive flex flex-col gap-3">
-      <SalaryHeadline comp={{ data, loading, error }} label={label} />
+      <SalaryHeadline comp={{ data, loading, error }} label={label} inactive={inactive} />
       <div className="flex flex-col gap-3">
         {notice}
         {view?.state === 'ok' && (
           <>
-            {view.band && (
+            {view.band && !inactive && (
               <BandMeter
                 min={view.band.min}
                 max={view.band.max}
@@ -333,7 +345,7 @@ export default function SalaryBlock({
                 planned={planned?.state === 'active' ? planned.salary : null}
               />
             )}
-            {view.since && (
+            {view.since && !inactive && (
               <Row label={view.since.label === 'с найма' ? 'С найма' : 'С начала года'}>
                 {view.since.pct === 0 || view.since.pct == null ? (
                   <span className="text-stone">Без изменений</span>
@@ -364,7 +376,7 @@ export default function SalaryBlock({
             </Row>
           </>
         )}
-        {data && planned && (
+        {data && planned && !inactive && (
           <PlannedRow
             userId={userId}
             planned={planned}

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { canGradeDesigner } from '@/lib/permissions';
-import { isGradable } from '@/lib/employment';
+import { isGradable, notGradableError } from '@/lib/employment';
 import { validateScores } from '@/lib/assessmentScores';
 
 /** Кого грейдируют: для canGradeDesigner и isGradable. */
@@ -15,6 +15,8 @@ const designerSelect = {
   role: true,
   active: true,
   employmentType: true,
+  // Билд без грейдов («Коммуникации») — не грейдируется (lib/employment)
+  build: { select: { code: true } },
 } as const;
 
 /** GET /api/assessments?designerId=X — get or create draft assessment for current cycle */
@@ -60,10 +62,7 @@ export async function GET(req: NextRequest) {
 
   if (!assessment) {
     if (!isGradable(designer)) {
-      return NextResponse.json(
-        { error: 'Почасовщиков и неактивных не грейдируют' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: notGradableError(designer) }, { status: 400 });
     }
     // Get current matrix version
     const matrix = await prisma.matrixVersion.findFirst({ where: { isCurrent: true } });
@@ -169,13 +168,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (wantsScoresUpdate && scores) {
-    // Почасовщик и неактивный не грейдируются (lib/employment). Мнение к
-    // уже проведённой оценке при этом поправить можно — это не грейдирование.
+    // Почасовщик, неактивный и билд без грейдов не грейдируются
+    // (lib/employment). Мнение к уже проведённой оценке при этом поправить
+    // можно — это не грейдирование.
     if (!isGradable(assessment.designer)) {
-      return NextResponse.json(
-        { error: 'Почасовщиков и неактивных не грейдируют' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: notGradableError(assessment.designer) }, { status: 400 });
     }
     // Навыки — из матрицы этой оценки; уровень — целый от 0 до максимума навыка.
     const skills = await prisma.skill.findMany({

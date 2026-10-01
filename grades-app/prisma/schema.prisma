@@ -608,3 +608,16 @@ model Bonus {
   @@index([userId])
   @@map("bonuses")
 }
+
+// Phase 23.6 — настройки сервиса (key-value), правит только админ.
+// Ключи: 'payrollTaxRate' (налоговая нагрузка, доля: '0.36'),
+// 'fotGrowthTarget' (ориентир роста ФОТ в год, доля: '0.10'),
+// 'salaryCeiling' (потолок ставки, ₽/мес; пусто — не используется).
+model Setting {
+  key         String   @id
+  value       String
+  updatedAt   DateTime @updatedAt
+  updatedById Int?
+
+  @@map("settings")
+}

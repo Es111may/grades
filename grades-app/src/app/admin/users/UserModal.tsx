@@ -5,7 +5,7 @@ import Avatar from '@/components/Avatar';
 import { EditIcon, CloseIcon } from '@/components/icons';
 import { formatDateShort, todayLocalIso } from '@/lib/dates';
 import { canSetGradingDate } from '@/lib/gradingPlan';
-import { canSetEmploymentType } from '@/lib/employment';
+import { canSetEmploymentType, isNonGradingBuild } from '@/lib/employment';
 import {
   canChangeLead,
   canDeactivateUser,
@@ -174,6 +174,9 @@ export default function UserModal({
   const employmentType = form.role === 'designer' ? form.employmentType : 'staff';
   // Билд — у дизайнера и стардиза; лиду и админу он не нужен
   const hasBuild = form.role === 'designer' || form.role === 'stardiz';
+  // Билд без грейдов («Коммуникации») — даты грейдирования у него нет
+  const nonGradingBuild =
+    hasBuild && isNonGradingBuild({ build: builds.find((b) => b.id === form.buildId) ?? null });
   const me = meId !== null ? { id: meId, role: meRole } : null;
   // Лид правит только своих и может отдать человека другому лиду, но не
   // снять лида вовсе — пункт «Не назначен» ему недоступен (lib/permissions).
@@ -618,6 +621,12 @@ export default function UserModal({
                       {d}
                     </option>
                   ))}
+                  {/* Прошлый отдел из HR (Lite, Самолет, Ида.Бид — у ушедших,
+                      Phase 23.6a): без своего пункта select показал бы
+                      «Не указан», хотя отдел записан */}
+                  {form.department && !DEPARTMENTS.includes(form.department) && (
+                    <option value={form.department}>{form.department}</option>
+                  )}
                 </select>
               </div>
               {(form.role === 'designer' || form.role === 'stardiz') && (
@@ -683,10 +692,12 @@ export default function UserModal({
                 />
               </div>
               {/* Phase 23.2 — дата грейдирования. Показываем только для тех,
-                  кто грейдируется, и только тем, у кого есть на это права
-                  (админ всем, лид/стардиз своим подопечным). */}
+                  кто грейдируется (не почасовщик и не билд без грейдов), и
+                  только тем, у кого есть на это права (админ всем, лид/стардиз
+                  своим подопечным). */}
               {(user?.role === 'designer' || user?.role === 'stardiz') &&
                 employmentType !== 'hourly' &&
+                !nonGradingBuild &&
                 canSetGradingDate({ id: meId ?? -1, role: meRole }, {
                   id: user.id,
                   leadId: form.leadId,

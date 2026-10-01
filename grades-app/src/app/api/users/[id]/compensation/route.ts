@@ -20,7 +20,7 @@ import {
 } from '@/lib/compPermissions';
 import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
 import { fetchHrCompensation } from '@/lib/hrSalary';
-import { isHourly } from '@/lib/employment';
+import { isHourly, isNonGradingBuild } from '@/lib/employment';
 import { todayMoscowIso } from '@/lib/dates';
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -37,6 +37,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       leadId: true,
       active: true,
       employmentType: true,
+      // Билд без грейдов — вилки по грейду нет, как в «Экономике»
+      build: { select: { code: true } },
       plannedRaiseSetAt: true,
       plannedRaiseBaselineAt: true,
       plannedRaiseAt: true,
@@ -83,7 +85,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         log: hr.log,
         bonuses,
         role: target.role,
-        grade: lastAssessment?.effectiveGrade ?? null,
+        // У билда без грейдов («Коммуникации») грейда нет — и вилки тоже,
+        // даже если осталась оценка из прошлого билда
+        grade: isNonGradingBuild(target) ? null : lastAssessment?.effectiveGrade ?? null,
         employmentType: target.employmentType,
         activeInGrades: target.active,
         today,

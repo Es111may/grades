@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { ensureTaxonomyNames, ensureGroupNames } from '@/lib/oneTimeMigrations';
 import { getCurrentUser } from '@/lib/session';
 import { canEditMatrix } from '@/lib/permissions';
+import { GRADING_BUILD_WHERE } from '@/lib/employment';
 import MatrixClient from './MatrixClient';
 
 export default async function AdminMatrixPage() {
@@ -24,7 +25,8 @@ export default async function AdminMatrixPage() {
   }
 
   const [builds, groups, taxonomies, skills] = await Promise.all([
-    prisma.build.findMany({ orderBy: { id: 'asc' } }),
+    // Колонки весов — только у билдов с матрицей: «Коммуникации» без грейдов
+    prisma.build.findMany({ where: GRADING_BUILD_WHERE, orderBy: { id: 'asc' } }),
     prisma.skillGroup.findMany({
       include: { taxonomy: true },
       orderBy: [

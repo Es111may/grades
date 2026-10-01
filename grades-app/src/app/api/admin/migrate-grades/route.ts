@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
+import { GRADING_BUILD_WHERE } from '@/lib/employment';
 
 const TARGET_THRESHOLDS = {
   junior: 0,
@@ -49,7 +50,8 @@ export async function POST() {
     return NextResponse.json({ ok: true, log: ['no matrices'] });
   }
 
-  const builds = await prisma.build.findMany();
+  // Пороги XP — только билдам с матрицей: у «Коммуникаций» грейдов нет
+  const builds = await prisma.build.findMany({ where: GRADING_BUILD_WHERE });
   const buildCodes = builds.map((b) => b.code);
 
   for (const matrix of matrices) {

@@ -15,7 +15,7 @@ import {
   canManageUsers,
 } from '@/lib/permissions';
 import { canSetGradingDate } from '@/lib/gradingPlan';
-import { canSetEmploymentType } from '@/lib/employment';
+import { canSetEmploymentType, nonGradingBuildNote } from '@/lib/employment';
 import { DISMISSAL_TYPES, canEditDismissal } from '@/lib/dismissal';
 import { userForViewer } from '@/lib/userResponse';
 import { parseAvatarInput } from '@/lib/avatarShared';
@@ -229,11 +229,23 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       { status: 403 },
     );
   }
-  if (grading.changed && grading.nextGradingAt && !canHaveGradingDate({ role, employmentType })) {
-    return NextResponse.json(
-      { error: 'Дату грейдирования ставят только штатным дизайнерам и стардизам' },
-      { status: 400 },
-    );
+  if (grading.changed && grading.nextGradingAt) {
+    // Билд — итоговый, после правки: у билда без грейдов даты не бывает
+    const buildId = data.buildId !== undefined ? data.buildId : existing.buildId;
+    const build = buildId
+      ? await prisma.build.findUnique({ where: { id: buildId }, select: { code: true } })
+      : null;
+    const target = { role, employmentType, build };
+    if (!canHaveGradingDate(target)) {
+      return NextResponse.json(
+        {
+          error:
+            nonGradingBuildNote(target) ??
+            'Дату грейдирования ставят только штатным дизайнерам и стардизам',
+        },
+        { status: 400 },
+      );
+    }
   }
 
   // Пустая причина — то же, что её нет

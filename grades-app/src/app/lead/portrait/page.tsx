@@ -10,7 +10,7 @@ import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
 import { PAGE_BUDGET_MS, withTimeout } from '@/lib/perfCache';
 import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
 import { canGradeDesigner } from '@/lib/permissions';
-import { isGradable } from '@/lib/employment';
+import { isGradable, nonGradingBuildNote } from '@/lib/employment';
 import { getNineBoxTitle, getTeamGrowthMedian } from '@/lib/teamMetrics';
 import { GRADE_NAMES } from '@/lib/types';
 import type { GradeCode } from '@/lib/types';
@@ -87,11 +87,14 @@ export default async function LeadPortraitPage({
   if (result.kind === 'not_found') redirect('/admin/users');
 
   // Звать к форме оценки — только если её откроют: человек грейдируется
-  // (не почасовщик, активен, дизайнер/стардиз) и зритель вправе его
-  // оценивать. Иначе /lead/assess вернёт назад или скажет «не грейдируется».
+  // (не почасовщик и не билд без грейдов, активен, дизайнер/стардиз) и
+  // зритель вправе его оценивать. Иначе /lead/assess вернёт назад или
+  // скажет «не грейдируется».
   // Те же условия — у кнопок «Продолжить черновик» и «Новый цикл» в hero.
   const gradable = isGradable(designer);
   const canAssess = gradable && canGradeDesigner(user, designer);
+  // Причина для билда без грейдов — вместо общего «не грейдируется»
+  const buildNote = nonGradingBuildNote(designer);
 
   if (result.kind === 'no_assessment') {
     return (
@@ -125,7 +128,9 @@ export default async function LeadPortraitPage({
             <p className="text-stone">
               {gradable
                 ? 'Оценку проводит лид или стардиз этого человека.'
-                : 'Сейчас не грейдируется — форма оценки недоступна.'}
+                : buildNote
+                  ? `${buildNote}, форма оценки недоступна.`
+                  : 'Сейчас не грейдируется — форма оценки недоступна.'}
             </p>
           )}
         </div>

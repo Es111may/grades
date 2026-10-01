@@ -16,7 +16,7 @@ import {
   type TeamOption,
 } from '@/lib/teamScope';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
-import { isGradable, isHourly } from '@/lib/employment';
+import { isGradable, isGradingExempt } from '@/lib/employment';
 import { canViewCompensation } from '@/lib/compPermissions';
 import { canViewDismissalDate } from '@/lib/dismissal';
 import { needsDismissalDate, todayMoscowDate } from '@/lib/userUpdate';
@@ -183,6 +183,15 @@ function prefetchView(key: ViewMode) {
 }
 
 type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
+
+/**
+ * «Текущие · Все» (Phase 23.6a): с реестром из HR в Грейдах и все ушедшие —
+ * под сотню неактивных карточек. По умолчанию «Текущие» — неактивных не
+ * видно ни в одном виде; «Все» — они серыми в конце списка и колонок.
+ * Выбор помнит браузер.
+ */
+type PresenceFilter = 'current' | 'all';
+const PRESENCE_KEY = 'team-presence';
 /**
  * Подиум топ-3 над таблицей временно скрыт (Pavel 29.09.2026): все — просто
  * строками списка. Код подиума в LeaderboardView не удалён — вернуть: true.
@@ -217,6 +226,7 @@ export default function UsersClient({
 }) {
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+  const [presence, setPresence] = useState<PresenceFilter>('current');
   // Дефолт scope: лиды видят «Мои» (по PRD §11.2), остальные — «Все».
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>(meRole === 'lead' ? 'mine' : 'all');
   const [search, setSearch] = useState('');
@@ -234,6 +244,26 @@ export default function UsersClient({
     if (next === view) return;
     setPrevViewHeight(viewRef.current?.offsetHeight);
     setView(next);
+  }
+
+  // Выбор «Текущие · Все» — из браузера после монтирования: сервер его не
+  // знает, и первый кадр всегда «Текущие» (без расхождения гидрации).
+  // Хранилище бывает недоступно (приватный режим) — тогда просто дефолт.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(PRESENCE_KEY) === 'all') setPresence('all');
+    } catch {
+      // без хранилища — «Текущие»
+    }
+  }, []);
+
+  function changePresence(next: PresenceFilter) {
+    setPresence(next);
+    try {
+      localStorage.setItem(PRESENCE_KEY, next);
+    } catch {
+      // не запомнили — не страшно, выбор действует до перезагрузки
+    }
   }
 
   // В простое после загрузки докачиваем код того, что этой роли доступно
@@ -270,7 +300,7 @@ export default function UsersClient({
   const ownerId = showScopeSwitcher ? scopeOwnerId(scopeFilter, meId) : null;
 
   const filtered = useMemo(() => {
-    let list = users;
+    let list = presence === 'current' ? users.filter((u) => u.active) : users;
     if (ownerId !== null) {
       list = list.filter((u) => isMenteeOf(u, ownerId));
     }
@@ -285,14 +315,15 @@ export default function UsersClient({
       );
     }
     return list;
-  }, [users, roleFilter, search, ownerId]);
+  }, [users, presence, roleFilter, search, ownerId]);
 
   // Счётчики ролей считаем с учётом scope (но без поиска и роле-фильтра),
   // чтобы цифры в чипах были согласованы с тем, что увидит пользователь.
   // Деактивированных в счётчики не включаем — Pavel: «у нас деактивирован
   // Ваня Перов, значит счётчик Все должен стать 26, а не 27».
-  // Сами карточки деактивированных продолжаем показывать (с opacity-50
-  // и в конце списка) — это уже логика отображения, отдельно от счётчиков.
+  // Сами карточки деактивированных в «Все» показываем (с opacity-50 и в
+  // конце списка) — это уже логика отображения, отдельно от счётчиков:
+  // цифры не зависят от «Текущие · Все».
   const counts = useMemo(() => {
     const scoped =
       ownerId !== null ? users.filter((u) => isMenteeOf(u, ownerId)) : users;
@@ -374,12 +405,12 @@ export default function UsersClient({
         const next = [...prev];
         // Сливаем, а не заменяем: API отдаёт только поля из базы, а грейд,
         // XP, место и «в срок» считаются на странице. При замене они
-        // пропадали из строки до перезагрузки. Почасовщик места не имеет —
-        // снимаем сразу, не дожидаясь пересчёта (Phase 23.4).
+        // пропадали из строки до перезагрузки. Почасовщик и билд без грейдов
+        // места не имеют — снимаем сразу, не дожидаясь пересчёта (Phase 23.4).
         const merged: UserRow = {
           ...prev[idx],
           ...saved,
-          ...(isHourly(saved) ? { compositeScore: null } : {}),
+          ...(isGradingExempt(saved) ? { compositeScore: null } : {}),
         };
         // Лид передал человека другому — деньги этого человека ему больше не
         // положены: бейдж пересмотра и ставку убираем сразу, а не после
@@ -414,6 +445,9 @@ export default function UsersClient({
       ...u,
       ...patch,
       active: false,
+      // Как строка неактивного с сервера: без рейтинга и бейджа пересмотра
+      compositeScore: null,
+      plannedRaise: null,
       ...(seeDate ? { dismissedAt: patch?.dismissedAt ?? auto } : {}),
     };
   }
@@ -449,6 +483,25 @@ export default function UsersClient({
         )}
 
         <RoleDropdown value={roleFilter} counts={counts} onChange={setRoleFilter} />
+
+        {/* Текущие · Все — рядом с фильтрами состава, до переключателя вида */}
+        <div className="segmented" role="group" aria-label="Кого показывать">
+          {([
+            ['current', 'Текущие'],
+            ['all', 'Все'],
+          ] as Array<[PresenceFilter, string]>).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => changePresence(key)}
+              aria-pressed={presence === key}
+              title={key === 'current' ? 'Только работающие сейчас' : 'Вместе с ушедшими — серыми в конце'}
+              className={`segmented-item ${presence === key ? 'segmented-item-active' : ''}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         <div className="segmented">
           {([
@@ -637,9 +690,10 @@ function computeScopedStats(
   };
 
   // Те же правила, что на сервере (page.tsx): «в срок» — по всем активным
-  // дизайнерам, включая почасовщиков; грейдирование и таланты — без них.
+  // дизайнерам, включая почасовщиков и билд без грейдов; грейдирование и
+  // таланты — без них.
   const activeDesigners = list.filter((u) => u.role === 'designer' && u.active);
-  const talentDesigners = activeDesigners.filter((u) => !isHourly(u));
+  const talentDesigners = activeDesigners.filter((u) => !isGradingExempt(u));
   const eligible = list.filter(isGradable);
   const nineBoxEligible = eligible.filter((u) => u.id !== hiddenTalentId);
 

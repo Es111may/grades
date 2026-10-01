@@ -10,6 +10,7 @@ import { prisma } from '@/lib/db';
 import { avatarSrc } from '@/lib/avatar';
 import { calcGrade, type SkillSnapshot, type ScoreInput, type GradeThreshold } from '@/lib/grade';
 import { GRADE_NAMES } from '@/lib/types';
+import { isGradingExempt } from '@/lib/employment';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import type { PortraitData } from '@/app/designer/Portrait';
 
@@ -44,7 +45,7 @@ export const PORTRAIT_DESIGNER_SELECT = {
   id: true,
   email: true,
   role: true,
-  // active + employmentType — для isGradable (кнопка «К форме оценки»)
+  // active + employmentType + build — для isGradable (кнопка «К форме оценки»)
   active: true,
   employmentType: true,
   leadId: true,
@@ -96,6 +97,8 @@ export async function loadPortraitData(
         fullName: string;
         gradeFloor: GradeCode | null;
         buildName: string | null;
+        /** Код билда — у билда без грейдов своя заглушка (lib/employment). */
+        buildCode: string | null;
         department: string | null;
       };
     }
@@ -143,6 +146,7 @@ export async function loadPortraitData(
         fullName: designer.fullName,
         gradeFloor: designer.gradeFloor as GradeCode | null,
         buildName: designer.build?.name ?? null,
+        buildCode: designer.build?.code ?? null,
         department: designer.department,
       },
     };
@@ -289,8 +293,9 @@ export async function loadPortraitData(
       department: designer.department,
       leadName: designer.lead?.fullName ?? null,
       gradeFloor: designer.gradeFloor as GradeCode | null,
-      // Phase 23.2 — план грейдирования (только чтение на портрете)
-      nextGradingAt: designer.nextGradingAt?.toISOString() ?? null,
+      // Phase 23.2 — план грейдирования (только чтение на портрете). Почасовщику
+      // и билду без грейдов дату не показываем: оставшаяся с прошлого — не план
+      nextGradingAt: isGradingExempt(designer) ? null : designer.nextGradingAt?.toISOString() ?? null,
       nextGradingSetAt: designer.nextGradingSetAt?.toISOString() ?? null,
     },
     cycle: assessment.cycle,

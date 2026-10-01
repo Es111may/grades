@@ -67,6 +67,18 @@ const buildColor = (code: string) =>
 /** Отложенная передача человека другому лиду — ждёт подтверждения. */
 type Handoff = { user: UserRow; newLeadId: number; leadName: string };
 
+/** Нынешние отделы — колонки «Отделов» всегда, в этом порядке. */
+const CURRENT_DEPARTMENTS = ['Инхаус', 'Криэйт', 'Импрув'] as const;
+
+/**
+ * Неактивные — в конец колонки, серыми (как в лидерборде). Внутри групп
+ * порядок прежний: sort стабилен.
+ */
+function activeFirst<C extends { users: UserRow[] }>(cols: C[]): C[] {
+  for (const c of cols) c.users.sort((a, b) => Number(b.active) - Number(a.active));
+  return cols;
+}
+
 export default function KanbanView({
   users,
   leads,
@@ -98,10 +110,19 @@ export default function KanbanView({
 
   const columns = useMemo(() => {
     if (groupBy === 'department') {
+      // Прошлые отделы (Lite, Самолет, Ида.Бид — у ушедших из реестра HR,
+      // Phase 23.6a) — своими колонками после нынешних: в «Без отдела» они
+      // смешались бы с теми, кому отдел просто не поставили.
+      const past = Array.from(
+        new Set(
+          users
+            .map((u) => u.department)
+            .filter((d): d is string => !!d && !(CURRENT_DEPARTMENTS as readonly string[]).includes(d)),
+        ),
+      ).sort((a, b) => a.localeCompare(b, 'ru'));
       const cols: Array<{ key: string; label: string; users: UserRow[] }> = [
-        { key: 'Инхаус', label: 'Инхаус', users: [] },
-        { key: 'Криэйт', label: 'Криэйт', users: [] },
-        { key: 'Импрув', label: 'Импрув', users: [] },
+        ...CURRENT_DEPARTMENTS.map((d) => ({ key: d, label: d, users: [] as UserRow[] })),
+        ...past.map((d) => ({ key: d, label: d, users: [] as UserRow[] })),
         { key: '__none', label: 'Без отдела', users: [] },
       ];
       const byKey = new Map(cols.map((c) => [c.key, c]));
@@ -109,7 +130,7 @@ export default function KanbanView({
         const k = u.department && byKey.has(u.department) ? u.department : '__none';
         byKey.get(k)!.users.push(u);
       }
-      return cols;
+      return activeFirst(cols);
     }
 
     if (groupBy === 'lead') {
@@ -130,7 +151,7 @@ export default function KanbanView({
         const k = u.leadId && byKey.has(String(u.leadId)) ? String(u.leadId) : '__none';
         byKey.get(k)!.users.push(u);
       }
-      return cols;
+      return activeFirst(cols);
     }
 
     // grade
@@ -145,14 +166,16 @@ export default function KanbanView({
       const k = grade && byKey.has(grade) ? grade : '__none';
       byKey.get(k)!.users.push(u);
     }
-    return cols;
+    return activeFirst(cols);
   }, [users, leads, groupBy]);
 
   const canDrop = groupBy === 'department' || groupBy === 'lead';
 
   // Тащить можно только тех, кого вправе править: админ — любого, лид —
   // своих дизайнеров и стардизов. Стардизу и чужие карточки — только клик.
-  const canDrag = (u: UserRow) => canDrop && canEditUser(me, u);
+  // Неактивных не тащим: ушедших по отделам и лидам не переносят, поправить
+  // отдел можно в «Изменить».
+  const canDrag = (u: UserRow) => canDrop && u.active && canEditUser(me, u);
   const dragged = dragId !== null ? users.find((u) => u.id === dragId) ?? null : null;
 
   // Колонка «Лиды» → id лида; «Без лида» → null.
@@ -164,6 +187,10 @@ export default function KanbanView({
   // бросок туда ничего не меняет.
   function accepts(columnKey: string): boolean {
     if (!canDrop || !dragged) return false;
+    // Прошлые отделы — история: в них не переносят
+    if (groupBy === 'department') {
+      return columnKey === '__none' || (CURRENT_DEPARTMENTS as readonly string[]).includes(columnKey);
+    }
     if (groupBy !== 'lead') return true;
     const newLeadId = leadIdOf(columnKey);
     return newLeadId === dragged.leadId || canChangeLead(me, dragged, newLeadId);

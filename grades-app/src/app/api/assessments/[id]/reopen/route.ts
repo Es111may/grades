@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/session';
 import { currentCycle } from '@/lib/cycle';
 import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
 import { canGradeDesigner } from '@/lib/permissions';
-import { isGradable } from '@/lib/employment';
+import { isGradable, notGradableError } from '@/lib/employment';
 
 /**
  * POST /api/assessments/[id]/reopen
@@ -33,22 +33,27 @@ export async function POST(
     where: { id: refId },
     include: {
       designer: {
-        select: { leadId: true, stardizId: true, role: true, active: true, employmentType: true },
+        select: {
+          leadId: true,
+          stardizId: true,
+          role: true,
+          active: true,
+          employmentType: true,
+          build: { select: { code: true } },
+        },
       },
     },
   });
   if (!ref) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   // Права — те же, что на оценку (canGradeDesigner); новый черновик —
-  // только тем, кого грейдируют (не почасовщикам и не неактивным).
+  // только тем, кого грейдируют (не почасовщикам, не неактивным и не билду
+  // без грейдов).
   if (!canGradeDesigner(me, ref.designer)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   if (!isGradable(ref.designer)) {
-    return NextResponse.json(
-      { error: 'Почасовщиков и неактивных не грейдируют' },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: notGradableError(ref.designer) }, { status: 400 });
   }
 
   // Если активный draft уже есть — возвращаем его

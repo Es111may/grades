@@ -48,6 +48,7 @@ async function guard(idParam: string) {
       id: true,
       email: true,
       leadId: true,
+      active: true,
       plannedRaiseSetAt: true,
       plannedRaiseBaselineAt: true,
       plannedRaiseAt: true,
@@ -65,6 +66,10 @@ async function guard(idParam: string) {
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const g = await guard(params.id);
   if ('error' in g) return g.error;
+  // Ушедшим пересмотр не планируют (Phase 23.6a). Снять оставшийся — можно (DELETE).
+  if (!g.target.active) {
+    return NextResponse.json({ error: 'Человек неактивен — пересмотр не планируют' }, { status: 400 });
+  }
   const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const data = parsed.data;

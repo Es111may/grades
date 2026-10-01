@@ -624,7 +624,7 @@ function AboutAccordion() {
 
 export default function MatrixView({ users }: { users: UserRow[] }) {
   const eligible = useMemo(
-    // Почасовщики в таланты не входят (Phase 23.4)
+    // Почасовщики и билд без грейдов в таланты не входят (lib/employment)
     () => users.filter(isGradable),
     [users],
   );

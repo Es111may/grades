@@ -7,6 +7,7 @@ import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
 import { PAGE_BUDGET_MS, withTimeout } from '@/lib/perfCache';
 import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
 import { GRADE_NAMES } from '@/lib/types';
+import { nonGradingBuildNote } from '@/lib/employment';
 import type { GradeCode } from '@/lib/types';
 import Portrait from './Portrait';
 
@@ -67,6 +68,8 @@ export default async function DesignerPortraitPage({
   if (result.kind === 'no_assessment') {
     // Имя, билд, отдел и грейд-floor уже прочитаны загрузчиком портрета.
     const me = result.designer;
+    // Билд без грейдов: оценки не будет — не обещаем её
+    const buildNote = nonGradingBuildNote(me);
     return (
       <main className="max-w-[1000px] mx-auto px-8 pt-8 pb-16">
         <div className="mb-8">
@@ -80,11 +83,12 @@ export default async function DesignerPortraitPage({
 
         <div className="card p-10 text-center mb-5">
           <div className="font-display text-2xl font-medium tracking-tight mb-2">
-            Оценка ещё не проводилась
+            {buildNote ? 'Грейдирования нет' : 'Оценка ещё не проводилась'}
           </div>
           <p className="text-stone leading-relaxed max-w-md mx-auto">
-            Когда лид опубликует первую оценку — здесь появится твой грейд, XP,
-            радар-диаграмма и список навыков.
+            {buildNote
+              ? `${buildNote}: оценок, XP и радар-диаграммы здесь не будет.`
+              : 'Когда лид опубликует первую оценку — здесь появится твой грейд, XP, радар-диаграмма и список навыков.'}
           </p>
         </div>
 

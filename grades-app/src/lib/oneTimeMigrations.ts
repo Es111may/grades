@@ -12,6 +12,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { INITIAL_PROJECTS } from './initialProjects';
+import { GRADING_BUILD_WHERE, NON_GRADING_BUILDS } from './employment';
 
 const TAXONOMY_NAMES: Record<string, string> = {
   UI: 'UI · Визуал',
@@ -42,6 +43,7 @@ let taxonomyNamesEnsured = false;
 let groupNamesEnsured = false;
 let gradesMigrated = false;
 let buildNamesEnsured = false;
+let nonGradingBuildsEnsured = false;
 let projectsSeeded = false;
 
 /**
@@ -81,6 +83,31 @@ export async function ensureBuildNames(): Promise<void> {
     }
   }
   buildNamesEnsured = true;
+}
+
+/**
+ * Билды без грейдов (lib/employment → NON_GRADING_BUILDS): «Коммуникации»,
+ * Pavel 01.10.2026. Матрицы, весов и гейтов у них нет, поэтому в
+ * import-excel (он заводит билды вместе с матрицей) их нет — строку
+ * создаём здесь. sortOrder — после существующих: в выпадашке «Билд»
+ * такой билд идёт последним. Уже созданную строку не трогаем.
+ */
+export async function ensureNonGradingBuilds(): Promise<void> {
+  if (nonGradingBuildsEnsured) return;
+  for (const [code, name] of Object.entries(NON_GRADING_BUILDS)) {
+    const b = await prisma.build.findUnique({ where: { code }, select: { id: true } });
+    if (b) continue;
+    const last = await prisma.build.aggregate({ _max: { sortOrder: true } });
+    try {
+      await prisma.build.create({
+        data: { code, name, sortOrder: (last._max.sortOrder ?? 0) + 1 },
+      });
+    } catch (e) {
+      // Параллельный первый запрос успел создать ту же строку — это норма
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002')) throw e;
+    }
+  }
+  nonGradingBuildsEnsured = true;
 }
 
 export async function ensureTaxonomyNames(): Promise<void> {
@@ -131,7 +158,8 @@ export async function ensureGroupNames(): Promise<void> {
 export async function ensureGradesMigrated(): Promise<void> {
   if (gradesMigrated) return;
   const matrices = await prisma.matrixVersion.findMany();
-  const builds = await prisma.build.findMany();
+  // Пороги XP — только билдам с матрицей: у билда без грейдов их нет
+  const builds = await prisma.build.findMany({ where: GRADING_BUILD_WHERE });
   const buildCodes = builds.map((b) => b.code);
   for (const matrix of matrices) {
     const grades = await prisma.gradeLevel.findMany({

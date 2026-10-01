@@ -16,6 +16,7 @@
  */
 
 import { PrismaClient, Prisma } from '@prisma/client';
+import { GRADING_BUILD_WHERE } from '../src/lib/employment';
 
 const prisma = new PrismaClient();
 
@@ -33,7 +34,8 @@ async function main() {
     return;
   }
 
-  const builds = await prisma.build.findMany();
+  // Пороги XP — только билдам с матрицей: у «Коммуникаций» грейдов нет
+  const builds = await prisma.build.findMany({ where: GRADING_BUILD_WHERE });
   const buildCodes = builds.map((b) => b.code);
 
   for (const matrix of matrices) {

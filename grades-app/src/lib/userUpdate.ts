@@ -3,6 +3,7 @@
 // поведение проверяется тестами, роуты только применяют результат.
 
 import { todayMoscowIso } from './dates';
+import { isGradingExempt, type WithBuild } from './employment';
 
 type DateLike = Date | null;
 
@@ -66,10 +67,13 @@ export function gradingDateChange(
 
 /**
  * Кому вообще ставят дату грейдирования: дизайнерам и стардизам на штате.
- * Почасовщик не грейдируется (lib/employment). Снять дату можно у любого.
+ * Почасовщик и билд без грейдов не грейдируются (lib/employment). Снять
+ * дату можно у любого.
  */
-export function canHaveGradingDate(u: { role: string; employmentType?: string | null }): boolean {
-  return (u.role === 'designer' || u.role === 'stardiz') && u.employmentType !== 'hourly';
+export function canHaveGradingDate(
+  u: { role: string; employmentType?: string | null } & WithBuild,
+): boolean {
+  return (u.role === 'designer' || u.role === 'stardiz') && !isGradingExempt(u);
 }
 
 // ── Наставники: лид и стардиз ────────────────────────────────────────────

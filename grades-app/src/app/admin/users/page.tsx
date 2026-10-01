@@ -12,7 +12,8 @@ import {
 import { PAGE_BUDGET_MS, withTimeout } from '@/lib/perfCache';
 import { computeScore, nineBoxLevelFromString } from '@/lib/perfScore';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
-import { isGradable, isHourly } from '@/lib/employment';
+import { isGradable, isGradingExempt } from '@/lib/employment';
+import { ensureNonGradingBuilds } from '@/lib/oneTimeMigrations';
 import { canViewCompensation } from '@/lib/compPermissions';
 import { canViewDismissalDate, canViewDismissalStatus } from '@/lib/dismissal';
 import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
@@ -104,16 +105,21 @@ async function loadExternal(
   // Phase 23.4 — плановый пересмотр. Бейдж видят только те, кому можно
   // видеть деньги; выполненный (в HR уже есть повышение после постановки
   // статуса) не показываем. В HR ходим только за теми, у кого статус стоит.
+  // Неактивных (с реестром из HR их под сотню, Phase 23.6a) в HR не
+  // запрашиваем вовсе: ставки и пересмотра в их строке нет, последнюю
+  // ставку поп-ап берёт сам из /compensation.
   const viewer = { id: me.id, role: me.role };
   const withPlan = usersRaw.filter(
-    (u) => u.plannedRaiseSetAt && u.email && canViewCompensation(viewer, u),
+    (u) => u.active && u.plannedRaiseSetAt && u.email && canViewCompensation(viewer, u),
   );
   // Админу — ещё и колонка «Зарплата»: один батч по всей странице, из него же
   // берём журналы для плановых пересмотров. Лиду — только журналы тех, у кого
   // стоит статус.
   const loadHr = async (): Promise<{ hrBatch: HrBatch | null; hrLogs: HrLogs }> => {
     if (me.role === 'admin') {
-      const hrBatch = await fetchHrCompensationBatch(usersRaw.map((u) => u.email).filter(Boolean));
+      const hrBatch = await fetchHrCompensationBatch(
+        usersRaw.filter((u) => u.active && u.email).map((u) => u.email),
+      );
       const hrLogs: HrLogs = new Map();
       for (const [em, c] of hrBatch) hrLogs.set(em, { hiredAt: c.hr?.hiredAt ?? null, log: c.log });
       return { hrBatch, hrLogs };
@@ -260,7 +266,10 @@ export default async function AdminUsersPage() {
         : [],
     ),
     usersP,
-    prisma.build.findMany({ orderBy: { sortOrder: 'asc' } }),
+    // Все билды, с «Коммуникациями» (без грейдов) — для выпадашки «Билд».
+    // Layout заводит эту строку параллельно со страницей, поэтому ждём здесь:
+    // в первом заходе после деплоя её не было бы в списке.
+    ensureNonGradingBuilds().then(() => prisma.build.findMany({ orderBy: { sortOrder: 'asc' } })),
     prisma.user.findMany({
       where: { role: { in: ['lead', 'admin'] }, active: true },
       select: { id: true, fullName: true },
@@ -420,16 +429,23 @@ export default async function AdminUsersPage() {
     const onTimePercent = perfStat?.onTimePercent ?? null;
     const onTimeTotalTasks = perfStat?.totalTasks ?? 0;
 
+    // Неактивные — ушедшие (Phase 23.6a: реестр из HR, их под сотню).
+    // Строка у них лёгкая: рейтинга, 9-Box, роста, сигналов и пересмотра
+    // нет — эти поля пустые, как у человека без данных. Даты, грейд и XP
+    // последней оценки остаются: их показывают серая строка и поп-ап, а
+    // дату грейдирования модалка «Изменить» отправляет обратно как есть.
+    const live = u.active;
+
     // Данные для пересчёта bento-агрегатов под скоуп «Мои» на клиенте.
     const hideTalent = isOwnHiddenTalent(u.id);
-    const cellForScope = hideTalent ? undefined : cellByUserId.get(u.id);
-    const twoGrades = lastTwo.get(u.id);
+    const cellForScope = hideTalent || !live ? undefined : cellByUserId.get(u.id);
+    const twoGrades = live ? lastTwo.get(u.id) : undefined;
     const growthDelta =
       twoGrades && twoGrades.cur !== undefined && twoGrades.prev !== undefined
         ? twoGrades.cur - twoGrades.prev
         : null;
     const draftAt = draftUpdatedAt.get(u.id);
-    const draftAgeDays = draftAt
+    const draftAgeDays = draftAt && live
       ? Math.floor((nowMs - draftAt.getTime()) / 864e5)
       : null;
 
@@ -439,11 +455,14 @@ export default async function AdminUsersPage() {
     // чтобы UI показал «—» серым вместо 0.
     let compositeScore: number | null = null;
     // Стардизы ранжируются вместе с дизайнерами (Pavel 29.09.2026);
-    // почасовщики — нет: их XP заморожен (Phase 23.4).
+    // почасовщики — нет: их XP заморожен (Phase 23.4); билд без грейдов
+    // («Коммуникации») — тоже нет (lib/employment).
+    // Неактивные — тоже нет: места в рейтинге у ушедших не бывает.
     if (
       (u.role === 'designer' || u.role === 'stardiz') &&
+      live &&
       last?.totalXp != null &&
-      !isHourly(u) &&
+      !isGradingExempt(u) &&
       !hideTalent
     ) {
       const cell = cellByUserId.get(u.id);
@@ -508,7 +527,7 @@ export default async function AdminUsersPage() {
         return v.state === 'ok' ? v.current : null;
       })(),
       plannedRaise: (() => {
-        if (!u.plannedRaiseSetAt || !canViewCompensation(viewer, u)) return null;
+        if (!live || !u.plannedRaiseSetAt || !canViewCompensation(viewer, u)) return null;
         const hr = hrLogs.get(u.email.toLowerCase());
         const state = plannedRaiseState(
           {
@@ -541,7 +560,7 @@ export default async function AdminUsersPage() {
       hasDraft: draftUpdatedAt.has(u.id),
       // Phase 14: самооценка обновлялась после последней published-оценки
       selfFresh: (() => {
-        const m = selfMaxByDesigner.get(u.id);
+        const m = live ? selfMaxByDesigner.get(u.id) : undefined;
         if (!m) return false;
         const pub = last?.publishedAt;
         return !pub || m.toISOString() > pub;
@@ -551,16 +570,17 @@ export default async function AdminUsersPage() {
         ? { potential: cellForScope.potentialLevel, performance: cellForScope.performanceLevel }
         : null,
       growthDelta,
-      xpNeeded: last?.xpNeeded ?? null,
+      xpNeeded: live ? last?.xpNeeded ?? null : null,
       draftAgeDays,
     };
   });
 
   // === Агрегаты команды для bento + сигналов (концепт v4) ============
-  // «В срок» считаем по всем активным дизайнерам, включая почасовщиков;
-  // грейдирование и таланты — только по грейдируемым (Phase 23.4).
+  // «В срок» считаем по всем активным дизайнерам, включая почасовщиков и
+  // билд без грейдов; грейдирование и таланты — только по грейдируемым
+  // (Phase 23.4, lib/employment).
   const activeDesigners = users.filter((u) => u.role === 'designer' && u.active);
-  const talentDesigners = activeDesigners.filter((u) => !isHourly(u));
+  const talentDesigners = activeDesigners.filter((u) => !isGradingExempt(u));
 
   // 9-Box: счётчики по ячейкам + NIPC. Pavel: в Dream Team Index считаем
   // и дизайнеров, И СТАРДИЗОВ (как в самой матрице 9-Box, где размещаются

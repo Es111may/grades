@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { ensureGradesMigrated, ensureTaxonomyNames } from '@/lib/oneTimeMigrations';
 import { getCurrentUser } from '@/lib/session';
 import { canEditMatrix } from '@/lib/permissions';
+import { GRADING_BUILD_WHERE } from '@/lib/employment';
 import GradesClient from './GradesClient';
 
 export default async function AdminGradesPage() {
@@ -25,7 +26,8 @@ export default async function AdminGradesPage() {
   }
 
   const [builds, grades, skills] = await Promise.all([
-    prisma.build.findMany({ orderBy: { sortOrder: 'asc' } }),
+    // Пороги и гейты — только у билдов с матрицей: «Коммуникации» без грейдов
+    prisma.build.findMany({ where: GRADING_BUILD_WHERE, orderBy: { sortOrder: 'asc' } }),
     prisma.gradeLevel.findMany({
       where: { matrixVersionId: matrix.id },
       include: { gates: { include: { skill: true, build: true } } },
