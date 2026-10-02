@@ -41,9 +41,12 @@ const USER_ROW_SELECT = {
   build: { select: { id: true, code: true, name: true } },
   department: true,
   leadId: true,
-  lead: { select: { id: true, fullName: true } },
+  // Почты лида и стардиза — для приглашения на грейдирование («В календарь»
+  // в поп-апе 360). Стардиз видит в списке только своих и себя: почту лида
+  // своего подопечного иначе взять негде. Страница — только admin/lead/stardiz.
+  lead: { select: { id: true, fullName: true, email: true } },
   stardizId: true,
-  stardiz: { select: { id: true, fullName: true } },
+  stardiz: { select: { id: true, fullName: true, email: true } },
   hiredAt: true,
   active: true,
   gradeFloor: true,

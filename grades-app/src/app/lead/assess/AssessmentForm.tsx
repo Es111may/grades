@@ -2,8 +2,9 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { GRADE_NAMES, GRADE_ORDER, BUILD_NAMES } from '@/lib/types';
+import { GRADE_NAMES, BUILD_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
+import { calcGrade } from '@/lib/grade';
 import Avatar from '@/components/Avatar';
 import { CheckIcon, FlagIcon, ChevronDownIcon } from '@/components/icons';
 import { MarkdownTextarea } from '@/components/Markdown';
@@ -266,57 +267,25 @@ export default function AssessmentForm({
       if (mastery > 0) filled++;
     }
 
-    // Grade calculation
-    const scoreMap = new Map<number, number>();
-    for (const skill of skills) {
-      scoreMap.set(skill.id, scores[skill.id] ?? 0);
-    }
-
-    const sortedDesc = [...grades].sort(
-      (a, b) => GRADE_ORDER[b.code] - GRADE_ORDER[a.code],
-    );
-    const sortedAsc = [...grades].sort(
-      (a, b) => GRADE_ORDER[a.code] - GRADE_ORDER[b.code],
-    );
-
-    let calculatedGrade: GradeCode = 'junior';
-    for (const g of sortedDesc) {
-      if (g.code === 'junior') continue;
-      if (total < g.threshold) continue;
-      const gatesPassed = g.gates.every(
-        (gate) => (scoreMap.get(gate.skillId) ?? 0) >= gate.requiredMastery,
-      );
-      if (!gatesPassed) continue;
-      calculatedGrade = g.code;
-      break;
-    }
-
-    let effectiveGrade = calculatedGrade;
-    if (
-      designer.gradeFloor &&
-      GRADE_ORDER[designer.gradeFloor] > GRADE_ORDER[calculatedGrade]
-    ) {
-      effectiveGrade = designer.gradeFloor;
-    }
-
-    // Next grade
-    let nextGrade: { code: GradeCode; xpNeeded: number; failedGates: { skillId: number; requiredMastery: number; current: number }[] } | null = null;
-    for (const g of sortedAsc) {
-      if (GRADE_ORDER[g.code] <= GRADE_ORDER[calculatedGrade]) continue;
-      const xpNeeded = Math.max(0, g.threshold - total);
-      const failedGates = g.gates
-        .filter((gate) => (scoreMap.get(gate.skillId) ?? 0) < gate.requiredMastery)
-        .map((gate) => ({
-          skillId: gate.skillId,
-          requiredMastery: gate.requiredMastery,
-          current: scoreMap.get(gate.skillId) ?? 0,
-        }));
-      nextGrade = { code: g.code, xpNeeded, failedGates };
-      break;
-    }
+    // Грейд — тем же calcGrade, что при публикации и на портрете: прогноз
+    // на форме не расходится с тем, что опубликуется. Раньше здесь была своя
+    // копия расчёта — без накопительных гейтов (Phase 24) и без пропуска
+    // гейтов по архивным навыкам. На форме только активные навыки.
+    const { calculatedGrade, effectiveGrade, nextGrade } = calcGrade({
+      build: designer.buildCode,
+      skills: skills.map((s) => ({
+        skillId: s.id,
+        taxonomyCode: s.taxonomyCode,
+        weight: s.weight,
+        active: true,
+      })),
+      scores: skills.map((s) => ({ skillId: s.id, masteryLevel: scores[s.id] ?? 0 })),
+      grades: grades.map((g) => ({ code: g.code, threshold: g.threshold, gates: g.gates })),
+      gradeFloor: designer.gradeFloor,
+    });
 
     return { total, byTax, filled, calculatedGrade, effectiveGrade, nextGrade };
-  }, [scores, skills, grades, designer.gradeFloor]);
+  }, [scores, skills, grades, designer.gradeFloor, designer.buildCode]);
 
   // Group skills by taxonomy → group
   const grouped = useMemo(() => {

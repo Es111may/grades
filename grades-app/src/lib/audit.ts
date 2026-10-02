@@ -59,6 +59,8 @@ export const AUDIT_ACTIONS = {
   ASSESSMENT_PUBLISHED: 'assessment_published',
   ASSESSMENT_REOPENED: 'assessment_reopened',
   ASSESSMENT_DELETED: 'assessment_deleted',
+  // Phase 24 — пересчёт сохранённого грейда скриптом (scripts/recalc-grades.ts)
+  ASSESSMENT_RECALCULATED: 'assessment_recalculated',
   // --- Lead reviews ---
   LEAD_REVIEW_IMPORTED: 'lead_review_imported',
   LEAD_REVIEW_UPDATED: 'lead_review_updated',
@@ -105,6 +107,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   assessment_published: 'Оценка опубликована',
   assessment_reopened: 'Оценка возвращена в черновик',
   assessment_deleted: 'Оценка удалена',
+  assessment_recalculated: 'Грейд пересчитан',
   lead_review_imported: '360-опрос импортирован',
   lead_review_updated: '360-опрос обновлён',
   lead_review_deleted: '360-опрос удалён',

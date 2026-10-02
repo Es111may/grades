@@ -70,7 +70,9 @@ const prefetchKanban = prefetchOnce(() => import('./KanbanView'));
 const prefetchMatrix = prefetchOnce(() => import('./MatrixView'));
 
 type Build = { id: number; code: string; name: string };
-type Lead = { id: number; fullName: string };
+/** email — у лида и стардиза в строке списка: приглашение на грейдирование
+ *  («В календарь» в поп-апе 360). В списках выбора лида его нет. */
+type Lead = { id: number; fullName: string; email?: string | null };
 export type UserRow = {
   id: number;
   email: string;
@@ -367,6 +369,14 @@ export default function UsersClient({
   // ошибочно показывала бы размер подвыборки — Pavel).
   const allActiveCount = useMemo(
     () => users.filter((u) => u.active).length,
+    [users],
+  );
+
+  // Имена и почты по id — для «В календарь» в поп-апе 360: организатор
+  // встречи (сам зритель) и запасной источник почты лида и стардиза —
+  // ответ «Изменить» сливается в строку без их почт.
+  const directory = useMemo(
+    () => new Map(users.map((u) => [u.id, { fullName: u.fullName, email: u.email }])),
     [users],
   );
 
@@ -691,6 +701,7 @@ export default function UsersClient({
           })()}
           meId={meId}
           meRole={meRole}
+          directory={directory}
           onClose={close360}
           onEdit={handleEditFrom360}
           onPlannedRaiseChange={(id, planned) => {

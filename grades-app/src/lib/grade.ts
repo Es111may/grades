@@ -35,11 +35,24 @@ export interface GradeThreshold {
   /** Пороги XP для билда (entry) */
   threshold: number;
   /**
-   * Обязательные навыки для этого грейда (для конкретного билда).
-   * Грейд считается достигнутым только если ВСЕ гейты пройдены
-   * (mastery >= requiredMastery).
+   * Собственные обязательные навыки этого грейда (для конкретного билда) —
+   * только то, что грейд добавляет сверху, как в листе «Гейты (билды)».
+   * Грейд достигнут, только если пройдены его гейты И гейты всех грейдов
+   * ниже (mastery >= requiredMastery) — см. cumulativeGates.
    */
   gates: { skillId: number; requiredMastery: number }[];
+}
+
+/** Непройденный гейт: сколько есть и сколько нужно. */
+export interface FailedGate {
+  skillId: number;
+  requiredMastery: number;
+  currentMastery: number;
+  /**
+   * Чей это гейт — грейд, который требует навык на этом уровне. Ниже
+   * проверяемого грейда — значит гейт унаследован (Phase 24).
+   */
+  gradeCode: GradeCode;
 }
 
 export interface GradeCalcInput {
@@ -70,7 +83,8 @@ export interface GradeCalcResult {
   nextGrade: {
     code: GradeCode;
     xpNeeded: number;
-    failedGates: { skillId: number; requiredMastery: number; currentMastery: number }[];
+    /** Непройденные гейты следующего грейда — вместе с унаследованными. */
+    failedGates: FailedGate[];
   } | null;
 }
 
@@ -101,29 +115,85 @@ export function calcXp(skills: SkillSnapshot[], scores: ScoreInput[]): {
 // Проверка гейтов
 // ============================================================
 
-function isGatesPassed(
-  scoreMap: Map<number, number>,
-  gates: { skillId: number; requiredMastery: number }[],
-): boolean {
-  for (const g of gates) {
-    const mastery = scoreMap.get(g.skillId) ?? 0;
-    if (mastery < g.requiredMastery) return false;
-  }
-  return true;
-}
-
-function getFailedGates(
-  scoreMap: Map<number, number>,
-  gates: { skillId: number; requiredMastery: number }[],
-) {
-  const failed: { skillId: number; requiredMastery: number; currentMastery: number }[] = [];
-  for (const g of gates) {
-    const mastery = scoreMap.get(g.skillId) ?? 0;
-    if (mastery < g.requiredMastery) {
-      failed.push({ ...g, currentMastery: mastery });
+/**
+ * Накопленные гейты грейда: его собственные + гейты всех грейдов ниже
+ * (Phase 24, подтверждённый баг 29.07.2026). В матрице гейты не повторяются
+ * от грейда к грейду — каждый добавляет свои: джун+ → «Компоненты и
+ * лейауты», мидл → «Эстимирование», мидл+ → «Защита», синьор →
+ * «Проактивность». Раньше проверялись только гейты выдаваемого грейда, и
+ * 250 XP без автолейаутов давали синьора, хотя в матрице «Без автолейаутов
+ * дальше не пускаем». У пре-мидла своих гейтов нет — он наследует
+ * джун-плюсовые.
+ *
+ * Один навык может стоять в нескольких грейдах с растущим уровнем
+ * (Концептинг 1 → 2 → 3 → 4) — остаётся строжайшее требование. При равных
+ * уровнях гейт приписан нижнему грейду: там навык потребовали впервые.
+ * Порядок — от нижнего грейда к верхнему, так унаследованные идут первыми.
+ */
+export function cumulativeGates(
+  grades: GradeThreshold[],
+  code: GradeCode,
+): { skillId: number; requiredMastery: number; gradeCode: GradeCode }[] {
+  const upTo = GRADE_ORDER[code];
+  const sortedAsc = [...grades].sort((a, b) => GRADE_ORDER[a.code] - GRADE_ORDER[b.code]);
+  const bySkill = new Map<number, { skillId: number; requiredMastery: number; gradeCode: GradeCode }>();
+  for (const g of sortedAsc) {
+    if (GRADE_ORDER[g.code] > upTo) break;
+    for (const gate of g.gates) {
+      const prev = bySkill.get(gate.skillId);
+      if (prev && prev.requiredMastery >= gate.requiredMastery) continue;
+      // delete + set — навык встаёт в порядок грейда со строжайшим требованием
+      bySkill.delete(gate.skillId);
+      bySkill.set(gate.skillId, {
+        skillId: gate.skillId,
+        requiredMastery: gate.requiredMastery,
+        gradeCode: g.code,
+      });
     }
   }
+  return Array.from(bySkill.values());
+}
+
+/** Активные навыки: гейты по архивным и отсутствующим не считаем (см. calcGrade). */
+function activeSkillIdSet(skills: SkillSnapshot[]): Set<number> {
+  const ids = new Set<number>();
+  for (const s of skills) if (s.active) ids.add(s.skillId);
+  return ids;
+}
+
+function scoreMapOf(scores: ScoreInput[]): Map<number, number> {
+  const m = new Map<number, number>();
+  for (const s of scores) m.set(s.skillId, s.masteryLevel);
+  return m;
+}
+
+function failedOf(
+  gates: { skillId: number; requiredMastery: number; gradeCode: GradeCode }[],
+  scoreMap: Map<number, number>,
+  activeSkillIds: Set<number>,
+): FailedGate[] {
+  const failed: FailedGate[] = [];
+  for (const g of gates) {
+    if (!activeSkillIds.has(g.skillId)) continue;
+    const mastery = scoreMap.get(g.skillId) ?? 0;
+    if (mastery < g.requiredMastery) failed.push({ ...g, currentMastery: mastery });
+  }
   return failed;
+}
+
+/**
+ * Непройденные гейты грейда вместе с унаследованными от грейдов ниже.
+ * Пустой список — гейты грейда пройдены (XP проверяется отдельно).
+ */
+export function failedGatesForGrade(
+  input: Pick<GradeCalcInput, 'skills' | 'scores' | 'grades'>,
+  code: GradeCode,
+): FailedGate[] {
+  return failedOf(
+    cumulativeGates(input.grades, code),
+    scoreMapOf(input.scores),
+    activeSkillIdSet(input.skills),
+  );
 }
 
 // ============================================================
@@ -133,32 +203,30 @@ function getFailedGates(
 export function calcGrade(input: GradeCalcInput): GradeCalcResult {
   const { skills, scores, grades, gradeFloor } = input;
 
-  // Сортируем по убыванию (от Senior к Intern)
+  // Сортируем по убыванию (от Senior к Junior)
   const sortedDesc = [...grades].sort((a, b) => GRADE_ORDER[b.code] - GRADE_ORDER[a.code]);
   const sortedAsc = [...grades].sort((a, b) => GRADE_ORDER[a.code] - GRADE_ORDER[b.code]);
 
   const { total, byTaxonomy } = calcXp(skills, scores);
 
-  const scoreMap = new Map<number, number>();
-  for (const s of scores) scoreMap.set(s.skillId, s.masteryLevel);
+  const scoreMap = scoreMapOf(scores);
 
   // Гейты считаем только по активным навыкам — если навык архивирован
   // (Skill.active=false), то и гейт по нему игнорируется. Иначе на портрете
   // вылетал «непройденный навык #546», потому что навык удалили из матрицы,
   // а гейт остался в gradelevel.gates.
-  const activeSkillIds = new Set<number>();
-  for (const s of skills) if (s.active) activeSkillIds.add(s.skillId);
-  const onlyActiveGates = (
-    gates: { skillId: number; requiredMastery: number }[],
-  ) => gates.filter((g) => activeSkillIds.has(g.skillId));
+  const activeSkillIds = activeSkillIdSet(skills);
+  const failedFor = (code: GradeCode) =>
+    failedOf(cumulativeGates(grades, code), scoreMap, activeSkillIds);
 
-  // Идём от Senior к Junior, ищем первый грейд, который человек проходит по обоим условиям.
+  // Идём от Senior к Junior, ищем первый грейд, который человек проходит по
+  // обоим условиям: XP ≥ порога и пройдены гейты — свои и всех грейдов ниже.
   // Junior — fallback (минимальный грейд, его порог = 0).
   let calculatedGrade: GradeCode = 'junior';
   for (const g of sortedDesc) {
     if (g.code === 'junior') continue;
     if (total < g.threshold) continue;
-    if (!isGatesPassed(scoreMap, onlyActiveGates(g.gates))) continue;
+    if (failedFor(g.code).length > 0) continue;
     calculatedGrade = g.code;
     break;
   }
@@ -169,13 +237,13 @@ export function calcGrade(input: GradeCalcInput): GradeCalcResult {
     effectiveGrade = gradeFloor;
   }
 
-  // Найти следующий по очереди грейд (для прогноза «до следующего грейда»)
+  // Найти следующий по очереди грейд (для прогноза «до следующего грейда»).
+  // Гейты — накопленные: всё, что не пройдено на пути к нему.
   let nextGrade: GradeCalcResult['nextGrade'] = null;
   for (const g of sortedAsc) {
     if (GRADE_ORDER[g.code] <= GRADE_ORDER[calculatedGrade]) continue;
     const xpNeeded = Math.max(0, g.threshold - total);
-    const failedGates = getFailedGates(scoreMap, onlyActiveGates(g.gates));
-    nextGrade = { code: g.code, xpNeeded, failedGates };
+    nextGrade = { code: g.code, xpNeeded, failedGates: failedFor(g.code) };
     break;
   }
 
