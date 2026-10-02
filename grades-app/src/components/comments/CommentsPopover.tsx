@@ -11,8 +11,8 @@ export type CommentsScope = 'page' | 'all';
 export type LoadState = 'loading' | 'ready' | 'error';
 
 /**
- * Поповер над кнопкой: «Эта страница · Все страницы», «Оставить
- * комментарий», фильтр «Открытые · Решённые», список тредов и выключатель
+ * Поповер над кнопкой: «Эта страница · Все страницы», в одном ряду фильтр
+ * «Открытые · Решённые» и маленькая «Оставить», список тредов и выключатель
  * меток. Клик по треду этой страницы — прокрутка к метке и карточка; по
  * треду другой страницы — переход туда, тред откроется там.
  */
@@ -67,7 +67,9 @@ const CommentsPopover = forwardRef<
           </button>
         </div>
 
-        <div className="segmented w-full" role="group" aria-label="Какие комментарии">
+        {/* Компактный сегмент (h-8, как в «Динамике по месяцам») — все три
+            ряда шапки одной высоты, шаг между ними 12px. */}
+        <div className="segmented w-full h-8 p-0.5" role="group" aria-label="Какие комментарии">
           {(
             [
               ['page', 'Эта страница'],
@@ -79,42 +81,54 @@ const CommentsPopover = forwardRef<
               type="button"
               aria-pressed={p.scope === key}
               onClick={() => p.onScope(key)}
-              className={`segmented-item flex-1 justify-center ${p.scope === key ? 'segmented-item-active' : ''}`}
+              className={`segmented-item h-7 px-3 text-xs flex-1 justify-center active:scale-[0.96]
+                          transition-[color,background-color,transform] duration-150 ${
+                            p.scope === key ? 'segmented-item-active' : ''
+                          }`}
             >
               {label}
             </button>
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={p.onAdd}
-          className="btn-accent w-full h-10 py-0 active:scale-[0.96]"
-        >
-          <PlusIcon />
-          Оставить комментарий
-        </button>
+        {/* Фильтр слева, «Оставить» справа в том же ряду. Порядок Tab — чипы,
+            затем кнопка. На «Все страницы» кнопка остаётся: комментарий
+            ставится на текущую страницу. */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1" role="group" aria-label="Статус">
+            {(
+              [
+                ['open', 'Открытые', open],
+                ['resolved', 'Решённые', resolved],
+              ] as const
+            ).map(([key, label, count]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={p.status === key}
+                onClick={() => p.onStatus(key)}
+                className={`chip h-8 px-3 active:scale-[0.96] transition-[color,background-color,transform] duration-150 ${
+                  p.status === key ? 'bg-ink text-snow' : 'bg-ink/[0.07] text-stone hover:text-ink'
+                }`}
+              >
+                {label}
+                <span className={`tabular-nums ${p.status === key ? 'text-snow/70' : 'text-ash'}`}>{count}</span>
+              </button>
+            ))}
+          </div>
 
-        <div className="flex items-center gap-1" role="group" aria-label="Статус">
-          {(
-            [
-              ['open', 'Открытые', open],
-              ['resolved', 'Решённые', resolved],
-            ] as const
-          ).map(([key, label, count]) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={p.status === key}
-              onClick={() => p.onStatus(key)}
-              className={`chip h-8 px-3 active:scale-[0.96] transition-[color,background-color,transform] duration-150 ${
-                p.status === key ? 'bg-ink text-snow' : 'bg-ink/[0.07] text-stone hover:text-ink'
-              }`}
-            >
-              {label}
-              <span className={`tabular-nums ${p.status === key ? 'text-snow/70' : 'text-ash'}`}>{count}</span>
-            </button>
-          ))}
+          {/* Высота как у чипов; слева у иконки отступ меньше — оптически
+              плюс «легче» буквы. Фокус — общий :focus-visible (sky-контур). */}
+          <button
+            type="button"
+            onClick={p.onAdd}
+            aria-label="Оставить комментарий"
+            className="btn-accent btn-sm ml-auto shrink-0 h-8 py-0 pl-2.5 pr-3 gap-1 active:scale-[0.96]
+                       transition-[filter,transform]"
+          >
+            <PlusIcon className="w-3.5 h-3.5" />
+            Оставить
+          </button>
         </div>
       </div>
 
@@ -142,7 +156,7 @@ const CommentsPopover = forwardRef<
             </p>
             {p.status === 'open' && p.scope === 'page' && (
               <p className="text-xs text-stone mt-1 text-pretty">
-                «Оставить комментарий» — и кликни в нужное место или протяни рамку
+                Нажми «Оставить» и кликни в нужное место или протяни рамку
               </p>
             )}
           </div>

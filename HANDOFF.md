@@ -73,7 +73,7 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.75.0 (комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
+**Версия в `package.json`:** 0.75.1 (комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
 
 **Phase 19 закрыто (0.24.0):**
 - `src/lib/audit.ts` — единый хелпер `writeAudit({actor, action, target, before?, after?, reason?, extra?})`. Падение записи не валит основной запрос. Словари `AUDIT_ACTIONS`, `AUDIT_ACTION_LABEL`, `AUDIT_TARGET_TYPE_LABEL` для UI.
