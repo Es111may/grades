@@ -583,24 +583,30 @@ export default function UsersClient({
           ))}
         </div>
 
-        {/* Поиск — единый компонент, тянется на всю свободную ширину строки */}
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Поиск по имени или email"
-          className="flex-1 min-w-[220px]"
-        />
-        {(meRole === 'admin' || meRole === 'lead') && (
-          <button
-            onClick={openNew}
-            onPointerEnter={prefetchUserModal}
-            onFocus={prefetchUserModal}
-            className="btn-accent h-10 py-0 shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
-                       hover:-translate-y-px hover:shadow-[0_0_34px_rgb(var(--lime-glow-rgb)_/_0.3)]"
-          >
-            Добавить
-          </button>
-        )}
+        {/* Поиск и «Добавить» — одной группой: не хватило места — на
+            следующую строку уходят вместе, кнопка одна не остаётся. Поиск
+            тянется на всю свободную ширину, но не уже 160px: так у админа
+            весь ряд влезает в 1176px контента (Pavel). Подсказка короткая:
+            «Поиск по имени или email» просит 216px; email ищется и так. */}
+        <div className="flex-1 flex items-center gap-1.5">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Поиск по имени"
+            className="flex-1 min-w-[160px]"
+          />
+          {(meRole === 'admin' || meRole === 'lead') && (
+            <button
+              onClick={openNew}
+              onPointerEnter={prefetchUserModal}
+              onFocus={prefetchUserModal}
+              className="btn-accent shrink-0 h-10 py-0 shadow-[0_0_24px_rgb(var(--lime-glow-rgb)_/_0.18)]
+                         hover:-translate-y-px hover:shadow-[0_0_34px_rgb(var(--lime-glow-rgb)_/_0.3)]"
+            >
+              Добавить
+            </button>
+          )}
+        </div>
       </div>
 
       {/* key={view} — при переключении вкладки контейнер пересоздаётся, и

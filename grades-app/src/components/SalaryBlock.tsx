@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ChevronDownIcon, CloseIcon } from '@/components/icons';
-import { formatDateShort, todayLocalIso } from '@/lib/dates';
+import Tooltip from '@/components/Tooltip';
+import { elapsedSince, formatDateShort, todayLocalIso } from '@/lib/dates';
 import {
   formatPct,
   formatThousands,
@@ -188,8 +189,9 @@ function BandChip({ view, size = 'md' }: { view: OkView; size?: 'md' | 'sm' }) {
 /**
  * Блок «Зарплата» (Phase 23.4) — в поп-апе 360 и в поп-апе карточки
  * «Зарплата» на странице дизайнера (по «+»). Ставка и вилка, рост,
- * последний пересмотр; история свёрнута, открывается «История» в строке
- * последнего пересмотра. Линию и заголовок секции ставит сам поп-ап.
+ * давность последнего пересмотра («1 год 3 мес. назад», дата — в хинте);
+ * история свёрнута, открывается «История» в строке последнего пересмотра.
+ * Линию и заголовок секции ставит сам поп-ап.
  * Пересмотр и премию запускает меню «⋯» того поп-апа, где блок стоит
  * (editSignal, bonusSignal).
  *
@@ -360,7 +362,21 @@ export default function SalaryBlock({
             )}
             <Row label="Последний пересмотр">
               {view.lastChange ? (
-                <span className="text-ink">{formatDateShort(view.lastChange.date)}</span>
+                /* Давность, а не дата (просьба лидов): сразу видно, давно ли
+                   пересматривали. Точная дата — в хинте и в истории: рядом
+                   с «Историей» «давность · дата» в строку не влезает (поп-ап
+                   420px: свободно 137px, нужно ~200).
+                   Хинт порталом: тело поп-апа прокручивается и обрезало бы
+                   CSS-хинт; salary-sensitive — глаз в шапке прячет и его. */
+                <Tooltip
+                  portal
+                  align="right"
+                  text={formatDateShort(view.lastChange.date)}
+                  tipClassName="salary-sensitive"
+                  className="cursor-help"
+                >
+                  <span className="text-ink">{elapsedSince(view.lastChange.date)}</span>
+                </Tooltip>
               ) : (
                 <span className="text-ash">—</span>
               )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { moscowIsoDate, todayLocalIso, todayMoscowIso } from '../dates';
+import { elapsedSince, formatDateShort, moscowIsoDate, todayLocalIso, todayMoscowIso } from '../dates';
 
 describe('todayLocalIso', () => {
   it('дата по местному времени, с ведущими нулями', () => {
@@ -34,5 +34,63 @@ describe('todayMoscowIso / moscowIsoDate', () => {
   it('смена года и ведущие нули', () => {
     expect(moscowIsoDate(new Date('2026-12-31T21:00Z'))).toBe('2027-01-01');
     expect(moscowIsoDate(new Date('2026-01-05T09:00Z'))).toBe('2026-01-05');
+  });
+});
+
+// «Последний пересмотр» в блоке «Зарплата»: давность вместо даты.
+// Сегодня в примерах — 2 октября 2026.
+describe('elapsedSince', () => {
+  const today = '2026-10-02';
+
+  it('меньше месяца — в днях: сегодня, вчера, через 29 дней', () => {
+    expect(elapsedSince('2026-10-02', today)).toBe('Сегодня');
+    expect(elapsedSince('2026-10-01', today)).toBe('Вчера');
+    expect(elapsedSince('2026-09-28', today)).toBe('4 дн. назад');
+    expect(elapsedSince('2026-09-03', today)).toBe('29 дн. назад');
+  });
+
+  it('ровно месяц и 11 месяцев', () => {
+    expect(elapsedSince('2026-09-02', today)).toBe('1 мес. назад');
+    expect(elapsedSince('2025-11-02', today)).toBe('11 мес. назад');
+    // За день до годовщины — ещё 11
+    expect(elapsedSince('2025-10-03', today)).toBe('11 мес. назад');
+  });
+
+  it('годы — с месяцами и без, «год / года / лет»', () => {
+    expect(elapsedSince('2025-10-02', today)).toBe('1 год назад');
+    expect(elapsedSince('2025-07-01', today)).toBe('1 год 3 мес. назад');
+    expect(elapsedSince('2024-10-02', today)).toBe('2 года назад');
+    expect(elapsedSince('2021-10-02', today)).toBe('5 лет назад');
+    expect(elapsedSince('2015-10-02', today)).toBe('11 лет назад');
+    expect(elapsedSince('2005-10-02', today)).toBe('21 год назад');
+    expect(elapsedSince('2002-04-02', today)).toBe('24 года 6 мес. назад');
+  });
+
+  it('31-е в коротком месяце наступает в его последний день', () => {
+    expect(elapsedSince('2027-01-31', '2027-02-27')).toBe('27 дн. назад');
+    expect(elapsedSince('2027-01-31', '2027-02-28')).toBe('1 мес. назад');
+    expect(elapsedSince('2028-01-31', '2028-02-29')).toBe('1 мес. назад');
+    expect(elapsedSince('2026-03-31', '2026-04-30')).toBe('1 мес. назад');
+  });
+
+  it('дата в будущем — «Вступит в силу» и дата', () => {
+    expect(elapsedSince('2026-10-05', today)).toBe(`Вступит в силу ${formatDateShort('2026-10-05')}`);
+    expect(elapsedSince('2026-10-05', today)).toMatch(/^Вступит в силу \d/);
+  });
+
+  // Момент из базы — по Москве: 2 сентября 21:30 UTC — уже 3 сентября,
+  // и до полного месяца не хватает дня
+  it('момент со временем — календарная дата по Москве', () => {
+    expect(elapsedSince('2026-09-02T20:30:00Z', today)).toBe('1 мес. назад');
+    expect(elapsedSince('2026-09-02T21:30:00Z', today)).toBe('29 дн. назад');
+  });
+
+  it('не дата — прочерк', () => {
+    expect(elapsedSince('', today)).toBe('—');
+    expect(elapsedSince('вчера', today)).toBe('—');
+  });
+
+  it('без «сегодня» — считает от сегодняшнего дня по Москве', () => {
+    expect(elapsedSince(todayMoscowIso())).toBe('Сегодня');
   });
 });

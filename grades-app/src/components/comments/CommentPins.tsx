@@ -3,11 +3,18 @@
 import type { ReactNode } from 'react';
 import Tooltip from '@/components/Tooltip';
 import { PlusIcon } from '@/components/icons';
-import type { ViewRect } from '@/lib/commentAnchor';
+import type { PinMode } from './anchorDom';
 import type { CommentStatus } from './types';
 
-/** Слои: метки — над поп-апами страницы (z-50), но под карточками слоя. */
+/**
+ * Слои. Метки поп-апов и шапки (fixed) — над поп-апами страницы (z-50), но
+ * под карточками слоя. Метки страницы (page) — в своём слое под шапкой
+ * (z-30) и меню страницы (z-30 и выше), над её содержимым (до z-20): у шапки
+ * метка уходит под стеклянный остров, как содержимое, а модалка с
+ * затемнением накрывает её вместе со страницей.
+ */
 export const Z = {
+  pagePins: 'z-[29]',
   pins: 'z-[70]',
   pinActive: 'z-[71]',
   button: 'z-[72]',
@@ -19,6 +26,19 @@ export const Z = {
   /** Хинты слоя — поверх его карточек (у Tooltip по умолчанию z-60). */
   tip: '!z-[95]',
 } as const;
+
+/** ref узла, которому useAnchorGeoms пишет положение. */
+type PlaceRef = (el: HTMLElement | null) => void;
+
+/**
+ * Узел-точка метки: стоит ровно в точке отметки (left/top пишет
+ * useAnchorGeoms, не React), сама метка — над ней и правее. В слое страницы
+ * — absolute в координатах документа, иначе — fixed.
+ */
+function pointClass(mode: PinMode, active: boolean): string {
+  if (mode === 'page') return `absolute ${active ? 'z-[1]' : ''}`;
+  return `fixed ${active ? Z.pinActive : Z.pins}`;
+}
 
 /** Размер метки, px. Хвостик «капли» — левый нижний угол, он и есть точка. */
 export const PIN = 24;
@@ -56,8 +76,8 @@ export function CommentPin({
   id,
   number,
   status,
-  x,
-  y,
+  mode,
+  placeRef,
   selected,
   preview,
   onClick,
@@ -65,49 +85,55 @@ export function CommentPin({
   id: number;
   number: number;
   status: CommentStatus;
-  x: number;
-  y: number;
+  mode: PinMode;
+  placeRef: PlaceRef;
   selected: boolean;
   /** Хинт по ховеру: автор и начало текста. Пока карточка открыта — нет. */
   preview: string | null;
   onClick: () => void;
 }) {
   return (
-    <Tooltip
-      portal
-      text={selected ? null : preview}
-      maxWidth={260}
-      tipClassName={Z.tip}
-      className={`fixed ${selected ? Z.pinActive : Z.pins}`}
-      // Хвостик — ровно в точке: метка стоит над ней и правее
-      style={{ left: x, top: y - PIN }}
-    >
-      <button
-        type="button"
-        data-comment-pin={id}
-        onClick={onClick}
-        aria-label={`Комментарий ${number}`}
-        aria-expanded={selected}
-        className={`relative block rounded-[12px_12px_12px_3px] origin-bottom-left
-                    transition-transform duration-150 ease-out hover:scale-[1.08] active:scale-[0.96]
-                    before:absolute before:-inset-1 before:content-['']
-                    ${selected ? 'scale-[1.12]' : ''}`}
+    <span ref={placeRef} className={pointClass(mode, selected)}>
+      <Tooltip
+        portal
+        text={selected ? null : preview}
+        maxWidth={260}
+        tipClassName={Z.tip}
+        // Хвостик — ровно в точке: метка стоит над ней и правее
+        className="absolute left-0 bottom-0"
       >
-        <PinShape status={status} selected={selected}>
-          {number}
-        </PinShape>
-      </button>
-    </Tooltip>
+        <button
+          type="button"
+          data-comment-pin={id}
+          onClick={onClick}
+          aria-label={`Комментарий ${number}`}
+          aria-expanded={selected}
+          className={`relative block rounded-[12px_12px_12px_3px] origin-bottom-left
+                      transition-transform duration-150 ease-out hover:scale-[1.08] active:scale-[0.96]
+                      before:absolute before:-inset-1 before:content-['']
+                      ${selected ? 'scale-[1.12]' : ''}`}
+        >
+          <PinShape status={status} selected={selected}>
+            {number}
+          </PinShape>
+        </button>
+      </Tooltip>
+    </span>
   );
 }
 
-/** Пунктирная рамка комментария-рамки. Клики не ловит — под ней страница. */
+/**
+ * Пунктирная рамка комментария-рамки — её видимая часть (положение и размер
+ * пишет useAnchorGeoms). Клики не ловит — под ней страница.
+ */
 export function RectOutline({
-  rect,
+  mode,
+  placeRef,
   status,
   selected,
 }: {
-  rect: ViewRect;
+  mode: PinMode;
+  placeRef: PlaceRef;
   status: CommentStatus | 'draft';
   selected: boolean;
 }) {
@@ -119,20 +145,22 @@ export function RectOutline({
         : 'border-lime-dark/70';
   return (
     <div
+      ref={placeRef}
       aria-hidden
-      className={`fixed pointer-events-none rounded-[4px] border-[1.5px] border-dashed ${Z.pins} ${tone}`}
-      style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }}
+      className={`${mode === 'page' ? 'absolute' : `fixed ${Z.pins}`} pointer-events-none rounded-[4px] border-[1.5px] border-dashed ${tone}`}
     />
   );
 }
 
 /** Метка нового комментария, пока его пишут. */
-export function DraftPin({ x, y }: { x: number; y: number }) {
+export function DraftPin({ mode, placeRef }: { mode: PinMode; placeRef: PlaceRef }) {
   return (
-    <span aria-hidden className={`fixed pointer-events-none ${Z.pinActive}`} style={{ left: x, top: y - PIN }}>
-      <PinShape status="draft">
-        <PlusIcon className="w-3.5 h-3.5" />
-      </PinShape>
+    <span ref={placeRef} aria-hidden className={`${pointClass(mode, true)} pointer-events-none`}>
+      <span className="absolute left-0 bottom-0">
+        <PinShape status="draft">
+          <PlusIcon className="w-3.5 h-3.5" />
+        </PinShape>
+      </span>
     </span>
   );
 }

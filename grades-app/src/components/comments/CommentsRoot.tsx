@@ -24,7 +24,7 @@ import {
   uiCommentPlaceHref,
 } from '@/lib/uiCommentsShared';
 import { createThread, fetchAllThreads, fetchPageThreads, uploadShot } from './api';
-import { buildAnchor, measureAnchor, revealAnchor, type AnchorGeom } from './anchorDom';
+import { buildAnchor, measureAnchor, revealAnchor, type AnchorGeom, type PinMode } from './anchorDom';
 import { captureShot, nextPaint, type CapturedShot } from './captureShot';
 import CommentComposer, { type SubmitPhase } from './CommentComposer';
 import { CommentPin, DraftPin, PIN, RectOutline, Z } from './CommentPins';
@@ -68,10 +68,12 @@ function markRect(g: AnchorGeom): ViewRect {
 /**
  * Комментарии к интерфейсу «как в Figma» для админа и лидов: кружок в
  * правом нижнем углу, поповер со списком, постановка точки или рамки,
- * метки на странице и карточка треда. Всё — порталом в body с position:
- * fixed: вёрстка страницы не сдвигается. Слой — над поп-апами страницы
- * (z-50), чтобы комментировать и внутри них; события слоя поп-апы и меню
- * страницы не закрывают (lib/commentsLayer).
+ * метки на странице и карточка треда. Всё — порталом в body, вёрстка
+ * страницы не сдвигается. Кнопка, карточки и метки поп-апов — position:
+ * fixed над поп-апами страницы (z-50), чтобы комментировать и внутри них;
+ * метки страницы — absolute в координатах документа под шапкой (см. PinMode
+ * в anchorDom). События слоя поп-апы и меню страницы не закрывают
+ * (lib/commentsLayer).
  *
  * Место и страница. path — где человек сейчас: адрес без hash, из search —
  * только параметры места (lib/uiCommentsShared: ?person= у поп-апа 360).
@@ -237,7 +239,12 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
     [threads, hereIds, draft],
   );
   const geomActive = mounted && (showPins || popover || selectedId != null || draft != null);
-  const geoms = useAnchorGeoms(entries, geomActive);
+  // follow — за чьей меткой едет карточка: её положение нужно React'у
+  const follow = useMemo(
+    () => [...(selectedId != null ? [`t${selectedId}`] : []), ...(draft ? [draft.key] : [])],
+    [selectedId, draft],
+  );
+  const { geoms, bind } = useAnchorGeoms(entries, geomActive, follow);
 
   const selected = selectedId != null ? (threads.find((t) => t.id === selectedId) ?? null) : null;
   const selectedHere = !!selected && hereIds.has(selected.id);
@@ -467,38 +474,61 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   // Что-то открыто — Escape страниц его не трогает (lib/commentsLayer)
   const layerOpen = popover || placing || !!draft || selected != null;
 
-  return createPortal(
-    <div {...{ [COMMENTS_LAYER_ATTR]: layerOpen ? COMMENTS_LAYER_OPEN : '' }} className="hidden lg:block">
-      {/* Рамки — под метками */}
-      {pinThreads.map((t) => {
-        const g = geoms.get(`t${t.id}`);
-        if (!g || g.status !== 'ok' || !g.clip) return null;
-        return <RectOutline key={`r${t.id}`} rect={g.clip} status={t.status} selected={t.id === selectedId} />;
-      })}
-      {pinThreads.map((t) => {
-        const g = geoms.get(`t${t.id}`);
-        if (!g || g.status !== 'ok') return null;
-        return (
+  // Метки и рамки одного слоя (page или fixed). Положение не в пропсах — его
+  // пишет useAnchorGeoms через bind; React решает только, что нарисовать
+  const marks = (mode: PinMode) => {
+    const here = pinThreads.filter((t) => {
+      const g = geoms.get(`t${t.id}`);
+      return !!g && g.shown && g.mode === mode;
+    });
+    const draftHere = !!draft && !!draftGeom && draftGeom.shown && draftGeom.mode === mode;
+    return (
+      <>
+        {/* Рамки — под метками */}
+        {here.map((t) =>
+          geoms.get(`t${t.id}`)?.place.clip ? (
+            <RectOutline
+              key={`r${t.id}`}
+              mode={mode}
+              placeRef={bind(`t${t.id}`, 'rect')}
+              status={t.status}
+              selected={t.id === selectedId}
+            />
+          ) : null,
+        )}
+        {here.map((t) => (
           <CommentPin
             key={t.id}
             id={t.id}
             number={numbers.get(t.id) ?? 0}
             status={t.status}
-            x={g.x}
-            y={g.y}
+            mode={mode}
+            placeRef={bind(`t${t.id}`, 'pin')}
             selected={t.id === selectedId}
             preview={placing ? null : `${t.author.fullName}: ${t.text.slice(0, 120)}`}
             onClick={() => setSelectedId((cur) => (cur === t.id ? null : t.id))}
           />
-        );
-      })}
+        ))}
+        {draftHere && (
+          <>
+            {draftGeom.place.clip && (
+              <RectOutline mode={mode} placeRef={bind(draft.key, 'rect')} status="draft" selected />
+            )}
+            <DraftPin mode={mode} placeRef={bind(draft.key, 'pin')} />
+          </>
+        )}
+      </>
+    );
+  };
 
-      {draft && draftGeom && draftGeom.status !== 'missing' && (
-        <>
-          {draftGeom.clip && <RectOutline rect={draftGeom.clip} status="draft" selected />}
-          {draftGeom.status === 'ok' && <DraftPin x={draftGeom.x} y={draftGeom.y} />}
-        </>
-      )}
+  return createPortal(
+    <div {...{ [COMMENTS_LAYER_ATTR]: layerOpen ? COMMENTS_LAYER_OPEN : '' }} className="hidden lg:block">
+      {/* Метки страницы — в координатах документа, под шапкой: едут со
+          скроллом сами. overflow-x-clip — метка у правого края не даёт
+          странице горизонтальную прокрутку */}
+      <div className={`absolute inset-x-0 top-0 h-0 overflow-x-clip ${Z.pagePins}`}>{marks('page')}</div>
+      {/* Метки поп-апов и шапки — fixed, над поп-апами */}
+      {marks('fixed')}
 
       {/* Кнопка: обводка не нужна — глубину даёт тень. Иконка: контур, при
           открытом поповере — заливка (обе в DOM, кросс-фейд). */}

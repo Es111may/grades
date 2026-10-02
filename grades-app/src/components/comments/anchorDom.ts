@@ -205,75 +205,159 @@ export function buildAnchor(kind: CommentAnchorKind, selection: ViewRect): Comme
 // ── Где отметка сейчас ──────────────────────────────────────────────────
 
 /**
- * ok — видна; offscreen — найдена, но не видна (прокручена, под модалкой,
- * за краем); hidden — элемент есть, но скрыт (display: none); missing —
- * селектор не нашёл элемент (другая вёрстка, закрытый поп-ап).
+ * ok — видна на экране; offscreen — найдена, но сейчас не на экране (за
+ * краем окна, обрезана прокруткой, под модалкой); hidden — элемент есть, но
+ * скрыт (display: none); missing — селектор не нашёл элемент (другая
+ * вёрстка, закрытый поп-ап).
  */
 export type AnchorStatus = 'ok' | 'offscreen' | 'hidden' | 'missing';
+
+/**
+ * Где живёт метка.
+ *
+ * page — якорь в потоке страницы. Метка стоит в координатах документа и
+ * едет со скроллом сама, силами композитора: без пересчёта и записи в DOM на
+ * каждый кадр, без отставания от содержимого. Слой таких меток — под шапкой
+ * (Z.pagePins): у шапки метка уходит под стеклянный остров, как любое
+ * содержимое страницы, а не мигает поверх него (Pavel, 02.10.2026).
+ *
+ * fixed — якорь внутри fixed-контейнера (поп-ап, модалка) или в самой
+ * шапке: метка в координатах окна и над поп-апами (Z.pins).
+ */
+export type PinMode = 'page' | 'fixed';
 
 export type AnchorGeom = {
   status: AnchorStatus;
   /** Левый верхний угол отметки (точка или угол рамки), вьюпорт. */
   x: number;
   y: number;
-  /** Рамка целиком — для позиционирования карточки. */
+  /** Рамка целиком, вьюпорт — для позиционирования карточки. */
   rect?: ViewRect;
-  /** Видимая часть рамки (обрезанная прокручиваемыми предками). */
-  clip?: ViewRect;
   el?: Element;
+  mode: PinMode;
+  /**
+   * Рисовать ли метку. page — точку не обрезали прокручиваемые предки и она
+   * не под fixed-слоем (модалкой); за краем окна метка остаётся в DOM — она
+   * просто вне экрана, при скролле её не надо ни снимать, ни ставить. fixed —
+   * точка на экране и не перекрыта.
+   */
+  shown: boolean;
+  /**
+   * Точка и видимая часть рамки в координатах слоя метки: документа (page)
+   * или окна (fixed). Их пишет в DOM useAnchorGeoms, не React.
+   */
+  place: { x: number; y: number; clip?: ViewRect };
+  /**
+   * Скролл окна не двигает метку в координатах её слоя: у page документ
+   * едет вместе с ней, у fixed якорь не едет вовсе. Нет — у якоря есть
+   * sticky-предок (или он сам sticky): прилипая, он смещается и в документе,
+   * и в окне. Таким меткам пересчёт нужен на каждом кадре скролла окна,
+   * остальным — нет.
+   */
+  steady: boolean;
 };
 
-// Предки, которые обрезают содержимое (overflow не visible). Кэш — до
-// следующей мутации DOM: getComputedStyle на каждый кадр скролла дорог.
-let clipCache = new WeakMap<Element, Element[]>();
+function absent(status: 'missing' | 'hidden', el?: Element): AnchorGeom {
+  return { status, x: 0, y: 0, el, mode: 'page', shown: false, place: { x: 0, y: 0 }, steady: true };
+}
+
+/** Шапка приложения: метки на ней — над островом, а не под ним. */
+const APP_HEADER = attrSelector(ANCHOR_ATTR, 'header');
+
+/**
+ * Что элементу дают предки (и он сам): какие из предков обрезают содержимое
+ * (overflow не visible), есть ли fixed (поп-ап, модалка, плавающая панель) и
+ * sticky до него. Кэш — до следующей мутации DOM: getComputedStyle на каждый
+ * кадр скролла дорог.
+ */
+type Ancestry = { clips: Element[]; fixed: boolean; sticky: boolean };
+let ancestryCache = new WeakMap<Element, Ancestry>();
+// Якорь по селектору — тоже до мутации: querySelector по атрибуту обходит
+// весь документ, и на каждом кадре скролла это была главная статья расхода
+let queryCache = new Map<string, Element | null>();
 
 export function resetAnchorCaches() {
-  clipCache = new WeakMap();
+  ancestryCache = new WeakMap();
+  queryCache = new Map();
 }
 
-function clippingAncestors(el: Element): Element[] {
-  const hit = clipCache.get(el);
+function cachedQuery(selector: string): Element | null {
+  const hit = queryCache.get(selector);
+  if (hit !== undefined && (hit === null || hit.isConnected)) return hit;
+  const el = safeQuery(selector);
+  queryCache.set(selector, el);
+  return el;
+}
+
+function ancestry(el: Element): Ancestry {
+  const hit = ancestryCache.get(el);
   if (hit) return hit;
-  const list: Element[] = [];
-  for (let p = el.parentElement; p && !isBoundary(p); p = p.parentElement) {
+  const clips: Element[] = [];
+  const own = getComputedStyle(el).position;
+  let fixed = own === 'fixed';
+  let sticky = own === 'sticky';
+  // Дальше fixed-предка обрезка прокруткой документа не действует
+  for (let p = el.parentElement; p && !fixed && !isBoundary(p); p = p.parentElement) {
     const cs = getComputedStyle(p);
-    if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') list.push(p);
-    // Дальше fixed-предка обрезка прокруткой документа не действует
-    if (cs.position === 'fixed') break;
+    if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') clips.push(p);
+    if (cs.position === 'fixed') fixed = true;
+    if (cs.position === 'sticky') sticky = true;
   }
-  clipCache.set(el, list);
-  return list;
+  const a = { clips, fixed, sticky };
+  ancestryCache.set(el, a);
+  return a;
 }
 
-function clipRectFor(el: Element): ViewRect | null {
-  let clip: ViewRect | null = viewportRect();
-  for (const a of clippingAncestors(el)) {
+/** Без границ: метку страницы край окна не обрезает. */
+const UNBOUNDED: ViewRect = { left: -1e9, top: -1e9, width: 2e9, height: 2e9 };
+
+/** Видимая область вокруг элемента: start (окно или без границ) ∩ обрезающие предки. */
+function clipWithin(el: Element | undefined, start: ViewRect): ViewRect | null {
+  let clip: ViewRect | null = start;
+  if (!el) return clip;
+  for (const a of ancestry(el).clips) {
     clip = intersectRects(clip, toViewRect(a.getBoundingClientRect()));
     if (!clip) return null;
   }
   return clip;
 }
 
+/** Сверху под точкой — сам якорь, его потомок или предок. */
+function hitsAnchor(el: Element, hit: Element): boolean {
+  return el === hit || el.contains(hit) || hit.contains(el);
+}
+
 /**
- * Не перекрыта ли точка чужим слоем: модалкой с затемнением, островом
- * шапки. Сверху под точкой должен оказаться сам якорь или его потомок.
+ * Метка fixed: не перекрыта ли точка чужим слоем — модалкой с затемнением
+ * поверх поп-апа, другим поп-апом.
  */
 function isCovered(el: Element, x: number, y: number): boolean {
   const hit = pageElementAt(x, y);
   if (!hit) return true;
-  return !(el === hit || el.contains(hit) || hit.contains(el));
+  return !hitsAnchor(el, hit);
+}
+
+/**
+ * Метка страницы: не под fixed-слоем ли точка (модалка с затемнением,
+ * плавающая панель). Шапка и меню страницы — не fixed: под них метка уходит
+ * сама, по z-index слоя.
+ */
+function isUnderOverlay(el: Element, x: number, y: number): boolean {
+  const hit = pageElementAt(x, y);
+  if (!hit || hitsAnchor(el, hit)) return false;
+  return ancestry(hit).fixed;
 }
 
 export function measureAnchor(anchor: CommentAnchor | null): AnchorGeom {
-  if (!anchor) return { status: 'missing', x: 0, y: 0 };
+  if (!anchor) return absent('missing');
   let target: ViewRect;
   let el: Element | undefined;
   if (anchor.selector) {
-    const found = safeQuery(anchor.selector);
-    if (!found) return { status: 'missing', x: 0, y: 0 };
+    const found = cachedQuery(anchor.selector);
+    if (!found) return absent('missing');
     el = found;
     const r = found.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) return { status: 'hidden', x: 0, y: 0, el };
+    if (r.width === 0 && r.height === 0) return absent('hidden', el);
     target = anchor.rel
       ? rectFromRel(toViewRect(r), anchor.rel)
       : rectFromAbs(anchor.abs, mainLeft(), window.scrollY);
@@ -281,6 +365,7 @@ export function measureAnchor(anchor: CommentAnchor | null): AnchorGeom {
     target = rectFromAbs(anchor.abs, mainLeft(), window.scrollY);
   }
 
+  const mode: PinMode = el && (ancestry(el).fixed || el.closest(APP_HEADER)) ? 'fixed' : 'page';
   const x = Math.round(target.left);
   const y = Math.round(target.top);
   const rect: ViewRect = {
@@ -289,26 +374,58 @@ export function measureAnchor(anchor: CommentAnchor | null): AnchorGeom {
     width: Math.round(target.width),
     height: Math.round(target.height),
   };
-  const clip = el ? clipRectFor(el) : viewportRect();
   const isRect = anchor.kind === 'rect';
-  const visiblePart = clip ? intersectRects(rect, clip) : null;
+  const view = viewportRect();
+  const clip = clipWithin(el, mode === 'page' ? UNBOUNDED : view);
+  const onScreen = pointInRect({ x, y }, view);
+  let shown = !!clip && pointInRect({ x, y }, clip);
 
-  // Проверяем точку чуть внутри элемента: на самой границе elementsFromPoint
-  // уже попадает в соседа
-  let visible = !!clip && pointInRect({ x, y }, clip);
-  if (visible && el) {
+  // Перекрытие проверяем только на экране: за его краем elementsFromPoint
+  // пуст. Точку берём чуть внутри элемента: на самой границе
+  // elementsFromPoint уже попадает в соседа
+  if (shown && onScreen && el) {
     const r = el.getBoundingClientRect();
     const px = Math.min(Math.max(x + (isRect ? 2 : 0), r.left + 1), r.right - 1);
     const py = Math.min(Math.max(y + (isRect ? 2 : 0), r.top + 1), r.bottom - 1);
-    visible = !isCovered(el, px, py);
+    shown = mode === 'page' ? !isUnderOverlay(el, px, py) : !isCovered(el, px, py);
   }
+  if (mode === 'fixed') shown = shown && onScreen;
+
+  // Координаты слоя: у page — документ. Считаем от дробных значений, иначе
+  // округление гуляло бы на пиксель от кадра к кадру скролла
+  const ox = mode === 'page' ? window.scrollX : 0;
+  const oy = mode === 'page' ? window.scrollY : 0;
+  const placed: ViewRect = {
+    left: Math.round(target.left + ox),
+    top: Math.round(target.top + oy),
+    width: rect.width,
+    height: rect.height,
+  };
+  const visiblePart =
+    isRect && shown && clip
+      ? intersectRects(placed, { ...clip, left: clip.left + ox, top: clip.top + oy })
+      : null;
   return {
-    status: visible ? 'ok' : 'offscreen',
+    status: shown && onScreen ? 'ok' : 'offscreen',
     x,
     y,
     rect,
-    clip: isRect && visible && visiblePart ? visiblePart : undefined,
     el,
+    mode,
+    shown,
+    steady: !el || !ancestry(el).sticky,
+    place: {
+      x: placed.left,
+      y: placed.top,
+      clip: visiblePart
+        ? {
+            left: Math.round(visiblePart.left),
+            top: Math.round(visiblePart.top),
+            width: Math.round(visiblePart.width),
+            height: Math.round(visiblePart.height),
+          }
+        : undefined,
+    },
   };
 }
 
@@ -319,7 +436,7 @@ export function revealAnchor(anchor: CommentAnchor | null) {
   if (g.status === 'missing' || g.status === 'hidden') return;
   const vh = document.documentElement.clientHeight;
   // Прокручиваемые предки (поп-ап, таблица) — до элемента
-  if (g.el && clippingAncestors(g.el).length) {
+  if (g.el && ancestry(g.el).clips.length) {
     g.el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
   const after = measureAnchor(anchor);
