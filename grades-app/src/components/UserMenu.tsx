@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { signOut, signIn, useSession } from 'next-auth/react';
 import Avatar from './Avatar';
+import { isFromCommentsLayer } from '@/lib/commentsLayer';
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Админ',
@@ -44,6 +45,7 @@ export default function UserMenu({
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
+      if (isFromCommentsLayer(e)) return;
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
       }

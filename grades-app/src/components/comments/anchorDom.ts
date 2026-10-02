@@ -10,6 +10,7 @@ import {
   isStableId,
   nthPath,
   pointInRect,
+  popupLabel,
   rectFromAbs,
   rectFromRel,
   relWithin,
@@ -19,19 +20,19 @@ import {
   type PathStep,
   type ViewRect,
 } from '@/lib/commentAnchor';
+import { isInCommentsLayer } from '@/lib/commentsLayer';
+import { UI_COMMENT_LIMITS } from '@/lib/uiCommentsShared';
 
-/** Атрибут корня слоя: всё внутри — наш интерфейс, не страница. */
-export const UI_ATTR = 'data-comments-ui';
 /** Стабильные области страницы для привязки (ставятся в вёрстке). */
 export const ANCHOR_ATTR = 'data-comment-anchor';
+/**
+ * Подпись места на корне поп-апа: data-comment-context="Поп-ап: Саша
+ * Тимкина". Нет — у role=dialog подпись берём из его заголовка.
+ */
+export const CONTEXT_ATTR = 'data-comment-context';
 
 /** Длина пути nth-of-type от опорного предка: короче — устойчивее к правкам. */
 const MAX_PATH_DEPTH = 5;
-
-export function isInsideUi(node: Node | null): boolean {
-  const el = node instanceof Element ? node : node?.parentElement;
-  return !!el?.closest(`[${UI_ATTR}]`);
-}
 
 function toViewRect(r: DOMRect): ViewRect {
   return { left: r.left, top: r.top, width: r.width, height: r.height };
@@ -49,7 +50,7 @@ function mainLeft(): number {
 /** Верхний элемент страницы под точкой — мимо слоя комментариев. */
 export function pageElementAt(x: number, y: number): Element | null {
   for (const el of document.elementsFromPoint(x, y)) {
-    if (!isInsideUi(el)) return el;
+    if (!isInCommentsLayer(el)) return el;
   }
   return null;
 }
@@ -148,6 +149,17 @@ function pickAnchor(
   return safeQuery(selector) === el ? { el, selector } : { el };
 }
 
+/** В каком поп-апе отметка: подпись с корня поп-апа или заголовок диалога. */
+function contextLabel(target: Element): string | undefined {
+  const own = target.closest(`[${CONTEXT_ATTR}]`)?.getAttribute(CONTEXT_ATTR);
+  if (own?.trim()) return trimSnippet(own, UI_COMMENT_LIMITS.contextLabelMax);
+  const dialog = target.closest('[role="dialog"], [role="alertdialog"], [aria-modal="true"]');
+  if (!dialog) return undefined;
+  const labelledBy = dialog.getAttribute('aria-labelledby')?.split(/\s+/)[0];
+  const heading = (labelledBy ? document.getElementById(labelledBy) : null) ?? dialog.querySelector('h1, h2, h3');
+  return popupLabel(heading?.innerText || dialog.getAttribute('aria-label'));
+}
+
 /**
  * Якорь для новой отметки: точка (рамка нулевого размера) или рамка во
  * вьюпортных координатах. Вызывать, пока оверлей постановки ещё в DOM —
@@ -185,6 +197,8 @@ export function buildAnchor(kind: CommentAnchorKind, selection: ViewRect): Comme
   const text = el instanceof HTMLElement ? el.innerText : el.textContent;
   const snippet = trimSnippet(text);
   if (snippet) anchor.snippet = snippet;
+  const label = contextLabel(target);
+  if (label) anchor.context = { label };
   return anchor;
 }
 

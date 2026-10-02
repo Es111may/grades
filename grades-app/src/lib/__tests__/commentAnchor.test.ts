@@ -9,18 +9,24 @@ import {
   containsRect,
   initials,
   intersectRects,
+  isPopupAnchor,
   isStableId,
+  missingLabel,
   normalizeRect,
   nthPath,
   pageLabel,
   parseCommentHash,
+  placeCaption,
   plural,
   pointInRect,
+  popupLabel,
   rectFromAbs,
   rectFromRel,
   relWithin,
   relativeTime,
+  threadHint,
   trimSnippet,
+  type CommentAnchor,
 } from '../commentAnchor';
 
 describe('жест: точка или рамка', () => {
@@ -164,6 +170,66 @@ describe('ссылка и путь', () => {
     expect(pageLabel('/admin/lead-reviews/12')).toBe('Портрет лида');
     expect(pageLabel('/admin/lead-reviews/new')).toBe('Загрузка 360-опроса');
     expect(pageLabel('/admin/userslist')).toBe('/admin/userslist');
+  });
+});
+
+describe('поп-апы', () => {
+  const at = (selector?: string, label?: string): CommentAnchor => ({
+    kind: 'point',
+    abs: { x: 1, y: 2 },
+    viewportW: 1440,
+    ...(selector ? { selector } : {}),
+    ...(label ? { context: { label } } : {}),
+  });
+
+  it('подпись поп-апа — по заголовку, в пределе длины', () => {
+    expect(popupLabel('  Саша\n Тимкина ')).toBe('Поп-ап: Саша Тимкина');
+    expect(popupLabel('')).toBeUndefined();
+    expect(popupLabel(null)).toBeUndefined();
+    expect(popupLabel('я'.repeat(300))!.length).toBeLessThanOrEqual(120);
+  });
+
+  it('место в поп-апе — по подписи или по опоре поп-апа', () => {
+    expect(isPopupAnchor(at('[data-comment-anchor="popup-360"]'))).toBe(true);
+    expect(isPopupAnchor(at('[data-comment-anchor="popup-360-salary"] > div:nth-of-type(2)'))).toBe(true);
+    expect(isPopupAnchor(at('[data-comment-anchor="user-modal"]'))).toBe(true);
+    expect(isPopupAnchor(at('[role="dialog"] > div:nth-of-type(1)'))).toBe(true);
+    expect(isPopupAnchor(at(undefined, 'Поп-ап: Зарплата'))).toBe(true);
+    expect(isPopupAnchor(at('[data-comment-anchor="team-bento"]'))).toBe(false);
+    expect(isPopupAnchor(at('[data-comment-anchor="user-modal-x"]'))).toBe(false);
+    expect(isPopupAnchor(at())).toBe(false);
+    expect(isPopupAnchor(null)).toBe(false);
+  });
+
+  it('подпись треда из другого места страницы', () => {
+    const label = 'Поп-ап: Саша Тимкина';
+    expect(placeCaption({ path: '/admin/users?person=5', anchor: at('[data-comment-anchor="popup-360"]', label) })).toBe(
+      'В поп-апе: Саша Тимкина',
+    );
+    expect(placeCaption({ path: '/admin/users?person=5', anchor: at('[data-comment-anchor="popup-360"]') })).toBe('В поп-апе');
+    expect(placeCaption({ path: '/admin/users?person=5', anchor: at(undefined, 'Карточка') })).toBe('Карточка');
+    expect(placeCaption({ path: '/admin/users', anchor: at('[data-comment-anchor="team-bento"]') })).toBe('На странице');
+  });
+
+  it('что сказать, если метки не видно', () => {
+    const popup = at('[data-comment-anchor="popup-360"]', 'Поп-ап: Саша Тимкина');
+    const page = at('[data-comment-anchor="team-bento"]');
+    // Метка на экране — пояснять нечего
+    expect(threadHint({ here: true, missing: false, path: '/admin/users', anchor: page })).toBeNull();
+    // Поп-ап другого человека или закрыт
+    expect(threadHint({ here: false, missing: false, path: '/admin/users?person=5', anchor: popup })).toBe(
+      'В поп-апе: Саша Тимкина. Откройте его, чтобы увидеть метку.',
+    );
+    // Тред самой страницы, а открыт поп-ап
+    expect(threadHint({ here: false, missing: false, path: '/admin/users', anchor: page })).toMatch(/Закройте поп-ап/);
+    // Старый тред из поп-апа без человека в пути (до 0.75.2)
+    const legacy = at('[data-comment-anchor="popup-360"]');
+    expect(threadHint({ here: true, missing: true, path: '/admin/users', anchor: legacy })).toBe(
+      'Откройте поп-ап, чтобы увидеть место.',
+    );
+    expect(missingLabel(legacy)).toBe('Откройте поп-ап, чтобы увидеть место');
+    expect(threadHint({ here: true, missing: true, path: '/admin/users', anchor: page })).toMatch(/^Место не найдено/);
+    expect(missingLabel(page)).toBe('Место не найдено');
   });
 });
 

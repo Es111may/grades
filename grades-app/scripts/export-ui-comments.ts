@@ -104,6 +104,8 @@ export function anchorSummary(anchor: UiCommentAnchor | null): string {
   if (!anchor) return 'место не сохранилось';
   const rect = anchor.kind === 'rect';
   const parts: string[] = [rect ? 'рамка' : 'точка'];
+  // Где внутри страницы — «Поп-ап: Саша Тимкина»; чей поп-ап — ещё и в пути
+  if (anchor.context?.label) parts.push(anchor.context.label);
   if (anchor.selector) parts.push(code(anchor.selector));
   if (anchor.snippet) parts.push(`«${anchor.snippet.replace(/\s+/g, ' ')}»`);
   if (anchor.rel) {

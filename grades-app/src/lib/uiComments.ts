@@ -13,9 +13,12 @@ import { avatarSrc } from './avatar';
 import {
   isUiCommentStatus,
   uiCommentAnchorSchema,
+  uiCommentPageOf,
+  uiCommentPopupPrefix,
   type UiCommentAuthorDto,
   type UiCommentDto,
   type UiCommentReplyDto,
+  type UiCommentStatus,
 } from './uiCommentsShared';
 
 export * from './uiCommentsShared';
@@ -59,6 +62,39 @@ export const UI_COMMENT_THREAD_SELECT = {
   resolvedBy: { select: { id: true, fullName: true } },
   replies: { select: UI_COMMENT_REPLY_SELECT, orderBy: { createdAt: 'asc' } },
 } as const satisfies Prisma.UiCommentSelect;
+
+// ── Какие треды отдавать ─────────────────────────────────────────────────
+
+/**
+ * Выборка тредов GET /api/ui-comments (только корни, parentId = null):
+ *   page  — треды страницы и её поп-апов: path = page или
+ *           path LIKE 'page?%' (поп-ап 360 — /admin/users?person=5; у
+ *           страницы с id в адресе — 'page&%');
+ *   path  — ровно этот путь (старый клиент, до page=);
+ *   scope — все страницы.
+ * Путь и страница приходят уже нормализованными (схемы lib/uiCommentsShared).
+ */
+export type UiCommentThreadsQuery = { status?: UiCommentStatus } & (
+  | { scope: 'all' }
+  | { page: string }
+  | { path: string }
+);
+
+export function uiCommentThreadsWhere(q: UiCommentThreadsQuery): Prisma.UiCommentWhereInput {
+  const where: Prisma.UiCommentWhereInput = { parentId: null };
+  if ('page' in q) where.OR = [{ path: q.page }, { path: { startsWith: uiCommentPopupPrefix(q.page) } }];
+  else if ('path' in q) where.path = q.path;
+  if (q.status) where.status = q.status;
+  return where;
+}
+
+/**
+ * Строка БД действительно с этой страницы. Добивка к startsWith: «_» и «%»
+ * в LIKE — шаблоны, а старые пути (до правила параметров) нормализуем.
+ */
+export function isUiCommentOnPage(path: string, page: string): boolean {
+  return uiCommentPageOf(path) === page;
+}
 
 // Строки — структурно, без Prisma-типов: тесты собирают их руками, а роуты
 // передают результат запроса с селектами выше (лишние поля DTO не пропустит).

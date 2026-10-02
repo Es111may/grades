@@ -8,6 +8,7 @@
 // любой админ или лид. Стардиз и дизайнер комментариев не видят вовсе.
 
 import { z } from 'zod';
+import { PERSON_ID_RE, PERSON_PARAM } from './personParam';
 
 // ── Пределы ──────────────────────────────────────────────────────────────
 
@@ -18,12 +19,14 @@ export const UI_COMMENT_LIMITS = {
   selectorMax: 600,
   /** Начало текста элемента-якоря — клиент режет сам до этой длины. */
   snippetMax: 200,
-  /** pathname + search, без hash. */
+  /** pathname + параметры места (normalizeUiCommentPath), без hash. */
   pathMax: 500,
   /** Ширина окна в момент комментария, px. */
   viewportMax: 10_000,
   /** Модуль абсолютных координат, px: дальше этого страница не бывает. */
   absMax: 100_000,
+  /** Подпись места внутри страницы («Поп-ап: Саша Тимкина»), символов. */
+  contextLabelMax: 120,
 } as const;
 
 // ── Типы ответа API ──────────────────────────────────────────────────────
@@ -48,6 +51,11 @@ export type UiCommentAnchor = {
   abs: { x: number; y: number; w?: number; h?: number };
   viewportW: number;
   snippet?: string;
+  /**
+   * Где внутри страницы: поп-ап, модалка. label — для людей и выгрузки
+   * («Поп-ап: Саша Тимкина»); чей поп-ап — по параметру в path.
+   */
+  context?: { label?: string };
 };
 
 export type UiCommentAuthorDto = { id: number; fullName: string; avatarUrl: string | null };
@@ -110,13 +118,120 @@ export function uiCommentsAccessError(me: Me): { status: 401 | 403; error: strin
   return null;
 }
 
-// ── Проверка тела запросов ───────────────────────────────────────────────
+// ── Путь страницы ────────────────────────────────────────────────────────
 
-/** Путь страницы: без hash и пробелов по краям. Проверку делает схема ниже. */
-export function normalizeUiCommentPath(raw: string): string {
+/** Параметр адреса, который входит в место комментария. */
+type PathParam = {
+  /** Допустимое значение; другое — параметра как будто нет. */
+  re: RegExp;
+  /**
+   * Место внутри страницы, а не другая страница: поп-ап 360 на «Команде».
+   * Список «Эта страница» показывает треды страницы вместе с её поп-апами;
+   * метки — только того места, что открыто сейчас.
+   */
+  popup?: true;
+};
+
+/**
+ * Какие параметры адреса — часть места комментария, по страницам (ключ —
+ * pathname). Всё остальное в search — состояние интерфейса (вкладка,
+ * фильтр, ?new=1): в путь не попадает, иначе замечание видно только при том
+ * же фильтре. Страницы нет в списке — параметров у неё нет вовсе.
+ *
+ * Сюда — только то, что меняет содержимое: чей поп-ап 360 открыт (?person=,
+ * popup) и чья это страница — портрет, оценка, 360-опрос лида (id человека:
+ * без него комментарии про разных людей слились бы). Порядок важен: в пути
+ * параметры идут в порядке списка, popup — последними (по префиксу без них
+ * API находит поп-апы страницы).
+ */
+export const UI_COMMENT_PATH_PARAMS: Readonly<Record<string, Readonly<Record<string, PathParam>>>> = {
+  '/admin/users': { [PERSON_PARAM]: { re: PERSON_ID_RE, popup: true } },
+  '/admin/lead-reviews': { userId: { re: PERSON_ID_RE } },
+  '/admin/lead-reviews/new': { userId: { re: PERSON_ID_RE } },
+  '/lead/portrait': { id: { re: PERSON_ID_RE } },
+  '/lead/assess': { id: { re: PERSON_ID_RE } },
+};
+
+function splitPath(raw: string): { pathname: string; params: [string, string, PathParam][] } {
   const hash = raw.indexOf('#');
-  return (hash === -1 ? raw : raw.slice(0, hash)).trim();
+  const s = (hash === -1 ? raw : raw.slice(0, hash)).trim();
+  const q = s.indexOf('?');
+  const pathname = q === -1 ? s : s.slice(0, q);
+  const allowed = UI_COMMENT_PATH_PARAMS[pathname];
+  if (q === -1 || !allowed) return { pathname, params: [] };
+  const search = new URLSearchParams(s.slice(q + 1));
+  const params: [string, string, PathParam][] = [];
+  for (const [key, rule] of Object.entries(allowed)) {
+    const v = search.get(key);
+    if (v !== null && rule.re.test(v)) params.push([key, v, rule]);
+  }
+  return { pathname, params };
 }
+
+function joinPath(pathname: string, params: [string, string, PathParam][]): string {
+  if (!params.length) return pathname;
+  const q = new URLSearchParams();
+  for (const [k, v] of params) q.set(k, v);
+  return `${pathname}?${q.toString()}`;
+}
+
+/**
+ * Путь комментария: без hash и пробелов по краям, из search — только
+ * параметры из UI_COMMENT_PATH_PARAMS этой страницы с корректным значением,
+ * в порядке списка. Один и тот же для клиента (путь текущей страницы) и для
+ * API (запись и выборка). Проверку формы делает схема ниже.
+ */
+export function normalizeUiCommentPath(raw: string): string {
+  const { pathname, params } = splitPath(raw);
+  return joinPath(pathname, params);
+}
+
+/**
+ * Страница пути — без мест внутри неё (popup-параметров):
+ * /admin/users?person=5 → /admin/users, /lead/portrait?id=5 → он же.
+ */
+export function uiCommentPageOf(path: string): string {
+  const { pathname, params } = splitPath(path);
+  return joinPath(
+    pathname,
+    params.filter(([, , rule]) => !rule.popup),
+  );
+}
+
+/** Путь ведёт в поп-ап страницы (есть popup-параметр). */
+export function isUiCommentPopupPath(path: string): boolean {
+  return splitPath(path).params.some(([, , rule]) => rule.popup);
+}
+
+/**
+ * Префикс путей поп-апов страницы (для LIKE): «/admin/users?»,
+ * «/lead/portrait?id=5&». page — уже uiCommentPageOf.
+ */
+export function uiCommentPopupPrefix(page: string): string {
+  return `${page}${page.includes('?') ? '&' : '?'}`;
+}
+
+/**
+ * Адрес, чтобы перейти к месту треда на той же странице: текущий адрес, в
+ * котором popup-параметры страницы заменены параметрами из path (нет в path
+ * — убраны). Остальные параметры остаются, hash — нет: это уже другое место.
+ * Пример: /admin/users?person=5 + путь /admin/users?person=7 → ?person=7.
+ */
+export function uiCommentPlaceHref(currentHref: string, path: string): string {
+  const url = new URL(currentHref, 'http://local');
+  const { pathname, params } = splitPath(path);
+  const rules = UI_COMMENT_PATH_PARAMS[pathname] ?? {};
+  for (const [key, rule] of Object.entries(rules)) if (rule.popup) url.searchParams.delete(key);
+  for (const [key, value, rule] of params) if (rule.popup) url.searchParams.set(key, value);
+  return `${url.pathname}${url.search}`;
+}
+
+/** Один и тот же путь после нормализации (в БД бывают и старые, до правила). */
+export function sameUiCommentPath(a: string, b: string): boolean {
+  return normalizeUiCommentPath(a) === normalizeUiCommentPath(b);
+}
+
+// ── Проверка тела запросов ───────────────────────────────────────────────
 
 export const uiCommentPathSchema = z
   .string({ required_error: 'Не указана страница', invalid_type_error: 'Страница — строкой' })
@@ -128,6 +243,9 @@ export const uiCommentPathSchema = z
       .regex(/^\/(?!\/)/, 'Путь страницы должен начинаться с «/»')
       .max(UI_COMMENT_LIMITS.pathMax, `Путь страницы длиннее ${UI_COMMENT_LIMITS.pathMax} символов`),
   );
+
+/** GET ?page= — страница без её поп-апов (uiCommentPageOf): её треды и треды поп-апов. */
+export const uiCommentPageSchema = uiCommentPathSchema.transform(uiCommentPageOf);
 
 export const uiCommentTextSchema = z
   .string({ required_error: 'Нужен текст комментария', invalid_type_error: 'Текст — строкой' })
@@ -175,6 +293,17 @@ export const uiCommentAnchorSchema = z
         .min(0, ANCHOR_ERROR)
         .max(UI_COMMENT_LIMITS.viewportMax, ANCHOR_ERROR),
       snippet: optionalText(UI_COMMENT_LIMITS.snippetMax, `Фрагмент текста длиннее ${UI_COMMENT_LIMITS.snippetMax} символов`),
+      context: z
+        .object(
+          {
+            label: optionalText(
+              UI_COMMENT_LIMITS.contextLabelMax,
+              `Подпись места длиннее ${UI_COMMENT_LIMITS.contextLabelMax} символов`,
+            ),
+          },
+          { invalid_type_error: ANCHOR_ERROR },
+        )
+        .optional(),
     },
     { required_error: 'Не указано место комментария', invalid_type_error: ANCHOR_ERROR },
   )
@@ -199,6 +328,8 @@ export const uiCommentAnchorSchema = z
     if (a.selector) out.selector = a.selector;
     if (a.rel) out.rel = rect ? { x: a.rel.x, y: a.rel.y, w: a.rel.w, h: a.rel.h } : { x: a.rel.x, y: a.rel.y };
     if (a.snippet) out.snippet = a.snippet;
+    // Пустой context ({} или label из пробелов) не храним
+    if (a.context?.label) out.context = { label: a.context.label };
     return out;
   });
 

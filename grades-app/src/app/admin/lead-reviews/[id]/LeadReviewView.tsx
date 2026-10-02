@@ -19,6 +19,7 @@ import {
   type OpenItemAggregate,
 } from '@/lib/leadSurvey';
 import TitleAurora from '@/components/TitleAurora';
+import { isFromCommentsLayer } from '@/lib/commentsLayer';
 
 type Target = {
   id: number;
@@ -353,6 +354,7 @@ function CyclesSwitcher({
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     function onDoc(e: MouseEvent) {
+      if (isFromCommentsLayer(e)) return;
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', onDoc);

@@ -33,7 +33,8 @@ const ICON_BTN = `w-8 h-8 shrink-0 rounded-pill flex items-center justify-center
  * адрес страницы с #comment-<id>, по нему тред откроется сам.
  *
  * Позиция: у метки (useFloating, под ней или над ней), а если метки на
- * экране нет — `fallback`: например, слева от поповера списка.
+ * экране нет — `fallback`: например, слева от поповера списка; тогда
+ * `hint` объясняет, где метка (в закрытом поп-апе, на странице под поп-апом).
  */
 export default function ThreadCard({
   thread,
@@ -41,7 +42,7 @@ export default function ThreadCard({
   viewer,
   anchor,
   fallbackStyle,
-  missing,
+  hint,
   onClose,
   onChanged,
   onDeleted,
@@ -53,8 +54,8 @@ export default function ThreadCard({
   anchor: ViewRect | null;
   /** Где стоять, если метки не видно. */
   fallbackStyle: CSSProperties;
-  /** Место комментария не нашлось на странице. */
-  missing: boolean;
+  /** Почему метки не видно (lib/commentAnchor, threadHint); null — видно. */
+  hint: string | null;
   onClose: () => void;
   onChanged: (t: CommentThread) => void;
   onDeleted: (threadId: number, replyId?: number) => void;
@@ -224,9 +225,9 @@ export default function ThreadCard({
             }
           />
         ))}
-        {missing && (
+        {hint && (
           <p className="text-xs text-stone">
-            Место не найдено на странице — возможно, оно в закрытом поп-апе или вёрстка поменялась.
+            {hint}
             {thread.anchor?.snippet && (
               <span className="block mt-1 text-ash">Рядом было: «{thread.anchor.snippet}»</span>
             )}

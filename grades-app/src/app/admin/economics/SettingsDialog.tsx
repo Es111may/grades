@@ -8,6 +8,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import { CloseIcon } from '@/components/icons';
 import { nf } from '@/lib/economics';
+import { isCommentsLayerOpen, isFromCommentsLayer } from '@/lib/commentsLayer';
 import type { EconomicsSettings } from '@/lib/settings';
 
 const CLOSE_MS = 150;
@@ -103,7 +104,8 @@ export default function SettingsDialog({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !saving) close();
+      // Пока в слое комментариев что-то открыто, Escape — его, не наш
+      if (e.key === 'Escape' && !saving && !isCommentsLayerOpen()) close();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -158,7 +160,7 @@ export default function SettingsDialog({
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[15vh]">
       <div
         className={`absolute inset-0 bg-black/60 transition-opacity duration-150 ease-out ${shown ? 'opacity-100' : 'opacity-0'}`}
-        onClick={() => !saving && close()}
+        onClick={(e) => !saving && !isFromCommentsLayer(e.nativeEvent) && close()}
         aria-hidden
       />
       <div

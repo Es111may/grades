@@ -6,6 +6,7 @@ import { EditIcon, CloseIcon } from '@/components/icons';
 import { formatDateShort, todayLocalIso } from '@/lib/dates';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType, isNonGradingBuild } from '@/lib/employment';
+import { isFromCommentsLayer } from '@/lib/commentsLayer';
 import {
   canChangeLead,
   canDeactivateUser,
@@ -470,7 +471,9 @@ export default function UserModal({
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-10 pb-10">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
-        onClick={onClose}
+        onClick={(e) => {
+          if (!isFromCommentsLayer(e.nativeEvent)) onClose();
+        }}
       />
       <div
         data-comment-anchor="user-modal"

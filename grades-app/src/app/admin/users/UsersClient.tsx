@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, createContext, useContext } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { ChevronDownIcon } from '@/components/icons';
 import SearchInput from '@/components/SearchInput';
 import LeaderboardView from './LeaderboardView';
@@ -20,6 +21,8 @@ import { isGradable, isGradingExempt } from '@/lib/employment';
 import { canViewCompensation } from '@/lib/compPermissions';
 import { canViewDismissalDate } from '@/lib/dismissal';
 import { needsDismissalDate, todayMoscowDate } from '@/lib/userUpdate';
+import { isFromCommentsLayer } from '@/lib/commentsLayer';
+import { PERSON_PARAM, parsePersonParam, withPersonParam } from '@/lib/personParam';
 import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
 
 // ─── Ленивые куски страницы ─────────────────────────────────────────────
@@ -197,6 +200,15 @@ const PRESENCE_KEY = 'team-presence';
  * строками списка. Код подиума в LeaderboardView не удалён — вернуть: true.
  */
 const PODIUM_ENABLED = false;
+
+/** ?person=<id> в адресе — открытый поп-ап 360 (null — убрать). */
+function writePersonParam(id: number | null) {
+  const href = withPersonParam(window.location.href, id);
+  if (href === window.location.pathname + window.location.search + window.location.hash) return;
+  // state — null: тогда Next копирует своё состояние истории и обновляет
+  // useSearchParams (вызов с его же state он считает своим и пропускает)
+  window.history.replaceState(null, '', href);
+}
 
 // ScopeFilter, scopeOwnerId, isMenteeOf и buildTeamOptions живут в
 // @/lib/teamScope — чистой библиотекой, покрытой тестами.
@@ -383,12 +395,58 @@ export default function UsersClient({
     setModalOpen(true);
   }
 
+  // ── Ссылка на поп-ап 360: /admin/users?person=<id> ──────────────────
+  // Открыли или закрыли поп-ап — меняем адрес replaceState'ом (Next
+  // подхватывает его в useSearchParams, сервер страницу не перерисовывает,
+  // история не растёт). Пришли по ссылке, вернулись назад или адрес сменил
+  // слой комментариев (клик по треду из поп-апа) — открываем поп-ап этого
+  // человека. Человека нет среди видимых зрителю — молча убираем параметр:
+  // адрес не должен обещать поп-ап, которого нет (по нему комментарии
+  // понимают, в чьём поп-апе оставлено замечание).
+  const searchParams = useSearchParams();
+  const personParam = searchParams?.get(PERSON_PARAM) ?? null;
+  const usersRef = useRef(users);
+  usersRef.current = users;
+  const card360Ref = useRef(card360User);
+  card360Ref.current = card360User;
+
+  // Только смена параметра, а не каждый рендер: сразу после клика адрес
+  // ещё старый (Next применяет его в переходе), и поп-ап закрылся бы
+  const seenPerson = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (seenPerson.current === personParam) return;
+    seenPerson.current = personParam;
+    // Вернуть адресу открытый поп-ап (или ничего). Таймером: при первой
+    // загрузке эффект страницы срабатывает раньше, чем Next подменит
+    // history, и замену адреса useSearchParams бы не увидел. Без отмены:
+    // запись повторно ничего не меняет, а StrictMode снял бы её вовсе
+    const restore = () => {
+      window.setTimeout(() => writePersonParam(card360Ref.current?.id ?? null), 0);
+    };
+    const id = parsePersonParam(personParam);
+    if (id === null) {
+      if (personParam !== null) restore();
+      else setCard360User(null);
+      return;
+    }
+    if (card360Ref.current?.id === id) return;
+    const row = usersRef.current.find((u) => u.id === id);
+    if (row) setCard360User(row);
+    else restore();
+  }, [personParam]);
+
   function open360(user: UserRow) {
     setCard360User(user);
+    writePersonParam(user.id);
+  }
+
+  function close360() {
+    setCard360User(null);
+    writePersonParam(null);
   }
 
   function handleEditFrom360(user: UserRow) {
-    setCard360User(null);
+    close360();
     openEdit(user);
   }
 
@@ -627,7 +685,7 @@ export default function UsersClient({
           })()}
           meId={meId}
           meRole={meRole}
-          onClose={() => setCard360User(null)}
+          onClose={close360}
           onEdit={handleEditFrom360}
           onPlannedRaiseChange={(id, planned) => {
             // Бейдж на аватарке появляется и пропадает сразу, не закрывая попап
@@ -857,6 +915,8 @@ function ScopeDropdown({
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
+      // Клик в слое комментариев — не «мимо»: меню остаётся, его можно комментировать
+      if (isFromCommentsLayer(e)) return;
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', onDoc);
@@ -977,6 +1037,8 @@ function RoleDropdown({
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
+      // Клик в слое комментариев — не «мимо»: меню остаётся, его можно комментировать
+      if (isFromCommentsLayer(e)) return;
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', onDoc);

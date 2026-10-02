@@ -6,6 +6,7 @@ import Avatar from '@/components/Avatar';
 import { CloseIcon, CoinsIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
 import TitleAurora from '@/components/TitleAurora';
+import { isCommentsLayerOpen, isFromCommentsLayer } from '@/lib/commentsLayer';
 
 type AssessmentHistoryRow = {
   id: number;
@@ -117,10 +118,12 @@ export default function UserCard360({
   const [gradingEditing, setGradingEditing] = useState(false);
 
   // Закрытие по Escape. defaultPrevented — Escape уже обработал кто-то
-  // внутри (редактор даты гасит его сам, когда фокус в нём).
+  // внутри (редактор даты гасит его сам, когда фокус в нём). Пока в слое
+  // комментариев что-то открыто (поле, карточка треда поверх поп-апа) —
+  // Escape его, не наш.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (e.key !== 'Escape' || e.defaultPrevented || isCommentsLayerOpen()) return;
       if (gradingEditing) setGradingEditing(false);
       else onClose();
     }
@@ -312,8 +315,10 @@ export default function UserCard360({
   useEffect(() => {
     if (!menuOpen) return;
     // Кнопка «⋯» — не «вне»: иначе mousedown закрывал меню, а click тут же
-    // открывал снова, и второй клик по «⋯» меню не закрывал
+    // открывал снова, и второй клик по «⋯» меню не закрывал. Слой
+    // комментариев — тоже не «вне»: меню можно прокомментировать
     function onDoc(e: MouseEvent) {
+      if (isFromCommentsLayer(e)) return;
       const t = e.target as Node;
       if (menuRef.current?.contains(t) || menuBtnRef.current?.contains(t)) return;
       setMenuOpen(false);
@@ -471,13 +476,20 @@ export default function UserCard360({
           перерастрироваться, и поп-ап моргал (Pavel, 29.07.2026). Под
           60-процентным чёрным двухпиксельный блюр почти не читался, так что
           внешне потеря незаметна. */}
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/60"
+        onClick={(e) => {
+          if (!isFromCommentsLayer(e.nativeEvent)) onClose();
+        }}
+      />
       {/* Каркас Pavel (12.07.2026, секции — 30.09.2026): hero по центру с
           авророй → секции «лейбл—значение» (Команда · Зарплата ·
           Грейдирование с графиком роста) → заметки → действия текстом +
-          меню «⋯». */}
+          меню «⋯». data-comment-context — подпись места для комментариев к
+          интерфейсу; чей это поп-ап, они знают по ?person= в адресе. */}
       <div
         data-comment-anchor="popup-360"
+        data-comment-context={`Поп-ап: ${user.fullName}`}
         className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg flex flex-col max-h-[calc(100dvh-104px)]"
       >
         <div className="overflow-hidden rounded-modal flex flex-col min-h-0">

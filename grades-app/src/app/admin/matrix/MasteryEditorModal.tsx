@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CloseIcon } from '@/components/icons';
+import { isFromCommentsLayer } from '@/lib/commentsLayer';
 
 type Mastery = { level: number; title: string; criteria: string };
 
@@ -93,7 +94,9 @@ export default function MasteryEditorModal({
   return (
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-50 flex items-start justify-center pt-12 pb-12 overflow-y-auto"
-      onClick={onClose}
+      onClick={(e) => {
+        if (!isFromCommentsLayer(e.nativeEvent)) onClose();
+      }}
     >
       <div
         className="bg-snow rounded-modal shadow-soft-lg w-[760px] max-w-full mx-6"

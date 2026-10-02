@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { CommentAnchor } from '@/lib/commentAnchor';
-import { isInsideUi, measureAnchor, resetAnchorCaches, type AnchorGeom } from './anchorDom';
+import { isInCommentsLayer } from '@/lib/commentsLayer';
+import { measureAnchor, resetAnchorCaches, type AnchorGeom } from './anchorDom';
 
 export type AnchorEntry = { key: string; anchor: CommentAnchor | null };
 
@@ -63,7 +64,7 @@ export function useAnchorGeoms(entries: AnchorEntry[], active: boolean): Map<str
     const ro = new ResizeObserver(schedule);
     ro.observe(document.documentElement);
     const mo = new MutationObserver((records) => {
-      if (records.every((r) => isInsideUi(r.target))) return;
+      if (records.every((r) => isInCommentsLayer(r.target))) return;
       resetAnchorCaches();
       schedule();
     });

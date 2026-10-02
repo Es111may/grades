@@ -4,6 +4,7 @@ import { forwardRef } from 'react';
 import Avatar from '@/components/Avatar';
 import { ChatIcon, CloseIcon, PlusIcon } from '@/components/icons';
 import { pageLabel, plural, relativeTime } from '@/lib/commentAnchor';
+import { isUiCommentPopupPath } from '@/lib/uiCommentsShared';
 import { PinShape, Z } from './CommentPins';
 import type { CommentStatus, CommentThread } from './types';
 
@@ -14,7 +15,12 @@ export type LoadState = 'loading' | 'ready' | 'error';
  * Поповер над кнопкой: «Эта страница · Все страницы», в одном ряду фильтр
  * «Открытые · Решённые» и маленькая «Оставить», список тредов и выключатель
  * меток. Клик по треду этой страницы — прокрутка к метке и карточка; по
+ * треду из поп-апа — открывается поп-ап этого человека, потом карточка; по
  * треду другой страницы — переход туда, тред откроется там.
+ *
+ * «Эта страница» — треды страницы вместе с её поп-апами. Номер-метка — у
+ * тредов того места, что открыто сейчас; у остальных — аватар и подпись
+ * места («В поп-апе: Саша Тимкина», «На странице»).
  */
 const CommentsPopover = forwardRef<
   HTMLDivElement,
@@ -26,12 +32,15 @@ const CommentsPopover = forwardRef<
     threads: CommentThread[];
     state: LoadState;
     onRetry: () => void;
-    /** Номер метки треда этой страницы. */
-    numberOf: (id: number) => number | null;
-    /** Место треда не нашлось на странице. */
-    isMissing: (t: CommentThread) => boolean;
+    /** Номер метки — только у тредов места, открытого сейчас. */
+    numberOf: (t: CommentThread) => number | null;
+    /** Тред места, открытого сейчас (метка — на экране). */
+    isHere: (t: CommentThread) => boolean;
+    /** Подпись места для треда не отсюда. */
+    captionOf: (t: CommentThread) => string;
+    /** Место треда отсюда не нашлось — что сказать в строке; null — нашлось. */
+    missingOf: (t: CommentThread) => string | null;
     selectedId: number | null;
-    currentPath: string;
     showPins: boolean;
     onShowPins: (v: boolean) => void;
     onAdd: () => void;
@@ -166,10 +175,18 @@ const CommentsPopover = forwardRef<
               <li key={t.id}>
                 <ThreadRow
                   thread={t}
-                  number={p.scope === 'page' ? p.numberOf(t.id) : null}
-                  page={p.scope === 'all' ? pageLabel(t.path) : null}
-                  here={t.path === p.currentPath}
-                  missing={p.scope === 'page' && p.isMissing(t)}
+                  number={p.scope === 'page' ? p.numberOf(t) : null}
+                  place={
+                    p.scope === 'all'
+                      ? [pageLabel(t.path), isUiCommentPopupPath(t.path) ? p.captionOf(t) : null]
+                          .filter(Boolean)
+                          .join(' · ')
+                      : p.isHere(t)
+                        ? null
+                        : p.captionOf(t)
+                  }
+                  here={p.scope === 'all' && p.isHere(t)}
+                  missing={p.scope === 'page' ? p.missingOf(t) : null}
                   selected={t.id === p.selectedId}
                   onClick={() => p.onPick(t)}
                 />
@@ -203,11 +220,14 @@ const CommentsPopover = forwardRef<
 
 export default CommentsPopover;
 
-/** Строка списка: метка или аватар, автор и дата, начало текста, ответы. */
+/**
+ * Строка списка: метка или аватар, автор и дата, начало текста; ниже —
+ * место (страница или поп-ап), ответы и «Место не найдено».
+ */
 function ThreadRow({
   thread,
   number,
-  page,
+  place,
   here,
   missing,
   selected,
@@ -215,9 +235,11 @@ function ThreadRow({
 }: {
   thread: CommentThread;
   number: number | null;
-  page: string | null;
+  /** «Команда · В поп-апе: Саша Тимкина» или «В поп-апе: …»; null — не нужно. */
+  place: string | null;
+  /** Тред того места, что открыто сейчас (для «Все страницы»). */
   here: boolean;
-  missing: boolean;
+  missing: string | null;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -243,10 +265,10 @@ function ThreadRow({
         <span className="text-sm text-graphite leading-snug mt-1 line-clamp-2 break-words">
           {thread.text}
         </span>
-        {(replies > 0 || missing || page) && (
+        {(replies > 0 || missing || place) && (
           <span className="flex items-center gap-1.5 flex-wrap mt-1.5 text-xs text-stone">
-            {page && <span className={here ? 'text-ink' : ''}>{here ? `${page} · эта страница` : page}</span>}
-            {page && replies > 0 && <span aria-hidden>·</span>}
+            {place && <span className={here ? 'text-ink' : ''}>{here ? `${place} · эта страница` : place}</span>}
+            {place && replies > 0 && <span aria-hidden>·</span>}
             {replies > 0 && (
               <span className="tabular-nums">
                 {replies} {plural(replies, ['ответ', 'ответа', 'ответов'])}
@@ -254,7 +276,8 @@ function ThreadRow({
             )}
             {missing && (
               <span className="text-sunset" title={thread.anchor?.snippet}>
-                {replies > 0 ? '· ' : ''}Место не найдено
+                {replies > 0 || place ? '· ' : ''}
+                {missing}
               </span>
             )}
           </span>

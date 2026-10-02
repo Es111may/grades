@@ -8,13 +8,23 @@ import { ChatFillIcon, ChatIcon } from '@/components/icons';
 import {
   commentHash,
   commentPath,
+  missingLabel,
   parseCommentHash,
+  placeCaption,
+  threadHint,
   type CommentAnchor,
   type CommentAnchorKind,
   type ViewRect,
 } from '@/lib/commentAnchor';
+import { COMMENTS_LAYER_ATTR, COMMENTS_LAYER_OPEN, isInCommentsLayer } from '@/lib/commentsLayer';
+import {
+  normalizeUiCommentPath,
+  sameUiCommentPath,
+  uiCommentPageOf,
+  uiCommentPlaceHref,
+} from '@/lib/uiCommentsShared';
 import { createThread, fetchAllThreads, fetchPageThreads } from './api';
-import { UI_ATTR, buildAnchor, isInsideUi, revealAnchor, type AnchorGeom } from './anchorDom';
+import { buildAnchor, revealAnchor, type AnchorGeom } from './anchorDom';
 import CommentComposer from './CommentComposer';
 import { CommentPin, DraftPin, PIN, RectOutline, Z } from './CommentPins';
 import CommentsPopover, { type CommentsScope, type LoadState } from './CommentsPopover';
@@ -26,6 +36,12 @@ import { useEscape } from './useEscape';
 
 /** Флаг «Показывать метки» в localStorage: '0' — выключены, иначе включены. */
 const PINS_KEY = 'ui-comments-pins';
+
+/**
+ * Сколько ждать, пока страница откроет место треда (поп-ап 360 по
+ * ?person=), прежде чем показать карточку без метки, мс.
+ */
+const PLACE_WAIT_MS = 1500;
 
 /** Отступы кнопки от краёв окна и поповера от кнопки, px (см. классы ниже). */
 const EDGE = 24;
@@ -53,13 +69,21 @@ function markRect(g: AnchorGeom): ViewRect {
  * правом нижнем углу, поповер со списком, постановка точки или рамки,
  * метки на странице и карточка треда. Всё — порталом в body с position:
  * fixed: вёрстка страницы не сдвигается. Слой — над поп-апами страницы
- * (z-50), чтобы комментировать и внутри них.
+ * (z-50), чтобы комментировать и внутри них; события слоя поп-апы и меню
+ * страницы не закрывают (lib/commentsLayer).
+ *
+ * Место и страница. path — где человек сейчас: адрес без hash, из search —
+ * только параметры места (lib/uiCommentsShared: ?person= у поп-апа 360).
+ * page — та же страница без поп-апов. Треды грузятся по page — все места
+ * страницы сразу, — а метки рисуются только у тредов текущего path: в
+ * поп-апе одного человека не видно меток из поп-апа другого.
  */
 export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   const pathname = usePathname();
   const search = useSearchParams();
   const router = useRouter();
-  const path = commentPath(pathname ?? '/', search?.toString());
+  const path = normalizeUiCommentPath(commentPath(pathname ?? '/', search?.toString()));
+  const page = uiCommentPageOf(path);
   const pathRef = useRef(path);
   pathRef.current = path;
 
@@ -71,7 +95,7 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   const [state, setState] = useState<LoadState>('loading');
   // Для какой страницы пришли треды: сразу после перехода в threads ещё
   // прошлая страница
-  const [loadedPath, setLoadedPath] = useState<string | null>(null);
+  const [loadedPage, setLoadedPage] = useState<string | null>(null);
   const [all, setAll] = useState<CommentThread[] | null>(null);
   const [allState, setAllState] = useState<LoadState>('loading');
   const pageReq = useRef(0);
@@ -80,15 +104,15 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   const load = useCallback(async () => {
     const id = ++pageReq.current;
     try {
-      const list = await fetchPageThreads(path);
+      const list = await fetchPageThreads(page);
       if (id !== pageReq.current) return;
       setThreads(list);
-      setLoadedPath(path);
+      setLoadedPage(page);
       setState('ready');
     } catch {
       if (id === pageReq.current) setState('error');
     }
-  }, [path]);
+  }, [page]);
 
   const loadAll = useCallback(async () => {
     const id = ++allReq.current;
@@ -109,12 +133,23 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   const [status, setStatus] = useState<CommentStatus>('open');
   const [showPins, setShowPinsState] = useState(true);
   const [placing, setPlacing] = useState(false);
-  const [draft, setDraft] = useState<{ key: string; anchor: CommentAnchor } | null>(null);
+  // path — место, где поставили отметку: туда тред и запишется, даже если
+  // поп-ап успели закрыть, пока писали
+  const [draft, setDraft] = useState<{ key: string; anchor: CommentAnchor; path: string } | null>(null);
   const draftText = useRef('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  // Тред, который надо открыть, когда загрузятся треды его страницы
-  // (ссылка с #comment-<id> или переход из «Все страницы»)
-  const [pending, setPending] = useState<{ id: number; path: string } | null>(null);
+  // Тред, который надо открыть, когда загрузятся треды его страницы и
+  // откроется его место (ссылка с #comment-<id>, переход из списка в поп-ап
+  // другого человека или на другую страницу). moved — адрес места уже
+  // поставили; waited — дольше ждать не стали, карточка — без метки.
+  const [pending, setPending] = useState<{
+    id: number;
+    path: string;
+    moved?: boolean;
+    waited?: boolean;
+  } | null>(null);
+  // Тред, к метке которого прокрутить, как только метка появится
+  const revealId = useRef<number | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -128,7 +163,8 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
     }
   }, []);
 
-  // Новая страница — свои треды; открытое на прошлой закрываем
+  // Новая страница — свои треды; открытое на прошлой закрываем. Поп-ап на
+  // той же странице — не новая страница: треды те же, меняются метки
   useEffect(() => {
     setThreads([]);
     setState('loading');
@@ -165,42 +201,93 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
     if (popover && scope === 'all') void loadAll();
   }, [popover, scope, loadAll]);
 
-  // Номера меток — по порядку появления на странице: решённый тред номер
-  // не освобождает, нумерация не прыгает
+  // Номера меток — по порядку появления в своём месте (странице или поп-апе
+  // конкретного человека): решённый тред номер не освобождает, нумерация не
+  // прыгает, а в каждом поп-апе метки начинаются с 1
   const numbers = useMemo(() => {
     const m = new Map<number, number>();
+    const perPlace = new Map<string, number>();
     [...threads]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id - b.id)
-      .forEach((t, i) => m.set(t.id, i + 1));
+      .forEach((t) => {
+        const place = normalizeUiCommentPath(t.path);
+        const n = (perPlace.get(place) ?? 0) + 1;
+        perPlace.set(place, n);
+        m.set(t.id, n);
+      });
     return m;
   }, [threads]);
+
+  // Треды того места, что открыто сейчас: только у них метки на экране
+  const hereIds = useMemo(
+    () => new Set(threads.filter((t) => sameUiCommentPath(t.path, path)).map((t) => t.id)),
+    [threads, path],
+  );
+  const isHere = useCallback((t: CommentThread) => hereIds.has(t.id), [hereIds]);
 
   // ── Геометрия меток ────────────────────────────────────────────────
   const entries = useMemo(
     () => [
-      ...threads.map((t) => ({ key: `t${t.id}`, anchor: t.anchor })),
+      ...threads.filter((t) => hereIds.has(t.id)).map((t) => ({ key: `t${t.id}`, anchor: t.anchor })),
       ...(draft ? [{ key: draft.key, anchor: draft.anchor }] : []),
     ],
-    [threads, draft],
+    [threads, hereIds, draft],
   );
   const geomActive = mounted && (showPins || popover || selectedId != null || draft != null);
   const geoms = useAnchorGeoms(entries, geomActive);
 
   const selected = selectedId != null ? (threads.find((t) => t.id === selectedId) ?? null) : null;
-  const selectedGeom = selected ? geoms.get(`t${selected.id}`) : undefined;
+  const selectedHere = !!selected && hereIds.has(selected.id);
+  const selectedGeom = selected && selectedHere ? geoms.get(`t${selected.id}`) : undefined;
   const draftGeom = draft ? geoms.get(draft.key) : undefined;
 
-  // Открыть тред по ссылке, когда треды страницы пришли
-  useEffect(() => {
-    if (!pending || pending.path !== path || state !== 'ready' || loadedPath !== path) return;
-    const t = threads.find((x) => x.id === pending.id);
-    setPending(null);
-    if (!t) return;
+  /** Карточка треда; к метке прокрутим, когда она появится на экране. */
+  const showThread = useCallback((t: CommentThread) => {
     if (t.status === 'resolved') setStatus('resolved');
     setSelectedId(t.id);
-    // Кадр — на отрисовку меток, потом прокрутка
-    requestAnimationFrame(() => revealAnchor(t.anchor));
-  }, [pending, path, state, loadedPath, threads]);
+    revealId.current = t.id;
+  }, []);
+
+  // Открыть тред по ссылке или из списка, когда треды его страницы пришли.
+  // Тред из другого места этой страницы (поп-ап 360 другого человека, сама
+  // страница под поп-апом) — сначала адрес места: страница откроет или
+  // закроет поп-ап сама (UsersClient читает ?person=). Карточку показываем,
+  // когда место открылось, а не дождались — через PLACE_WAIT_MS без метки
+  useEffect(() => {
+    if (!pending || uiCommentPageOf(pending.path) !== page) return;
+    if (state !== 'ready' || loadedPage !== page) return;
+    const t = threads.find((x) => x.id === pending.id);
+    if (!t) {
+      setPending(null);
+      return;
+    }
+    if (!sameUiCommentPath(t.path, path) && !pending.waited) {
+      if (!pending.moved) {
+        window.history.replaceState(null, '', uiCommentPlaceHref(window.location.href, t.path));
+        setPending({ ...pending, moved: true });
+        return;
+      }
+      const timer = window.setTimeout(
+        () => setPending((p) => (p && p.id === pending.id ? { ...p, waited: true } : p)),
+        PLACE_WAIT_MS,
+      );
+      return () => window.clearTimeout(timer);
+    }
+    setPending(null);
+    showThread(t);
+  }, [pending, page, path, state, loadedPage, threads, showThread]);
+
+  // Прокрутка к метке выбранного треда — как только метка измерена: у треда
+  // из поп-апа она появляется, когда поп-ап откроется
+  useEffect(() => {
+    const id = revealId.current;
+    if (id == null || id !== selectedId) return;
+    const g = geoms.get(`t${id}`);
+    if (!g || (g.status !== 'ok' && g.status !== 'offscreen')) return;
+    revealId.current = null;
+    const t = threads.find((x) => x.id === id);
+    if (t) revealAnchor(t.anchor);
+  }, [geoms, selectedId, threads]);
 
   // ── Действия ────────────────────────────────────────────────────────
   const focusButton = () => buttonRef.current?.focus({ preventScroll: true });
@@ -244,12 +331,12 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
     // Пока оверлей в DOM: elementsFromPoint отсекает его как часть слоя
     const anchor = buildAnchor(kind, selection);
     setPlacing(false);
-    if (anchor) setDraft({ key: `draft-${Date.now()}`, anchor });
+    if (anchor) setDraft({ key: `draft-${Date.now()}`, anchor, path });
   }
 
   async function submitDraft(text: string) {
     if (!draft) return;
-    const t = await createThread(path, draft.anchor, text);
+    const t = await createThread(draft.path, draft.anchor, text);
     setThreads((prev) => [...prev, t]);
     setAll((prev) => (prev ? [t, ...prev] : prev));
     setDraft(null);
@@ -280,9 +367,15 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   }, []);
 
   function pick(t: CommentThread) {
-    if (t.path === path) {
-      setSelectedId(t.id);
-      requestAnimationFrame(() => revealAnchor(t.anchor));
+    if (sameUiCommentPath(t.path, path)) {
+      showThread(t);
+      return;
+    }
+    // Другое место этой страницы — поп-ап другого человека или сама
+    // страница: адрес места ставит эффект pending, поповер остаётся
+    if (uiCommentPageOf(t.path) === page) {
+      setSelectedId(null);
+      setPending({ id: t.id, path: t.path });
       return;
     }
     // Другая страница: переходим, тред откроется там, когда придут её треды.
@@ -298,7 +391,7 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   // поповер или карточка поверх него
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Tab' && isInsideUi(document.activeElement)) e.stopPropagation();
+      if (e.key === 'Tab' && isInCommentsLayer(document.activeElement)) e.stopPropagation();
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
@@ -309,7 +402,7 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   useEffect(() => {
     if (!popover && selectedId == null && !draft) return;
     const onDown = (e: MouseEvent) => {
-      if (isInsideUi(e.target as Node)) return;
+      if (isInCommentsLayer(e.target)) return;
       setPopover(false);
       setSelectedId(null);
       if (!draftText.current.trim()) setDraft(null);
@@ -321,11 +414,12 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   if (!mounted) return null;
 
   // ── Отрисовка ──────────────────────────────────────────────────────
+  // На кружке — открытые на всей странице, вместе с поп-апами
   const openCount = threads.filter((t) => t.status === 'open').length;
   const pinThreads = threads.filter(
     (t) =>
-      t.id === selectedId ||
-      (showPins && (t.status === 'open' || status === 'resolved')),
+      hereIds.has(t.id) &&
+      (t.id === selectedId || (showPins && (t.status === 'open' || status === 'resolved'))),
   );
 
   const listThreads = scope === 'page' ? [...threads].reverse() : (all ?? []);
@@ -340,9 +434,12 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
     selectedGeom && (selectedGeom.status === 'ok' || selectedGeom.status === 'offscreen')
       ? markRect(selectedGeom)
       : null;
+  const selectedMissing = selectedGeom?.status === 'missing' || selectedGeom?.status === 'hidden';
+  // Что-то открыто — Escape страниц его не трогает (lib/commentsLayer)
+  const layerOpen = popover || placing || !!draft || selected != null;
 
   return createPortal(
-    <div {...{ [UI_ATTR]: '' }} className="hidden lg:block">
+    <div {...{ [COMMENTS_LAYER_ATTR]: layerOpen ? COMMENTS_LAYER_OPEN : '' }} className="hidden lg:block">
       {/* Рамки — под метками */}
       {pinThreads.map((t) => {
         const g = geoms.get(`t${t.id}`);
@@ -426,13 +523,15 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
           threads={listThreads}
           state={listState}
           onRetry={() => void (scope === 'page' ? load() : loadAll())}
-          numberOf={(id) => numbers.get(id) ?? null}
-          isMissing={(t) => {
+          numberOf={(t) => (hereIds.has(t.id) ? (numbers.get(t.id) ?? null) : null)}
+          isHere={isHere}
+          captionOf={placeCaption}
+          missingOf={(t) => {
+            if (!hereIds.has(t.id)) return null;
             const s = geoms.get(`t${t.id}`)?.status;
-            return s === 'missing' || s === 'hidden';
+            return s === 'missing' || s === 'hidden' ? missingLabel(t.anchor) : null;
           }}
           selectedId={selectedId}
-          currentPath={path}
           showPins={showPins}
           onShowPins={setShowPins}
           onAdd={startPlacing}
@@ -465,7 +564,7 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
           viewer={viewer}
           anchor={cardAnchor}
           fallbackStyle={fallbackStyle}
-          missing={selectedGeom?.status === 'missing' || selectedGeom?.status === 'hidden'}
+          hint={threadHint({ ...selected, here: selectedHere, missing: selectedMissing })}
           onClose={closeCard}
           onChanged={replaceThread}
           onDeleted={removeFromThread}

@@ -6,15 +6,23 @@ import {
   canEditUiCommentText,
   canUseUiComments,
   firstIssueMessage,
+  isUiCommentOnPage,
+  isUiCommentPopupPath,
   normalizeUiCommentPath,
+  sameUiCommentPath,
   toCommentDto,
   toReplyDto,
   uiCommentAnchorSchema,
   uiCommentCreateSchema,
+  uiCommentPageOf,
+  uiCommentPageSchema,
   uiCommentPatchSchema,
   uiCommentPathSchema,
+  uiCommentPlaceHref,
+  uiCommentPopupPrefix,
   uiCommentReplySchema,
   uiCommentTextSchema,
+  uiCommentThreadsWhere,
   uiCommentsAccessError,
   type UiCommentThreadRow,
 } from '../uiComments';
@@ -75,10 +83,66 @@ describe('права', () => {
 });
 
 describe('путь страницы', () => {
-  it('отрезает hash и пробелы, search оставляет', () => {
+  it('отрезает hash и пробелы; параметры, которые не меняют место, — тоже', () => {
     expect(normalizeUiCommentPath('/admin/users#top')).toBe('/admin/users');
-    expect(uiCommentPathSchema.parse('  /admin/users?view=kanban#x ')).toBe('/admin/users?view=kanban');
+    expect(uiCommentPathSchema.parse('  /admin/users?view=kanban#x ')).toBe('/admin/users');
     expect(uiCommentPathSchema.parse('/')).toBe('/');
+    // У страницы без списка параметров search уходит весь, «?» — тоже
+    expect(normalizeUiCommentPath('/admin/economics?year=2026&tab=fot')).toBe('/admin/economics');
+    expect(normalizeUiCommentPath('/admin/users?')).toBe('/admin/users');
+  });
+
+  it('чей поп-ап 360 — остаётся, остальное состояние интерфейса — нет', () => {
+    expect(normalizeUiCommentPath('/admin/users?person=5')).toBe('/admin/users?person=5');
+    expect(normalizeUiCommentPath('/admin/users?q=лиза&person=5&scope=mine#comment-3')).toBe('/admin/users?person=5');
+    // Не id — как будто параметра нет
+    for (const bad of ['0', '-1', '05', '5.0', 'abc', '', '1e3']) {
+      expect(normalizeUiCommentPath(`/admin/users?person=${bad}`), bad).toBe('/admin/users');
+    }
+  });
+
+  it('чья страница (портрет, оценка, 360-опрос) — остаётся; режимы вроде ?new=1 — нет', () => {
+    expect(normalizeUiCommentPath('/lead/portrait?assessmentId=3&id=5')).toBe('/lead/portrait?id=5');
+    expect(normalizeUiCommentPath('/lead/assess?id=7&new=1')).toBe('/lead/assess?id=7');
+    expect(normalizeUiCommentPath('/admin/lead-reviews?userId=40')).toBe('/admin/lead-reviews?userId=40');
+    expect(normalizeUiCommentPath('/admin/lead-reviews/new?userId=40')).toBe('/admin/lead-reviews/new?userId=40');
+    // Параметр чужой страницы — не в счёт
+    expect(normalizeUiCommentPath('/lead/portrait?person=5')).toBe('/lead/portrait');
+  });
+
+  it('страница пути — без поп-апов; путь поп-апа — по popup-параметру', () => {
+    expect(uiCommentPageOf('/admin/users?person=5')).toBe('/admin/users');
+    expect(uiCommentPageOf('/admin/users?view=x#y')).toBe('/admin/users');
+    // id портрета — сама страница, не поп-ап
+    expect(uiCommentPageOf('/lead/portrait?id=5&assessmentId=3')).toBe('/lead/portrait?id=5');
+    expect(isUiCommentPopupPath('/admin/users?person=5')).toBe(true);
+    expect(isUiCommentPopupPath('/admin/users')).toBe(false);
+    expect(isUiCommentPopupPath('/admin/users?person=abc')).toBe(false);
+    expect(isUiCommentPopupPath('/lead/portrait?id=5')).toBe(false);
+    expect(uiCommentPopupPrefix('/admin/users')).toBe('/admin/users?');
+    expect(uiCommentPopupPrefix('/lead/portrait?id=5')).toBe('/lead/portrait?id=5&');
+  });
+
+  it('одно и то же место — после нормализации', () => {
+    expect(sameUiCommentPath('/admin/users?person=5&q=x', '/admin/users?person=5')).toBe(true);
+    expect(sameUiCommentPath('/admin/users?person=5', '/admin/users?person=50')).toBe(false);
+    expect(sameUiCommentPath('/admin/users?person=5', '/admin/users')).toBe(false);
+  });
+
+  it('адрес места на той же странице: меняется только чей поп-ап', () => {
+    expect(uiCommentPlaceHref('/admin/users?person=5', '/admin/users?person=7')).toBe('/admin/users?person=7');
+    expect(uiCommentPlaceHref('/admin/users', '/admin/users?person=7')).toBe('/admin/users?person=7');
+    // Тред самой страницы — поп-ап закрыть; прочие параметры и не трогаем, hash уходит
+    expect(uiCommentPlaceHref('http://grades.local/admin/users?x=1&person=5#comment-3', '/admin/users')).toBe(
+      '/admin/users?x=1',
+    );
+  });
+
+  it('GET ?page= — страница без поп-апов, та же проверка, что у пути', () => {
+    expect(uiCommentPageSchema.parse('/admin/users?person=5')).toBe('/admin/users');
+    expect(uiCommentPageSchema.parse('/admin/users')).toBe('/admin/users');
+    expect(uiCommentPageSchema.safeParse('//evil.example').success).toBe(false);
+    expect(uiCommentPageSchema.safeParse(undefined).success).toBe(false);
   });
 
   it('не путь внутри сервиса — ошибка', () => {
@@ -169,6 +233,27 @@ describe('якорь', () => {
     for (const a of bad) expect(uiCommentAnchorSchema.safeParse(a).success, JSON.stringify(a)).toBe(false);
   });
 
+  it('место внутри страницы: подпись поп-апа хранится, пустая — нет', () => {
+    const label = 'Поп-ап: Саша Тимкина';
+    expect(uiCommentAnchorSchema.parse({ ...rect, context: { label: `  ${label} `, extra: 1 } })).toEqual({
+      ...rect,
+      context: { label },
+    });
+    expect(uiCommentAnchorSchema.parse({ ...point, context: {} })).not.toHaveProperty('context');
+    expect(uiCommentAnchorSchema.parse({ ...point, context: { label: '   ' } })).not.toHaveProperty('context');
+    expect(
+      uiCommentAnchorSchema.safeParse({ ...point, context: { label: 'я'.repeat(UI_COMMENT_LIMITS.contextLabelMax) } })
+        .success,
+    ).toBe(true);
+    for (const bad of [
+      { ...point, context: { label: 'я'.repeat(UI_COMMENT_LIMITS.contextLabelMax + 1) } },
+      { ...point, context: 'Поп-ап' },
+      { ...point, context: { label: 42 } },
+    ]) {
+      expect(uiCommentAnchorSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+  });
+
   it('селектор и фрагмент на пределе — можно', () => {
     const ok = {
       ...point,
@@ -209,6 +294,36 @@ describe('тела запросов', () => {
     expect(uiCommentPatchSchema.safeParse({ text: '  ' }).success).toBe(false);
     expect(uiCommentPatchSchema.parse({ status: 'resolved' })).toEqual({ status: 'resolved' });
     expect(uiCommentPatchSchema.parse({ text: ' Новый ', status: 'open' })).toEqual({ text: 'Новый', status: 'open' });
+  });
+});
+
+describe('выборка тредов', () => {
+  it('page — страница и её поп-апы; path — ровно путь; scope=all — всё; статус — фильтр', () => {
+    expect(uiCommentThreadsWhere({ page: '/admin/users' })).toEqual({
+      parentId: null,
+      OR: [{ path: '/admin/users' }, { path: { startsWith: '/admin/users?' } }],
+    });
+    expect(uiCommentThreadsWhere({ page: '/lead/portrait?id=5', status: 'open' })).toEqual({
+      parentId: null,
+      OR: [{ path: '/lead/portrait?id=5' }, { path: { startsWith: '/lead/portrait?id=5&' } }],
+      status: 'open',
+    });
+    expect(uiCommentThreadsWhere({ path: '/admin/users?person=5' })).toEqual({
+      parentId: null,
+      path: '/admin/users?person=5',
+    });
+    expect(uiCommentThreadsWhere({ scope: 'all', status: 'resolved' })).toEqual({ parentId: null, status: 'resolved' });
+  });
+
+  it('добивка к LIKE: только своя страница, старые пути — после нормализации', () => {
+    expect(isUiCommentOnPage('/admin/users', '/admin/users')).toBe(true);
+    expect(isUiCommentOnPage('/admin/users?person=5', '/admin/users')).toBe(true);
+    expect(isUiCommentOnPage('/admin/users?view=kanban', '/admin/users')).toBe(true);
+    // «_» в LIKE — любой символ: 'page_x?%' совпал бы и с pageZx?…
+    expect(isUiCommentOnPage('/admin/pageZx?a=1', '/admin/page_x')).toBe(false);
+    expect(isUiCommentOnPage('/admin/usersX', '/admin/users')).toBe(false);
+    expect(isUiCommentOnPage('/lead/portrait?id=50', '/lead/portrait?id=5')).toBe(false);
+    expect(isUiCommentOnPage('/lead/portrait?id=5&assessmentId=3', '/lead/portrait?id=5')).toBe(true);
   });
 });
 

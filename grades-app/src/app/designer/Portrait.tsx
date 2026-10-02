@@ -16,6 +16,7 @@ import { useTheme, CHART_AXIS } from '@/lib/theme';
 import { onest } from '@/app/fonts';
 import TitleAurora from '@/components/TitleAurora';
 import Tooltip from '@/components/Tooltip';
+import { isFromCommentsLayer } from '@/lib/commentsLayer';
 import {
   ChecklistsSkeleton,
   PerformanceSkeleton,
@@ -968,6 +969,7 @@ function CyclesSwitcher({
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     function onDoc(e: MouseEvent) {
+      if (isFromCommentsLayer(e)) return;
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', onDoc);

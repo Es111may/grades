@@ -29,6 +29,7 @@ import {
 import PerformanceSummaryTable from './PerformanceSummaryTable';
 import PerformanceCharts from './PerformanceCharts';
 import PerformanceTasksTable from './PerformanceTasksTable';
+import { isFromCommentsLayer } from '@/lib/commentsLayer';
 
 interface FiltersState {
   hasEstimate: boolean;
@@ -348,6 +349,7 @@ function FiltersPopover({
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
+      if (isFromCommentsLayer(e)) return;
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setOpen(false);
       }

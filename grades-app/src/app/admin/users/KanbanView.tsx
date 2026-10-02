@@ -5,6 +5,7 @@ import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { canChangeLead, canEditUser } from '@/lib/permissions';
 import { genitiveFirstName } from '@/lib/names';
+import { isCommentsLayerOpen, isFromCommentsLayer } from '@/lib/commentsLayer';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -408,7 +409,8 @@ function HandoffConfirm({
   const textId = useId();
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !busy) onCancel();
+      // Пока в слое комментариев что-то открыто, Escape — его, не отмена передачи
+      if (e.key === 'Escape' && !busy && !isCommentsLayerOpen()) onCancel();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -418,7 +420,9 @@ function HandoffConfirm({
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[20vh]">
       <div
         className="absolute inset-0 bg-black/60 animate-fade-in"
-        onClick={busy ? undefined : onCancel}
+        onClick={(e) => {
+          if (!busy && !isFromCommentsLayer(e.nativeEvent)) onCancel();
+        }}
         aria-hidden
       />
       <div

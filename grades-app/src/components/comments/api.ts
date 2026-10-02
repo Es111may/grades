@@ -6,7 +6,7 @@ import type { CommentReply, CommentStatus, CommentThread } from './types';
 
 const BASE = '/api/ui-comments';
 
-// GET требует path — иначе 400; scope=all — до 500 тредов, новые сверху
+// GET требует page (или path) — иначе 400; scope=all — до 500 тредов, новые сверху
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
@@ -20,8 +20,9 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function fetchPageThreads(path: string): Promise<CommentThread[]> {
-  const j = await call<{ comments: CommentThread[] }>(`${BASE}?path=${encodeURIComponent(path)}`);
+/** Треды страницы вместе с её поп-апами; page — uiCommentPageOf(путь). */
+export async function fetchPageThreads(page: string): Promise<CommentThread[]> {
+  const j = await call<{ comments: CommentThread[] }>(`${BASE}?page=${encodeURIComponent(page)}`);
   return j.comments ?? [];
 }
 

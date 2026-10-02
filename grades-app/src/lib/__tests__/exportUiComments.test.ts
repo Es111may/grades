@@ -90,6 +90,17 @@ describe('anchorSummary', () => {
       'рамка · `main .card` · «Средний прирост» · в элементе 10%, 25%, 50%×33% · на странице 100, 200, 240×80 px · окно 1280 px',
     );
   });
+  it('место в поп-апе — подпись после вида отметки', () => {
+    expect(
+      anchorSummary({
+        kind: 'point',
+        selector: '[data-comment-anchor="popup-360"]',
+        abs: { x: 1, y: 2 },
+        viewportW: 1440,
+        context: { label: 'Поп-ап: Саша Тимкина' },
+      }),
+    ).toBe('точка · Поп-ап: Саша Тимкина · `[data-comment-anchor="popup-360"]` · на странице 1, 2 px · окно 1440 px');
+  });
   it('обратная кавычка в селекторе не ломает Markdown; нет якоря — так и пишем', () => {
     expect(anchorSummary({ kind: 'point', selector: 'a[title="`x`"]', abs: { x: 0, y: 0 }, viewportW: 0 })).toContain(
       '`` a[title="`x`"] ``',

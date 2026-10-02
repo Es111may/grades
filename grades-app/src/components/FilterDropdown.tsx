@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronDownIcon } from '@/components/icons';
+import { isCommentsLayerOpen, isFromCommentsLayer } from '@/lib/commentsLayer';
 
 export type FilterOption<T extends string> = { value: T; label: string; count?: number };
 
@@ -10,6 +11,8 @@ export type FilterOption<T extends string> = { value: T; label: string; count?: 
  * счётчиками. Вынесена из RoleDropdown «Команды» один в один по виду — туда
  * её и планируем вернуть, чтобы все фильтры сервиса были одним компонентом.
  * Закрывается по клику мимо, Esc и уходу фокуса; стрелки ходят по пунктам.
+ * Слой комментариев к интерфейсу — не «мимо»: открытый список можно
+ * прокомментировать, и он не свернётся.
  */
 export default function FilterDropdown<T extends string>({
   label,
@@ -35,15 +38,16 @@ export default function FilterDropdown<T extends string>({
     if (!open) return;
     const inside = (t: EventTarget | null) => !!ref.current && ref.current.contains(t as Node);
     function onDoc(e: MouseEvent) {
-      if (!inside(e.target)) setOpen(false);
+      if (!inside(e.target) && !isFromCommentsLayer(e)) setOpen(false);
     }
     // Tab увёл фокус за пределы — закрываем (blur не годится: Safari не
-    // фокусирует кнопки по клику, и меню закрывалось бы до выбора пункта)
+    // фокусирует кнопки по клику, и меню закрывалось бы до выбора пункта).
+    // Фокус ушёл в поле комментария — не закрываем
     function onFocus(e: FocusEvent) {
-      if (!inside(e.target)) setOpen(false);
+      if (!inside(e.target) && !isFromCommentsLayer(e)) setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return;
+      if (e.key !== 'Escape' || isCommentsLayerOpen()) return;
       setOpen(false);
       triggerRef.current?.focus();
     }

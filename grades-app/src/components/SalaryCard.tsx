@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CloseIcon, PlusIcon } from '@/components/icons';
+import { isCommentsLayerOpen, isFromCommentsLayer, isInCommentsLayer } from '@/lib/commentsLayer';
 import SalaryBlock, {
   SalaryHeadline,
   canAddBonusNow,
@@ -136,16 +137,21 @@ function SalaryDialog({
   useEffect(() => {
     if (!menuOpen) return;
     function onDoc(e: MouseEvent) {
+      // Клик в слое комментариев — не «мимо»: меню остаётся, его можно комментировать
+      if (isFromCommentsLayer(e)) return;
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     }
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [menuOpen]);
 
-  // Escape закрывает сначала меню, потом поп-ап; Tab ходит по кругу внутри
+  // Escape закрывает сначала меню, потом поп-ап; Tab ходит по кругу внутри.
+  // Пока в слое комментариев что-то открыто (поле, карточка треда поверх
+  // поп-апа), Escape — его; Tab из слоя ловушка не возвращает (keepTabInside)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
+        if (isCommentsLayerOpen()) return;
         if (menuOpen) {
           setMenuOpen(false);
           menuBtnRef.current?.focus();
@@ -193,7 +199,13 @@ function SalaryDialog({
 
   return createPortal(
     <div className="salary-sensitive fixed inset-0 z-50 flex items-start justify-center px-4 pt-[15vh] pb-10">
-      <div className="absolute inset-0 bg-black/60 animate-fade-in" onClick={onClose} aria-hidden />
+      <div
+        className="absolute inset-0 bg-black/60 animate-fade-in"
+        onClick={(e) => {
+          if (!isFromCommentsLayer(e.nativeEvent)) onClose();
+        }}
+        aria-hidden
+      />
       <div
         ref={panelRef}
         role="dialog"
@@ -276,8 +288,13 @@ function SalaryDialog({
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** Tab по кругу внутри поп-апа. Свёрнутая история (inert) — не в счёт. */
+/**
+ * Tab по кругу внутри поп-апа. Свёрнутая история (inert) — не в счёт. Фокус
+ * в слое комментариев (он вне поп-апа, порталом в body) не возвращаем: там
+ * пишут комментарий к этому поп-апу.
+ */
 function keepTabInside(e: KeyboardEvent, root: HTMLElement) {
+  if (isInCommentsLayer(document.activeElement)) return;
   const els = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
     (el) => !el.closest('[inert]'),
   );

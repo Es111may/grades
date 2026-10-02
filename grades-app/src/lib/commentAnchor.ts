@@ -11,10 +11,14 @@
  *   abs       — запасной вариант в px: x от левого края основного
  *               контейнера страницы (main), y от верха документа;
  *   viewportW — ширина окна в момент постановки (для разбора «уехало»);
- *   snippet   — начало текста якоря: найти место в коде и подсказать в списке.
+ *   snippet   — начало текста якоря: найти место в коде и подсказать в списке;
+ *   context   — { label } — в каком поп-апе («Поп-ап: Саша Тимкина»).
+ *
+ * Чей поп-ап — не в якоре, а в пути треда: /admin/users?person=5
+ * (lib/uiCommentsShared, UI_COMMENT_PATH_PARAMS).
  */
 
-import type { UiCommentAnchor } from './uiCommentsShared';
+import { UI_COMMENT_LIMITS, isUiCommentPopupPath, type UiCommentAnchor } from './uiCommentsShared';
 
 /** Якорь — та же форма, что принимает и отдаёт API (lib/uiCommentsShared). */
 export type CommentAnchor = UiCommentAnchor;
@@ -170,6 +174,66 @@ export function trimSnippet(text: string | null | undefined, max = SNIPPET_MAX):
   return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
 }
 
+// ── Поп-апы ─────────────────────────────────────────────────────────────
+
+/** Начало подписи места в поп-апе: «Поп-ап: Саша Тимкина». */
+export const POPUP_LABEL_PREFIX = 'Поп-ап: ';
+
+/** Подпись поп-апа по его заголовку; пустой заголовок — подписи нет. */
+export function popupLabel(heading: string | null | undefined): string | undefined {
+  const title = trimSnippet(heading, UI_COMMENT_LIMITS.contextLabelMax - POPUP_LABEL_PREFIX.length);
+  return title ? `${POPUP_LABEL_PREFIX}${title}` : undefined;
+}
+
+// Опоры, которые живут только в открытом поп-апе: поп-ап 360 и его секции,
+// модалка «Изменить», любой role=dialog (опора в components/comments/anchorDom)
+const POPUP_SELECTOR_RE = /^(?:\[data-comment-anchor="(?:popup-|user-modal")|\[role="dialog"\])/;
+
+/** Место комментария — внутри поп-апа: без него на странице его не найти. */
+export function isPopupAnchor(anchor: CommentAnchor | null | undefined): boolean {
+  if (!anchor) return false;
+  return !!anchor.context?.label || POPUP_SELECTOR_RE.test(anchor.selector ?? '');
+}
+
+/**
+ * Подпись треда из другого места этой страницы — в списке «Эта страница»:
+ * «В поп-апе: Саша Тимкина», «В поп-апе» (подписи нет — старый тред) или
+ * «На странице» (тред самой страницы, а сейчас открыт поп-ап).
+ */
+export function placeCaption(thread: { path: string; anchor: CommentAnchor | null }): string {
+  if (!isUiCommentPopupPath(thread.path)) return 'На странице';
+  const label = thread.anchor?.context?.label;
+  if (!label) return 'В поп-апе';
+  return label.startsWith(POPUP_LABEL_PREFIX) ? `В поп-апе: ${label.slice(POPUP_LABEL_PREFIX.length)}` : label;
+}
+
+/** Коротко, для строки списка: место треда в этом месте не нашлось. */
+export function missingLabel(anchor: CommentAnchor | null): string {
+  return isPopupAnchor(anchor) ? 'Откройте поп-ап, чтобы увидеть место' : 'Место не найдено';
+}
+
+/**
+ * Пояснение в карточке треда, если метки сейчас не видно; null — видно.
+ * here — тред этого места (путь совпал с текущим); missing — место этого
+ * места не нашлось на экране.
+ */
+export function threadHint(t: {
+  here: boolean;
+  missing: boolean;
+  path: string;
+  anchor: CommentAnchor | null;
+}): string | null {
+  if (!t.here) {
+    return isUiCommentPopupPath(t.path)
+      ? `${placeCaption(t)}. Откройте его, чтобы увидеть метку.`
+      : 'Метка — на самой странице. Закройте поп-ап, чтобы её увидеть.';
+  }
+  if (!t.missing) return null;
+  return isPopupAnchor(t.anchor)
+    ? `${missingLabel(t.anchor)}.`
+    : 'Место не найдено на странице — возможно, вёрстка поменялась.';
+}
+
 // ── Ссылка на тред ──────────────────────────────────────────────────────
 
 const HASH_RE = /^#comment-(\d+)$/;
@@ -184,7 +248,10 @@ export function parseCommentHash(hash: string | null | undefined): number | null
   return m ? Number(m[1]) : null;
 }
 
-/** Путь страницы для комментариев: pathname + search, без hash. */
+/**
+ * Адрес страницы как есть: pathname + search, без hash. В путь комментария
+ * он идёт через normalizeUiCommentPath — там остаются только параметры места.
+ */
 export function commentPath(pathname: string, search: string | null | undefined): string {
   const q = (search ?? '').replace(/^\?/, '');
   return q ? `${pathname}?${q}` : pathname;

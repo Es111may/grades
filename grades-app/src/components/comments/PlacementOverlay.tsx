@@ -19,7 +19,11 @@ import { useEscape } from './useEscape';
  *
  * onPlace вызывается, пока слой ещё в DOM: элемент под отметкой ищут
  * через elementsFromPoint, слой отсекается как часть интерфейса
- * комментариев (data-comments-ui у корня).
+ * комментариев (data-comments-layer у корня, lib/commentsLayer).
+ *
+ * Поп-апы и меню страницы под оверлеем не закрываются: pointerdown гасится
+ * (preventDefault — браузер не шлёт mousedown, по которому страница
+ * закрывает «клик мимо»), а click того же жеста — на захвате (см. up).
  */
 export default function PlacementOverlay({
   onPlace,
@@ -50,6 +54,16 @@ export default function PlacementOverlay({
     if (!s) return;
     start.current = null;
     setDrag(null);
+    // Оверлей уходит из DOM прямо сейчас, и click этого жеста браузер может
+    // отдать тому, что под курсором, — например, фону поп-апа 360, и тот
+    // закрылся бы. Гасим только этот click: он приходит в той же задаче,
+    // что и pointerup, а таймер снимает перехват сразу после неё.
+    const swallow = (ev: MouseEvent) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+    };
+    window.addEventListener('click', swallow, { capture: true, once: true });
+    window.setTimeout(() => window.removeEventListener('click', swallow, true), 0);
     const p = { x: e.clientX, y: e.clientY };
     const kind = classifyGesture(s, p);
     onPlace(kind, kind === 'rect' ? normalizeRect(s, p) : { left: s.x, top: s.y, width: 0, height: 0 });

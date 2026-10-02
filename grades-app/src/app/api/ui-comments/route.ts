@@ -2,10 +2,15 @@
  * Комментарии к интерфейсу «как в Figma» — только админ и лиды
  * (lib/uiComments). Не вошёл — 401, другая роль — 403.
  *
- * GET /api/ui-comments?path=/admin/users[&status=open|resolved]
- *   → { comments: UiCommentDto[] } — треды этой страницы с ответами, старые
- *     сверху. path — pathname + search (hash отрезаем), в query — через
- *     encodeURIComponent.
+ * GET /api/ui-comments?page=/admin/users[&status=open|resolved]
+ *   → { comments: UiCommentDto[] } — треды страницы и её поп-апов (поп-ап
+ *     360 — /admin/users?person=5), старые сверху. page — страница без
+ *     поп-апов (uiCommentPageOf): /admin/users, у портрета —
+ *     /lead/portrait?id=5; параметр поп-апа, если пришёл, отрезается.
+ * GET /api/ui-comments?path=/admin/users?person=5[&status=open|resolved]
+ *   → то же, но ровно этот путь. path нормализуется (normalizeUiCommentPath:
+ *     без hash, из search — только параметры места). В query — через
+ *     encodeURIComponent. page важнее path, если пришли оба.
  * GET /api/ui-comments?scope=all[&status=open|resolved]
  *   → { comments: UiCommentDto[] } — все страницы, новые сверху, до 500.
  *
@@ -26,13 +31,17 @@ import {
   UI_COMMENT_REPLY_SELECT,
   UI_COMMENT_THREAD_SELECT,
   firstIssueMessage,
+  isUiCommentOnPage,
   isUiCommentStatus,
   toCommentDto,
   toReplyDto,
   uiCommentCreateSchema,
+  uiCommentPageSchema,
   uiCommentPathSchema,
   uiCommentReplySchema,
+  uiCommentThreadsWhere,
   uiCommentsAccessError,
+  type UiCommentThreadsQuery,
 } from '@/lib/uiComments';
 
 /** Предел выборки «все страницы»: больше разом никто не разберёт. */
@@ -60,20 +69,29 @@ export async function GET(req: NextRequest) {
   const status = params.get('status');
   if (status !== null && !isUiCommentStatus(status)) return bad('Статус — open или resolved');
 
-  let path: string | undefined;
-  if (scope !== 'all') {
+  const filter = { ...(status ? { status } : {}) };
+  let query: UiCommentThreadsQuery;
+  if (scope === 'all') {
+    query = { scope: 'all', ...filter };
+  } else if (params.get('page') !== null) {
+    const parsed = uiCommentPageSchema.safeParse(params.get('page'));
+    if (!parsed.success) return bad(firstIssueMessage(parsed.error));
+    query = { page: parsed.data, ...filter };
+  } else {
     const parsed = uiCommentPathSchema.safeParse(params.get('path') ?? undefined);
     if (!parsed.success) return bad(firstIssueMessage(parsed.error));
-    path = parsed.data;
+    query = { path: parsed.data, ...filter };
   }
 
   const rows = await prisma.uiComment.findMany({
-    where: { parentId: null, ...(path !== undefined ? { path } : {}), ...(status ? { status } : {}) },
+    where: uiCommentThreadsWhere(query),
     select: UI_COMMENT_THREAD_SELECT,
     orderBy: { createdAt: scope === 'all' ? 'desc' : 'asc' },
     ...(scope === 'all' ? { take: ALL_SCOPE_LIMIT } : {}),
   });
-  return NextResponse.json({ comments: rows.map(toCommentDto) });
+  const page = 'page' in query ? query.page : null;
+  const list = page !== null ? rows.filter((r) => isUiCommentOnPage(r.path, page)) : rows;
+  return NextResponse.json({ comments: list.map(toCommentDto) });
 }
 
 export async function POST(req: NextRequest) {

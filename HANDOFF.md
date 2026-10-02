@@ -73,7 +73,7 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.75.1 (комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
+**Версия в `package.json`:** 0.75.2 (комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
 
 **Phase 19 закрыто (0.24.0):**
 - `src/lib/audit.ts` — единый хелпер `writeAudit({actor, action, target, before?, after?, reason?, extra?})`. Падение записи не валит основной запрос. Словари `AUDIT_ACTIONS`, `AUDIT_ACTION_LABEL`, `AUDIT_TARGET_TYPE_LABEL` для UI.
@@ -310,6 +310,13 @@
       (открытые треды в Markdown по страницам, `--json`, `--status=`),
       `--resolve=<id,…> [--actor=<email>]` — закрыть после правок. Запуск с
       `DATABASE_URL` прод-базы (публичный URL сервиса Postgres).
+      **0.75.2:** события из слоя комментариев не закрывают поп-апы и меню —
+      в новых обработчиках «клик мимо»/Escape/ловушках фокуса использовать
+      `isFromCommentsLayer` / `isCommentsLayerOpen` (`lib/commentsLayer.ts`).
+      Поп-ап 360 — по ссылке `?person=<id>` (`lib/personParam.ts`); путь
+      комментария нормализуется `normalizeUiCommentPath` по белому списку
+      параметров `UI_COMMENT_PATH_PARAMS` (новые параметры места — туда).
+      `GET /api/ui-comments?page=` — страница и все её поп-апы.
     - 23.1 Реестр · 23.3 Сверка с HR · 23.5 Досев · 23.6 Экономика — не начаты.
 12. **Phase 24 — накопительные гейты (подтверждённый баг, Pavel 29.07.2026).**
     Сейчас `calcGrade` проверяет гейты **только того грейда, который выдаёт**, и

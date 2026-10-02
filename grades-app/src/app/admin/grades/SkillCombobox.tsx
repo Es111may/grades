@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { isFromCommentsLayer } from '@/lib/commentsLayer';
 
 type Skill = { id: number; name: string; taxonomyCode: string };
 
@@ -40,6 +41,7 @@ export default function SkillCombobox({
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
+      if (isFromCommentsLayer(e)) return;
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
