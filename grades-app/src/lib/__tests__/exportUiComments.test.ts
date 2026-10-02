@@ -13,6 +13,9 @@ import {
   formatResolveReport,
   parseArgs,
   planResolve,
+  shotFileName,
+  shotLine,
+  withShotPath,
 } from '../../../scripts/export-ui-comments';
 import type { UiCommentDto } from '../uiCommentsShared';
 
@@ -33,6 +36,7 @@ function thread(over: Partial<UiCommentDto>): UiCommentDto {
     resolvedAt: null,
     resolvedBy: null,
     appVersion: '0.74.1',
+    screenshot: null,
     replies: [],
     ...over,
   };
@@ -40,10 +44,10 @@ function thread(over: Partial<UiCommentDto>): UiCommentDto {
 
 describe('parseArgs', () => {
   it('по умолчанию — открытые, Markdown', () => {
-    expect(parseArgs([])).toEqual({ mode: 'export', status: 'open', json: false });
+    expect(parseArgs([])).toEqual({ mode: 'export', status: 'open', json: false, images: null });
   });
   it('--status и --json', () => {
-    expect(parseArgs(['--status=all', '--json'])).toEqual({ mode: 'export', status: 'all', json: true });
+    expect(parseArgs(['--status=all', '--json'])).toEqual({ mode: 'export', status: 'all', json: true, images: null });
     expect(parseArgs(['--status=resolved'])).toMatchObject({ status: 'resolved' });
   });
   it('--resolve: id через запятую, без повторов; --actor', () => {
@@ -61,6 +65,50 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--resolve=12,abc,0'])).toThrow(/abc, 0/);
     expect(() => parseArgs(['--resolve=12', '--json'])).toThrow(/не сочетается/);
     expect(() => parseArgs(['--actor=a@example.test'])).toThrow(/только вместе с --resolve/);
+  });
+  it('--images — папка для снимков; без папки и с --resolve — ошибка', () => {
+    expect(parseArgs(['--images=./shots', '--json'])).toEqual({
+      mode: 'export',
+      status: 'open',
+      json: true,
+      images: './shots',
+    });
+    expect(() => parseArgs(['--images='])).toThrow(/без папки/);
+    expect(() => parseArgs(['--resolve=1', '--images=./shots'])).toThrow(/не сочетается/);
+  });
+});
+
+describe('снимки в выгрузке', () => {
+  const shot = { url: '/api/ui-comments/5/screenshot?v=960x640', w: 960, h: 640 };
+
+  it('сохранённый снимок — путь под тредом', () => {
+    const files = new Map([[5, '/tmp/shots/comment-5.webp']]);
+    const md = formatMarkdown([thread({ id: 5, screenshot: shot }), thread({ id: 6 })], 'open', files);
+    expect(md).toContain('- Снимок: `/tmp/shots/comment-5.webp` (960×640 px)');
+    // У треда без снимка строки нет
+    expect(md.split('### #6')[1]).not.toContain('Снимок');
+  });
+
+  it('без --images — что снимок есть и как его выгрузить', () => {
+    expect(shotLine(thread({ id: 5, screenshot: shot }))).toBe('- Снимок: есть, 960×640 px — файлом: --images=<папка>');
+    expect(shotLine(thread({ id: 5 }))).toBeNull();
+  });
+
+  it('--json: путь — в screenshot.path', () => {
+    const files = new Map([[5, '/tmp/shots/comment-5.webp']]);
+    expect(withShotPath(thread({ id: 5, screenshot: shot }), files).screenshot).toEqual({
+      ...shot,
+      path: '/tmp/shots/comment-5.webp',
+    });
+    expect(withShotPath(thread({ id: 6, screenshot: shot }), files).screenshot).toEqual(shot);
+    expect(withShotPath(thread({ id: 7 }), files).screenshot).toBeNull();
+  });
+
+  it('имя файла — по формату в байтах', () => {
+    const webp = [0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50];
+    expect(shotFileName(5, webp)).toBe('comment-5.webp');
+    expect(shotFileName(6, [0xff, 0xd8, 0xff, 0xe0])).toBe('comment-6.jpg');
+    expect(shotFileName(7, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])).toBeNull();
   });
 });
 

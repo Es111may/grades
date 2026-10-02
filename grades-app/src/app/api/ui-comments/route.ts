@@ -18,6 +18,9 @@
  * POST /api/ui-comments { parentId, text }     → 201 UiCommentReplyDto (ответ;
  *   родитель — корень треда, path/anchor из тела не берём)
  *
+ * Снимок места — отдельно: PUT/GET /api/ui-comments/[id]/screenshot. В
+ * UiCommentDto — только screenshot { url, w, h }, байты здесь не читаются.
+ *
  * Ошибки — { error: string } по-русски.
  */
 

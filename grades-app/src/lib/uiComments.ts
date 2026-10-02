@@ -6,10 +6,13 @@
 //
 // В ответ уходят только перечисленные ниже поля: про автора — id, имя и
 // ссылка на аватар (не data URL), про того, кто закрыл тред, — id и имя.
+// Снимок места — только размер и ссылка: байты (UiComment.screenshot) в
+// селекты списков не входят, их отдаёт /api/ui-comments/[id]/screenshot.
 
 import type { Prisma } from '@prisma/client';
 import pkg from '../../package.json';
 import { avatarSrc } from './avatar';
+import { uiCommentShotUrl } from './commentShot';
 import {
   isUiCommentStatus,
   uiCommentAnchorSchema,
@@ -18,6 +21,7 @@ import {
   type UiCommentAuthorDto,
   type UiCommentDto,
   type UiCommentReplyDto,
+  type UiCommentShotDto,
   type UiCommentStatus,
 } from './uiCommentsShared';
 
@@ -47,7 +51,10 @@ export const UI_COMMENT_REPLY_SELECT = {
   author: { select: AUTHOR_SELECT },
 } as const satisfies Prisma.UiCommentSelect;
 
-/** Тред целиком: корень, автор, кто закрыл, ответы по времени. */
+/**
+ * Тред целиком: корень, автор, кто закрыл, ответы по времени. От снимка —
+ * только размер (есть ли он и какой); сам screenshot сюда не добавлять.
+ */
 export const UI_COMMENT_THREAD_SELECT = {
   id: true,
   path: true,
@@ -55,6 +62,8 @@ export const UI_COMMENT_THREAD_SELECT = {
   text: true,
   status: true,
   appVersion: true,
+  screenshotW: true,
+  screenshotH: true,
   createdAt: true,
   updatedAt: true,
   resolvedAt: true,
@@ -116,6 +125,9 @@ export type UiCommentThreadRow = {
   text: string;
   status: string;
   appVersion: string | null;
+  /** Размер снимка; нет — снимка нет. Байты сюда не читаем. */
+  screenshotW?: number | null;
+  screenshotH?: number | null;
   createdAt: Date;
   updatedAt: Date;
   resolvedAt: Date | null;
@@ -140,6 +152,17 @@ export function toReplyDto(row: UiCommentReplyRow): UiCommentReplyDto {
   };
 }
 
+/** Снимок треда: ссылка и размер; без размера в строке — снимка нет. */
+export function toShotDto(row: {
+  id: number;
+  screenshotW?: number | null;
+  screenshotH?: number | null;
+}): UiCommentShotDto | null {
+  const { screenshotW: w, screenshotH: h } = row;
+  if (!w || !h) return null;
+  return { url: uiCommentShotUrl(row.id, w, h), w, h };
+}
+
 export function toCommentDto(row: UiCommentThreadRow): UiCommentDto {
   // Якорь из JSON-колонки — через ту же схему, что и при записи: клиенту
   // уходит проверенная форма без лишних ключей, битый якорь — null.
@@ -156,6 +179,7 @@ export function toCommentDto(row: UiCommentThreadRow): UiCommentDto {
     resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
     resolvedBy: row.resolvedBy ? { id: row.resolvedBy.id, fullName: row.resolvedBy.fullName } : null,
     appVersion: row.appVersion,
+    screenshot: toShotDto(row),
     replies: row.replies.map(toReplyDto),
   };
 }

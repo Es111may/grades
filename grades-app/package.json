@@ -1,6 +1,6 @@
 {
   "name": "grades-app",
-  "version": "0.75.2",
+  "version": "0.76.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -27,6 +27,7 @@
     "@prisma/client": "^5.10.2",
     "bcryptjs": "^2.4.3",
     "chart.js": "^4.4.1",
+    "html-to-image": "^1.11.13",
     "next": "14.2.35",
     "next-auth": "^4.24.7",
     "react": "^18.2.0",

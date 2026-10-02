@@ -2,6 +2,7 @@
 // текстом сервера (или общим), его показывает интерфейс.
 
 import type { CommentAnchor } from '@/lib/commentAnchor';
+import type { UiCommentShotDto } from '@/lib/uiCommentsShared';
 import type { CommentReply, CommentStatus, CommentThread } from './types';
 
 const BASE = '/api/ui-comments';
@@ -48,6 +49,23 @@ export function patchComment(id: number, patch: { text?: string; status?: Commen
     method: 'PATCH',
     body: JSON.stringify(patch),
   });
+}
+
+/**
+ * Снимок места к только что созданному треду: сырые байты WebP/JPEG,
+ * Content-Type — из Blob. Отдельным запросом после POST: не получился —
+ * комментарий уже сохранён.
+ */
+export async function uploadShot(id: number, blob: Blob): Promise<UiCommentShotDto> {
+  const res = await fetch(`${BASE}/${id}/screenshot`, {
+    method: 'PUT',
+    headers: { 'Content-Type': blob.type },
+    body: blob,
+    cache: 'no-store',
+  });
+  const j = (await res.json().catch(() => null)) as { screenshot?: UiCommentShotDto; error?: string } | null;
+  if (!res.ok || !j?.screenshot) throw new Error(j?.error || `Ошибка ${res.status}`);
+  return j.screenshot;
 }
 
 export function deleteComment(id: number) {

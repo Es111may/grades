@@ -6,6 +6,7 @@ import { ChatIcon, CloseIcon, PlusIcon } from '@/components/icons';
 import { pageLabel, plural, relativeTime } from '@/lib/commentAnchor';
 import { isUiCommentPopupPath } from '@/lib/uiCommentsShared';
 import { PinShape, Z } from './CommentPins';
+import { ShotChip } from './ShotPreview';
 import type { CommentStatus, CommentThread } from './types';
 
 export type CommentsScope = 'page' | 'all';
@@ -222,7 +223,8 @@ export default CommentsPopover;
 
 /**
  * Строка списка: метка или аватар, автор и дата, начало текста; ниже —
- * место (страница или поп-ап), ответы и «Место не найдено».
+ * место (страница или поп-ап), ответы и «Место не найдено». Есть снимок
+ * места — миниатюра справа.
  */
 function ThreadRow({
   thread,
@@ -283,6 +285,7 @@ function ThreadRow({
           </span>
         )}
       </span>
+      {thread.screenshot && <ShotChip shot={thread.screenshot} />}
     </button>
   );
 }

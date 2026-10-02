@@ -13,6 +13,11 @@
  *       Какие треды выгрузить. По умолчанию open.
  *   npx tsx scripts/export-ui-comments.ts --json
  *       То же JSON-массивом UiCommentDto — как отдаёт GET /api/ui-comments.
+ *   npx tsx scripts/export-ui-comments.ts --images=<папка>
+ *       Плюс снимки мест (lib/commentShot) файлами <папка>/comment-<id>.webp
+ *       (или .jpg); путь к файлу — в Markdown под тредом, в --json — в
+ *       screenshot.path. Папка создаётся сама. Без --images у треда со
+ *       снимком в Markdown — только размер.
  *   npx tsx scripts/export-ui-comments.ts --resolve=12,15 [--actor=<email>]
  *       Отметить треды решёнными. Кто закрыл — активный админ или лид с этим
  *       email; по умолчанию первый активный админ. Ответы, несуществующие и
@@ -22,13 +27,17 @@
  * файл для сессии, не в общие логи.
  */
 
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { PrismaClient } from '@prisma/client';
+import { shotExtension, storedShotFormat } from '../src/lib/commentShot';
 import { prisma } from '../src/lib/db';
 import {
   UI_COMMENT_THREAD_SELECT,
   toCommentDto,
   type UiCommentAnchor,
   type UiCommentDto,
+  type UiCommentShotDto,
   type UiCommentStatus,
 } from '../src/lib/uiComments';
 
@@ -37,10 +46,10 @@ import {
 export type ExportStatus = UiCommentStatus | 'all';
 
 export type ExportArgs =
-  | { mode: 'export'; status: ExportStatus; json: boolean }
+  | { mode: 'export'; status: ExportStatus; json: boolean; images: string | null }
   | { mode: 'resolve'; ids: number[]; actor: string | null };
 
-const VALUE_FLAGS = ['--status=', '--resolve=', '--actor='] as const;
+const VALUE_FLAGS = ['--status=', '--resolve=', '--actor=', '--images='] as const;
 
 export function parseArgs(argv: string[]): ExportArgs {
   const value = (flag: string) => {
@@ -51,17 +60,20 @@ export function parseArgs(argv: string[]): ExportArgs {
   if (unknown.length) {
     throw new Error(
       `Неизвестные аргументы: ${unknown.join(' ')}. Есть: --status=all|open|resolved --json ` +
-        '--resolve=<id,…> --actor=<email>',
+        '--images=<папка> --resolve=<id,…> --actor=<email>',
     );
   }
 
   const resolve = value('--resolve=');
   const actor = value('--actor=');
   const status = value('--status=');
+  const images = value('--images=');
   const json = argv.includes('--json');
 
   if (resolve !== undefined) {
-    if (status !== undefined || json) throw new Error('--resolve не сочетается с --status и --json');
+    if (status !== undefined || json || images !== undefined) {
+      throw new Error('--resolve не сочетается с --status, --json и --images');
+    }
     const parts = resolve.split(',').map((s) => s.trim()).filter(Boolean);
     if (!parts.length) throw new Error('--resolve — без id');
     const bad = parts.filter((s) => !/^[1-9]\d*$/.test(s));
@@ -74,7 +86,8 @@ export function parseArgs(argv: string[]): ExportArgs {
   if (status !== undefined && status !== 'all' && status !== 'open' && status !== 'resolved') {
     throw new Error('--status — all, open или resolved');
   }
-  return { mode: 'export', status: (status as ExportStatus | undefined) ?? 'open', json };
+  if (images === '') throw new Error('--images — без папки');
+  return { mode: 'export', status: (status as ExportStatus | undefined) ?? 'open', json, images: images ?? null };
 }
 
 // ── Markdown ─────────────────────────────────────────────────────────────
@@ -133,8 +146,26 @@ const STATUS_HEADING: Record<ExportStatus, string> = {
   all: 'все',
 };
 
-/** Треды → Markdown по страницам (пути по алфавиту, треды — по времени). */
-export function formatMarkdown(threads: UiCommentDto[], status: ExportStatus): string {
+/**
+ * Строка про снимок треда: путь к файлу, если его сохранили (--images),
+ * иначе — что снимок есть и как его выгрузить. Снимка нет — null.
+ */
+export function shotLine(t: UiCommentDto, files?: ReadonlyMap<number, string>): string | null {
+  if (!t.screenshot) return null;
+  const file = files?.get(t.id);
+  const size = `${t.screenshot.w}×${t.screenshot.h} px`;
+  return file ? `- Снимок: ${code(file)} (${size})` : `- Снимок: есть, ${size} — файлом: --images=<папка>`;
+}
+
+/**
+ * Треды → Markdown по страницам (пути по алфавиту, треды — по времени).
+ * files — сохранённые снимки (id треда → путь), см. --images.
+ */
+export function formatMarkdown(
+  threads: UiCommentDto[],
+  status: ExportStatus,
+  files?: ReadonlyMap<number, string>,
+): string {
   const byPath = new Map<string, UiCommentDto[]>();
   for (const t of threads) {
     const list = byPath.get(t.path) ?? [];
@@ -165,6 +196,7 @@ export function formatMarkdown(threads: UiCommentDto[], status: ExportStatus): s
         '',
         `- Автор: ${t.author.fullName} · ${formatMoscowDateTime(t.createdAt)} · ${t.appVersion ? `v${t.appVersion}` : 'версия неизвестна'}`,
         `- Место: ${anchorSummary(t.anchor)}`,
+        ...[shotLine(t, files)].filter((l): l is string => l !== null),
         '',
         quote(t.text),
       );
@@ -180,6 +212,49 @@ export function formatMarkdown(threads: UiCommentDto[], status: ExportStatus): s
     }
   }
   return out.join('\n') + '\n';
+}
+
+// ── Снимки ──────────────────────────────────────────────────────────────
+
+/** Имя файла снимка: comment-<id>.webp или .jpg — по формату в байтах. */
+export function shotFileName(id: number, bytes: ArrayLike<number>): string | null {
+  const format = storedShotFormat(bytes);
+  return format ? `comment-${id}.${shotExtension(format)}` : null;
+}
+
+/** Тред в --json: у сохранённого снимка — ещё и путь к файлу. */
+export type ExportedThread = Omit<UiCommentDto, 'screenshot'> & {
+  screenshot: (UiCommentShotDto & { path?: string }) | null;
+};
+
+export function withShotPath(t: UiCommentDto, files: ReadonlyMap<number, string>): ExportedThread {
+  const path = files.get(t.id);
+  return path && t.screenshot ? { ...t, screenshot: { ...t.screenshot, path } } : t;
+}
+
+/**
+ * Снимки тредов — файлами в dir. Байты читаем отдельным запросом и только
+ * для тредов со снимком: в общий селект тредов они не входят. Битые
+ * (не WebP и не JPEG) пропускаем. → id треда → абсолютный путь к файлу.
+ */
+async function saveShots(threads: UiCommentDto[], dir: string): Promise<Map<number, string>> {
+  const ids = threads.filter((t) => t.screenshot).map((t) => t.id);
+  const files = new Map<number, string>();
+  if (!ids.length) return files;
+  mkdirSync(dir, { recursive: true });
+  const rows = await prisma.uiComment.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, screenshot: true },
+  });
+  for (const row of rows) {
+    if (!row.screenshot) continue;
+    const name = shotFileName(row.id, row.screenshot);
+    if (!name) continue;
+    const file = resolve(dir, name);
+    writeFileSync(file, row.screenshot);
+    files.set(row.id, file);
+  }
+  return files;
 }
 
 // ── Отметка «решено» ─────────────────────────────────────────────────────
@@ -282,7 +357,12 @@ async function main() {
     orderBy: [{ path: 'asc' }, { createdAt: 'asc' }],
   });
   const threads = rows.map(toCommentDto);
-  process.stdout.write(args.json ? `${JSON.stringify(threads, null, 2)}\n` : formatMarkdown(threads, args.status));
+  const files = args.images ? await saveShots(threads, args.images) : new Map<number, string>();
+  process.stdout.write(
+    args.json
+      ? `${JSON.stringify(threads.map((t) => withShotPath(t, files)), null, 2)}\n`
+      : formatMarkdown(threads, args.status, files),
+  );
 }
 
 // Только при запуске скриптом (tsx — CommonJS): тест импортирует чистые

@@ -287,6 +287,17 @@
       transparent 55%
     );
   }
+  /* Тонкая обводка картинок (снимки, превью): край не сливается с фоном.
+     Чистый белый в тёмной теме и чистый чёрный в светлой — тонированная
+     обводка собирает цвет поверхности и смотрится грязью на краю. */
+  .img-outline {
+    outline: 1px solid oklch(1 0 0 / 0.1);
+    outline-offset: -1px;
+  }
+  html[data-theme='light'] .img-outline {
+    outline-color: oklch(0 0 0 / 0.1);
+  }
+
   .card-hover {
     @apply card transition-all duration-200 ease-apple-out
            hover:shadow-soft-md hover:border-ash hover:-translate-y-px;

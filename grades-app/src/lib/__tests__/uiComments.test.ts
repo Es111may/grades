@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   APP_VERSION,
   UI_COMMENT_LIMITS,
+  UI_COMMENT_THREAD_SELECT,
   canDeleteUiComment,
   canEditUiCommentText,
   canUseUiComments,
@@ -372,6 +373,7 @@ describe('DTO', () => {
         'replies',
         'resolvedAt',
         'resolvedBy',
+        'screenshot',
         'status',
         'text',
         'updatedAt',
@@ -430,6 +432,27 @@ describe('DTO', () => {
     expect(dto.resolvedBy).toBeNull();
     expect(dto.appVersion).toBeNull();
     expect(dto.replies).toEqual([]);
+  });
+
+  it('снимок: ссылка с версией и размер; байты наружу не уходят', () => {
+    // Как если бы кто-то добавил screenshot в select: в DTO его быть не должно
+    const bytes = Buffer.from('RIFF\0\0\0\0WEBPVP8 secret-bytes');
+    const dto = toCommentDto({ ...row, screenshot: bytes, screenshotW: 960, screenshotH: 640 } as UiCommentThreadRow);
+    expect(dto.screenshot).toEqual({ url: '/api/ui-comments/7/screenshot?v=960x640', w: 960, h: 640 });
+    const json = JSON.stringify(dto);
+    expect(json).not.toContain('secret-bytes');
+    expect(json).not.toContain(bytes.toString('base64'));
+  });
+
+  it('снимка нет — null (старый тред или размер не записан)', () => {
+    expect(toCommentDto(row as UiCommentThreadRow).screenshot).toBeNull();
+    expect(toCommentDto({ ...row, screenshotW: 960, screenshotH: null } as UiCommentThreadRow).screenshot).toBeNull();
+  });
+
+  it('селект треда читает размер снимка, но не байты', () => {
+    expect(UI_COMMENT_THREAD_SELECT).toMatchObject({ screenshotW: true, screenshotH: true });
+    expect(Object.keys(UI_COMMENT_THREAD_SELECT)).not.toContain('screenshot');
+    expect(Object.keys(UI_COMMENT_THREAD_SELECT.replies.select)).not.toContain('screenshot');
   });
 
   it('ответ отдельно — та же форма, что в replies', () => {

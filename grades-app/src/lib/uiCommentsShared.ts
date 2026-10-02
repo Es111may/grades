@@ -69,6 +69,13 @@ export type UiCommentReplyDto = {
   updatedAt: string;
 };
 
+/**
+ * Снимок места в момент комментария (lib/commentShot): ссылка на картинку с
+ * версией и её размер в px изображения — чтобы отвести место до загрузки.
+ * Сами байты в списки не попадают никогда — только по ссылке.
+ */
+export type UiCommentShotDto = { url: string; w: number; h: number };
+
 /** Тред: корневой комментарий с ответами (по createdAt, старые сверху). */
 export type UiCommentDto = {
   id: number;
@@ -83,6 +90,8 @@ export type UiCommentDto = {
   resolvedAt: string | null;
   resolvedBy: { id: number; fullName: string } | null;
   appVersion: string | null;
+  /** null — снимка нет: не успел загрузиться, не получился или тред старый. */
+  screenshot: UiCommentShotDto | null;
   replies: UiCommentReplyDto[];
 };
 

@@ -23,9 +23,10 @@ import {
   uiCommentPageOf,
   uiCommentPlaceHref,
 } from '@/lib/uiCommentsShared';
-import { createThread, fetchAllThreads, fetchPageThreads } from './api';
-import { buildAnchor, revealAnchor, type AnchorGeom } from './anchorDom';
-import CommentComposer from './CommentComposer';
+import { createThread, fetchAllThreads, fetchPageThreads, uploadShot } from './api';
+import { buildAnchor, measureAnchor, revealAnchor, type AnchorGeom } from './anchorDom';
+import { captureShot, nextPaint, type CapturedShot } from './captureShot';
+import CommentComposer, { type SubmitPhase } from './CommentComposer';
 import { CommentPin, DraftPin, PIN, RectOutline, Z } from './CommentPins';
 import CommentsPopover, { type CommentsScope, type LoadState } from './CommentsPopover';
 import PlacementOverlay from './PlacementOverlay';
@@ -137,6 +138,8 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   // поп-ап успели закрыть, пока писали
   const [draft, setDraft] = useState<{ key: string; anchor: CommentAnchor; path: string } | null>(null);
   const draftText = useRef('');
+  // Снимок отметки: если отправка не удалась, повтор не снимает заново
+  const draftShot = useRef<{ key: string; shot: CapturedShot | null } | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   // Тред, который надо открыть, когда загрузятся треды его страницы и
   // откроется его место (ссылка с #comment-<id>, переход из списка в поп-ап
@@ -334,21 +337,47 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
     if (anchor) setDraft({ key: `draft-${Date.now()}`, anchor, path });
   }
 
-  async function submitDraft(text: string) {
+  async function submitDraft(text: string, onPhase: (phase: SubmitPhase) => void) {
     if (!draft) return;
-    const t = await createThread(draft.path, draft.anchor, text);
+    const d = draft;
+    // Снимок — до отправки, пока страница такая, какой её видел автор; слой
+    // комментариев (и само поле) в него не попадает. Ошибка снимка не мешает
+    // комментарию: captureShot не бросает
+    let shot = draftShot.current?.key === d.key ? draftShot.current.shot : undefined;
+    if (shot === undefined) {
+      onPhase('shot');
+      await nextPaint();
+      shot = await captureShot(d.anchor.kind, measureAnchor(d.anchor));
+      draftShot.current = { key: d.key, shot };
+      onPhase('send');
+    }
+    const t = await createThread(d.path, d.anchor, text);
+    draftShot.current = null;
     setThreads((prev) => [...prev, t]);
     setAll((prev) => (prev ? [t, ...prev] : prev));
     setDraft(null);
     // Только что поставили — метку надо видеть
     setShowPins(true);
     if (status === 'resolved') setStatus('open');
+    if (shot) void attachShot(t.id, shot);
   }
 
   const replaceThread = useCallback((t: CommentThread) => {
     const swap = (list: CommentThread[]) => list.map((x) => (x.id === t.id ? t : x));
     setThreads(swap);
     setAll((prev) => (prev ? swap(prev) : prev));
+  }, []);
+
+  /** Снимок — к уже созданному треду; не загрузился — тред остаётся без него. */
+  const attachShot = useCallback(async (threadId: number, shot: CapturedShot) => {
+    try {
+      const screenshot = await uploadShot(threadId, shot.blob);
+      const apply = (list: CommentThread[]) => list.map((x) => (x.id === threadId ? { ...x, screenshot } : x));
+      setThreads(apply);
+      setAll((prev) => (prev ? apply(prev) : prev));
+    } catch (e) {
+      console.warn('[comments] снимок не загрузился — комментарий без него', e);
+    }
   }, []);
 
   const removeFromThread = useCallback((threadId: number, replyId?: number) => {

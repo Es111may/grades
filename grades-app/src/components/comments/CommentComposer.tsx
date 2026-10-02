@@ -7,11 +7,15 @@ import { Z } from './CommentPins';
 import { useEscape } from './useEscape';
 import { useFloating } from './useFloating';
 
+/** Что сейчас происходит после «Отправить»: снимок места, затем сам запрос. */
+export type SubmitPhase = 'shot' | 'send';
+
 /**
  * Новый комментарий у только что поставленной отметки: поле с фокусом,
  * «Отправить» / «Отмена». Enter — отправить, Shift+Enter — новая строка,
  * Escape — отмена. Карточка едет за отметкой при скролле (anchor — её
- * текущий прямоугольник).
+ * текущий прямоугольник). Пока снимается место, слева тихо «Снимок…»,
+ * кнопка всё время — «Отправляем…».
  */
 export default function CommentComposer({
   anchor,
@@ -20,7 +24,8 @@ export default function CommentComposer({
   textRef,
 }: {
   anchor: ViewRect;
-  onSubmit: (text: string) => Promise<void>;
+  /** onPhase — сказать карточке, что идёт сейчас (снимок или отправка). */
+  onSubmit: (text: string, onPhase: (phase: SubmitPhase) => void) => Promise<void>;
   onCancel: () => void;
   /** Текст наружу — клик мимо не закрывает карточку, если в ней что-то написано. */
   textRef: { current: string };
@@ -28,7 +33,8 @@ export default function CommentComposer({
   const ref = useRef<HTMLDivElement>(null);
   const pos = useFloating(ref, anchor);
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
+  const [phase, setPhase] = useState<SubmitPhase | null>(null);
+  const sending = phase !== null;
   const [error, setError] = useState<string | null>(null);
   textRef.current = text;
 
@@ -37,13 +43,13 @@ export default function CommentComposer({
   async function send() {
     const t = text.trim();
     if (!t || sending) return;
-    setSending(true);
+    setPhase('send');
     setError(null);
     try {
-      await onSubmit(t);
+      await onSubmit(t, setPhase);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось отправить комментарий');
-      setSending(false);
+      setPhase(null);
     }
   }
 
@@ -71,7 +77,9 @@ export default function CommentComposer({
         </p>
       )}
       <div className="flex items-center gap-1.5 mt-2">
-        <span className="text-[11px] text-ash px-1 mr-auto">Enter — отправить</span>
+        <span className="text-[11px] text-ash px-1 mr-auto" aria-live="polite">
+          {phase === 'shot' ? 'Снимок…' : 'Enter — отправить'}
+        </span>
         <button
           type="button"
           onClick={onCancel}

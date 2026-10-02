@@ -73,7 +73,7 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.75.2 (комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
+**Версия в `package.json`:** 0.76.0 (комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
 
 **Phase 19 закрыто (0.24.0):**
 - `src/lib/audit.ts` — единый хелпер `writeAudit({actor, action, target, before?, after?, reason?, extra?})`. Падение записи не валит основной запрос. Словари `AUDIT_ACTIONS`, `AUDIT_ACTION_LABEL`, `AUDIT_TARGET_TYPE_LABEL` для UI.
@@ -317,6 +317,12 @@
       комментария нормализуется `normalizeUiCommentPath` по белому списку
       параметров `UI_COMMENT_PATH_PARAMS` (новые параметры места — туда).
       `GET /api/ui-comments?page=` — страница и все её поп-апы.
+      **0.76.0:** скриншот к комментарию — снимается при отправке
+      (`components/comments/captureShot.ts`, `html-to-image`, WebP ≤ 400 КБ,
+      блок вокруг рамки/точки с меткой), хранится в `UiComment.screenshot`,
+      `PUT/GET /api/ui-comments/[id]/screenshot`. Для разбора:
+      `export-ui-comments.ts --images=<папка>` сохраняет снимки файлами —
+      их можно смотреть при правках.
     - 23.1 Реестр · 23.3 Сверка с HR · 23.5 Досев · 23.6 Экономика — не начаты.
 12. **Phase 24 — накопительные гейты (подтверждённый баг, Pavel 29.07.2026).**
     Сейчас `calcGrade` проверяет гейты **только того грейда, который выдаёт**, и
