@@ -7,6 +7,7 @@ import {
   type GradingPlanState,
 } from '@/lib/gradingPlan';
 import { formatDateShort, todayLocalIso } from '@/lib/dates';
+import { openYandexCalendarOnChange } from '@/lib/yandexCalendar';
 import { CloseIcon, CoinsIcon, InfoIcon, TimerIcon } from '@/components/icons';
 import { isGradingExempt, isHourly, nonGradingBuildNote } from '@/lib/employment';
 import Tooltip from '@/components/Tooltip';
@@ -267,6 +268,9 @@ export default function GradingPlanChip({
  * вписанную руками прошедшую дату ловим сами — сервер её не запрещает.
  * Enter сохраняет, Escape отменяет и дальше не всплывает, чтобы поп-ап
  * не закрылся вместе с редактором.
+ *
+ * Новая или сменённая дата открывает Я.Календарь на её неделе — встречу
+ * создают там (lib/yandexCalendar).
  */
 export function GradingDateEditor({
   userId,
@@ -297,6 +301,9 @@ export function GradingDateEditor({
       setErr('Выбери дату не раньше сегодняшней');
       return;
     }
+    // Вкладку открываем до запроса, прямо в клике: после await браузер
+    // заблокировал бы её как всплывающее окно
+    openYandexCalendarOnChange(initial, value);
     setBusy(true);
     setErr(null);
     const r = await putGradingDate(userId, value, 'Не удалось сохранить дату');
@@ -341,6 +348,9 @@ export function GradingDateEditor({
           setErr(null);
         }}
       />
+      {/* -mt-1: подсказка — к полю (6px, как в карточке «Изменить»), а не
+          на общем шаге редактора */}
+      <p className="-mt-1 text-xs text-ash">После сохранения откроется Я.Календарь</p>
       {err && <p className="text-xs text-blaze">{err}</p>}
       <div className="flex items-center gap-2">
         <button

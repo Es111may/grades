@@ -41,12 +41,9 @@ const USER_ROW_SELECT = {
   build: { select: { id: true, code: true, name: true } },
   department: true,
   leadId: true,
-  // Почты лида и стардиза — для приглашения на грейдирование («В календарь»
-  // в поп-апе 360). Стардиз видит в списке только своих и себя: почту лида
-  // своего подопечного иначе взять негде. Страница — только admin/lead/stardiz.
-  lead: { select: { id: true, fullName: true, email: true } },
+  lead: { select: { id: true, fullName: true } },
   stardizId: true,
-  stardiz: { select: { id: true, fullName: true, email: true } },
+  stardiz: { select: { id: true, fullName: true } },
   hiredAt: true,
   active: true,
   gradeFloor: true,
@@ -711,7 +708,6 @@ export default async function AdminUsersPage() {
   activeDesigners
     .filter((u) => u.onTimePercent !== null && (u.onTimeTotalTasks ?? 0) >= 5 && u.onTimePercent! < 70)
     .sort((a, b) => (a.onTimePercent! - b.onTimePercent!))
-    .slice(0, 2)
     .forEach((u) => {
       attention.push({
         tone: 'warn',
@@ -776,7 +772,7 @@ export default async function AdminUsersPage() {
     });
   }
 
-  readyRows.slice(0, 2).forEach(({ u, last }) => {
+  readyRows.forEach(({ u, last }) => {
     attention.push({
       tone: 'info',
       title: `${u.fullName} — близко к повышению`,
@@ -795,7 +791,8 @@ export default async function AdminUsersPage() {
       meRole={me.role ?? ''}
       teamStats={teamStats}
       nineBox={nineBox}
-      attention={attention.slice(0, 5)}
+      // «Требует внимания» — все пункты, без обрезки (Pavel, 03.10.2026)
+      attention={attention}
     />
   );
 }

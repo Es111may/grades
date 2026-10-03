@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { signIn } from 'next-auth/react';
 import Avatar from '@/components/Avatar';
-import { CalendarIcon, CloseIcon, CoinsIcon } from '@/components/icons';
+import { CloseIcon, CoinsIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
 import TitleAurora from '@/components/TitleAurora';
 import { isCommentsLayerOpen, isFromCommentsLayer } from '@/lib/commentsLayer';
@@ -68,14 +68,13 @@ const GRADE_NAMES: Record<string, string> = {
 const buildColor = (code: string) =>
   code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
-import { formatDateShort as formatDate, todayLocalIso } from '@/lib/dates';
+import { formatDateShort as formatDate } from '@/lib/dates';
 import GradingPlanChip, {
   GradingDateEditor,
   putGradingDate,
   type GradingPlanFields,
 } from '@/components/GradingPlanChip';
 import { canSetGradingDate, gradingPlanStatus } from '@/lib/gradingPlan';
-import GradingMeetingEditor from '@/components/GradingMeetingEditor';
 import { isGradable, isGradingExempt, isHourly } from '@/lib/employment';
 import {
   DISMISSAL_TYPE_LABELS,
@@ -94,7 +93,6 @@ export default function UserCard360({
   rank = null,
   meId,
   meRole,
-  directory,
   onClose,
   onEdit,
   onDeactivated,
@@ -106,9 +104,6 @@ export default function UserCard360({
   rank?: number | null;
   meId: number | null;
   meRole: string;
-  /** Имена и почты людей из списка по id — для «В календарь»: организатор
-   *  (зритель) и запасная почта лида и стардиза. */
-  directory?: ReadonlyMap<number, { fullName: string; email: string }>;
   onClose: () => void;
   onEdit: (user: UserRow) => void;
   /** patch — поля, которые сервер проставил сам (дата увольнения), если вернул. */
@@ -118,10 +113,9 @@ export default function UserCard360({
   /** Плановый пересмотр поставлен, изменён или снят — обновить бейдж в списке. */
   onPlannedRaiseChange: (id: number, planned: PlannedRaiseRow | null) => void;
 }) {
-  // Редактор даты грейдирования и карточка «В календарь» — объявлены до
-  // обработчика Escape: тот закрывает сначала их, потом поп-ап.
+  // Редактор даты грейдирования — объявлен до обработчика Escape: тот
+  // закрывает сначала редактор, потом поп-ап.
   const [gradingEditing, setGradingEditing] = useState(false);
-  const [meetingOpen, setMeetingOpen] = useState(false);
 
   // Закрытие по Escape. defaultPrevented — Escape уже обработал кто-то
   // внутри (редактор даты гасит его сам, когда фокус в нём). Пока в слое
@@ -131,12 +125,11 @@ export default function UserCard360({
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape' || e.defaultPrevented || isCommentsLayerOpen()) return;
       if (gradingEditing) setGradingEditing(false);
-      else if (meetingOpen) setMeetingOpen(false);
       else onClose();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, gradingEditing, meetingOpen]);
+  }, [onClose, gradingEditing]);
 
   // Phase 14: сводка самооценки — количество и свежесть (для чипа).
   const [selfInfo, setSelfInfo] = useState<{ count: number; last: string | null } | null>(
@@ -212,38 +205,14 @@ export default function UserCard360({
   // Другой человек в том же поп-апе — редактор закрыт, ошибки нет
   useEffect(() => {
     setGradingEditing(false);
-    setMeetingOpen(false);
     setGradingErr(null);
   }, [user.id]);
 
   function openGradingEditor(initial: string) {
     setGradingInitial(initial);
     setGradingErr(null);
-    setMeetingOpen(false);
     setGradingEditing(true);
   }
-
-  // «В календарь» (Phase 25) — встреча по грейдированию: тем же, кто
-  // ставит дату, и только пока дата — план. Проведённое — факт, встречу
-  // по нему не ставят; следующую дату сначала назначают.
-  const canInvite = canEditGrading && !!user.nextGradingAt && gradingState !== 'done';
-  // Почта лида и стардиза — из строки (сервер кладёт её в /admin/users),
-  // иначе из списка: после «Изменить» строка приходит без неё
-  const contact = (p: { id: number; fullName: string; email?: string | null } | null) =>
-    p ? { id: p.id, fullName: p.fullName, email: p.email || directory?.get(p.id)?.email || null } : null;
-  const organizerRow = meId !== null ? directory?.get(meId) : undefined;
-  // Дату сбросили крестиком — карточку закрываем, а не прячем: иначе она
-  // всплыла бы сама при следующей дате, а Escape гасил бы невидимое
-  useEffect(() => {
-    if (!canInvite) setMeetingOpen(false);
-  }, [canInvite]);
-  const meetingBtnRef = useRef<HTMLButtonElement | null>(null);
-  // Карточка закрылась — фокус обратно на «В календарь»
-  const meetingWasOpen = useRef(false);
-  useEffect(() => {
-    if (meetingWasOpen.current && !meetingOpen) meetingBtnRef.current?.focus();
-    meetingWasOpen.current = meetingOpen;
-  }, [meetingOpen]);
 
   function gradingSaved(plan: GradingPlanFields) {
     setGradingEditing(false);
@@ -716,32 +685,7 @@ export default function UserCard360({
             {hasGrading && (
               <>
                 {hasTeam && <SectionDivider />}
-                <PopupSection
-                  title="Грейдирование"
-                  anchor="popup-360-grading"
-                  action={
-                    // «В календарь» — в заголовке секции, над пилюлей: в
-                    // строке рядом с «Просрочено на 16 дн.» и крестиком не
-                    // помещается даже иконка (не хватало 6px, с трёхзначным
-                    // числом дней — больше). Хит-зона 32px, -mr-2 — текст
-                    // ровно по краю значений; как у «Назначить».
-                    canInvite ? (
-                      <button
-                        ref={meetingBtnRef}
-                        type="button"
-                        onClick={() => setMeetingOpen((v) => !v)}
-                        aria-expanded={meetingOpen}
-                        className={`-mr-2 h-8 px-2 inline-flex items-center gap-1.5 text-xs
-                                    transition-[color,transform] duration-150 ease-apple-out
-                                    active:scale-[0.96] ${
-                                      meetingOpen ? 'text-ink' : 'text-stone hover:text-ink'
-                                    }`}
-                      >
-                        <CalendarIcon className="w-3.5 h-3.5" />В календарь
-                      </button>
-                    ) : null
-                  }
-                >
+                <PopupSection title="Грейдирование" anchor="popup-360-grading">
                   {/* Phase 23.2 — план грейдирования. Показываем для
                       грейдируемых ролей; чип сам решает тон (просрочено /
                       подходит / проведено). Без даты строка есть только у
@@ -788,28 +732,6 @@ export default function UserCard360({
                         </div>
                         {gradingErr && (
                           <p className="text-xs text-blaze text-right mt-1">{gradingErr}</p>
-                        )}
-                        {meetingOpen && canInvite && (
-                          <div className="mt-3">
-                            <GradingMeetingEditor
-                              person={{ id: user.id, fullName: user.fullName, email: user.email || null }}
-                              personRole={user.role}
-                              lead={contact(user.lead)}
-                              stardiz={contact(user.stardiz)}
-                              organizer={
-                                organizerRow?.email
-                                  ? { name: organizerRow.fullName, email: organizerRow.email }
-                                  : null
-                              }
-                              initialDate={(() => {
-                                // Дата прошла — встреча с сегодняшнего дня
-                                const planned = user.nextGradingAt?.slice(0, 10) ?? '';
-                                const today = todayLocalIso();
-                                return planned && planned >= today ? planned : today;
-                              })()}
-                              onClose={() => setMeetingOpen(false)}
-                            />
-                          </div>
                         )}
                       </div>
                     ))}
@@ -1120,26 +1042,15 @@ export default function UserCard360({
 function PopupSection({
   title,
   anchor,
-  action,
   children,
 }: {
   title: string;
   anchor?: string;
-  /** Действие справа в строке заголовка. Стоит абсолютно, по центру
-   *  заголовка: его 32px хит-зоны не раздвигают отступы секции. На 1px
-   *  выше геометрического центра — оптически: строчные Onest рядом с
-   *  моно-капсом заголовка иначе «проседают». */
-  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section data-comment-anchor={anchor}>
-      <div className="relative mb-3">
-        <h3 className="label-mono text-stone">{title}</h3>
-        {action && (
-          <div className="absolute right-0 top-[calc(50%-1px)] -translate-y-1/2 flex">{action}</div>
-        )}
-      </div>
+      <h3 className="label-mono text-stone mb-3">{title}</h3>
       <div className="flex flex-col gap-3">{children}</div>
     </section>
   );

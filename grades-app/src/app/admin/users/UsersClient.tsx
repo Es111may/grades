@@ -70,9 +70,7 @@ const prefetchKanban = prefetchOnce(() => import('./KanbanView'));
 const prefetchMatrix = prefetchOnce(() => import('./MatrixView'));
 
 type Build = { id: number; code: string; name: string };
-/** email — у лида и стардиза в строке списка: приглашение на грейдирование
- *  («В календарь» в поп-апе 360). В списках выбора лида его нет. */
-type Lead = { id: number; fullName: string; email?: string | null };
+type Lead = { id: number; fullName: string };
 export type UserRow = {
   id: number;
   email: string;
@@ -369,14 +367,6 @@ export default function UsersClient({
   // ошибочно показывала бы размер подвыборки — Pavel).
   const allActiveCount = useMemo(
     () => users.filter((u) => u.active).length,
-    [users],
-  );
-
-  // Имена и почты по id — для «В календарь» в поп-апе 360: организатор
-  // встречи (сам зритель) и запасной источник почты лида и стардиза —
-  // ответ «Изменить» сливается в строку без их почт.
-  const directory = useMemo(
-    () => new Map(users.map((u) => [u.id, { fullName: u.fullName, email: u.email }])),
     [users],
   );
 
@@ -701,7 +691,6 @@ export default function UsersClient({
           })()}
           meId={meId}
           meRole={meRole}
-          directory={directory}
           onClose={close360}
           onEdit={handleEditFrom360}
           onPlannedRaiseChange={(id, planned) => {
@@ -835,7 +824,6 @@ function computeScopedStats(
       (u) => u.onTimePercent != null && (u.onTimeTotalTasks ?? 0) >= 5 && (u.onTimePercent as number) < 70,
     )
     .sort((a, b) => (a.onTimePercent as number) - (b.onTimePercent as number))
-    .slice(0, 2)
     .forEach((u) => {
       attention.push({
         tone: 'warn',
@@ -893,7 +881,7 @@ function computeScopedStats(
     });
   }
 
-  readyRows.slice(0, 2).forEach((u) => {
+  readyRows.forEach((u) => {
     attention.push({
       tone: 'info',
       title: `${u.fullName} — близко к повышению`,
@@ -901,7 +889,8 @@ function computeScopedStats(
     });
   });
 
-  return { stats, nineBox, attention: attention.slice(0, 5) };
+  // «Требует внимания» — все пункты, без обрезки (Pavel, 03.10.2026)
+  return { stats, nineBox, attention };
 }
 
 /**

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Avatar from '@/components/Avatar';
 import { EditIcon, CloseIcon } from '@/components/icons';
 import { formatDateShort, todayLocalIso } from '@/lib/dates';
+import { openYandexCalendarOnChange, shouldOpenYandexCalendar } from '@/lib/yandexCalendar';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType, isNonGradingBuild } from '@/lib/employment';
 import { isFromCommentsLayer } from '@/lib/commentsLayer';
@@ -152,6 +153,9 @@ export default function UserModal({
     }
   }
   const canManagePassword = !isNew && (isAdmin || isManagingTarget);
+  // Дата грейдирования при открытии — с ней сравниваем при сохранении:
+  // поставили или сменили — открываем Я.Календарь
+  const initialNextGradingAt = user?.nextGradingAt ? user.nextGradingAt.split('T')[0] : '';
   const [form, setForm] = useState({
     fullName: user?.fullName ?? '',
     email: user?.email ?? '',
@@ -164,7 +168,7 @@ export default function UserModal({
     active: user?.active ?? true,
     gradeFloor: user?.gradeFloor ?? '',
     gradeFloorReason: user?.gradeFloorReason ?? '',
-    nextGradingAt: user?.nextGradingAt ? user.nextGradingAt.split('T')[0] : '',
+    nextGradingAt: initialNextGradingAt,
     employmentType: user?.employmentType ?? 'staff',
     dismissedAt: user?.dismissedAt ? user.dismissedAt.split('T')[0] : '',
     dismissalType: user?.dismissalType ?? '',
@@ -179,6 +183,20 @@ export default function UserModal({
   const nonGradingBuild =
     hasBuild && isNonGradingBuild({ build: builds.find((b) => b.id === form.buildId) ?? null });
   const me = meId !== null ? { id: meId, role: meRole } : null;
+  // Phase 23.2 — поле «Ближайшее грейдирование». Только у тех, кто
+  // грейдируется (не почасовщик и не билд без грейдов), и только тем, у кого
+  // есть на это права (админ всем, лид/стардиз своим подопечным). По нему же
+  // решаем, открывать ли Я.Календарь при сохранении.
+  const showGradingDate =
+    !!user &&
+    (user.role === 'designer' || user.role === 'stardiz') &&
+    employmentType !== 'hourly' &&
+    !nonGradingBuild &&
+    canSetGradingDate({ id: meId ?? -1, role: meRole }, {
+      id: user.id,
+      leadId: form.leadId,
+      stardizId: form.stardizId,
+    });
   // Лид правит только своих и может отдать человека другому лиду, но не
   // снять лида вовсе — пункт «Не назначен» ему недоступен (lib/permissions).
   const canUnsetLead = isNew || !user || canChangeLead(me, user, null);
@@ -325,6 +343,15 @@ export default function UserModal({
     if (isLoweringFloor() && !confirmLower) {
       setConfirmLower(true);
       return;
+    }
+
+    // Дату грейдирования поставили или сменили в поле — открываем
+    // Я.Календарь, чтобы создать встречу. Условия — как у поля и у payload
+    // ниже (дата уходит только у дизайнера и стардиза). Синхронно, до
+    // запроса: после await браузер заблокировал бы вкладку как всплывающее
+    // окно.
+    if (showGradingDate && !profileOnly && (form.role === 'designer' || form.role === 'stardiz')) {
+      openYandexCalendarOnChange(initialNextGradingAt, form.nextGradingAt);
     }
 
     setSaving(true);
@@ -697,35 +724,29 @@ export default function UserModal({
                   onChange={(e) => set('hiredAt', e.target.value)}
                 />
               </div>
-              {/* Phase 23.2 — дата грейдирования. Показываем только для тех,
-                  кто грейдируется (не почасовщик и не билд без грейдов), и
-                  только тем, у кого есть на это права (админ всем, лид/стардиз
-                  своим подопечным). */}
-              {(user?.role === 'designer' || user?.role === 'stardiz') &&
-                employmentType !== 'hourly' &&
-                !nonGradingBuild &&
-                canSetGradingDate({ id: meId ?? -1, role: meRole }, {
-                  id: user.id,
-                  leadId: form.leadId,
-                  stardizId: form.stardizId,
-                }) && (
-                  <div>
-                    <label className="block text-xs text-stone mb-1.5">
-                      Ближайшее грейдирование
-                    </label>
-                    <input
-                      type="date"
-                      className="input"
-                      value={form.nextGradingAt}
-                      onChange={(e) => set('nextGradingAt', e.target.value)}
-                    />
-                    <p className="text-[11px] text-ash mt-1.5">
-                      {user.nextGradingSetBy
+              {/* Phase 23.2 — дата грейдирования (условия — в showGradingDate) */}
+              {user && showGradingDate && (
+                <div>
+                  <label className="block text-xs text-stone mb-1.5">
+                    Ближайшее грейдирование
+                  </label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={form.nextGradingAt}
+                    onChange={(e) => set('nextGradingAt', e.target.value)}
+                  />
+                  <p className="text-[11px] text-ash mt-1.5">
+                    {/* Дату поставили или сменили — предупреждаем о вкладке
+                        календаря, которая откроется по «Сохранить» */}
+                    {shouldOpenYandexCalendar(initialNextGradingAt, form.nextGradingAt)
+                      ? 'После сохранения откроется Я.Календарь'
+                      : user.nextGradingSetBy
                         ? `Поставил ${user.nextGradingSetBy.fullName.split(' ')[0]}`
                         : 'Дизайнер увидит эту дату у себя'}
-                    </p>
-                  </div>
-                )}
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="block text-xs text-stone mb-1.5">Активен</label>
                 <div className="flex items-center gap-3 pt-2.5">
