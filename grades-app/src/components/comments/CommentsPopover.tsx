@@ -2,6 +2,7 @@
 
 import { forwardRef } from 'react';
 import Avatar from '@/components/Avatar';
+import Segmented from '@/components/Segmented';
 import { ChatIcon, CloseIcon, PlusIcon } from '@/components/icons';
 import { pageLabel, plural, relativeTime } from '@/lib/commentAnchor';
 import { isUiCommentPopupPath } from '@/lib/uiCommentsShared';
@@ -79,27 +80,19 @@ const CommentsPopover = forwardRef<
 
         {/* Компактный сегмент (h-8, как в «Динамике по месяцам») — все три
             ряда шапки одной высоты, шаг между ними 12px. */}
-        <div className="segmented w-full h-8 p-0.5" role="group" aria-label="Какие комментарии">
-          {(
-            [
-              ['page', 'Эта страница'],
-              ['all', 'Все страницы'],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={p.scope === key}
-              onClick={() => p.onScope(key)}
-              className={`segmented-item h-7 px-3 text-xs flex-1 justify-center active:scale-[0.96]
-                          transition-[color,background-color,transform] duration-150 ${
-                            p.scope === key ? 'segmented-item-active' : ''
-                          }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          size="compact"
+          press
+          label="Какие комментарии"
+          className="w-full"
+          itemClassName="flex-1 justify-center"
+          value={p.scope}
+          onChange={p.onScope}
+          options={[
+            { value: 'page', label: 'Эта страница' },
+            { value: 'all', label: 'Все страницы' },
+          ]}
+        />
 
         {/* Фильтр слева, «Оставить» справа в том же ряду. Порядок Tab — чипы,
             затем кнопка. На «Все страницы» кнопка остаётся: комментарий

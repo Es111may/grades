@@ -7,7 +7,10 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react';
 import Tooltip from '@/components/Tooltip';
 import Money from '@/components/Money';
-import { InfoIcon, PlusIcon, StarIcon } from '@/components/icons';
+import { InfoIcon, MinusIcon, PlusIcon, StarIcon } from '@/components/icons';
+import BuildChip from '@/components/BuildChip';
+import { NEUTRAL_DOT } from '@/lib/buildTone';
+import { BUILD_NAMES } from '@/lib/types';
 import {
   fmtMln,
   fmtRate,
@@ -85,15 +88,6 @@ export function SheetTerm({ term }: { term: string }) {
   return <span className="block mt-1 text-ash">В табличке — {term}</span>;
 }
 
-/** «−» в геометрии PlusIcon — как в «Функционале». */
-function MinusGlyph() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M5 11H19V13H5V11Z" />
-    </svg>
-  );
-}
-
 /** Кнопка раскрытия «+ / −» с кросс-фейдом — как в карточках «Функционала». */
 export function ToggleButton({
   open,
@@ -128,7 +122,7 @@ export function ToggleButton({
                  transition-[background-color,color,transform] duration-150 ease-out"
     >
       {glyph(!open, <PlusIcon className="w-4 h-4" />)}
-      {glyph(open, <MinusGlyph />)}
+      {glyph(open, <MinusIcon className="w-4 h-4" />)}
     </button>
   );
 }
@@ -157,29 +151,14 @@ export function Collapse({ open, id, children }: { open: boolean; id?: string; c
 
 // ─── Чипы и подписи ───────────────────────────────────────────────────
 
-export const DEPT_LABEL: Record<EconDept, string> = {
-  navigator: 'Импрув',
-  visioner: 'Криэйт',
-  creator: 'Инхаус',
-  leads: 'Лиды',
-};
+// Отделы «Экономики» — коды билдов (названия — из BUILD_NAMES) и «Лиды»
+export const DEPT_LABEL: Record<EconDept, string> = { ...BUILD_NAMES, leads: 'Лиды' };
 
-// Цвет отдела — тот же, что у точки билда в лидерборде
-const DEPT_COLOR: Record<EconDept, string> = {
-  creator: '#00ca48',
-  visioner: '#7c3aed',
-  navigator: '#0ea5e9',
-  leads: 'rgb(var(--c-stone))',
-};
-
+// Цвет отдела — тот же, что у точки билда в лидерборде (lib/buildTone);
+// у «Лидов» билда нет — нейтральная точка
 export function DeptChip({ dept }: { dept: EconDept | null }) {
   if (!dept) return <span className="text-ash text-xs">Без отдела</span>;
-  return (
-    <span className="chip-build">
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: DEPT_COLOR[dept] }} />
-      {DEPT_LABEL[dept]}
-    </span>
-  );
+  return <BuildChip code={dept} name={DEPT_LABEL[dept]} dot={dept === 'leads' ? NEUTRAL_DOT : undefined} />;
 }
 
 export function LevelName({ level, label }: { level: EconLevel | null; label: string }) {

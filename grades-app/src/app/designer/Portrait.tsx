@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { GRADE_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import Avatar from '@/components/Avatar';
+import { BuildDot } from '@/components/BuildChip';
 import { ChevronDownIcon, InfoIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
 import ProjectsField from '@/components/ProjectsField';
@@ -482,17 +483,7 @@ export default function Portrait({
           )}
           {data.designer.buildCode && (
             <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{
-                  background:
-                    data.designer.buildCode === 'creator'
-                      ? '#00ca48'
-                      : data.designer.buildCode === 'visioner'
-                        ? '#7c3aed'
-                        : '#0ea5e9',
-                }}
-              />
+              <BuildDot code={data.designer.buildCode} />
               {data.designer.buildName}
             </span>
           )}

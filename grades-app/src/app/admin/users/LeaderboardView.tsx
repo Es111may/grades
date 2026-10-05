@@ -6,6 +6,7 @@ import EmptyState from '@/components/EmptyState';
 import { getOnTimeZone } from '@/lib/perfScore';
 import type { UserRow, GradeThreshold, TeamStats, AttentionItem } from './UsersClient';
 import Tooltip from '@/components/Tooltip';
+import BuildChip, { BuildDot } from '@/components/BuildChip';
 import { PersonStatusIcon } from '@/components/GradingPlanChip';
 import AvatarWithRaise from '@/components/PlannedRaiseBadge';
 import { formatThousands } from '@/lib/compensation';
@@ -22,9 +23,6 @@ const GRADE_LABELS: Record<string, string> = {
 
 const TAXONOMIES = ['UI', 'UX', 'PRD', 'IND', 'RES'] as const;
 type TaxKey = (typeof TAXONOMIES)[number];
-
-const buildColor = (code: string) =>
-  code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 type SortKey = 'composite' | 'name' | 'grade' | 'totalXp' | 'onTime' | 'tenure' | 'salary' | TaxKey;
 
@@ -386,13 +384,7 @@ export default function LeaderboardView({
                 </td>
                 <td className="py-3 px-4">
                   {u.build ? (
-                    <span className="chip-build">
-                      <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ background: buildColor(u.build.code) }}
-                      />
-                      {u.build.name}
-                    </span>
+                    <BuildChip code={u.build.code} name={u.build.name} />
                   ) : u.department ? (
                     // Прошлый отдел без билда (у ушедших из реестра HR) — без точки
                     <span className="chip-build">{u.department}</span>
@@ -685,10 +677,7 @@ function PodiumCard({
         )}
         {user.build && (
           <span className={`${chipSm} bg-cloud/60 text-stone`}>
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ background: buildColor(user.build.code) }}
-            />
+            <BuildDot code={user.build.code} />
             {user.build.name}
           </span>
         )}

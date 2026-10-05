@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDownIcon, CheckIcon, PencilIcon, TrashIcon, SearchIcon } from '@/components/icons';
 import EmptyState from '@/components/EmptyState';
+import { roleLabel } from '@/lib/roleTone';
 import { AUDIT_ACTIONS, AUDIT_ACTION_LABEL, AUDIT_TARGET_TYPE_LABEL } from '@/lib/audit';
 import TitleAurora from '@/components/TitleAurora';
 
@@ -42,13 +43,6 @@ const MONEY_ACTIONS = new Set<string>([
   AUDIT_ACTIONS.BONUS_CREATED,
   AUDIT_ACTIONS.BONUS_DELETED,
 ]);
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: 'Админ',
-  lead: 'Лид',
-  stardiz: 'Стардиз',
-  designer: 'Дизайнер',
-};
 
 export default function AuditView({
   initialEntries,
@@ -160,7 +154,7 @@ export default function AuditView({
               <option value="">Все</option>
               {actors.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.fullName} · {ROLE_LABEL[a.role] ?? a.role}
+                  {a.fullName} · {roleLabel(a.role)}
                 </option>
               ))}
             </select>
@@ -360,7 +354,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
             {entry.actor.fullName}
           </div>
           <div className="text-[11px] text-stone mt-0.5">
-            {ROLE_LABEL[entry.actor.role] ?? entry.actor.role}
+            {roleLabel(entry.actor.role)}
           </div>
         </td>
         <td className="py-3 px-4 text-ink">

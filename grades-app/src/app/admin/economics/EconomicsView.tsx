@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import TitleAurora from '@/components/TitleAurora';
 import FilterDropdown, { type FilterOption } from '@/components/FilterDropdown';
 import Tooltip from '@/components/Tooltip';
+import Segmented from '@/components/Segmented';
 import EmptyState from '@/components/EmptyState';
 import { GearIcon, InfoIcon, SearchIcon } from '@/components/icons';
 import {
@@ -196,34 +197,28 @@ export default function EconomicsView({
             </button>
           )}
           <div className="ml-auto flex items-center gap-1.5">
-            <div className="segmented" role="group" aria-label="Суммы">
-              <button
-                type="button"
-                aria-pressed={mode === 'hand'}
-                onClick={() => setMode('hand')}
-                className={`segmented-item active:scale-[0.96] transition-[color,background-color,transform] duration-150 ${
-                  mode === 'hand' ? 'segmented-item-active' : ''
-                }`}
-              >
-                На руки
-              </button>
-              <Tooltip
-                align="right"
-                maxWidth={260}
-                text={`С налогами и взносами: на руки × ${nf(1 + settings.payrollTaxRate, 2)}. Коэффициент — в настройках.`}
-              >
-                <button
-                  type="button"
-                  aria-pressed={mode === 'company'}
-                  onClick={() => setMode('company')}
-                  className={`segmented-item active:scale-[0.96] transition-[color,background-color,transform] duration-150 ${
-                    mode === 'company' ? 'segmented-item-active' : ''
-                  }`}
-                >
-                  Для компании
-                </button>
-              </Tooltip>
-            </div>
+            <Segmented
+              label="Суммы"
+              press
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'hand', label: 'На руки' },
+                {
+                  value: 'company',
+                  label: 'Для компании',
+                  wrap: (item) => (
+                    <Tooltip
+                      align="right"
+                      maxWidth={260}
+                      text={`С налогами и взносами: на руки × ${nf(1 + settings.payrollTaxRate, 2)}. Коэффициент — в настройках.`}
+                    >
+                      {item}
+                    </Tooltip>
+                  ),
+                },
+              ]}
+            />
             <Tooltip text="Настройки" align="right">
               <button
                 ref={gearRef}

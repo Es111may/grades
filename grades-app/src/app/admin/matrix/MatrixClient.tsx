@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NewSkillModal from './NewSkillModal';
 import SearchInput from '@/components/SearchInput';
+import Segmented from '@/components/Segmented';
+import { BuildDot } from '@/components/BuildChip';
 import MasteryEditorModal from './MasteryEditorModal';
 import TitleAurora from '@/components/TitleAurora';
 import EmptyState from '@/components/EmptyState';
@@ -33,9 +35,6 @@ type Skill = {
 };
 
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
-
-const buildColor = (code: string) =>
-  code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 export default function MatrixClient({
   builds,
@@ -128,10 +127,7 @@ export default function MatrixClient({
         {builds.map((b) => (
           <div key={b.id} className="card px-5 py-4">
             <div className="flex items-center gap-2 text-[11px]  text-stone mb-1">
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ background: buildColor(b.code) }}
-              />
+              <BuildDot code={b.code} />
               {b.name}
             </div>
             <div className="font-display text-2xl font-medium tracking-tight">
@@ -144,20 +140,15 @@ export default function MatrixClient({
 
       {/* Тулбар: переключатель состояния + поиск */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <div className="segmented">
-          <button
-            onClick={() => setShowArchived(false)}
-            className={`segmented-item ${!showArchived ? 'segmented-item-active' : ''}`}
-          >
-            Активные
-          </button>
-          <button
-            onClick={() => setShowArchived(true)}
-            className={`segmented-item ${showArchived ? 'segmented-item-active' : ''}`}
-          >
-            Архивные
-          </button>
-        </div>
+        <Segmented
+          label="Состояние навыков"
+          value={showArchived ? 'archived' : 'active'}
+          onChange={(v) => setShowArchived(v === 'archived')}
+          options={[
+            { value: 'active', label: 'Активные' },
+            { value: 'archived', label: 'Архивные' },
+          ]}
+        />
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -239,10 +230,7 @@ export default function MatrixClient({
                             {builds.map((b) => (
                               <th key={b.id} className="label-mono text-center px-3 py-2 text-stone">
                                 <span className="flex items-center justify-center gap-1">
-                                  <span
-                                    className="w-2 h-2 rounded-full"
-                                    style={{ background: buildColor(b.code) }}
-                                  />
+                                  <BuildDot code={b.code} size="md" />
                                   {b.name}
                                 </span>
                               </th>

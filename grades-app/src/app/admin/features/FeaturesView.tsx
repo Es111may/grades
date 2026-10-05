@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import TitleAurora from '@/components/TitleAurora';
 import FilterDropdown, { type FilterOption } from '@/components/FilterDropdown';
+import Segmented, { type SegmentedOption } from '@/components/Segmented';
 import EmptyState from '@/components/EmptyState';
-import { PlusIcon, SearchIcon } from '@/components/icons';
+import { MinusIcon, PlusIcon, SearchIcon } from '@/components/icons';
 import { formatDateShort } from '@/lib/dates';
+import { roleLabel } from '@/lib/roleTone';
 import {
   FEATURE_AREAS,
   areaCounts,
@@ -20,7 +22,6 @@ import {
   type RoleFilter,
 } from '@/lib/features';
 
-const ROLE_LABEL: Record<FeatureRole, string> = { admin: 'Админ', lead: 'Лид', stardiz: 'Стардиз' };
 const ROLES: FeatureRole[] = ['admin', 'lead', 'stardiz'];
 const SEEN_KEY = 'features-seen';
 // Появление карточек лесенкой: шаг 50мс, дальше шестой — без добавки
@@ -29,6 +30,10 @@ const STAGGER_STEP = 50;
 const STAGGER_MAX = 5;
 
 type Tab = 'updates' | 'all';
+const TABS: SegmentedOption<Tab>[] = [
+  { value: 'updates', label: 'Что нового' },
+  { value: 'all', label: 'Весь функционал' },
+];
 
 export default function FeaturesView({
   role,
@@ -97,7 +102,7 @@ export default function FeaturesView({
   ];
   const roleOptions: FilterOption<RoleFilter>[] = [
     { value: 'all', label: 'Все роли', count: apply(area, 'all').length },
-    ...ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r], count: apply(area, r).length })),
+    ...ROLES.map((r) => ({ value: r, label: roleLabel(r), count: apply(area, r).length })),
   ];
 
   const filtered = area !== 'all' || roleFilter !== 'all';
@@ -131,27 +136,16 @@ export default function FeaturesView({
         className="flex items-center gap-1.5 mb-5 flex-wrap animate-fade-up"
         style={{ animationDelay: '70ms' }}
       >
-        <div className="segmented">
-          {(
-            [
-              ['updates', 'Что нового'],
-              ['all', 'Весь функционал'],
-            ] as Array<[Tab, string]>
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => {
-                if (key === tab) return;
-                setStagger(true);
-                setTab(key);
-              }}
-              className={`segmented-item ${tab === key ? 'segmented-item-active' : ''}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          kind="tabs"
+          label="Раздел"
+          value={tab}
+          options={TABS}
+          onChange={(key) => {
+            setStagger(true);
+            setTab(key);
+          }}
+        />
 
         <FilterDropdown
           label="Тип"
@@ -282,7 +276,7 @@ function UpdateCard({
                 <PlusIcon className="w-4 h-4" />
               </ToggleGlyph>
               <ToggleGlyph shown={isOpen}>
-                <MinusGlyph />
+                <MinusIcon className="w-4 h-4" />
               </ToggleGlyph>
             </button>
           </span>
@@ -381,7 +375,7 @@ function RoleChips({ roles }: { roles: FeatureRole[] }) {
     <span className="inline-flex gap-1">
       {roles.map((r) => (
         <span key={r} className="chip h-5 px-2 text-[10px] text-stone border border-cloud">
-          {ROLE_LABEL[r]}
+          {roleLabel(r)}
         </span>
       ))}
     </span>
@@ -399,15 +393,6 @@ function ToggleGlyph({ shown, children }: { shown: boolean; children: React.Reac
     >
       {children}
     </span>
-  );
-}
-
-/** «−» в геометрии PlusIcon (та же толщина и длина штриха). */
-function MinusGlyph() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M5 11H19V13H5V11Z" />
-    </svg>
   );
 }
 

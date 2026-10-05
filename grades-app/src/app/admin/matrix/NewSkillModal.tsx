@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CloseIcon } from '@/components/icons';
+import { BuildDot } from '@/components/BuildChip';
 import { isFromCommentsLayer } from '@/lib/commentsLayer';
 
 type Build = { id: number; code: string; name: string };
@@ -16,8 +17,6 @@ type Taxonomy = { id: number; code: string; name: string };
 
 const NEW_GROUP_VALUE = '__new__';
 
-const buildColor = (code: string) =>
-  code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 export default function NewSkillModal({
   builds,
@@ -274,10 +273,7 @@ export default function NewSkillModal({
             <div className="grid grid-cols-3 gap-2">
               {builds.map((b) => (
                 <div key={b.id} className="card px-3.5 py-3 flex items-center gap-3">
-                  <span
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ background: buildColor(b.code) }}
-                  />
+                  <BuildDot code={b.code} size="md" className="shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-[11px]  text-stone">
                       {b.name}

@@ -3,10 +3,12 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { signIn } from 'next-auth/react';
 import Avatar from '@/components/Avatar';
+import BuildChip from '@/components/BuildChip';
 import { CloseIcon, CoinsIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
 import TitleAurora from '@/components/TitleAurora';
 import { isCommentsLayerOpen, isFromCommentsLayer } from '@/lib/commentsLayer';
+import { roleLabel, roleToneClass } from '@/lib/roleTone';
 
 type AssessmentHistoryRow = {
   id: number;
@@ -37,25 +39,6 @@ type NoteRow = {
   author: { fullName: string };
 };
 
-const ROLE_LABEL: Record<string, string> = {
-  admin: 'Админ',
-  lead: 'Лид',
-  stardiz: 'Стардиз',
-  designer: 'Дизайнер',
-};
-
-// Цветовые токены для чипа роли — используем поверх базового `.chip`
-// (одинаковый размер и шрифт, отличается только фон/текст).
-const ROLE_TONE: Record<string, string> = {
-  admin: 'bg-sunset/15 text-sunset',
-  lead: 'bg-lime/15 text-lime-dark',
-  // Токен violet: в тёмной теме тот же #bf5af2. В светлой фиолетовый текст
-  // на фиолетовой подложке — 3,4:1, мелкому тексту мало; текст основным
-  // цветом, подложка остаётся фиолетовой (как у .chip-gold).
-  stardiz: 'bg-violet/15 text-violet [html[data-theme=light]_&]:text-ink',
-  designer: 'bg-cloud/60 text-stone',
-};
-
 const GRADE_NAMES: Record<string, string> = {
   junior: 'Джун',
   junior_plus: 'Джун+',
@@ -64,9 +47,6 @@ const GRADE_NAMES: Record<string, string> = {
   middle_plus: 'Мидл+',
   senior: 'Синьор',
 };
-
-const buildColor = (code: string) =>
-  code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 import { formatDateShort as formatDate } from '@/lib/dates';
 import GradingPlanChip, {
@@ -548,13 +528,7 @@ export default function UserCard360({
                 </span>
               )}
               {user.build ? (
-                <span className="chip-neutral h-6">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: buildColor(user.build.code) }}
-                  />
-                  {user.build.name}
-                </span>
+                <BuildChip size="md" className="h-6" code={user.build.code} name={user.build.name} />
               ) : (
                 // Прошлый отдел без билда (Lite, Самолет — у ушедших из HR)
                 user.department && <span className="chip-neutral h-6">{user.department}</span>
@@ -562,9 +536,8 @@ export default function UserCard360({
             </div>
             {/* Ряд 2: роль · в срок · floor · неактивен */}
             <div className="flex items-center justify-center gap-1 mt-1.5 flex-wrap">
-              <span className={`chip h-6 ${ROLE_TONE[user.role] ?? ROLE_TONE.designer}`}>
-                {ROLE_LABEL[user.role] ?? user.role}
-              </span>
+              {/* Тон чипа роли — поверх базового .chip (lib/roleTone) */}
+              <span className={`chip h-6 ${roleToneClass(user.role)}`}>{roleLabel(user.role)}</span>
               {user.role === 'designer' && user.active && user.onTimePercent != null && (
                 <span className="chip-neutral h-6">
                   {Math.round(user.onTimePercent)}% в срок

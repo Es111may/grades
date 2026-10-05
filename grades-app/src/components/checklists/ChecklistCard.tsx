@@ -19,6 +19,7 @@ import {
   type Role,
 } from '@/lib/checklistPermissions';
 import { PlusIcon, CloseIcon } from '@/components/icons';
+import { roleLabel } from '@/lib/roleTone';
 
 export interface ChecklistItem {
   id: number;
@@ -40,13 +41,6 @@ export interface Checklist {
   createdBy?: { id: number; fullName: string };
 }
 
-const ROLE_LABEL: Record<Role, string> = {
-  admin: 'Админ',
-  lead: 'Лид',
-  stardiz: 'Стардиз',
-  designer: 'Дизайнер',
-};
-
 export default function ChecklistCard({
   checklist,
   me,
@@ -65,7 +59,7 @@ export default function ChecklistCard({
   // Бейдж: «Я» если автор — сам зритель; иначе роль + имя.
   const badgeLabel = (() => {
     if (checklist.createdById === me.id) return 'Я';
-    const role = ROLE_LABEL[checklist.createdByRole as Role] ?? checklist.createdByRole;
+    const role = roleLabel(checklist.createdByRole);
     const name = checklist.createdBy?.fullName;
     return name ? `${role}: ${name}` : role;
   })();

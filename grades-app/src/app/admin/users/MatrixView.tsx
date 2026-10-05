@@ -18,6 +18,7 @@ import Avatar from '@/components/Avatar';
 import { ChevronDownIcon } from '@/components/icons';
 import { MarkdownContent } from '@/components/Markdown';
 import Tooltip from '@/components/Tooltip';
+import { BuildDot } from '@/components/BuildChip';
 
 type Build = { id: number; code: string; name: string };
 type UserRow = {
@@ -138,9 +139,6 @@ const parseCellId = (id: string): { potential: Level; performance: Level } | nul
   return { potential: m[1] as Level, performance: m[2] as Level };
 };
 
-const buildColor = (code: string) =>
-  code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
-
 function UserCard({
   user,
   ghosting = false,
@@ -167,10 +165,7 @@ function UserCard({
       )}
       {user.build && (
         <Tooltip align="center" className="shrink-0" text={user.build.name}>
-          <span
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ background: buildColor(user.build.code) }}
-          />
+          <BuildDot code={user.build.code} />
         </Tooltip>
       )}
     </div>

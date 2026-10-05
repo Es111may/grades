@@ -20,6 +20,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDownIcon } from '@/components/icons';
+import Segmented from '@/components/Segmented';
 import type { TaskDetail } from '@/lib/clickhousePerf';
 import {
   aggregateByPeriod,
@@ -168,14 +169,15 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
             справа той же строкой (по запросу Pavel'a). Все контролы
             одной высоты h-9. */}
         <div className="flex flex-wrap items-center gap-3">
-          <Segment
+          <Segmented<PeriodType>
+            label="Период"
             value={periodType}
             options={[
               { label: 'Квартал', value: 'quarter' },
               { label: 'Месяц', value: 'month' },
             ]}
             onChange={(v) => {
-              setPeriodType(v as PeriodType);
+              setPeriodType(v);
               setPeriodValue('');
             }}
           />
@@ -213,13 +215,15 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
           {/* Табы — в правую часть той же строки */}
           {state === 'ready' && periods.length > 0 && (
             <div className="ml-auto">
-              <Segment
+              <Segmented
+                kind="tabs"
+                label="Раздел"
                 value={activeTab}
                 options={[
                   { label: 'Сводка', value: 'summary' },
                   { label: 'Задачи', value: 'tasks' },
                 ]}
-                onChange={(v) => setActiveTab(v as 'summary' | 'tasks')}
+                onChange={setActiveTab}
               />
             </div>
           )}
@@ -266,40 +270,7 @@ export default function PerformanceDashboard({ userId }: { userId: number }) {
 // Локальные UI-кирпичики
 // ============================================================
 
-interface SegmentOption {
-  label: string;
-  value: string;
-}
-
-function Segment({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: SegmentOption[];
-  onChange: (next: string) => void;
-}) {
-  // Используем общепроектный сегмент-контрол (.segmented в globals.css),
-  // чтобы был единый стиль с переключателем «Все / Мои» и др.
-  return (
-    <div className="segmented">
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(o.value)}
-            className={`segmented-item ${active ? 'segmented-item-active' : ''}`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+// Сегменты периода и вкладок — общий components/Segmented.
 
 function Checkbox({
   label,

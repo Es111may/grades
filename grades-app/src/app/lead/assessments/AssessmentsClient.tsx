@@ -5,6 +5,7 @@ import Avatar from '@/components/Avatar';
 import DeleteButton from './DeleteButton';
 import TitleAurora from '@/components/TitleAurora';
 import EmptyState from '@/components/EmptyState';
+import BuildChip from '@/components/BuildChip';
 import { CheckIcon } from '@/components/icons';
 import Link from 'next/link';
 
@@ -46,8 +47,6 @@ const GRADE_NAMES: Record<string, string> = {
   senior: 'Синьор',
 };
 
-const buildColor = (code: string) =>
-  code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 import { formatDateShort as formatDate } from '@/lib/dates';
 
@@ -142,13 +141,7 @@ export default function AssessmentsClient({
                       </td>
                       <td className="py-3 px-4">
                         {d.buildCode && d.buildName ? (
-                          <span className="chip-build">
-                            <span
-                              className="w-1.5 h-1.5 rounded-full"
-                              style={{ background: buildColor(d.buildCode) }}
-                            />
-                            {d.buildName}
-                          </span>
+                          <BuildChip code={d.buildCode} name={d.buildName} />
                         ) : (
                           <span className="text-ash">—</span>
                         )}
@@ -251,13 +244,7 @@ export default function AssessmentsClient({
                   </td>
                   <td className="py-3 px-4">
                     {r.buildCode && r.buildName ? (
-                      <span className="chip-build">
-                        <span
-                          className="w-1.5 h-1.5 rounded-full"
-                          style={{ background: buildColor(r.buildCode) }}
-                        />
-                        {r.buildName}
-                      </span>
+                      <BuildChip code={r.buildCode} name={r.buildName} />
                     ) : (
                       <span className="text-ash">—</span>
                     )}

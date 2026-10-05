@@ -3,8 +3,9 @@
 import { useState, useMemo, useRef, useEffect, createContext, useContext } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { ChevronDownIcon } from '@/components/icons';
 import SearchInput from '@/components/SearchInput';
+import FilterDropdown, { type FilterOption } from '@/components/FilterDropdown';
+import Segmented, { type SegmentedOption } from '@/components/Segmented';
 import LeaderboardView from './LeaderboardView';
 import TitleAurora from '@/components/TitleAurora';
 import { KanbanSkeleton, MatrixSkeleton } from '@/components/Skeletons';
@@ -14,14 +15,12 @@ import {
   isMenteeOf,
   scopeOwnerId,
   type ScopeFilter,
-  type TeamOption,
 } from '@/lib/teamScope';
 import { gradingPlanStatus } from '@/lib/gradingPlan';
 import { isGradable, isGradingExempt } from '@/lib/employment';
 import { canViewCompensation } from '@/lib/compPermissions';
 import { canViewDismissalDate } from '@/lib/dismissal';
 import { needsDismissalDate, todayMoscowDate } from '@/lib/userUpdate';
-import { isFromCommentsLayer } from '@/lib/commentsLayer';
 import { PERSON_PARAM, parsePersonParam, withPersonParam } from '@/lib/personParam';
 import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
 
@@ -179,6 +178,15 @@ type ViewMode =
   | 'kanban-grade'
   | 'matrix';
 
+/** Вкладки вида; 9-Box — только админу и лиду (см. showMatrixTab). */
+const VIEW_OPTIONS: SegmentedOption<ViewMode>[] = [
+  { value: 'leaderboard', label: 'Лидерборд' },
+  { value: 'kanban-dept', label: 'Отделы' },
+  { value: 'kanban-lead', label: 'Лиды' },
+  { value: 'kanban-grade', label: 'Уровни' },
+  { value: 'matrix', label: '9-Box' },
+];
+
 /** Код вида по вкладке заранее. Канбан один на три группировки. */
 function prefetchView(key: ViewMode) {
   if (key === 'matrix') prefetchMatrix();
@@ -186,6 +194,13 @@ function prefetchView(key: ViewMode) {
 }
 
 type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
+const ROLE_FILTERS: Array<[RoleFilter, string]> = [
+  ['all', 'Все'],
+  ['designer', 'Дизайнеры'],
+  ['stardiz', 'Стардизы'],
+  ['lead', 'Лиды'],
+  ['admin', 'Админы'],
+];
 
 /**
  * «Текущие · Все» (Phase 23.6a): с реестром из HR в Грейдах и все ушедшие —
@@ -195,6 +210,10 @@ type RoleFilter = 'all' | 'designer' | 'stardiz' | 'lead' | 'admin';
  */
 type PresenceFilter = 'current' | 'all';
 const PRESENCE_KEY = 'team-presence';
+const PRESENCE_OPTIONS: SegmentedOption<PresenceFilter>[] = [
+  { value: 'current', label: 'Текущие', title: 'Только работающие сейчас' },
+  { value: 'all', label: 'Все', title: 'Вместе с ушедшими — серыми в конце' },
+];
 /**
  * Подиум топ-3 над таблицей временно скрыт (Pavel 29.09.2026): все — просто
  * строками списка. Код подиума в LeaderboardView не удалён — вернуть: true.
@@ -370,6 +389,35 @@ export default function UsersClient({
     [users],
   );
 
+  // Селектор команды: «Все · Мои · Никиты · Саши · …». Заменил сегментированный
+  // свитчер «Все/Мои» — Pavel: нужно смотреть команды лидов и стардизов, а в
+  // сегменты столько пунктов не влезает. «Мои» — только если есть подопечные;
+  // чужие команды — отдельной группой под линией. В списке имя в падеже
+  // («Никиты»), полное — в подсказке.
+  const scopeOptions = useMemo<FilterOption<ScopeFilter>[]>(
+    () => [
+      { value: 'all', label: 'Все', count: allActiveCount, title: 'Вся команда' },
+      ...(mineCount > 0
+        ? [{ value: 'mine' as ScopeFilter, label: 'Мои', count: mineCount, title: 'Мои подопечные' }]
+        : []),
+      ...teamOptions.map((o, i) => ({
+        value: o.scope,
+        label: o.label,
+        count: o.count,
+        title: o.fullName,
+        hint: o.role === 'stardiz' ? 'Стардиз' : undefined,
+        divider: i === 0,
+      })),
+    ],
+    [allActiveCount, mineCount, teamOptions],
+  );
+
+  // Фильтр по ролям (концепт v3: сегменты ролей схлопнуты в дропдаун)
+  const roleOptions = useMemo<FilterOption<RoleFilter>[]>(
+    () => ROLE_FILTERS.map(([r, label]) => ({ value: r, label, count: counts[r] })),
+    [counts],
+  );
+
   // Bento-агрегаты под текущий скоуп: для «Все» — готовые серверные
   // (с точными медианами ClickHouse и спарклайном); для «Мои» —
   // пересчитываем по подвыборке подопечных на клиенте.
@@ -532,56 +580,34 @@ export default function UsersClient({
         style={{ animationDelay: '70ms' }}
       >
         {showScopeSwitcher && (
-          <ScopeDropdown
+          <FilterDropdown
+            label="Команда"
             value={scopeFilter}
-            allCount={allActiveCount}
-            mineCount={mineCount}
-            teams={teamOptions}
+            options={scopeOptions}
             onChange={setScopeFilter}
+            minWidth={220}
           />
         )}
 
-        <RoleDropdown value={roleFilter} counts={counts} onChange={setRoleFilter} />
+        <FilterDropdown label="Роль" value={roleFilter} options={roleOptions} onChange={setRoleFilter} />
 
         {/* Текущие · Все — рядом с фильтрами состава, до переключателя вида */}
-        <div className="segmented" role="group" aria-label="Кого показывать">
-          {([
-            ['current', 'Текущие'],
-            ['all', 'Все'],
-          ] as Array<[PresenceFilter, string]>).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => changePresence(key)}
-              aria-pressed={presence === key}
-              title={key === 'current' ? 'Только работающие сейчас' : 'Вместе с ушедшими — серыми в конце'}
-              className={`segmented-item ${presence === key ? 'segmented-item-active' : ''}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Кого показывать"
+          value={presence}
+          onChange={changePresence}
+          options={PRESENCE_OPTIONS}
+        />
 
-        <div className="segmented">
-          {([
-            ['leaderboard', 'Лидерборд'],
-            ['kanban-dept', 'Отделы'],
-            ['kanban-lead', 'Лиды'],
-            ['kanban-grade', 'Уровни'],
-            ...(showMatrixTab ? [['matrix', '9-Box']] : []),
-          ] as Array<[ViewMode, string]>).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => switchView(key)}
-              // Ховер/фокус вкладки — начинаем качать код вида до клика
-              onPointerEnter={() => prefetchView(key)}
-              onFocus={() => prefetchView(key)}
-              className={`segmented-item ${view === key ? 'segmented-item-active' : ''}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          kind="tabs"
+          label="Вид"
+          value={view}
+          onChange={switchView}
+          // Ховер/фокус вкладки — начинаем качать код вида до клика
+          onItemIntent={prefetchView}
+          options={showMatrixTab ? VIEW_OPTIONS : VIEW_OPTIONS.filter((o) => o.value !== 'matrix')}
+        />
 
         {/* Поиск и «Добавить» — одной группой: не хватило места — на
             следующую строку уходят вместе, кнопка одна не остаётся. Поиск
@@ -891,215 +917,4 @@ function computeScopedStats(
 
   // «Требует внимания» — все пункты, без обрезки (Pavel, 03.10.2026)
   return { stats, nineBox, attention };
-}
-
-/**
- * Дропдаун фильтра по ролям (концепт v3: сегменты ролей схлопнуты).
- * Закрывается по клику вне и по выбору.
- */
-/**
- * Селектор команды: «Все · Мои · Никиты · Саши · …». Заменил сегментированный
- * свитчер «Все/Мои» — Pavel: нужно смотреть команды лидов и стардизов, а в
- * сегменты столько пунктов не влезает. Стиль повторяет RoleDropdown, чтобы
- * ряд контролов читался одним набором.
- */
-function ScopeDropdown({
-  value,
-  allCount,
-  mineCount,
-  teams,
-  onChange,
-}: {
-  value: ScopeFilter;
-  allCount: number;
-  mineCount: number;
-  teams: TeamOption[];
-  onChange: (s: ScopeFilter) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      // Клик в слое комментариев — не «мимо»: меню остаётся, его можно комментировать
-      if (isFromCommentsLayer(e)) return;
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, []);
-
-  const base: TeamOption[] = [
-    { scope: 'all', label: 'Все', fullName: 'Вся команда', role: '', count: allCount },
-    ...(mineCount > 0
-      ? [
-          {
-            scope: 'mine' as ScopeFilter,
-            label: 'Мои',
-            fullName: 'Мои подопечные',
-            role: '',
-            count: mineCount,
-          },
-        ]
-      : []),
-  ];
-  const current = [...base, ...teams].find((o) => o.scope === value) ?? base[0];
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 bg-ink/5 border border-ink/5 rounded-pill
-                   px-4 h-10 text-[13px] font-normal leading-none text-stone
-                   hover:text-ink hover:bg-ink/10 transition-colors"
-      >
-        <span className="text-stone font-normal">Команда:</span>
-        {current.label}
-        <span className="text-stone text-xs">{current.count}</span>
-        <ChevronDownIcon
-          className={`w-3 h-3 text-stone transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full mt-2 z-30 card p-1.5 min-w-[220px] shadow-soft-lg animate-scale-in">
-          {base.map((o) => (
-            <ScopeOption
-              key={o.scope}
-              option={o}
-              active={value === o.scope}
-              onPick={() => {
-                onChange(o.scope);
-                setOpen(false);
-              }}
-            />
-          ))}
-          {teams.length > 0 && (
-            <>
-              {/* Разделитель: выше — вся команда и свои, ниже — чужие команды */}
-              <div className="my-1.5 h-px bg-cloud/60" />
-              {teams.map((o) => (
-                <ScopeOption
-                  key={o.scope}
-                  option={o}
-                  active={value === o.scope}
-                  onPick={() => {
-                    onChange(o.scope);
-                    setOpen(false);
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ScopeOption({
-  option,
-  active,
-  onPick,
-}: {
-  option: TeamOption;
-  active: boolean;
-  onPick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      title={option.fullName}
-      className={`w-full flex items-center justify-between gap-4 px-3 py-2 rounded-[10px]
-                  text-xs transition-colors ${
-                    active
-                      ? 'bg-cloud/60 text-ink font-medium'
-                      : 'text-stone hover:bg-canvas hover:text-ink'
-                  }`}
-    >
-      <span className="flex items-center gap-1.5 min-w-0">
-        <span className="truncate">{option.label}</span>
-        {option.role === 'stardiz' && (
-          <span className="text-[10px] text-ash shrink-0">Стардиз</span>
-        )}
-      </span>
-      <span className="text-ash shrink-0">{option.count}</span>
-    </button>
-  );
-}
-
-function RoleDropdown({
-  value,
-  counts,
-  onChange,
-}: {
-  value: RoleFilter;
-  counts: { all: number; designer: number; stardiz: number; lead: number; admin: number };
-  onChange: (r: RoleFilter) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      // Клик в слое комментариев — не «мимо»: меню остаётся, его можно комментировать
-      if (isFromCommentsLayer(e)) return;
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, []);
-
-  const LABEL: Record<RoleFilter, string> = {
-    all: 'Все',
-    designer: 'Дизайнеры',
-    stardiz: 'Стардизы',
-    lead: 'Лиды',
-    admin: 'Админы',
-  };
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 bg-ink/5 border border-ink/5 rounded-pill
-                   px-4 h-10 text-[13px] font-normal leading-none text-stone
-                   hover:text-ink hover:bg-ink/10 transition-colors"
-      >
-        <span className="text-stone font-normal">Роль:</span>
-        {LABEL[value]}
-        {/* text-xs + stone — тот же тон, что пункты сегментов (ash на
-            ауроре проваливался) */}
-        <span className="text-stone text-xs">{counts[value]}</span>
-        <ChevronDownIcon
-          className={`w-3 h-3 text-stone transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full mt-2 z-30 card p-1.5 min-w-[190px] shadow-soft-lg animate-scale-in">
-          {(Object.keys(LABEL) as RoleFilter[]).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => {
-                onChange(r);
-                setOpen(false);
-              }}
-              className={`w-full flex items-center justify-between gap-4 px-3 py-2 rounded-[10px]
-                          text-xs transition-colors ${
-                            value === r
-                              ? 'bg-cloud/60 text-ink font-medium'
-                              : 'text-stone hover:bg-canvas hover:text-ink'
-                          }`}
-            >
-              {LABEL[r]}
-              <span className="text-ash">{counts[r]}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }

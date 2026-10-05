@@ -8,6 +8,7 @@ import { openYandexCalendarOnChange, shouldOpenYandexCalendar } from '@/lib/yand
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType, isNonGradingBuild } from '@/lib/employment';
 import { isFromCommentsLayer } from '@/lib/commentsLayer';
+import { roleLabel } from '@/lib/roleTone';
 import {
   canChangeLead,
   canDeactivateUser,
@@ -485,14 +486,7 @@ export default function UserModal({
     }
   }
 
-  const roleLabel =
-    form.role === 'designer'
-      ? 'Дизайнер'
-      : form.role === 'stardiz'
-        ? 'Стардиз'
-        : form.role === 'lead'
-          ? 'Лид'
-          : 'Админ';
+  const roleTitle = roleLabel(form.role);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-10 pb-10">
@@ -550,7 +544,7 @@ export default function UserModal({
 
           <div className="min-w-0 flex-1">
             <div className="text-[11px]  text-stone mb-0.5">
-              {isNew ? 'Новый пользователь' : roleLabel}
+              {isNew ? 'Новый пользователь' : roleTitle}
             </div>
             <h2 className="font-display text-xl font-medium tracking-tight truncate">
               {isNew ? 'Новый пользователь' : form.fullName || '—'}

@@ -342,6 +342,28 @@
     @apply chip bg-gold/15 text-ink;
   }
 
+  /* === Тон чипа роли (lib/roleTone) === */
+  /* Только фон и цвет текста — размер задаёт место: .chip h-6 в поп-апе 360,
+     px-1.5 py-0.5 10px в карточке канбана. */
+  .chip-role-admin {
+    @apply bg-sunset/15 text-sunset;
+  }
+  .chip-role-lead {
+    @apply bg-lime/15 text-lime-dark;
+  }
+  /* Стардиз: в тёмной теме — фиолетовый текст на фиолетовой подложке. В
+     светлой фиолетовый на фиолетовом — 3,4:1, мелкому тексту мало: текст
+     основным цветом, подложка остаётся фиолетовой (как у .chip-gold). */
+  .chip-role-stardiz {
+    @apply bg-violet/15 text-violet;
+  }
+  html[data-theme='light'] .chip-role-stardiz {
+    @apply text-ink;
+  }
+  .chip-role-designer {
+    @apply bg-cloud/60 text-stone;
+  }
+
   /* Иконка поиска: чистый белый в тёмной теме, чистый чёрный в светлой
      (Pavel). Отдельный класс, а не токен ink — без полутонов. */
   .search-icon {

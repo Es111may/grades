@@ -6,6 +6,7 @@ import SkillCombobox from './SkillCombobox';
 import { PlusIcon, CloseIcon } from '@/components/icons';
 import TitleAurora from '@/components/TitleAurora';
 import Tooltip from '@/components/Tooltip';
+import { BuildDot } from '@/components/BuildChip';
 
 type Build = { id: number; code: string; name: string };
 type Gate = {
@@ -25,8 +26,6 @@ type Grade = {
   gates: Gate[];
 };
 
-const buildColor = (code: string) =>
-  code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 type Skill = { id: number; name: string; taxonomyCode: string };
 
@@ -148,10 +147,7 @@ function GradeRow({
           {builds.map((b) => (
             <div key={b.id}>
               <div className="flex items-center gap-1.5 text-[11px]  text-stone mb-1">
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: buildColor(b.code) }}
-                />
+                <BuildDot code={b.code} />
                 {b.name}
               </div>
               <div className="flex items-baseline gap-1.5">
@@ -276,10 +272,7 @@ function GatesColumn({
   return (
     <div>
       <div className="flex items-center gap-1.5 text-[11px]  text-stone mb-3">
-        <span
-          className="w-1.5 h-1.5 rounded-full"
-          style={{ background: buildColor(build.code) }}
-        />
+        <BuildDot code={build.code} />
         {build.name}
         <span className="text-ash">·</span>
         <span className="font-medium text-ink normal-case tracking-normal">

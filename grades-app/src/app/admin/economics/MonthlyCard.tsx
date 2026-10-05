@@ -32,6 +32,7 @@ import {
   PEOPLE_FORMS,
   type MonthPoint,
 } from '@/lib/economics';
+import Segmented from '@/components/Segmented';
 import { Mln, SumK, useK } from './ui';
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Filler);
@@ -264,26 +265,18 @@ export default function MonthlyCard({ series, today }: { series: MonthPoint[]; t
             С {MONTH_GENITIVE[first.m - 1]} {first.y}, на конец месяца
           </div>
         </div>
-        <div className="segmented h-8 p-0.5" role="group" aria-label="Вид">
-          {(
-            [
-              ['chart', 'График'],
-              ['table', 'Таблица'],
-            ] as const
-          ).map(([v, l]) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={view === v}
-              onClick={() => setView(v)}
-              className={`segmented-item h-7 px-3 text-xs active:scale-[0.96] transition-[color,background-color,transform] duration-150 ${
-                view === v ? 'segmented-item-active' : ''
-              }`}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          kind="tabs"
+          size="compact"
+          press
+          label="Вид"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'chart', label: 'График' },
+            { value: 'table', label: 'Таблица' },
+          ]}
+        />
       </div>
 
       {view === 'chart' ? (

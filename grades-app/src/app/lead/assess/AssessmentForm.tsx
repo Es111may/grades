@@ -6,6 +6,7 @@ import { GRADE_NAMES, BUILD_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import { calcGrade } from '@/lib/grade';
 import Avatar from '@/components/Avatar';
+import BuildChip from '@/components/BuildChip';
 import { CheckIcon, FlagIcon, ChevronDownIcon } from '@/components/icons';
 import { MarkdownTextarea } from '@/components/Markdown';
 import Tooltip from '@/components/Tooltip';
@@ -415,23 +416,10 @@ export default function AssessmentForm({
             </h1>
             <div className="flex items-center gap-1.5 flex-wrap">
               {/* На странице оценки чип билда такой же по размеру, как роль
-                  и статус — используем .chip-neutral, точку билда кладём
-                  внутрь. В таблицах/канбане более компактный .chip-build из
-                  globals.css. */}
-              <span className="chip-neutral">
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{
-                    background:
-                      designer.buildCode === 'creator'
-                        ? '#00ca48'
-                        : designer.buildCode === 'visioner'
-                          ? '#7c3aed'
-                          : '#0ea5e9',
-                  }}
-                />
-                {designer.buildName}
-              </span>
+                  и статус — BuildChip size="md" (.chip-neutral с точкой
+                  внутри). В таблицах/канбане — компактный size="sm"
+                  (.chip-build). */}
+              <BuildChip size="md" code={designer.buildCode} name={designer.buildName} />
               {/* Чип `department` убран — дублирует buildName после
                   переименования билдов в названия отделов. */}
               {published ? (

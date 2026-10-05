@@ -4,13 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { signOut, signIn, useSession } from 'next-auth/react';
 import Avatar from './Avatar';
 import { isFromCommentsLayer } from '@/lib/commentsLayer';
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: 'Админ',
-  lead: 'Лид',
-  stardiz: 'Стардиз',
-  designer: 'Дизайнер',
-};
+import { roleLabel } from '@/lib/roleTone';
 
 export default function UserMenu({
   fullName,
@@ -83,7 +77,7 @@ export default function UserMenu({
           <div className="rounded-card bg-snow border border-cloud shadow-soft-lg overflow-hidden animate-scale-in">
             <div className="px-4 py-3 border-b border-cloud">
               <div className="text-sm font-medium text-ink truncate">{fullName}</div>
-              <div className="text-xs text-stone mt-0.5">{ROLE_LABEL[role] ?? role}</div>
+              <div className="text-xs text-stone mt-0.5">{roleLabel(role)}</div>
             </div>
             {impersonatorId !== null && (
               <button

@@ -2,9 +2,11 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import Avatar from '@/components/Avatar';
+import BuildChip from '@/components/BuildChip';
 import { ChevronDownIcon } from '@/components/icons';
 import { canChangeLead, canEditUser } from '@/lib/permissions';
 import { genitiveFirstName } from '@/lib/names';
+import { roleLabel, roleToneClass } from '@/lib/roleTone';
 import { isCommentsLayerOpen, isFromCommentsLayer } from '@/lib/commentsLayer';
 
 type Build = { id: number; code: string; name: string };
@@ -36,23 +38,6 @@ const GRADE_LABELS: Record<string, string> = {
 };
 const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
 
-const ROLE_TONE: Record<string, string> = {
-  admin: 'bg-sunset/15 text-sunset',
-  lead: 'bg-lime/15 text-lime-dark',
-  // Токен violet: в тёмной теме тот же #bf5af2. В светлой фиолетовый текст
-  // на фиолетовой подложке — 3,4:1, мелкому тексту мало; текст основным
-  // цветом, подложка остаётся фиолетовой (как у .chip-gold).
-  stardiz: 'bg-violet/15 text-violet [html[data-theme=light]_&]:text-ink',
-  designer: 'bg-cloud/60 text-stone',
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: 'Админ',
-  lead: 'Лид',
-  stardiz: 'Стардиз',
-  designer: 'Дизайнер',
-};
-
 function initials(name: string) {
   return name
     .split(' ')
@@ -61,9 +46,6 @@ function initials(name: string) {
     .slice(0, 2)
     .toUpperCase();
 }
-
-const buildColor = (code: string) =>
-  code === 'creator' ? '#00ca48' : code === 'visioner' ? '#7c3aed' : '#0ea5e9';
 
 /** Отложенная передача человека другому лиду — ждёт подтверждения. */
 type Handoff = { user: UserRow; newLeadId: number; leadName: string };
@@ -312,20 +294,10 @@ export default function KanbanView({
                           {u.fullName}
                         </div>
                         <div className="flex items-center gap-1.5 text-[10px] mt-1 flex-wrap">
-                          <span
-                            className={`px-1.5 py-0.5 rounded-pill font-medium ${ROLE_TONE[u.role] ?? ROLE_TONE.designer}`}
-                          >
-                            {ROLE_LABEL[u.role] ?? u.role}
+                          <span className={`px-1.5 py-0.5 rounded-pill font-medium ${roleToneClass(u.role)}`}>
+                            {roleLabel(u.role)}
                           </span>
-                          {u.build && (
-                            <span className="chip-build">
-                              <span
-                                className="w-1.5 h-1.5 rounded-full"
-                                style={{ background: buildColor(u.build.code) }}
-                              />
-                              {u.build.name}
-                            </span>
-                          )}
+                          {u.build && <BuildChip code={u.build.code} name={u.build.name} />}
                         </div>
                       </div>
                     </div>

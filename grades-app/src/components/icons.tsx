@@ -24,6 +24,16 @@ export function PlusIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
+/** «−» в геометрии PlusIcon: та же толщина и длина штриха — пара для
+ *  кнопок раскрытия «+ / −» (карточки «Функционала», строки «Экономики»). */
+export function MinusIcon({ className = 'w-4 h-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M5 11H19V13H5V11Z" />
+    </svg>
+  );
+}
+
 export function ChevronDownIcon({ className = 'w-4 h-4' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
