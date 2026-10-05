@@ -73,7 +73,7 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.77.1 (Phase 24 закрыта; дата грейдирования → Я.Календарь; комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
+**Версия в `package.json`:** 0.77.2 (Phase 24 закрыта; дата грейдирования → Я.Календарь; комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
 
 **Phase 19 закрыто (0.24.0):**
 - `src/lib/audit.ts` — единый хелпер `writeAudit({actor, action, target, before?, after?, reason?, extra?})`. Падение записи не валит основной запрос. Словари `AUDIT_ACTIONS`, `AUDIT_ACTION_LABEL`, `AUDIT_TARGET_TYPE_LABEL` для UI.
@@ -484,7 +484,7 @@ grades-app/
   (нужен Node ≥ 20.9), до него декодер принимает только JPEG/PNG/WebP с
   проверкой сигнатуры; xlsx — только в `scripts/import-excel.ts`.
   `@auth/prisma-adapter` удалён (не использовался, тянул уязвимый `@auth/core`).
-- `/api/health` — SELECT 1; healthcheck в Railway на него пока не включён.
+- `/api/health` — SELECT 1; healthcheck Railway включён с 0.77.2 через `grades-app/railway.json` (`healthcheckPath`, таймаут 300 с): новый деплой получает трафик только после ответа health, иначе работает старый.
 
 ## Подводные камни
 

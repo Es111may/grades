@@ -701,7 +701,7 @@ export default function UserCard360({
                     ) : (
                       <div ref={gradingRowRef}>
                         <div className="flex items-center gap-3">
-                          <span className="text-stone">Грейдирование</span>
+                          <span className="text-stone">Дата грейдов</span>
                           <span className="ml-auto flex items-center gap-3">
                             {user.nextGradingAt && (
                               <GradingPlanChip
