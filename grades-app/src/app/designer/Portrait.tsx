@@ -23,7 +23,7 @@ import {
   PerformanceSkeleton,
   RadarSkeleton,
   SalaryCardSkeleton,
-} from '@/components/Skeletons';
+} from '@/components/skeletons/portrait';
 
 // Тяжёлые куски портрета — лениво, вне First Load: chart.js (радары и
 // графики перформанса), дашборд перформанса, ИПР и «Зарплата» (SalaryBlock

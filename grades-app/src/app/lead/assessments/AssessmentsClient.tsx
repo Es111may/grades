@@ -7,6 +7,7 @@ import TitleAurora from '@/components/TitleAurora';
 import EmptyState from '@/components/EmptyState';
 import BuildChip from '@/components/BuildChip';
 import { CheckIcon } from '@/components/icons';
+import { gradeName } from '@/lib/types';
 import Link from 'next/link';
 
 export type AssessmentRow = {
@@ -36,15 +37,6 @@ export type DraftRow = {
   leadId: number | null;
   updatedAt: string;
   createdAt: string;
-};
-
-const GRADE_NAMES: Record<string, string> = {
-  junior: 'Джун',
-  junior_plus: 'Джун+',
-  premiddle: 'Пре-мидл',
-  middle: 'Мидл',
-  middle_plus: 'Мидл+',
-  senior: 'Синьор',
 };
 
 
@@ -254,9 +246,7 @@ export default function AssessmentsClient({
                   </td>
                   <td className="py-3 px-4 text-right">
                     <span className="font-display text-base font-medium tracking-tight">
-                      {GRADE_NAMES[r.effectiveGrade ?? 'junior'] ??
-                        r.effectiveGrade ??
-                        '—'}
+                      {gradeName(r.effectiveGrade ?? 'junior')}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right text-stone tabular-nums">

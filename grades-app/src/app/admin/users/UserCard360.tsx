@@ -9,6 +9,7 @@ import type { UserRow } from './UsersClient';
 import TitleAurora from '@/components/TitleAurora';
 import { isCommentsLayerOpen, isFromCommentsLayer } from '@/lib/commentsLayer';
 import { roleLabel, roleToneClass } from '@/lib/roleTone';
+import { gradeName } from '@/lib/types';
 
 type AssessmentHistoryRow = {
   id: number;
@@ -37,15 +38,6 @@ type NoteRow = {
   createdAt: string;
   authorId: number;
   author: { fullName: string };
-};
-
-const GRADE_NAMES: Record<string, string> = {
-  junior: 'Джун',
-  junior_plus: 'Джун+',
-  premiddle: 'Пре-мидл',
-  middle: 'Мидл',
-  middle_plus: 'Мидл+',
-  senior: 'Синьор',
 };
 
 import { formatDateShort as formatDate } from '@/lib/dates';
@@ -212,15 +204,9 @@ export default function UserCard360({
   }
 
   // Редактор закрылся — фокус обратно в строку (пилюля или «Назначить»),
-  // а не в никуда: с клавиатуры можно продолжить с того же места.
+  // а не в никуда: с клавиатуры можно продолжить с того же места
+  // (returnFocus у GradingDateEditor).
   const gradingRowRef = useRef<HTMLDivElement | null>(null);
-  const gradingWasEditing = useRef(false);
-  useEffect(() => {
-    if (gradingWasEditing.current && !gradingEditing) {
-      gradingRowRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
-    }
-    gradingWasEditing.current = gradingEditing;
-  }, [gradingEditing]);
 
   // Ленивая подгрузка истории оценок (Assessment'ов и LeadReview'ов).
   const [history, setHistory] = useState<HistoryData | null>(null);
@@ -524,7 +510,7 @@ export default function UserCard360({
               )}
               {user.role === 'designer' && user.effectiveGrade && (
                 <span className="chip h-6 bg-ink text-snow">
-                  {GRADE_NAMES[user.effectiveGrade] ?? user.effectiveGrade}
+                  {gradeName(user.effectiveGrade)}
                 </span>
               )}
               {user.build ? (
@@ -547,7 +533,7 @@ export default function UserCard360({
                 user.gradeFloor &&
                 user.gradeFloor !== user.effectiveGrade && (
                   <span className="chip-warn h-6">
-                    Floor: {GRADE_NAMES[user.gradeFloor] ?? user.gradeFloor}
+                    Floor: {gradeName(user.gradeFloor)}
                   </span>
                 )}
               {isHourly(user) && (
@@ -670,6 +656,7 @@ export default function UserCard360({
                         initial={gradingInitial}
                         onSaved={gradingSaved}
                         onCancel={() => setGradingEditing(false)}
+                        returnFocus={() => gradingRowRef.current?.querySelector('button')}
                       />
                     ) : (
                       <div ref={gradingRowRef}>
@@ -730,7 +717,7 @@ export default function UserCard360({
                       <div className={`flex items-baseline gap-2.5 ${hasTrendChart ? 'mt-4' : ''}`}>
                         <span className="font-medium">
                           {lastA?.effectiveGrade
-                            ? GRADE_NAMES[lastA.effectiveGrade] ?? lastA.effectiveGrade
+                            ? gradeName(lastA.effectiveGrade)
                             : '—'}
                         </span>
                         <span className="text-stone tabular-nums">

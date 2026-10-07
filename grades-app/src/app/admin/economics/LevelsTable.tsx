@@ -8,9 +8,11 @@ import { Fragment, useId, useState } from 'react';
 import Tooltip from '@/components/Tooltip';
 import Avatar from '@/components/Avatar';
 import Money from '@/components/Money';
+import Collapse from '@/components/Collapse';
+import ExpandToggle from '@/components/ExpandToggle';
 import { formatPct } from '@/lib/compensation';
 import { fmtDate, fmtDay, fmtRate, pctDelta, plural, type LevelPerson, type LevelRow } from '@/lib/economics';
-import { Collapse, DeptChip, LevelName, Rate, SheetTerm, ToggleButton, useK } from './ui';
+import { DeptChip, LevelName, Rate, SheetTerm, useK } from './ui';
 
 /** Шаг рисок шкалы в тысячах — 25, 50 или 100 в зависимости от размаха. */
 function niceTicks(lo: number, hi: number): number[] {
@@ -340,7 +342,8 @@ export default function LevelsTable({ rows, ceiling }: { rows: LevelRow[]; ceili
                     )}
                   </td>
                   <td className="py-3 pr-4 text-right">
-                    <ToggleButton
+                    <ExpandToggle
+                      size="sm"
                       open={isOpen}
                       label={`${r.label}: люди`}
                       controls={id}

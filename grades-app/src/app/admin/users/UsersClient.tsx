@@ -8,7 +8,7 @@ import FilterDropdown, { type FilterOption } from '@/components/FilterDropdown';
 import Segmented, { type SegmentedOption } from '@/components/Segmented';
 import LeaderboardView from './LeaderboardView';
 import TitleAurora from '@/components/TitleAurora';
-import { KanbanSkeleton, MatrixSkeleton } from '@/components/Skeletons';
+import { KanbanSkeleton, MatrixSkeleton } from '@/components/skeletons/team';
 import {
   buildTeamOptions,
   countMentees,

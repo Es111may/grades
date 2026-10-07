@@ -55,7 +55,7 @@ import MoneyBridge from './MoneyBridge';
 import LevelsTable from './LevelsTable';
 import ChurnCard from './ChurnCard';
 import SettingsDialog from './SettingsDialog';
-import { MonthlySkeleton } from './skeletons';
+import { MonthlySkeleton } from '@/components/skeletons/economics';
 
 // chart.js — тяжёлый и читает CSS-переменные из DOM: только в браузере
 const MonthlyCard = dynamic(() => import('./MonthlyCard'), { ssr: false, loading: () => <MonthlySkeleton /> });

@@ -32,7 +32,7 @@ import { bandFor, bandState, type BandState, type SalaryBand } from './salaryBan
 import { plannedRaiseState, type HrLogRow } from './compensation';
 import { DISMISSAL_TYPE_LABELS, isDismissalType, type DismissalType } from './dismissal';
 import { isNonGradingBuild } from './employment';
-import type { GradeCode } from './types';
+import { GRADE_NAMES, type GradeCode } from './types';
 
 // ═══════════════════════════ Типы ═══════════════════════════
 
@@ -724,16 +724,8 @@ export function coverage(people: EconPerson[], d: string): { have: number; total
 export const LEVEL_ORDER: EconLevel[] = [
   'junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior', 'stardiz', 'lead',
 ];
-export const LEVEL_LABEL: Record<EconLevel, string> = {
-  junior: 'Джун',
-  junior_plus: 'Джун+',
-  premiddle: 'Пре-мидл',
-  middle: 'Мидл',
-  middle_plus: 'Мидл+',
-  senior: 'Синьор',
-  stardiz: 'Стардиз',
-  lead: 'Лид',
-};
+// Грейды — из GRADE_NAMES, плюс уровни ролей без грейда
+export const LEVEL_LABEL: Record<EconLevel, string> = { ...GRADE_NAMES, stardiz: 'Стардиз', lead: 'Лид' };
 
 export function bandOfLevel(level: EconLevel | null): SalaryBand | null {
   if (!level) return null;

@@ -7,6 +7,8 @@
 
 import { useId, useState } from 'react';
 import Avatar from '@/components/Avatar';
+import Collapse from '@/components/Collapse';
+import ExpandToggle from '@/components/ExpandToggle';
 import {
   fmtDate,
   LEVEL_LABEL,
@@ -15,7 +17,7 @@ import {
   type Churn,
   type ExitRow,
 } from '@/lib/economics';
-import { Collapse, DEPT_LABEL, Info, InitiatorChip, Rate, SheetTerm, ToggleButton } from './ui';
+import { DEPT_LABEL, Info, InitiatorChip, Rate, SheetTerm } from './ui';
 
 function LeaverRow({ x, showInitiator }: { x: ExitRow; showInitiator: boolean }) {
   const p = x.p;
@@ -156,7 +158,8 @@ export default function ChurnCard({
                   )}
                   <span className={`w-6 text-right tabular-nums text-[13px] ${n ? 'font-medium' : 'text-ash'}`}>{n}</span>
                   {n ? (
-                    <ToggleButton
+                    <ExpandToggle
+                      size="sm"
                       open={isOpen}
                       label={`${g.title}: люди`}
                       controls={id}

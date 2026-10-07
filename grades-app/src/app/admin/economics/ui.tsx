@@ -1,13 +1,13 @@
 'use client';
 
 // Общие мелочи страницы «Экономика»: режим сумм, денежные подписи,
-// раскрытие строк, чипы. ToggleButton и Collapse — те же, что в карточках
-// «Функционала» (FeaturesView) и истории з/п; кандидаты в общие компоненты.
+// подсказки, чипы. Раскрытие строк — общие ExpandToggle и Collapse
+// (components/), те же, что в карточках «Функционала» и истории з/п.
 
-import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import Tooltip from '@/components/Tooltip';
 import Money from '@/components/Money';
-import { InfoIcon, MinusIcon, PlusIcon, StarIcon } from '@/components/icons';
+import { InfoIcon, StarIcon } from '@/components/icons';
 import BuildChip from '@/components/BuildChip';
 import { NEUTRAL_DOT } from '@/lib/buildTone';
 import { BUILD_NAMES } from '@/lib/types';
@@ -55,7 +55,7 @@ export function SignedSumK({ rub }: { rub: number }) {
   );
 }
 
-// ─── Подсказки и раскрытие ────────────────────────────────────────────
+// ─── Подсказки ────────────────────────────────────────────────────────
 
 /** Иконка «i» с хинтом. Зона наведения шире иконки — псевдоэлементом. */
 export function Info({
@@ -86,67 +86,6 @@ export function Info({
  */
 export function SheetTerm({ term }: { term: string }) {
   return <span className="block mt-1 text-ash">В табличке — {term}</span>;
-}
-
-/** Кнопка раскрытия «+ / −» с кросс-фейдом — как в карточках «Функционала». */
-export function ToggleButton({
-  open,
-  label,
-  controls,
-  onClick,
-}: {
-  open: boolean;
-  label: string;
-  controls?: string;
-  onClick?: (e: React.MouseEvent) => void;
-}) {
-  const glyph = (shown: boolean, child: ReactNode) => (
-    <span
-      aria-hidden
-      className={`absolute inset-0 flex items-center justify-center
-                  transition-[opacity,transform,filter] duration-200 ease-[cubic-bezier(0.2,0,0,1)]
-                  ${shown ? 'opacity-100 scale-100 blur-0' : 'opacity-0 scale-[0.25] blur-[4px]'}`}
-    >
-      {child}
-    </span>
-  );
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={open}
-      aria-controls={controls}
-      aria-label={label}
-      className="relative w-8 h-8 shrink-0 rounded-pill bg-ink/5 text-stone
-                 group-hover:bg-ink/10 group-hover:text-ink hover:bg-ink/10 hover:text-ink active:scale-[0.96]
-                 transition-[background-color,color,transform] duration-150 ease-out"
-    >
-      {glyph(!open, <PlusIcon className="w-4 h-4" />)}
-      {glyph(open, <MinusIcon className="w-4 h-4" />)}
-    </button>
-  );
-}
-
-/**
- * Раскрытие через grid-rows 0fr → 1fr — переход прерывается на полпути,
- * как в «Функционале». Закрытое содержимое — inert: не ловит фокус и Tab.
- */
-export function Collapse({ open, id, children }: { open: boolean; id?: string; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (ref.current) (ref.current as HTMLElement & { inert: boolean }).inert = !open;
-  }, [open]);
-  return (
-    <div
-      ref={ref}
-      id={id}
-      aria-hidden={open ? undefined : true}
-      className="grid transition-[grid-template-rows] duration-[250ms] ease-out"
-      style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
-    >
-      <div className="min-h-0 overflow-hidden">{children}</div>
-    </div>
-  );
 }
 
 // ─── Чипы и подписи ───────────────────────────────────────────────────

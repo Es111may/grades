@@ -16,7 +16,7 @@
 import * as XLSX from 'xlsx';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
-import type { BuildCode, GradeCode, SkillType } from '../src/lib/types';
+import { GRADE_CODES, GRADE_NAMES, type BuildCode, type GradeCode, type SkillType } from '../src/lib/types';
 
 const prisma = new PrismaClient();
 
@@ -503,15 +503,8 @@ async function importMatrix() {
 
   // GradeLevels с XP-порогами
   console.log('  • grade levels');
-  const gradeOrder: GradeCode[] = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
-  const gradeNames: Record<GradeCode, string> = {
-    junior: 'Джун',
-    junior_plus: 'Джун+',
-    premiddle: 'Пре-мидл',
-    middle: 'Мидл',
-    middle_plus: 'Мидл+',
-    senior: 'Синьор',
-  };
+  const gradeOrder = GRADE_CODES;
+  const gradeNames = GRADE_NAMES;
   const gradeIdByCode = new Map<GradeCode, number>();
   for (let i = 0; i < gradeOrder.length; i++) {
     const code = gradeOrder[i];

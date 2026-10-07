@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { isGradable } from '@/lib/employment';
+import { gradeName } from '@/lib/types';
 import {
   DndContext,
   DragEndEvent,
@@ -19,6 +20,7 @@ import { ChevronDownIcon } from '@/components/icons';
 import { MarkdownContent } from '@/components/Markdown';
 import Tooltip from '@/components/Tooltip';
 import { BuildDot } from '@/components/BuildChip';
+import { MatrixGridSkeleton } from '@/components/skeletons/team';
 
 type Build = { id: number; code: string; name: string };
 type UserRow = {
@@ -29,15 +31,6 @@ type UserRow = {
   active: boolean;
   avatarUrl?: string | null;
   effectiveGrade?: string | null;
-};
-
-const GRADE_SHORT: Record<string, string> = {
-  junior: 'Джун',
-  junior_plus: 'Джун+',
-  premiddle: 'Пре-мидл',
-  middle: 'Мидл',
-  middle_plus: 'Мидл+',
-  senior: 'Синьор',
 };
 
 type Level = 'low' | 'mid' | 'high';
@@ -160,7 +153,7 @@ function UserCard({
       </span>
       {showGrade && user.effectiveGrade && (
         <span className="text-[10px] px-1.5 py-0.5 rounded-pill bg-cloud/60 text-stone font-medium shrink-0 leading-none">
-          {GRADE_SHORT[user.effectiveGrade] ?? user.effectiveGrade}
+          {gradeName(user.effectiveGrade)}
         </span>
       )}
       {user.build && (
@@ -767,14 +760,7 @@ export default function MatrixView({ users }: { users: UserRow[] }) {
     return (
       <>
         <AboutAccordion />
-        <div className="flex gap-5 items-start">
-          <div className="w-[240px] h-[400px] rounded-[14px] bg-cloud/40 animate-pulse shrink-0" />
-          <div className="flex-1 grid grid-cols-3 gap-3">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="h-[180px] rounded-[14px] bg-cloud/40 animate-pulse" />
-            ))}
-          </div>
-        </div>
+        <MatrixGridSkeleton />
       </>
     );
   }

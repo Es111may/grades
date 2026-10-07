@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ChevronDownIcon, CloseIcon } from '@/components/icons';
 import Tooltip from '@/components/Tooltip';
+import Collapse from '@/components/Collapse';
+import InlineEditor from '@/components/InlineEditor';
 import { elapsedSince, formatDateShort, todayLocalIso } from '@/lib/dates';
 import {
   formatPct,
@@ -279,15 +281,8 @@ export default function SalaryBlock({
     onBonusReadyChange?.(bonusReady);
   }, [bonusReady, onBonusReadyChange]);
 
-  // Свёрнутая история остаётся в DOM ради анимации, но не ловит фокус и
-  // поиск по странице. inert — через DOM: React 18 не знает этот атрибут.
-  // Callback-ref, а не эффект: панель появляется позже, когда придут данные.
-  const historyPanelRef = useCallback(
-    (el: HTMLDivElement | null) => {
-      if (el) el.inert = !historyOpen;
-    },
-    [historyOpen],
-  );
+  // «История» — куда вернуть фокус, когда закрылась форма премии
+  const historyToggleRef = useRef<HTMLButtonElement>(null);
 
   async function removeBonus(id: number) {
     const res = await fetch(`/api/bonuses/${id}`, { method: 'DELETE' });
@@ -321,6 +316,7 @@ export default function SalaryBlock({
     addingBonus && canBonus ? (
       <BonusForm
         userId={userId}
+        returnFocus={() => historyToggleRef.current}
         onSaved={bonusSaved}
         onCancel={() =>
           // Без событий панель пуста — закрываем её целиком (форма уйдёт
@@ -384,6 +380,7 @@ export default function SalaryBlock({
                   событий) — даём закрыть */}
               {(view.events.length > 0 || historyOpen) && (
                 <HistoryToggle
+                  buttonRef={historyToggleRef}
                   open={historyOpen}
                   controls={historyId}
                   onClick={() => setHistoryOpen((v) => !v)}
@@ -408,8 +405,8 @@ export default function SalaryBlock({
         )}
       </div>
       {view?.state === 'ok' && data && (
-        /* Раскрытие — grid-rows 0fr → 1fr: переход прерываемый, высоту
-           знать не нужно. -mt-3 гасит gap-3 родителя, пока панель свёрнута.
+        /* Раскрытие — общий Collapse (grid-rows 0fr → 1fr, свёрнутое —
+           inert). -mt-3 гасит gap-3 родителя, пока панель свёрнута.
            Сама история — на подложке (Pavel): подложка выходит из колонки
            строк и стоит в 8px от краёв поп-апа, текст внутри — ровно по
            колонке строк выше. Обе оболочки (поп-ап 360 и поп-ап «Зарплата»
@@ -422,27 +419,22 @@ export default function SalaryBlock({
            bg-canvas, вложенная поверхность из токенов: читается в обеих
            темах. Радиус 12px: концентричный поп-апу (26 − 8) вышел бы 18px
            и спорил бы с плашками, а 12 — уже принятый радиус вложенных. */
-        <div
-          ref={historyPanelRef}
+        <Collapse
+          open={historyOpen}
           id={historyId}
-          aria-hidden={!historyOpen}
-          className="-mt-3 grid transition-[grid-template-rows] duration-[250ms] ease-out"
-          style={{ gridTemplateRows: historyOpen ? '1fr' : '0fr' }}
-          onTransitionEnd={(e) => {
-            if (e.target === e.currentTarget && !historyOpen) setAddingBonus(false);
-          }}
+          className="-mt-3"
+          innerClassName="-mx-6 px-2"
+          onClosed={() => setAddingBonus(false)}
         >
-          <div className="min-h-0 overflow-hidden -mx-6 px-2">
-            <div className="pt-3">
-              <div className="rounded-[12px] bg-canvas px-4 py-3 flex flex-col gap-4">
-                {bonusForm}
-                {showList && (
-                  <HistoryList events={events} onRemoveBonus={canBonus ? removeBonus : undefined} />
-                )}
-              </div>
+          <div className="pt-3">
+            <div className="rounded-[12px] bg-canvas px-4 py-3 flex flex-col gap-4">
+              {bonusForm}
+              {showList && (
+                <HistoryList events={events} onRemoveBonus={canBonus ? removeBonus : undefined} />
+              )}
             </div>
           </div>
-        </div>
+        </Collapse>
       )}
     </div>
   );
@@ -542,6 +534,8 @@ function PlannedRow({
   const [note, setNote] = useState(fields.note);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Строка статуса: редактор закрылся — фокус на её «Изменить»
+  const viewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setAt(fields.at);
@@ -611,8 +605,27 @@ function PlannedRow({
 
   if (editing && canEdit) {
     return (
-      <div className="rounded-card border border-cloud p-3 flex flex-col gap-2.5">
-        <div className="text-stone">Плановый пересмотр</div>
+      <InlineEditor
+        title="Плановый пересмотр"
+        error={err}
+        pending={busy}
+        onSave={() => void save()}
+        onCancel={cancel}
+        returnFocus={() => viewRef.current?.querySelector('button')}
+        actions={
+          /* Снять — только действующий; выполненный сам уйдёт из списка */
+          isActive && (
+            <button
+              type="button"
+              className="ml-auto text-xs text-blaze hover:underline"
+              disabled={busy}
+              onClick={clear}
+            >
+              Снять
+            </button>
+          )
+        }
+      >
         <div className="grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1 text-xs text-stone">
             Дата
@@ -641,27 +654,7 @@ function PlannedRow({
         {typedPct != null && (
           <p className="text-xs text-stone">{formatPct(typedPct)} к текущей ставке</p>
         )}
-        {err && <p className="text-xs text-blaze">{err}</p>}
-        <div className="flex items-center gap-2">
-          <button type="button" className="btn-primary" disabled={busy} onClick={save}>
-            Сохранить
-          </button>
-          <button type="button" className="btn-ghost" disabled={busy} onClick={cancel}>
-            Отмена
-          </button>
-          {/* Снять — только действующий; выполненный сам уйдёт из списка */}
-          {isActive && (
-            <button
-              type="button"
-              className="ml-auto text-xs text-blaze hover:underline"
-              disabled={busy}
-              onClick={clear}
-            >
-              Снять
-            </button>
-          )}
-        </div>
-      </div>
+      </InlineEditor>
     );
   }
 
@@ -669,7 +662,7 @@ function PlannedRow({
   if (planned.state === 'none') return null;
 
   return (
-    <div className="flex items-start gap-3">
+    <div ref={viewRef} className="flex items-start gap-3">
       <span className="text-stone shrink-0">Плановый пересмотр</span>
       <span className="ml-auto text-right">
         {planned.state === 'done' ? (
@@ -730,13 +723,16 @@ function HistoryToggle({
   open,
   controls,
   onClick,
+  buttonRef,
 }: {
   open: boolean;
   controls: string;
   onClick: () => void;
+  buttonRef?: React.Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={buttonRef}
       type="button"
       onClick={onClick}
       aria-expanded={open}
@@ -865,32 +861,27 @@ function HistoryGroup({
 }
 
 /**
- * Форма премии — сверху на подложке истории. Своей рамки нет: рамка —
- * сама подложка (вложенная рамка со скруглением 22px внутри 12px смотрелась
- * бы чужой). Поля — bg-snow, на подложке читаются в обеих темах.
+ * Форма премии — сверху на подложке истории. Своей рамки нет (InlineEditor
+ * без framed): рамка — сама подложка (вложенная рамка со скруглением 22px
+ * внутри 12px смотрелась бы чужой). Поля — bg-snow, на подложке читаются в
+ * обеих темах.
  */
 function BonusForm({
   userId,
   onSaved,
   onCancel,
+  returnFocus,
 }: {
   userId: number;
   onSaved: () => Promise<void>;
   onCancel: () => void;
+  returnFocus?: () => HTMLElement | null | undefined;
 }) {
   const [amount, setAmount] = useState('');
   const [paidAt, setPaidAt] = useState(todayLocalIso);
   const [note, setNote] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const amountRef = useRef<HTMLInputElement>(null);
-
-  // Фокус — после раскрытия панели: пока она свёрнута, браузер прокрутил бы
-  // overflow-hidden к полю и сбил анимацию
-  useEffect(() => {
-    const t = setTimeout(() => amountRef.current?.focus(), 260);
-    return () => clearTimeout(t);
-  }, []);
 
   async function submit() {
     const rub = Math.round(Number(amount.replace(',', '.')) * 1000);
@@ -914,13 +905,23 @@ function BonusForm({
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="text-stone">Премия</div>
+    <InlineEditor
+      title="Премия"
+      framed={false}
+      saveLabel="Внести"
+      error={err}
+      pending={busy}
+      onSave={() => void submit()}
+      onCancel={onCancel}
+      // Фокус — после раскрытия панели: пока она свёрнута, браузер прокрутил
+      // бы overflow-hidden к полю и сбил анимацию
+      autoFocus={260}
+      returnFocus={returnFocus}
+    >
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1 text-xs text-stone">
           Сумма, тыс.
           <input
-            ref={amountRef}
             inputMode="decimal"
             className="input"
             placeholder="50"
@@ -939,15 +940,6 @@ function BonusForm({
         value={note}
         onChange={(e) => setNote(e.target.value)}
       />
-      {err && <p className="text-xs text-blaze">{err}</p>}
-      <div className="flex gap-2">
-        <button type="button" className="btn-primary" disabled={busy} onClick={submit}>
-          Внести
-        </button>
-        <button type="button" className="btn-ghost" disabled={busy} onClick={onCancel}>
-          Отмена
-        </button>
-      </div>
-    </div>
+    </InlineEditor>
   );
 }

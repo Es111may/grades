@@ -21,6 +21,10 @@ export const GRADE_ORDER: Record<GradeCode, number> = {
   senior: 5,
 };
 
+/** Коды грейдов снизу вверх — порядок колонок, опций и сравнений. */
+export const GRADE_CODES: GradeCode[] = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
+
+/** Названия грейдов — единственный источник; в компонентах — только отсюда. */
 export const GRADE_NAMES: Record<GradeCode, string> = {
   junior: 'Джун',
   junior_plus: 'Джун+',
@@ -29,6 +33,11 @@ export const GRADE_NAMES: Record<GradeCode, string> = {
   middle_plus: 'Мидл+',
   senior: 'Синьор',
 };
+
+/** Название грейда по коду из БД (там строка); незнакомый код — как есть. */
+export function gradeName(code: string): string {
+  return GRADE_NAMES[code as GradeCode] ?? code;
+}
 
 // Билды теперь называются как отделы — Pavel переименовал в мае 2026
 // (раньше были «Создатель/Визионер/Навигатор»). code остался прежним,

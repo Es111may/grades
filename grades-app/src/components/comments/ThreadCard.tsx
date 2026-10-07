@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import Avatar from '@/components/Avatar';
+import { InlineConfirm } from '@/components/ConfirmDialog';
 import Tooltip from '@/components/Tooltip';
 import {
   CheckCircleIcon,
@@ -251,26 +252,16 @@ export default function ThreadCard({
         {/* Низ: ответ или подтверждение удаления */}
         <div className="shrink-0 border-t border-cloud p-3">
           {armed ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[13px] text-ink mr-auto pl-1">
-                {thread.replies.length ? 'Удалить вместе с ответами?' : 'Удалить комментарий?'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setArmed(false)}
-                className="btn-ghost btn-sm h-8 py-0 active:scale-[0.96]"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={removeThread}
-                disabled={busy}
-                className="btn-danger btn-sm h-8 py-0"
-              >
-                Удалить
-              </button>
-            </div>
+            // Escape снимает подтверждение — через стек слоя (useEscape выше)
+            <InlineConfirm
+              density="compact"
+              className="gap-1.5"
+              message={thread.replies.length ? 'Удалить вместе с ответами?' : 'Удалить комментарий?'}
+              confirmLabel="Удалить"
+              pending={busy}
+              onCancel={() => setArmed(false)}
+              onConfirm={removeThread}
+            />
           ) : (
             <div className="flex items-end gap-1.5">
               <CommentField
@@ -400,26 +391,17 @@ function Message({
         )}
         {shot && onOpenShot && !editing && <ShotThumb shot={shot} onOpen={onOpenShot} />}
         {armed && (
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-xs text-ink mr-auto">Удалить ответ?</span>
-            <button
-              type="button"
-              onClick={() => setArmed(false)}
-              className="btn-ghost btn-sm h-7 py-0 active:scale-[0.96]"
-            >
-              Отмена
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                setArmed(false);
-                await onDelete?.();
-              }}
-              className="btn-danger btn-sm h-7 py-0"
-            >
-              Удалить
-            </button>
-          </div>
+          <InlineConfirm
+            density="tight"
+            className="gap-1.5 mt-1.5"
+            message="Удалить ответ?"
+            confirmLabel="Удалить"
+            onCancel={() => setArmed(false)}
+            onConfirm={async () => {
+              setArmed(false);
+              await onDelete?.();
+            }}
+          />
         )}
       </div>
     </div>

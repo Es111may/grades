@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { GRADING_BUILD_WHERE } from '@/lib/employment';
+import { GRADE_NAMES, gradeName } from '@/lib/types';
 
 const TARGET_THRESHOLDS = {
   junior: 0,
@@ -14,15 +15,6 @@ const TARGET_THRESHOLDS = {
   middle_plus: 180,
   senior: 230,
 } as const;
-
-const TARGET_NAMES: Record<string, string> = {
-  junior: 'Джун',
-  junior_plus: 'Джун+',
-  premiddle: 'Пре-мидл',
-  middle: 'Мидл',
-  middle_plus: 'Мидл+',
-  senior: 'Синьор',
-};
 
 const TARGET_SORT_ORDER: Record<string, number> = {
   junior: 0,
@@ -93,7 +85,7 @@ export async function POST() {
           data: {
             matrixVersionId: matrix.id,
             code: 'premiddle',
-            name: TARGET_NAMES.premiddle,
+            name: GRADE_NAMES.premiddle,
             sortOrder: TARGET_SORT_ORDER.premiddle,
             xpThresholds: xp as unknown as Prisma.InputJsonValue,
           },
@@ -114,7 +106,7 @@ export async function POST() {
           where: { id: g.id },
           data: {
             xpThresholds: xp as unknown as Prisma.InputJsonValue,
-            name: TARGET_NAMES[code],
+            name: gradeName(code),
             sortOrder: TARGET_SORT_ORDER[code],
           },
         });

@@ -9,7 +9,6 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { avatarSrc } from '@/lib/avatar';
 import { calcGrade, type SkillSnapshot, type ScoreInput, type GradeThreshold } from '@/lib/grade';
-import { GRADE_NAMES } from '@/lib/types';
 import { isGradingExempt } from '@/lib/employment';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import type { PortraitData } from '@/app/designer/Portrait';
@@ -331,6 +330,3 @@ export async function loadPortraitData(
   };
 }
 
-export function gradeName(code: GradeCode) {
-  return GRADE_NAMES[code] ?? code;
-}

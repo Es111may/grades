@@ -18,6 +18,7 @@ import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType, nonGradingBuildNote } from '@/lib/employment';
 import { DISMISSAL_TYPES, canEditDismissal } from '@/lib/dismissal';
 import { userForViewer } from '@/lib/userResponse';
+import { GRADE_CODES } from '@/lib/types';
 import { parseAvatarInput } from '@/lib/avatarShared';
 import { AUDIT_ACTIONS } from '@/lib/audit';
 import {
@@ -685,7 +686,7 @@ function deactivatedResponse<T extends { id: number; leadId: number | null }>(
   });
 }
 
-const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
+const GRADE_ORDER: readonly string[] = GRADE_CODES;
 
 function isFloorLowered(before: string | null, after: string | null | undefined): boolean {
   if (!before || !after) return false;

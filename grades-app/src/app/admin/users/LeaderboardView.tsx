@@ -11,15 +11,7 @@ import { PersonStatusIcon } from '@/components/GradingPlanChip';
 import AvatarWithRaise from '@/components/PlannedRaiseBadge';
 import { formatThousands } from '@/lib/compensation';
 import { isGradingExempt, isNonGradingBuild } from '@/lib/employment';
-
-const GRADE_LABELS: Record<string, string> = {
-  junior: 'Джун',
-  junior_plus: 'Джун+',
-  premiddle: 'Пре-мидл',
-  middle: 'Мидл',
-  middle_plus: 'Мидл+',
-  senior: 'Синьор',
-};
+import { gradeName } from '@/lib/types';
 
 const TAXONOMIES = ['UI', 'UX', 'PRD', 'IND', 'RES'] as const;
 type TaxKey = (typeof TAXONOMIES)[number];
@@ -341,7 +333,7 @@ export default function LeaderboardView({
           {rest.map((u) => {
             const grade = u.effectiveGrade ? (
               <span className="font-display text-sm font-medium tracking-tight">
-                {GRADE_LABELS[u.effectiveGrade] ?? u.effectiveGrade}
+                {gradeName(u.effectiveGrade)}
               </span>
             ) : u.hasDraft ? (
               <span className="chip-warn whitespace-nowrap">Черновик</span>
@@ -671,7 +663,7 @@ function PodiumCard({
         ) : (
           user.effectiveGrade && (
             <span className={`${chipSm} bg-ink text-snow`}>
-              {GRADE_LABELS[user.effectiveGrade] ?? user.effectiveGrade}
+              {gradeName(user.effectiveGrade)}
             </span>
           )
         )}

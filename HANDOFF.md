@@ -73,7 +73,7 @@
 - Аватар в UserMenu/AppHeader (тянется из БД при каждом SSR-рендере, актуальные имя+avatar даже после правок в админке).
 - Стиль `font-display` убран из мест где не нужен.
 
-**Версия в `package.json`:** 0.78.0 (Phase 24 закрыта; дата грейдирования → Я.Календарь; комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
+**Версия в `package.json`:** 0.79.0 (общие компоненты, волны A и B; Phase 24 закрыта; дата грейдирования → Я.Календарь; комментарии к интерфейсу; Phase 23.6 — «Экономика», реестр из HR, билд «Коммуникации»; концепт `design-concepts/phase-23.6-economics.md`).
 
 **Phase 19 закрыто (0.24.0):**
 - `src/lib/audit.ts` — единый хелпер `writeAudit({actor, action, target, before?, after?, reason?, extra?})`. Падение записи не валит основной запрос. Словари `AUDIT_ACTIONS`, `AUDIT_ACTION_LABEL`, `AUDIT_TARGET_TYPE_LABEL` для UI.
@@ -250,7 +250,7 @@
       - Лид правит в своей карточке только имя и аватар (`canEditOwnProfile`).
       - Ленивая загрузка (`next/dynamic`): модалка, поп-ап 360, 9-Box, канбан;
         на портрете — перформанс, ИПР, «Зарплата», радары (`PortraitRadar.tsx`).
-        Скелетоны — `components/Skeletons.tsx`. First Load JS: «Команда»
+        Скелетоны — `components/skeletons/` (с 0.79.0). First Load JS: «Команда»
         153 → 105 КБ, портреты 196 → 113–114 КБ.
       - Плановый пересмотр: `plannedRaiseBaselineAt` — последнее повышение,
         известное HR при постановке; «выполнен» = повышение позже базы (в т.ч.
@@ -260,10 +260,8 @@
         `GradingPlanChip.tsx`).
       - Страница оценки и кнопки портрета — только если `canGradeDesigner` и
         `isGradable`.
-      - Кандидаты в общие компоненты: `InlineEditor` (GradingDateEditor,
-        PlannedRow, BonusForm), `ConfirmDialog` (передача человека в канбане),
-        `ROLE_TONE` (UserCard360 + KanbanView), объединить Skeletons и
-        PageSkeleton.
+      - Кандидаты в общие компоненты из этого списка сделаны в 0.78.0–0.79.0
+        (`roleTone`, `InlineEditor`, `ConfirmDialog`, `components/skeletons/`).
     - **0.73.0 (30.09.2026):** поп-ап 360 разбит на секции с заголовками
       (`PopupSection` / `SectionDivider` в UserCard360): «Команда»,
       «Зарплата» (первая строка — «Ставка»), «Грейдирование», «Заметки».
@@ -344,6 +342,26 @@
       `BuildChip`) — единственный источник цветов билдов, `lib/roleTone.ts` +
       `.chip-role-*`, `FilterDropdown` (+ `hint`, `divider`) вместо Scope/Role
       дропдаунов «Команды», `MinusIcon`. Новое — только через них.
+    - **0.79.0 (07.10.2026) — общие компоненты, волна B** (визуально без
+      изменений, попиксельная сверка 40 сцен в обеих темах):
+      `components/Collapse.tsx` (раскрытие grid-rows 0fr→1fr, свёрнутое —
+      inert) + `ExpandToggle.tsx` (круглая «+/−», 40/32 px) — «Функционал»,
+      строки «Экономики», история з/п; `InlineEditor.tsx` — дата
+      грейдирования, плановый пересмотр, премия; `ConfirmDialog.tsx`
+      (`ConfirmDialog` — модальное, `InlineConfirm` — строка) — передача в
+      канбане, удаление в комментариях, опасная зона модалки «Изменить»;
+      `components/skeletons/` вместо `PageSkeleton.tsx`, `Skeletons.tsx` и
+      `economics/skeletons.tsx`; названия грейдов — только `GRADE_NAMES` /
+      `GRADE_CODES` / `gradeName()` из `lib/types` (в т.ч. `scripts/import-excel.ts`
+      и `migrate-grades.ts`, которые идут при старте деплоя).
+      Поведение: в плановом пересмотре и премии Escape закрывает только форму
+      (раньше — весь поп-ап), Enter в поле сохраняет, фокус — в первое поле и
+      обратно на «Изменить»/«История».
+      Осталось: нативный `confirm('Удалить гейт?')` в `GradesClient.tsx`;
+      подтверждение понижения grade floor в `UserModal` на сырых `red-*`;
+      двухшаговые «Удалить → Точно удалить?» (`DeleteButton`,
+      `PortraitActions`, `AssessmentForm`, `MasteryEditorModal`) — кандидат
+      в общий компонент; контраст чипов ролей в светлой теме — ждёт Pavel.
     - 23.1 Реестр · 23.3 Сверка с HR · 23.5 Досев · 23.6 Экономика — не начаты.
 12. **Phase 24 — накопительные гейты: ЗАКРЫТА 03.10.2026 (0.77.0).** `cumulativeGates()` в `lib/grade.ts`: грейд — только если пройдены его гейты и гейты всех нижних (пре-мидл наследует гейты джун+; без них — Джун). Форма оценки считает тем же `calcGrade`. Отчёт `scripts/report-cumulative-gates.ts` (на проде 03.10 — понижений 0 из 15), пересчёт сохранённых грейдов `scripts/recalc-grades.ts` (по умолчанию пробный прогон; `--apply`, откат по `snapshot.recalculated.previous`). Портрет считает грейд на лету, «Команда»/поп-ап/«Экономика» — по сохранённому при публикации. Ниже — исходное описание бага.
     **(подтверждённый баг, Pavel 29.07.2026).**
@@ -422,8 +440,9 @@ grades-app/
     UserMenu.tsx, HeaderNav.tsx
     Avatar.tsx                     — img или fallback на инициалы
     AssessmentReminder.tsx         — сезонная плашка
-    icons.tsx                      — Edit / Plus / Calendar / Close / ChevronDown
-    PageSkeleton.tsx
+    icons.tsx                      — Edit / Plus / Minus / Calendar / Close / ChevronDown
+    skeletons/                     — Bone/Line/CardBone + каркасы страниц, портрета, «Команды», «Экономики»
+    Segmented, BuildChip, FilterDropdown, Collapse, ExpandToggle, InlineEditor, ConfirmDialog — общие компоненты
   src/lib/
     leadSurvey.ts                  — Phase 22: шаблон 360-опроса v1 (категории, маппинг колонок CSV → вопросы) + типы агрегатов
     parseLeadReviewCsv.ts          — Phase 22: парсер CSV-выгрузки Google Form, считает средние по пунктам/категориям/ролям

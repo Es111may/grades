@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type KeyboardEvent } from 'react';
+import { useId, useState } from 'react';
 import {
   gradingPlanStatus,
   gradingPlanTone,
@@ -11,6 +11,7 @@ import { openYandexCalendarOnChange } from '@/lib/yandexCalendar';
 import { CloseIcon, CoinsIcon, InfoIcon, TimerIcon } from '@/components/icons';
 import { isGradingExempt, isHourly, nonGradingBuildNote } from '@/lib/employment';
 import Tooltip from '@/components/Tooltip';
+import InlineEditor from '@/components/InlineEditor';
 
 export type GradingPlanSource = {
   /** 'hourly' — почасовщик: не грейдируется, таймера у него не бывает. */
@@ -261,13 +262,13 @@ export default function GradingPlanChip({
 
 /**
  * Инлайн-редактор даты грейдирования — встаёт на место строки в поп-апе 360.
- * Разметка — как у редактора планового пересмотра (PlannedRow в SalaryBlock).
+ * Оболочка — общий InlineEditor (как у планового пересмотра в SalaryBlock):
+ * Enter сохраняет, Escape отменяет и дальше не всплывает, чтобы поп-ап
+ * не закрылся вместе с редактором.
  *
  * Поле без даты по умолчанию: подставленная дата легко уходит в сохранение
  * незамеченной. min — сегодня по часам браузера (поле тоже браузерное);
  * вписанную руками прошедшую дату ловим сами — сервер её не запрещает.
- * Enter сохраняет, Escape отменяет и дальше не всплывает, чтобы поп-ап
- * не закрылся вместе с редактором.
  *
  * Новая или сменённая дата открывает Я.Календарь на её неделе — встречу
  * создают там (lib/yandexCalendar).
@@ -277,12 +278,15 @@ export function GradingDateEditor({
   initial,
   onSaved,
   onCancel,
+  returnFocus,
 }: {
   userId: number;
   /** YYYY-MM-DD текущей плановой даты или '' — назначаем новую. */
   initial: string;
   onSaved: (plan: GradingPlanFields) => void;
   onCancel: () => void;
+  /** Редактор закрылся — куда вернуть фокус (строка даты в поп-апе). */
+  returnFocus?: () => HTMLElement | null | undefined;
 }) {
   const inputId = useId();
   const [value, setValue] = useState(initial);
@@ -315,34 +319,23 @@ export function GradingDateEditor({
     onSaved(r.plan);
   }
 
-  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.key === 'Escape') {
-      // preventDefault — ещё и метка для оконного обработчика поп-апа
-      e.preventDefault();
-      e.stopPropagation();
-      if (!busy) onCancel();
-    } else if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
-      // Только из поля: Enter на «Отмене» — её собственный клик
-      e.preventDefault();
-      void save();
-    }
-  }
-
   return (
-    <div
-      className="rounded-card border border-cloud p-3 flex flex-col gap-2.5"
-      onKeyDown={onKeyDown}
+    <InlineEditor
+      title="Грейдирование"
+      fieldId={inputId}
+      error={err}
+      pending={busy}
+      canSave={!!value}
+      onSave={() => void save()}
+      onCancel={onCancel}
+      returnFocus={returnFocus}
     >
-      <label htmlFor={inputId} className="text-stone">
-        Грейдирование
-      </label>
       <input
         id={inputId}
         type="date"
         className="input"
         min={today}
         value={value}
-        autoFocus
         onChange={(e) => {
           setValue(e.target.value);
           setErr(null);
@@ -351,21 +344,7 @@ export function GradingDateEditor({
       {/* -mt-1: подсказка — к полю (6px, как в карточке «Изменить»), а не
           на общем шаге редактора */}
       <p className="-mt-1 text-xs text-ash">После сохранения откроется Я.Календарь</p>
-      {err && <p className="text-xs text-blaze">{err}</p>}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={busy || !value}
-          onClick={() => void save()}
-        >
-          Сохранить
-        </button>
-        <button type="button" className="btn-ghost" disabled={busy} onClick={onCancel}>
-          Отмена
-        </button>
-      </div>
-    </div>
+    </InlineEditor>
   );
 }
 

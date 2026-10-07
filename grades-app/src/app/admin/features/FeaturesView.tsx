@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import TitleAurora from '@/components/TitleAurora';
 import FilterDropdown, { type FilterOption } from '@/components/FilterDropdown';
 import Segmented, { type SegmentedOption } from '@/components/Segmented';
 import EmptyState from '@/components/EmptyState';
-import { MinusIcon, PlusIcon, SearchIcon } from '@/components/icons';
+import Collapse from '@/components/Collapse';
+import ExpandToggle from '@/components/ExpandToggle';
+import { SearchIcon } from '@/components/icons';
 import { formatDateShort } from '@/lib/dates';
 import { roleLabel } from '@/lib/roleTone';
 import {
@@ -233,13 +235,6 @@ function UpdateCard({
   style?: React.CSSProperties;
 }) {
   const detailsId = `update-${u.id}`;
-  // Свёрнутые детали остаются в DOM ради анимации, но не должны ловить фокус
-  // и поиск по странице. inert — через DOM: React 18 не знает этот атрибут
-  // и булево значение в разметку не пишет.
-  const detailsRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (detailsRef.current) detailsRef.current.inert = !isOpen;
-  }, [isOpen]);
 
   return (
     <li className={`card px-8 py-7 ${className}`} style={style}>
@@ -258,27 +253,17 @@ function UpdateCard({
           <span className="ml-auto flex items-center gap-4 pl-4">
             {showRoles && <RoleChips roles={u.roles} />}
             {/* 40×40 в ряду чипов высотой 24: -my-2 держит ряд по чипам,
-                кнопка центрирована по ним. «+» и «−» оба в DOM — кросс-фейд. */}
-            <button
-              type="button"
+                кнопка центрирована по ним */}
+            <ExpandToggle
+              open={isOpen}
+              label={u.title}
+              controls={detailsId}
+              className="-my-2"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggle();
               }}
-              aria-expanded={isOpen}
-              aria-controls={detailsId}
-              aria-label={u.title}
-              className="relative -my-2 w-10 h-10 shrink-0 rounded-pill bg-ink/5 text-stone
-                         group-hover:bg-ink/10 group-hover:text-ink active:scale-[0.96]
-                         transition-[background-color,color,transform] duration-150 ease-out"
-            >
-              <ToggleGlyph shown={!isOpen}>
-                <PlusIcon className="w-4 h-4" />
-              </ToggleGlyph>
-              <ToggleGlyph shown={isOpen}>
-                <MinusIcon className="w-4 h-4" />
-              </ToggleGlyph>
-            </button>
+            />
           </span>
         </div>
         <h2 className="mt-4 text-[22px] leading-[1.25] font-medium tracking-[-0.01em] text-ink text-balance">
@@ -289,33 +274,23 @@ function UpdateCard({
         </p>
       </div>
 
-      {/* Раскрытие — через grid-rows 0fr → 1fr: переход прерываемый, высоту
-          контента знать не нужно */}
-      <div
-        ref={detailsRef}
-        id={detailsId}
-        aria-hidden={isOpen ? undefined : true}
-        className="grid transition-[grid-template-rows] duration-[250ms] ease-out"
-        style={{ gridTemplateRows: isOpen ? '1fr' : '0fr' }}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <ul className="mt-6 pt-6 border-t border-cloud/60 grid md:grid-cols-2 gap-x-12 gap-y-4">
-            {u.details.map((d, i) => (
-              <li key={i} className="flex gap-3">
-                <span className="mt-2 w-1.5 h-1.5 rounded-full bg-lime shrink-0" aria-hidden />
-                <span className="text-[14px] leading-relaxed text-ink/90 text-pretty">
-                  {d.text}
-                  {showRoles && d.roles && (
-                    <span className="ml-2 align-middle inline-flex">
-                      <RoleChips roles={d.roles} />
-                    </span>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      <Collapse open={isOpen} id={detailsId}>
+        <ul className="mt-6 pt-6 border-t border-cloud/60 grid md:grid-cols-2 gap-x-12 gap-y-4">
+          {u.details.map((d, i) => (
+            <li key={i} className="flex gap-3">
+              <span className="mt-2 w-1.5 h-1.5 rounded-full bg-lime shrink-0" aria-hidden />
+              <span className="text-[14px] leading-relaxed text-ink/90 text-pretty">
+                {d.text}
+                {showRoles && d.roles && (
+                  <span className="ml-2 align-middle inline-flex">
+                    <RoleChips roles={d.roles} />
+                  </span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Collapse>
     </li>
   );
 }
@@ -378,20 +353,6 @@ function RoleChips({ roles }: { roles: FeatureRole[] }) {
           {roleLabel(r)}
         </span>
       ))}
-    </span>
-  );
-}
-
-/** Значок в кнопке раскрытия: появляется из размытия и масштаба 0.25. */
-function ToggleGlyph({ shown, children }: { shown: boolean; children: React.ReactNode }) {
-  return (
-    <span
-      aria-hidden
-      className={`absolute inset-0 flex items-center justify-center
-                  transition-[opacity,transform,filter] duration-200 ease-[cubic-bezier(0.2,0,0,1)]
-                  ${shown ? 'opacity-100 scale-100 blur-0' : 'opacity-0 scale-[0.25] blur-[4px]'}`}
-    >
-      {children}
     </span>
   );
 }

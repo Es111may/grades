@@ -13,6 +13,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { INITIAL_PROJECTS } from './initialProjects';
 import { GRADING_BUILD_WHERE, NON_GRADING_BUILDS } from './employment';
+import { GRADE_NAMES } from './types';
 
 const TAXONOMY_NAMES: Record<string, string> = {
   UI: 'UI · Визуал',
@@ -195,7 +196,7 @@ export async function ensureGradesMigrated(): Promise<void> {
         data: {
           matrixVersionId: matrix.id,
           code: 'premiddle',
-          name: 'Пре-мидл',
+          name: GRADE_NAMES.premiddle,
           sortOrder: 2,
           xpThresholds: xp as unknown as Prisma.InputJsonValue,
         },

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Avatar from '@/components/Avatar';
+import { InlineConfirm } from '@/components/ConfirmDialog';
 import { EditIcon, CloseIcon } from '@/components/icons';
 import { formatDateShort, todayLocalIso } from '@/lib/dates';
 import { openYandexCalendarOnChange, shouldOpenYandexCalendar } from '@/lib/yandexCalendar';
@@ -9,6 +10,7 @@ import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType, isNonGradingBuild } from '@/lib/employment';
 import { isFromCommentsLayer } from '@/lib/commentsLayer';
 import { roleLabel } from '@/lib/roleTone';
+import { GRADE_CODES, GRADE_NAMES } from '@/lib/types';
 import {
   canChangeLead,
   canDeactivateUser,
@@ -95,15 +97,9 @@ async function fileToResizedDataUrl(file: File, max = 256): Promise<string> {
 
 const GRADE_OPTIONS = [
   { value: '', label: 'Не задан' },
-  { value: 'junior', label: 'Джун' },
-  { value: 'junior_plus', label: 'Джун+' },
-  { value: 'premiddle', label: 'Пре-мидл' },
-  { value: 'middle', label: 'Мидл' },
-  { value: 'middle_plus', label: 'Мидл+' },
-  { value: 'senior', label: 'Синьор' },
+  ...GRADE_CODES.map((code) => ({ value: code, label: GRADE_NAMES[code] })),
 ];
-
-const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
+const GRADE_ORDER: readonly string[] = GRADE_CODES;
 
 const DEPARTMENTS = ['Инхаус', 'Криэйт', 'Импрув'];
 
@@ -1087,17 +1083,12 @@ export default function UserModal({
                   </div>
                 </div>
                 {confirmDelete ? (
-                  <div className="flex gap-2 shrink-0">
-                    <button
-                      onClick={() => setConfirmDelete(false)}
-                      className="btn-ghost btn-sm"
-                    >
-                      Отмена
-                    </button>
-                    <button onClick={handleDelete} className="btn-danger btn-sm">
-                      Да, деактивировать
-                    </button>
-                  </div>
+                  <InlineConfirm
+                    className="gap-2 shrink-0"
+                    confirmLabel="Да, деактивировать"
+                    onCancel={() => setConfirmDelete(false)}
+                    onConfirm={handleDelete}
+                  />
                 ) : (
                   <button onClick={handleDelete} className="btn-ghost-danger btn-sm">
                     Деактивировать
@@ -1150,25 +1141,19 @@ export default function UserModal({
                           </select>
                         </div>
                       )}
-                      <div className="flex gap-1.5 justify-end">
-                        <button
-                          onClick={() => {
-                            setConfirmHard(false);
-                            setReassignTo('');
-                          }}
-                          disabled={hardBusy}
-                          className="btn-ghost btn-sm"
-                        >
-                          Отмена
-                        </button>
-                        <button
-                          onClick={handleHardDelete}
-                          disabled={hardBusy || (isLeadOrStardiz && !reassignTo)}
-                          className="btn-danger btn-sm"
-                        >
-                          {hardBusy ? 'Удаляю…' : 'Да, удалить навсегда'}
-                        </button>
-                      </div>
+                      <InlineConfirm
+                        className="gap-1.5 justify-end"
+                        confirmLabel="Да, удалить навсегда"
+                        pendingLabel="Удаляю…"
+                        pending={hardBusy}
+                        cancelDisabled={hardBusy}
+                        confirmDisabled={isLeadOrStardiz && !reassignTo}
+                        onCancel={() => {
+                          setConfirmHard(false);
+                          setReassignTo('');
+                        }}
+                        onConfirm={handleHardDelete}
+                      />
                     </div>
                   )}
                 </div>

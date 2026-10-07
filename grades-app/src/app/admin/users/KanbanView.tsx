@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Avatar from '@/components/Avatar';
 import BuildChip from '@/components/BuildChip';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { ChevronDownIcon } from '@/components/icons';
 import { canChangeLead, canEditUser } from '@/lib/permissions';
 import { genitiveFirstName } from '@/lib/names';
 import { roleLabel, roleToneClass } from '@/lib/roleTone';
-import { isCommentsLayerOpen, isFromCommentsLayer } from '@/lib/commentsLayer';
+import { GRADE_CODES, GRADE_NAMES } from '@/lib/types';
 
 type Build = { id: number; code: string; name: string };
 type Lead = { id: number; fullName: string };
@@ -27,16 +28,6 @@ type UserRow = {
 };
 
 type GroupBy = 'department' | 'lead' | 'grade';
-
-const GRADE_LABELS: Record<string, string> = {
-  junior: 'Джун',
-  junior_plus: 'Джун+',
-  premiddle: 'Пре-мидл',
-  middle: 'Мидл',
-  middle_plus: 'Мидл+',
-  senior: 'Синьор',
-};
-const GRADE_ORDER = ['junior', 'junior_plus', 'premiddle', 'middle', 'middle_plus', 'senior'];
 
 function initials(name: string) {
   return name
@@ -138,8 +129,8 @@ export default function KanbanView({
     }
 
     // grade
-    const cols: Array<{ key: string; label: string; users: UserRow[] }> = GRADE_ORDER.map(
-      (code) => ({ key: code, label: GRADE_LABELS[code], users: [] }),
+    const cols: Array<{ key: string; label: string; users: UserRow[] }> = GRADE_CODES.map(
+      (code) => ({ key: code, label: GRADE_NAMES[code], users: [] }),
     );
     cols.push({ key: '__none', label: 'Без оценки', users: [] });
     const byKey = new Map(cols.map((c) => [c.key, c]));
@@ -342,87 +333,27 @@ export default function KanbanView({
         </div>
       </div>
 
+      {/* Передача своего человека другому лиду — с подтверждением.
+          Кнопки btn-sm — как в подтверждениях модалки «Изменить». */}
       {handoff && (
-        <HandoffConfirm
-          person={handoff.user.fullName}
-          leadName={handoff.leadName}
-          busy={moving}
+        <ConfirmDialog
+          title="Передать другому лиду?"
+          confirmLabel="Передать"
+          pendingLabel="Передаю…"
+          pending={moving}
           onCancel={() => setHandoff(null)}
           onConfirm={async () => {
             await move(handoff.user, { leadId: handoff.newLeadId });
             setHandoff(null);
           }}
-        />
-      )}
-    </div>
-  );
-}
-
-/**
- * Подтверждение передачи своего человека другому лиду. Не нативный
- * confirm() — он в некоторых браузерах не отрабатывал; оболочка — как у
- * поп-апа 360 (затемнение, snow, rounded-modal), кнопки btn-sm — как в
- * подтверждениях модалки «Изменить». Escape и клик по фону — отмена.
- */
-function HandoffConfirm({
-  person,
-  leadName,
-  busy,
-  onCancel,
-  onConfirm,
-}: {
-  person: string;
-  leadName: string;
-  busy: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  const titleId = useId();
-  const textId = useId();
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      // Пока в слое комментариев что-то открыто, Escape — его, не отмена передачи
-      if (e.key === 'Escape' && !busy && !isCommentsLayerOpen()) onCancel();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [busy, onCancel]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[20vh]">
-      <div
-        className="absolute inset-0 bg-black/60 animate-fade-in"
-        onClick={(e) => {
-          if (!busy && !isFromCommentsLayer(e.nativeEvent)) onCancel();
-        }}
-        aria-hidden
-      />
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={textId}
-        className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg p-6 animate-scale-in"
-      >
-        <h2 id={titleId} className="font-display text-xl font-medium tracking-tight">
-          Передать другому лиду?
-        </h2>
-        {/* Имя человека — подлежащим, лид — в родительном: без склонения
-            ФИО фраза остаётся грамотной */}
-        <p id={textId} className="text-sm text-stone mt-2 leading-relaxed">
-          {person} перейдёт в команду {leadName ? genitiveFirstName(leadName) : 'другого лида'}.
+        >
+          {/* Имя человека — подлежащим, лид — в родительном: без склонения
+              ФИО фраза остаётся грамотной */}
+          {handoff.user.fullName} перейдёт в команду{' '}
+          {handoff.leadName ? genitiveFirstName(handoff.leadName) : 'другого лида'}.
           После передачи зарплата и оценки этого человека будут вам недоступны.
-        </p>
-        <div className="flex justify-end gap-2 mt-5">
-          {/* Фокус — на отмене: передачу нельзя отыграть самому */}
-          <button type="button" autoFocus onClick={onCancel} disabled={busy} className="btn-ghost btn-sm">
-            Отмена
-          </button>
-          <button type="button" onClick={onConfirm} disabled={busy} className="btn-primary btn-sm">
-            {busy ? 'Передаю…' : 'Передать'}
-          </button>
-        </div>
-      </div>
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

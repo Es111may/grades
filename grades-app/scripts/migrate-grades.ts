@@ -17,6 +17,7 @@
 
 import { PrismaClient, Prisma } from '@prisma/client';
 import { GRADING_BUILD_WHERE } from '../src/lib/employment';
+import { GRADE_NAMES } from '../src/lib/types';
 
 const prisma = new PrismaClient();
 
@@ -88,7 +89,7 @@ async function main() {
           data: {
             matrixVersionId: matrix.id,
             code: 'premiddle',
-            name: 'Пре-мидл',
+            name: GRADE_NAMES.premiddle,
             sortOrder: 2,
             xpThresholds: xp as unknown as Prisma.InputJsonValue,
           },

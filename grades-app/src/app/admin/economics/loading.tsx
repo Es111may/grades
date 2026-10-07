@@ -1,4 +1,4 @@
-import { EconomicsPageSkeleton } from './skeletons';
+import { EconomicsPageSkeleton } from '@/components/skeletons';
 
 export default function Loading() {
   return <EconomicsPageSkeleton />;
