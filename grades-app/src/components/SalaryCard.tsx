@@ -24,9 +24,16 @@ import SalaryBlock, {
 export default function SalaryCard({
   userId,
   className = '',
+  tall = false,
 }: {
   userId: number;
   className?: string;
+  /**
+   * Карточка во весь слот bento (без 9-Box сверху — у портрета человека вне
+   * грейдирования): «+» — вверху справа, по центру ряда подписи, а не
+   * посреди пустой карточки.
+   */
+  tall?: boolean;
 }) {
   const comp = useCompensation(userId);
   const [open, setOpen] = useState(false);
@@ -58,9 +65,9 @@ export default function SalaryCard({
           aria-label="Подробнее о зарплате"
           aria-haspopup="dialog"
           aria-expanded={open}
-          className="self-center shrink-0 w-8 h-8 rounded-pill bg-ink/5 hover:bg-ink/10 text-ink
-                     flex items-center justify-center active:scale-[0.96]
-                     transition-[background-color,transform] duration-150 ease-out"
+          className={`${tall ? 'self-start -mt-1' : 'self-center'} shrink-0 w-8 h-8 rounded-pill
+                     bg-ink/5 hover:bg-ink/10 text-ink flex items-center justify-center
+                     active:scale-[0.96] transition-[background-color,transform] duration-150 ease-out`}
         >
           <PlusIcon className="w-4 h-4" />
         </button>

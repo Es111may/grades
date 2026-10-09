@@ -2,7 +2,8 @@
  * Загрузчик данных для портрета дизайнера.
  *
  * Используется и в /designer (свой портрет), и в /lead/portrait?id=X (лид смотрит подопечного).
- * Возвращает PortraitData либо null, если опубликованных оценок нет.
+ * Возвращает PortraitData, а если опубликованных оценок нет — шапку человека
+ * и его строку (портрет без оценки, PortraitPending).
  */
 
 import type { Prisma } from '@prisma/client';
@@ -12,6 +13,7 @@ import { calcGrade, type SkillSnapshot, type ScoreInput, type GradeThreshold } f
 import { isGradingExempt } from '@/lib/employment';
 import type { BuildCode, GradeCode } from '@/lib/types';
 import type { PortraitData } from '@/app/designer/Portrait';
+import type { PortraitPerson } from '@/components/portrait/PortraitHero';
 
 /**
  * Безопасно читаем `Assessment.leadComment` отдельным запросом.
@@ -44,7 +46,7 @@ export const PORTRAIT_DESIGNER_SELECT = {
   id: true,
   email: true,
   role: true,
-  // active + employmentType + build — для isGradable (кнопка «К форме оценки»)
+  // active + employmentType + build — для isGradable (кнопка «Провести оценку»)
   active: true,
   employmentType: true,
   leadId: true,
@@ -74,6 +76,27 @@ export type PortraitTarget = Pick<
   'id' | 'email' | 'role' | 'leadId' | 'stardizId'
 >;
 
+/**
+ * Шапка портрета (имя, аватар, билд, лид, закреплённый грейд, дата
+ * грейдирования) — одна и та же с оценкой и без неё.
+ */
+export function portraitPerson(designer: PortraitDesigner): PortraitPerson {
+  return {
+    fullName: designer.fullName,
+    // Ссылка /api/avatar, а не data URL (lib/avatar) — крупно, в шапке портрета
+    avatarUrl: avatarSrc(designer, 256),
+    buildCode: (designer.build?.code as BuildCode) ?? null,
+    buildName: designer.build?.name ?? '—',
+    department: designer.department,
+    leadName: designer.lead?.fullName ?? null,
+    gradeFloor: designer.gradeFloor as GradeCode | null,
+    // Phase 23.2 — план грейдирования (только чтение на портрете). Почасовщику
+    // и билду без грейдов дату не показываем: оставшаяся с прошлого — не план
+    nextGradingAt: isGradingExempt(designer) ? null : designer.nextGradingAt?.toISOString() ?? null,
+    nextGradingSetAt: designer.nextGradingSetAt?.toISOString() ?? null,
+  };
+}
+
 // Явный select по только тем колонкам, которые точно были в схеме до
 // Phase 22.1 — чтобы запрос не падал, если новая колонка leadComment
 // ещё не успела добавиться в БД. Из оценок берём только то, что рисует
@@ -92,14 +115,14 @@ export async function loadPortraitData(
 ): Promise<
   | {
       kind: 'no_assessment';
-      designer: {
-        fullName: string;
-        gradeFloor: GradeCode | null;
-        buildName: string | null;
-        /** Код билда — у билда без грейдов своя заглушка (lib/employment). */
-        buildCode: string | null;
-        department: string | null;
-      };
+      /** Шапка — как data.designer у портрета с оценкой. */
+      designer: PortraitPerson;
+      /**
+       * Строка человека (тот же select) — для прав и правил грейдирования на
+       * странице (isGradable, билд без грейдов, почасовщик). В клиент целиком
+       * не отдавать: avatarUrl здесь — data URL.
+       */
+      target: PortraitDesigner;
     }
   | { kind: 'ok'; data: PortraitData; target: PortraitTarget }
   | { kind: 'not_found' }
@@ -139,16 +162,7 @@ export async function loadPortraitData(
       : null);
 
   if (!assessment) {
-    return {
-      kind: 'no_assessment',
-      designer: {
-        fullName: designer.fullName,
-        gradeFloor: designer.gradeFloor as GradeCode | null,
-        buildName: designer.build?.name ?? null,
-        buildCode: designer.build?.code ?? null,
-        department: designer.department,
-      },
-    };
+    return { kind: 'no_assessment', designer: portraitPerson(designer), target: designer };
   }
 
   // Load skills + grade levels параллельно — обе зависят только от matrixVersionId/buildId
@@ -283,20 +297,7 @@ export async function loadPortraitData(
 
   const data: PortraitData = {
     assessmentId: assessment.id,
-    designer: {
-      fullName: designer.fullName,
-      // Ссылка /api/avatar, а не data URL (lib/avatar) — крупно, в шапке портрета
-      avatarUrl: avatarSrc(designer, 256),
-      buildCode: (designer.build?.code as BuildCode) ?? null,
-      buildName: designer.build?.name ?? '—',
-      department: designer.department,
-      leadName: designer.lead?.fullName ?? null,
-      gradeFloor: designer.gradeFloor as GradeCode | null,
-      // Phase 23.2 — план грейдирования (только чтение на портрете). Почасовщику
-      // и билду без грейдов дату не показываем: оставшаяся с прошлого — не план
-      nextGradingAt: isGradingExempt(designer) ? null : designer.nextGradingAt?.toISOString() ?? null,
-      nextGradingSetAt: designer.nextGradingSetAt?.toISOString() ?? null,
-    },
+    designer: portraitPerson(designer),
     cycle: assessment.cycle,
     publishedAt: assessment.publishedAt?.toISOString() ?? null,
     effectiveGrade: result.effectiveGrade,

@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { canViewCompensation } from '@/lib/compPermissions';
@@ -10,11 +9,11 @@ import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
 import { PAGE_BUDGET_MS, withTimeout } from '@/lib/perfCache';
 import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
 import { canGradeDesigner } from '@/lib/permissions';
-import { isGradable, nonGradingBuildNote } from '@/lib/employment';
+import { isGradable } from '@/lib/employment';
+import { pendingPortraitView } from '@/lib/portraitPending';
 import { getNineBoxTitle, getTeamGrowthMedian } from '@/lib/teamMetrics';
-import { GRADE_NAMES } from '@/lib/types';
-import type { GradeCode } from '@/lib/types';
 import Portrait from '@/app/designer/Portrait';
+import PortraitPending from '@/app/designer/PortraitPending';
 import PortraitActions from './PortraitActions';
 
 export default async function LeadPortraitPage({
@@ -50,9 +49,10 @@ export default async function LeadPortraitPage({
   // решение Pavel). Медиана роста команды — admin/lead/stardiz.
   const viewerRole = user.role ?? '';
 
-  // Всё ниже зависит только от designerId — одним Promise.all. Если оценки
-  // нет, лишними окажутся лёгкие чтения; «в срок» при этом почти всегда уже
-  // в кэше — его раскладывает командный запрос /admin/users.
+  // Всё ниже зависит только от designerId — одним Promise.all. Портрет без
+  // оценки (PortraitPending) берёт отсюда же черновик, проекты, «в срок» и
+  // 9-Box; «в срок» почти всегда уже в кэше — его раскладывает командный
+  // запрос /admin/users.
   const [result, draft, userProjects, onTime, nineBoxTitle, teamGrowthMedian] =
     await Promise.all([
       loadPortraitData(designer, Number.isFinite(assessmentId) ? assessmentId : undefined),
@@ -90,71 +90,39 @@ export default async function LeadPortraitPage({
   // (не почасовщик и не билд без грейдов, активен, дизайнер/стардиз) и
   // зритель вправе его оценивать. Иначе /lead/assess вернёт назад или
   // скажет «не грейдируется».
-  // Те же условия — у кнопок «Продолжить черновик» и «Новый цикл» в hero.
-  const gradable = isGradable(designer);
-  const canAssess = gradable && canGradeDesigner(user, designer);
-  // Причина для билда без грейдов — вместо общего «не грейдируется»
-  const buildNote = nonGradingBuildNote(designer);
-
-  if (result.kind === 'no_assessment') {
-    return (
-      <main className="max-w-[1240px] mx-auto px-8 pt-8 pb-16">
-        <div className="text-xs text-stone mb-3">
-          <Link href="/admin/users" className="hover:text-ink transition-colors">
-            Команда
-          </Link>
-          <span className="text-ash mx-1.5">/</span>
-          <span>{result.designer.fullName}</span>
-        </div>
-        <div className="mb-8">
-          <h1 className="font-display text-4xl font-medium tracking-tight mb-2">
-            {result.designer.fullName}
-          </h1>
-        </div>
-        <div className="card p-10 text-center">
-          <div className="font-display text-2xl font-medium tracking-tight mb-2">
-            Оценка не опубликована
-          </div>
-          {canAssess ? (
-            <>
-              <p className="text-stone mb-6">
-                Чтобы увидеть портрет — заполни и опубликуй первую оценку.
-              </p>
-              <Link href={`/lead/assess?id=${designerId}`} className="btn-accent">
-                К форме оценки
-              </Link>
-            </>
-          ) : (
-            <p className="text-stone">
-              {gradable
-                ? 'Оценку проводит лид или стардиз этого человека.'
-                : buildNote
-                  ? `${buildNote}, форма оценки недоступна.`
-                  : 'Сейчас не грейдируется — форма оценки недоступна.'}
-            </p>
-          )}
-        </div>
-        {result.designer.gradeFloor && (
-          <div className="bg-lime-light/60 border border-lime/30 rounded-card p-5 mt-5">
-            <div className="text-[11px]  text-graphite mb-1.5">
-              Зафиксированный грейд
-            </div>
-            <p className="text-sm text-graphite leading-relaxed">
-              За дизайнером закреплён грейд{' '}
-              <strong>
-                {GRADE_NAMES[result.designer.gradeFloor as GradeCode] ??
-                  result.designer.gradeFloor}
-              </strong>
-              .
-            </p>
-          </div>
-        )}
-      </main>
-    );
-  }
-
+  // Те же условия — у кнопок «Продолжить черновик» и «Новый цикл» в hero и
+  // у «Провести оценку» на портрете без оценки.
+  const canAssess = isGradable(designer) && canGradeDesigner(user, designer);
+  const canViewSalary = canViewCompensation({ id: user.id, role: user.role }, designer);
+  const canEditProjects = user.role === 'admin' || designerId === user.id;
+  const initialProjects = userProjects.map((up) => up.project);
   const onTimePercent = onTime?.onTimePercent ?? null;
   const onTimeTotalTasks = onTime?.totalTasks ?? 0;
+
+  // Оценки ещё нет — тот же портрет без блоков, которым она нужна: hero,
+  // «Провести оценку», bento (XP пуст, «в срок», зарплата), проекты и
+  // перформанс. Хлебных крошек нет — как у портрета с оценкой.
+  if (result.kind === 'no_assessment') {
+    return (
+      <PortraitPending
+        person={result.designer}
+        view={pendingPortraitView({
+          viewer: 'manager',
+          person: designer,
+          canAssess,
+          hasDraft: !!draft,
+        })}
+        userId={designerId}
+        canViewSalary={canViewSalary}
+        nineBoxTitle={nineBoxTitle}
+        initialProjects={initialProjects}
+        canEditProjects={canEditProjects}
+        showPerformance={showPerformance}
+        onTimePercent={onTimePercent}
+        onTimeTotalTasks={onTimeTotalTasks}
+      />
+    );
+  }
 
   // Phase 17 — ИПР: можно ли мне (зрителю) создавать чек-листы на портрете
   // target'а (designer).
@@ -187,9 +155,9 @@ export default async function LeadPortraitPage({
           designer.stardizId === user.id
         }
         userId={designerId}
-        canViewSalary={canViewCompensation({ id: user.id, role: user.role }, designer)}
-        initialProjects={userProjects.map((up) => up.project)}
-        canEditProjects={user.role === 'admin' || designerId === user.id}
+        canViewSalary={canViewSalary}
+        initialProjects={initialProjects}
+        canEditProjects={canEditProjects}
         showPerformance={showPerformance}
         onTimePercent={onTimePercent}
         onTimeTotalTasks={onTimeTotalTasks}

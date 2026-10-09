@@ -4,50 +4,53 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { GRADE_NAMES } from '@/lib/types';
-import type { BuildCode, GradeCode } from '@/lib/types';
-import Avatar from '@/components/Avatar';
-import { BuildDot } from '@/components/BuildChip';
+import type { GradeCode } from '@/lib/types';
 import { ChevronDownIcon, InfoIcon } from '@/components/icons';
 import { EditableMarkdownBlock } from '@/components/Markdown';
-import ProjectsField from '@/components/ProjectsField';
 import SectionNav, { type SectionNavItem } from '@/components/SectionNav';
 import type { Role } from '@/lib/checklistPermissions';
 import { useTheme, CHART_AXIS } from '@/lib/theme';
 // Канвас Chart.js не понимает CSS-переменные — семейство берём из next/font
 import { onest } from '@/app/fonts';
-import TitleAurora from '@/components/TitleAurora';
 import Tooltip from '@/components/Tooltip';
 import { isFromCommentsLayer } from '@/lib/commentsLayer';
+import { ChecklistsSkeleton, RadarSkeleton } from '@/components/skeletons/portrait';
+// Шапка, ячейки bento и разделы «Проекты»/«Перформанс» — общие с портретом
+// без оценки (PortraitPending)
 import {
-  ChecklistsSkeleton,
-  PerformanceSkeleton,
-  RadarSkeleton,
-  SalaryCardSkeleton,
-} from '@/components/skeletons/portrait';
+  HERO_CHIP,
+  HERO_STATUS_CHIP,
+  PortraitActionsRow,
+  PortraitHero,
+  PortraitMain,
+  type PortraitPerson,
+} from '@/components/portrait/PortraitHero';
+import {
+  BentoBar,
+  BentoCard,
+  BentoNumber,
+  NineBoxCell,
+  OnTimeCell,
+  SalaryCell,
+} from '@/components/portrait/PortraitBento';
+import {
+  PortraitWorkSections,
+  performanceVisible,
+  portraitBaseSections,
+} from '@/components/portrait/PortraitSections';
 
-// Тяжёлые куски портрета — лениво, вне First Load: chart.js (радары и
-// графики перформанса), дашборд перформанса, ИПР и «Зарплата» (SalaryBlock
-// нужен только админу и лиду — дизайнеру его код вообще не приезжает).
-// Все четыре на сервере рисуют лишь состояние загрузки (данные тянут
-// после mount), поэтому ssr: false ничего не теряет: на их месте
-// заглушка той же высоты, код догружается сразу после гидрации.
+// Тяжёлые куски портрета — лениво, вне First Load: chart.js (радары) и ИПР
+// (дашборд перформанса и «Зарплата» — так же, в components/portrait).
+// На сервере они рисуют лишь состояние загрузки (данные тянут после
+// mount), поэтому ssr: false ничего не теряет: на их месте заглушка той же
+// высоты, код догружается сразу после гидрации.
 const PortraitRadar = dynamic(() => import('./PortraitRadar'), {
   ssr: false,
   loading: RadarSkeleton,
 });
-const PerformanceDashboard = dynamic(
-  () => import('@/components/performance/PerformanceDashboard'),
-  { ssr: false, loading: PerformanceSkeleton },
-);
 const ChecklistsSection = dynamic(() => import('@/components/checklists/ChecklistsSection'), {
   ssr: false,
   loading: ChecklistsSkeleton,
-});
-// Заглушка — с тем же flex-1, что у карточки в слоте 9-Box (единственное
-// место, где SalaryCard стоит на портрете)
-const SalaryCard = dynamic(() => import('@/components/SalaryCard'), {
-  ssr: false,
-  loading: () => <SalaryCardSkeleton className="flex-1" />,
 });
 
 const TAXONOMY_ORDER = ['UI', 'UX', 'PRD', 'IND', 'RES'];
@@ -71,19 +74,7 @@ type EvidenceEntry = {
 
 export type PortraitData = {
   assessmentId: number;
-  designer: {
-    fullName: string;
-    avatarUrl: string | null;
-    buildCode: BuildCode | null;
-    buildName: string;
-    department: string | null;
-    leadName: string | null;
-    gradeFloor: GradeCode | null;
-    // Phase 23.2 — план грейдирования. Дизайнер видит свою дату, но не меняет.
-    nextGradingAt?: string | null;
-    nextGradingSetAt?: string | null;
-    lastAssessedAt?: string | null;
-  };
+  designer: PortraitPerson;
   cycle: string;
   publishedAt: string | null;
   effectiveGrade: GradeCode;
@@ -331,23 +322,16 @@ export default function Portrait({
 
   // Pavel: на портретах ребят из билда Инхаус (`creator`) блок «Перформанс»
   // и якорь в нав-плашке прячем — у них нет данных в трекерах, дашборд
-  // всегда пустой. Чип «В срок» в шапке уже сам решает не рисоваться
-  // для `creator` (см. OnTimeChip).
-  const showPerformanceForBuild =
-    showPerformance && data.designer.buildCode !== 'creator';
+  // всегда пустой. Ячейка «В срок» для них пишет «задачи не трекаются».
+  const showPerformanceForBuild = performanceVisible(showPerformance, data.designer.buildCode);
 
   const navSections: SectionNavItem[] = useMemo(
     () => [
-      { id: 'stats', label: 'Статистика' },
-      // Проекты — сразу после статистики (Pavel: «в навигации после
-      // Статистика»). Якорь добавляется только если есть что
-      // показать или можно редактировать.
-      ...(canEditProjects || initialProjects.length > 0
-        ? [{ id: 'projects', label: 'Проекты' }]
-        : []),
-      // Перформанс показываем сразу после Проектов — это второй «человеческий»
-      // блок, ещё до разбора по навыкам. Для Инхауса скрываем — данных нет.
-      ...(showPerformanceForBuild ? [{ id: 'performance', label: 'Перформанс' }] : []),
+      // Статистика → Проекты → Перформанс — как у портрета без оценки
+      ...portraitBaseSections({
+        showProjects: canEditProjects || initialProjects.length > 0,
+        showPerformance: showPerformanceForBuild,
+      }),
       // «Выводы» — это блок «Мнение дизайн-лида / стардиза». Лейбл короткий,
       // как просил Pavel.
       { id: 'lead-comment', label: 'Выводы' },
@@ -447,7 +431,7 @@ export default function Portrait({
   }
 
   return (
-    <main className="max-w-[1180px] mx-auto px-8 pt-[164px] pb-16">
+    <PortraitMain>
       {/* Карточка-баннер временно скрыта — Pavel вернёт когда будут
           готовы upload картинки и зелёные полосы для лидов (PRD §11.16).
           Компонент остаётся в src/components/PortraitBanner.tsx. */}
@@ -461,72 +445,31 @@ export default function Portrait({
       {/* Hero по центру (концепт v6): аватар → имя → чипы. Грейд — первый
           белый чип, выбор цикла — дропдаун-чип в том же ряду. Дата публикации
           переехала в XP-плашку bento. */}
-      <div data-comment-anchor="page-title" className="mb-[164px] flex flex-col items-center text-center animate-fade-up title-halo">
-        <TitleAurora />
-        {/* Аватар без кольца (Pavel: обводки вокруг аватарок убраны везде),
-            бейдж «N% XP» остаётся */}
-        <Avatar
-          name={data.designer.fullName}
-          avatarUrl={data.designer.avatarUrl}
-          size={96}
-        />
-        <h1 className="font-display text-[44px] leading-tight font-medium tracking-tight mt-6">
-          {data.designer.fullName}
-        </h1>
-        <div className="flex items-center justify-center gap-1 flex-wrap mt-3.5">
-          <span className="chip bg-ink text-snow">
-            {GRADE_NAMES[data.effectiveGrade]}
-          </span>
-          {/* Позиция 9-Box — сервер передаёт только admin/lead */}
-          {nineBoxTitle && (
-            <span className="chip bg-lime text-black">{nineBoxTitle} · 9-Box</span>
-          )}
-          {data.designer.buildCode && (
-            <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
-              <BuildDot code={data.designer.buildCode} />
-              {data.designer.buildName}
-            </span>
-          )}
-          {data.designer.leadName && (
-            <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
-              Лид: {data.designer.leadName}
-            </span>
-          )}
-          {/* Ближайшее грейдирование — главный ответ на «что дальше».
-              Только чтение: дату ставят лид, стардиз или админ. */}
-          {data.designer.nextGradingAt && (
-            <Tooltip
-              text="Дата ближайшего грейдирования. Её ставит лид, стардиз или админ — если она сдвинулась, спроси у лида."
-              align="center"
-            >
-              <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
-                Грейды будут: {formatDateShort(data.designer.nextGradingAt)}
-              </span>
-            </Tooltip>
-          )}
-          {data.siblings.length > 1 ? (
+      <PortraitHero
+        person={data.designer}
+        status={<span className={HERO_STATUS_CHIP}>{GRADE_NAMES[data.effectiveGrade]}</span>}
+        nineBoxTitle={nineBoxTitle}
+        trailing={
+          data.siblings.length > 1 ? (
             <CyclesSwitcher
               siblings={data.siblings}
               currentId={data.assessmentId}
               hrefPrefix={siblingHrefPrefix}
             />
           ) : (
-            <span className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink">
+            <span className={HERO_CHIP}>
               {data.publishedAt ? formatPublishedDate(data.publishedAt) : 'Черновик'}
             </span>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       {/* === Статистика: grade-card, taxonomy-cards, radar, next-gate === */}
       <section id="stats" className="scroll-mt-24">
 
       {/* Действия — по центру, вплотную к карточкам bento (Pavel) */}
       {(actions || isSelfOwner) && (
-        <div
-          className="flex items-center justify-center gap-1 flex-wrap mb-5 animate-fade-up"
-          style={{ animationDelay: '60ms' }}
-        >
+        <PortraitActionsRow>
           {actions}
           {/* Phase 14: владельцу — быстрый переход к самооценке навыков */}
           {isSelfOwner && (
@@ -542,7 +485,7 @@ export default function Portrait({
               </button>
             </Tooltip>
           )}
-        </div>
+        </PortraitActionsRow>
       )}
 
       {/* Bento (концепт v6): XP · В срок · 9-Box (admin/lead) / Скорость
@@ -555,12 +498,11 @@ export default function Portrait({
         {/* XP: цифра, дельта за цикл, до следующего грейда, бар, дата публикации */}
         {/* Единая анатомия карточек (как bento «Команды»): label → крупное
             число 44px → описание → бар, прижатый к низу. */}
-        <div className="card p-5 flex flex-col min-h-[188px]">
-          <div className="label-mono text-stone">Общий XP</div>
-          <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
+        <BentoCard label="Общий XP">
+          <BentoNumber>
             {data.totalXp}
             <span className="text-lg text-ash font-normal"> / {data.maxXp}</span>
-          </div>
+          </BentoNumber>
           <div className="text-xs text-stone mt-2">
             {cycleDelta !== null && (
               <span
@@ -585,68 +527,22 @@ export default function Portrait({
               Грейд зафиксирован — расчёт дал {GRADE_NAMES[data.calculatedGrade]}
             </div>
           )}
-          <div className="h-1 bg-cloud rounded-full overflow-hidden mt-auto">
-            <div
-              className="h-full bg-emerald rounded-full transition-all"
-              style={{ width: `${Math.min(xpProgress, 100)}%` }}
-            />
-          </div>
-        </div>
+          <BentoBar percent={Math.min(xpProgress, 100)} fillClassName="bg-emerald transition-all" />
+        </BentoCard>
 
         {/* В срок — та же анатомия: число, описание, бар в цвете зоны */}
-        <div className="card p-5 flex flex-col min-h-[188px]">
-          <div className="label-mono text-stone">В срок · 6 мес</div>
-          {showPerformanceForBuild && onTimePercent !== null ? (
-            <>
-              <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
-                {Math.round(onTimePercent)}%
-              </div>
-              <div className="text-xs text-stone mt-2">
-                {onTimeTotalTasks} задач в выборке ·{' '}
-                <span
-                  className={
-                    onTimePercent >= 85
-                      ? 'text-emerald font-medium'
-                      : onTimePercent >= 70
-                        ? 'text-sunset font-medium'
-                        : 'text-blaze font-medium'
-                  }
-                >
-                  цель 85%{onTimePercent >= 85 ? ' — есть' : ''}
-                </span>
-              </div>
-              <div className="h-1 bg-cloud rounded-full overflow-hidden mt-auto">
-                <div
-                  className={`h-full rounded-full ${
-                    onTimePercent >= 85
-                      ? 'bg-emerald'
-                      : onTimePercent >= 70
-                        ? 'bg-sunset'
-                        : 'bg-blaze'
-                  }`}
-                  style={{ width: `${Math.max(0, Math.min(100, Math.round(onTimePercent)))}%` }}
-                />
-              </div>
-            </>
-          ) : (
-            <div className="text-sm text-ash mt-3">
-              {data.designer.buildCode === 'creator'
-                ? 'Инхаус — задачи не трекаются'
-                : 'Нет данных по задачам'}
-            </div>
-          )}
-        </div>
+        <OnTimeCell
+          show={showPerformanceForBuild}
+          percent={onTimePercent}
+          totalTasks={onTimeTotalTasks}
+          buildCode={data.designer.buildCode}
+        />
 
         {/* 9-Box (только admin/lead) либо «Скорость роста». Тем, кто видит
             деньги (админ и лид этого дизайнера), слот делится пополам: сверху
-            позиция, снизу «Зарплата», подробности — в поп-апе по «+».
-            Зарплаты спрятаны выключателем в шапке — нижней половины нет
-            (salary-sensitive), позиция растягивается на весь слот (flex-1). */}
+            позиция, снизу «Зарплата» (SalaryCell). */}
         {canViewSalary ? (
-          <div className="flex flex-col gap-3 min-h-[188px]">
-            <NineBoxCell title={nineBoxTitle} half />
-            <SalaryCard userId={userId} className="flex-1" />
-          </div>
+          <SalaryCell userId={userId} nineBoxTitle={nineBoxTitle} />
         ) : nineBoxTitle ? (
           <NineBoxCell title={nineBoxTitle} />
         ) : (
@@ -654,10 +550,9 @@ export default function Portrait({
         )}
 
         {/* Гейты следующего грейда */}
-        <div className="card p-5 flex flex-col min-h-[188px]">
-          <div className="label-mono text-stone">
-            {data.nextGrade ? `Гейты до «${GRADE_NAMES[data.nextGrade.code]}»` : 'Гейты'}
-          </div>
+        <BentoCard
+          label={data.nextGrade ? `Гейты до «${GRADE_NAMES[data.nextGrade.code]}»` : 'Гейты'}
+        >
           {data.nextGrade ? (
             data.nextGrade.failedGates.length === 0 ? (
               <div className="text-sm text-emerald mt-3 font-medium">
@@ -693,7 +588,7 @@ export default function Portrait({
           ) : (
             <div className="text-sm text-ash mt-3">Максимальный грейд</div>
           )}
-        </div>
+        </BentoCard>
       </div>
 
       {/* Taxonomy progress cards (hovering anywhere reveals the full group breakdown row) */}
@@ -815,25 +710,15 @@ export default function Portrait({
       </section>
       {/* /Статистика */}
 
-      {/* Проекты — справочник М:N. Pavel: «над "Мнение лида"». */}
-      <section id="projects" className="scroll-mt-24">
-        <ProjectsField
-          userId={userId}
-          initialProjects={initialProjects}
-          canEdit={canEditProjects}
-        />
-      </section>
-
-      {/* Мой перформанс — данные из ClickHouse (collab + manage tracker).
-          Лениво подтягивается на клиенте: server-side тянуть запрос нет
-          смысла, он тяжёлый и блокировал бы рендер всего портрета.
-          Для Инхауса (`creator`) — скрываем целиком, у них нет трекаемых
-          задач, дашборд всегда был бы пустым. */}
-      {showPerformanceForBuild && (
-        <section id="performance" className="scroll-mt-24">
-          <PerformanceDashboard userId={userId} />
-        </section>
-      )}
+      {/* Проекты — справочник М:N. Pavel: «над "Мнение лида"». Мой
+          перформанс — данные из ClickHouse; для Инхауса (`creator`) —
+          скрываем целиком, у них нет трекаемых задач. */}
+      <PortraitWorkSections
+        userId={userId}
+        initialProjects={initialProjects}
+        canEditProjects={canEditProjects}
+        showPerformance={showPerformanceForBuild}
+      />
 
       {/* Мнение дизайн-лида / стардиза — аналог CDO-блока у лидов.
           Pavel попросил вывести его ПЕРЕД блоком «Навыки», чтобы дизайнер
@@ -937,15 +822,12 @@ export default function Portrait({
 
       {/* Sticky-навигация по разделам (заменила floating-свитчер циклов) */}
       <SectionNav sections={navSections} />
-    </main>
+    </PortraitMain>
   );
 }
 
 // Единый формат дат сервиса — «4 июн. 2026» (см. src/lib/dates.ts)
-import {
-  formatDateShort,
-  formatDateShort as formatPublishedDate,
-} from '@/lib/dates';
+import { formatDateShort as formatPublishedDate } from '@/lib/dates';
 
 function CyclesSwitcher({
   siblings,
@@ -972,7 +854,7 @@ function CyclesSwitcher({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="chip bg-snow/60 backdrop-blur-md border border-cloud/40 text-ink cursor-pointer hover:bg-snow/80 transition-colors"
+        className={`${HERO_CHIP} cursor-pointer hover:bg-snow/80 transition-colors`}
       >
         {current?.publishedAt ? formatPublishedDate(current.publishedAt) : `#${currentId}`}
         <ChevronDownIcon
@@ -1008,36 +890,6 @@ function CyclesSwitcher({
 }
 
 /**
- * Позиция 9-Box в bento. half — верхняя половина слота, под ней «Зарплата»:
- * та же анатомия, что у зарплаты (ряд подписи 24px, значение text-xl), —
- * половины читаются парой. Позиции нет — «Не размечена».
- */
-function NineBoxCell({ title, half = false }: { title: string | null; half?: boolean }) {
-  if (!half) {
-    return (
-      <div className="card p-5 flex flex-col min-h-[188px]">
-        <div className="label-mono text-stone">Позиция · 9-Box</div>
-        <div className="font-display text-2xl font-medium tracking-tight mt-3">{title}</div>
-      </div>
-    );
-  }
-  return (
-    // pt-[13px] + ряд подписи в 24px: подпись на той же высоте, что у
-    // соседних карточек с p-5
-    <div className="card flex-1 px-5 pt-[13px] pb-4">
-      <div className="min-h-6 flex items-center label-mono text-stone">Позиция · 9-Box</div>
-      <div
-        className={`mt-1.5 font-display text-xl leading-tight font-medium tracking-tight ${
-          title ? '' : 'text-ash'
-        }`}
-      >
-        {title ?? 'Не размечена'}
-      </div>
-    </div>
-  );
-}
-
-/**
  * Ячейка «Скорость роста» — вместо 9-Box для стардиза и самого дизайнера.
  * Циклы, путь по грейдам и длительность.
  */
@@ -1063,9 +915,8 @@ function GrowthCell({ sibs }: { sibs: PortraitData['siblings'] }) {
   }
   const cyclesWord = n === 1 ? 'цикл' : n < 5 ? 'цикла' : 'циклов';
   return (
-    <div className="card p-5 flex flex-col min-h-[188px]">
-      <div className="label-mono text-stone">Скорость роста</div>
-      <div className="font-display text-[44px] leading-none font-medium tracking-tight mt-3">
+    <BentoCard label="Скорость роста">
+      <BentoNumber>
         {n === 0 ? (
           '—'
         ) : avg !== null ? (
@@ -1079,7 +930,7 @@ function GrowthCell({ sibs }: { sibs: PortraitData['siblings'] }) {
             1<span className="text-lg text-ash font-normal"> цикл</span>
           </>
         )}
-      </div>
+      </BentoNumber>
       <div className="text-xs text-stone mt-2 leading-relaxed">
         {n === 0 ? (
           'Появится после первой публикации'
@@ -1093,7 +944,7 @@ function GrowthCell({ sibs }: { sibs: PortraitData['siblings'] }) {
           'Динамика появится со второго цикла'
         )}
       </div>
-    </div>
+    </BentoCard>
   );
 }
 
