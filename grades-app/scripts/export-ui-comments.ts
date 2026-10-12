@@ -18,10 +18,15 @@
  *       (или .jpg); путь к файлу — в Markdown под тредом, в --json — в
  *       screenshot.path. Папка создаётся сама. Без --images у треда со
  *       снимком в Markdown — только размер.
- *   npx tsx scripts/export-ui-comments.ts --resolve=12,15 [--actor=<email>]
+ *   npx tsx scripts/export-ui-comments.ts --resolve=12,15 [--actor=<email>] [--reply=<текст>]
  *       Отметить треды решёнными. Кто закрыл — активный админ или лид с этим
  *       email; по умолчанию первый активный админ. Ответы, несуществующие и
  *       уже решённые id пропускаются с пометкой в отчёте. Выгрузку не печатает.
+ *       С --reply в каждый закрываемый тред добавляется ответ от того же
+ *       человека — как POST /api/ui-comments { parentId, text }, с теми же
+ *       правилами текста. Ответ и «решено» пишутся одной транзакцией: тред,
+ *       который успели закрыть, пока шёл скрипт, ответа не получает. Текст —
+ *       в кавычках: --reply="Сделано в 0.80.0: …".
  *
  * В выгрузке — имена авторов и тексты комментариев: в свой терминал или в
  * файл для сессии, не в общие логи.
@@ -29,12 +34,15 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { shotExtension, storedShotFormat } from '../src/lib/commentShot';
 import { prisma } from '../src/lib/db';
 import {
+  APP_VERSION,
   UI_COMMENT_THREAD_SELECT,
+  firstIssueMessage,
   toCommentDto,
+  uiCommentReplySchema,
   type UiCommentAnchor,
   type UiCommentDto,
   type UiCommentShotDto,
@@ -47,9 +55,17 @@ export type ExportStatus = UiCommentStatus | 'all';
 
 export type ExportArgs =
   | { mode: 'export'; status: ExportStatus; json: boolean; images: string | null }
-  | { mode: 'resolve'; ids: number[]; actor: string | null };
+  | { mode: 'resolve'; ids: number[]; actor: string | null; reply: string | null };
 
-const VALUE_FLAGS = ['--status=', '--resolve=', '--actor=', '--images='] as const;
+const VALUE_FLAGS = ['--status=', '--resolve=', '--actor=', '--images=', '--reply='] as const;
+
+/** Текст --reply — по правилам ответа в API (uiCommentReplySchema): без крайних пробелов, не пустой, с пределом длины. */
+function parseReply(raw: string): string {
+  if (!raw) throw new Error('--reply — без текста');
+  const parsed = uiCommentReplySchema.shape.text.safeParse(raw);
+  if (!parsed.success) throw new Error(`--reply: ${firstIssueMessage(parsed.error)}`);
+  return parsed.data;
+}
 
 export function parseArgs(argv: string[]): ExportArgs {
   const value = (flag: string) => {
@@ -60,7 +76,7 @@ export function parseArgs(argv: string[]): ExportArgs {
   if (unknown.length) {
     throw new Error(
       `Неизвестные аргументы: ${unknown.join(' ')}. Есть: --status=all|open|resolved --json ` +
-        '--images=<папка> --resolve=<id,…> --actor=<email>',
+        '--images=<папка> --resolve=<id,…> --actor=<email> --reply=<текст>',
     );
   }
 
@@ -68,6 +84,7 @@ export function parseArgs(argv: string[]): ExportArgs {
   const actor = value('--actor=');
   const status = value('--status=');
   const images = value('--images=');
+  const reply = value('--reply=');
   const json = argv.includes('--json');
 
   if (resolve !== undefined) {
@@ -79,10 +96,16 @@ export function parseArgs(argv: string[]): ExportArgs {
     const bad = parts.filter((s) => !/^[1-9]\d*$/.test(s));
     if (bad.length) throw new Error(`--resolve — id числами через запятую; не id: ${bad.join(', ')}`);
     if (actor === '') throw new Error('--actor — без email');
-    return { mode: 'resolve', ids: Array.from(new Set(parts.map(Number))), actor: actor ?? null };
+    return {
+      mode: 'resolve',
+      ids: Array.from(new Set(parts.map(Number))),
+      actor: actor ?? null,
+      reply: reply === undefined ? null : parseReply(reply),
+    };
   }
 
   if (actor !== undefined) throw new Error('--actor нужен только вместе с --resolve');
+  if (reply !== undefined) throw new Error('--reply нужен только вместе с --resolve');
   if (status !== undefined && status !== 'all' && status !== 'open' && status !== 'resolved') {
     throw new Error('--status — all, open или resolved');
   }
@@ -282,7 +305,8 @@ export function planResolve(ids: number[], rows: ResolveRow[]): ResolvePlan {
   return plan;
 }
 
-export function formatResolveReport(plan: ResolvePlan, resolvedCount: number): string {
+/** reply — текст --reply: ответ добавлен в каждый закрытый тред. */
+export function formatResolveReport(plan: ResolvePlan, resolvedCount: number, reply: string | null = null): string {
   const list = (ids: number[]) => ids.map((id) => `#${id}`).join(', ');
   const total = resolvedCount < plan.resolve.length ? ` из ${plan.resolve.length}` : '';
   const lines = [`Отмечено решёнными: ${resolvedCount}${total}${plan.resolve.length ? ` (${list(plan.resolve)})` : ''}`];
@@ -292,32 +316,68 @@ export function formatResolveReport(plan: ResolvePlan, resolvedCount: number): s
   if (plan.alreadyResolved.length) lines.push(`Уже решены: ${list(plan.alreadyResolved)}`);
   if (plan.replies.length) lines.push(`Это ответы, а не треды — статус есть только у треда: ${list(plan.replies)}`);
   if (plan.notFound.length) lines.push(`Не найдены: ${list(plan.notFound)}`);
+  if (reply) lines.push(resolvedCount ? `С ответом: «${reply}»` : 'Ответ не добавлен: ни один тред не закрыт');
   return lines.join('\n');
+}
+
+/** Запись «тред id решён»: только если он ещё открыт — мог закрыться между выборкой и записью. */
+function resolveArgs(id: number, actorId: number, now: Date, updatedAt: Date | undefined) {
+  return {
+    where: { id, parentId: null, status: 'open' },
+    data: { status: 'resolved', resolvedById: actorId, resolvedAt: now, updatedAt },
+  } satisfies Prisma.UiCommentUpdateManyArgs;
 }
 
 /**
  * Закрыть открытые треды из плана от имени actorId. updatedAt не трогаем —
  * он про правку текста (как в PATCH /api/ui-comments/[id]). Условие
  * status: 'open' в каждой записи — тред мог закрыться между выборкой и записью.
+ *
+ * reply — ещё и ответ от actorId в каждый закрытый тред (--reply). Тогда
+ * транзакция интерактивная: сначала условная запись «решено», ответ — только
+ * если она прошла (count 1). Тред, который успели закрыть или удалить, пока
+ * шёл скрипт, ответа не получает; упала любая запись — откатывается всё, и
+ * тред не остаётся закрытым без ответа или с ответом, но открытым.
+ * → сколько тредов закрыто (с reply — столько же ответов).
  */
 export async function applyResolve(
   plan: ResolvePlan,
-  rows: Array<ResolveRow & { updatedAt: Date }>,
+  rows: Array<ResolveRow & { updatedAt: Date; path: string }>,
   actorId: number,
   db: PrismaClient = prisma,
   now: Date = new Date(),
+  reply: string | null = null,
 ): Promise<number> {
   if (!plan.resolve.length) return 0;
-  const updatedAt = new Map(rows.map((r) => [r.id, r.updatedAt]));
-  const results = await db.$transaction(
-    plan.resolve.map((id) =>
-      db.uiComment.updateMany({
-        where: { id, parentId: null, status: 'open' },
-        data: { status: 'resolved', resolvedById: actorId, resolvedAt: now, updatedAt: updatedAt.get(id) },
-      }),
-    ),
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const args = (id: number) => resolveArgs(id, actorId, now, byId.get(id)?.updatedAt);
+
+  if (!reply) {
+    const results = await db.$transaction(plan.resolve.map((id) => db.uiComment.updateMany(args(id))));
+    return results.reduce((sum, r) => sum + r.count, 0);
+  }
+
+  return db.$transaction(
+    async (tx) => {
+      let count = 0;
+      for (const id of plan.resolve) {
+        const path = byId.get(id)?.path;
+        if (path === undefined) throw new Error(`Нет пути треда #${id} — ответ некуда записать`);
+        const { count: resolved } = await tx.uiComment.updateMany(args(id));
+        if (resolved !== 1) continue;
+        // Поля — как у ответа в POST /api/ui-comments: путь родителя, версия приложения
+        await tx.uiComment.create({
+          data: { path, text: reply, authorId: actorId, parentId: id, appVersion: APP_VERSION },
+          select: { id: true },
+        });
+        count += 1;
+      }
+      return count;
+    },
+    // У интерактивной транзакции по умолчанию 5 с, а скрипт ходит в базу
+    // издалека и на каждый тред — два запроса
+    { timeout: 60_000 },
   );
-  return results.reduce((sum, r) => sum + r.count, 0);
 }
 
 async function resolveActor(email: string | null): Promise<{ id: number; fullName: string }> {
@@ -343,11 +403,11 @@ async function main() {
     const actor = await resolveActor(args.actor);
     const rows = await prisma.uiComment.findMany({
       where: { id: { in: args.ids } },
-      select: { id: true, parentId: true, status: true, updatedAt: true },
+      select: { id: true, parentId: true, status: true, updatedAt: true, path: true },
     });
     const plan = planResolve(args.ids, rows);
-    const count = await applyResolve(plan, rows, actor.id);
-    console.log(`${formatResolveReport(plan, count)}\nКто закрыл: ${actor.fullName} (id ${actor.id})`);
+    const count = await applyResolve(plan, rows, actor.id, prisma, new Date(), args.reply);
+    console.log(`${formatResolveReport(plan, count, args.reply)}\nКто закрыл: ${actor.fullName} (id ${actor.id})`);
     return;
   }
 

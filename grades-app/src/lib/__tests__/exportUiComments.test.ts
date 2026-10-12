@@ -17,6 +17,7 @@ import {
   shotLine,
   withShotPath,
 } from '../../../scripts/export-ui-comments';
+import { APP_VERSION } from '../uiComments';
 import type { UiCommentDto } from '../uiCommentsShared';
 
 // Все люди и тексты выдуманы.
@@ -51,12 +52,32 @@ describe('parseArgs', () => {
     expect(parseArgs(['--status=resolved'])).toMatchObject({ status: 'resolved' });
   });
   it('--resolve: id через запятую, без повторов; --actor', () => {
-    expect(parseArgs(['--resolve=12, 15,12'])).toEqual({ mode: 'resolve', ids: [12, 15], actor: null });
+    expect(parseArgs(['--resolve=12, 15,12'])).toEqual({ mode: 'resolve', ids: [12, 15], actor: null, reply: null });
     expect(parseArgs(['--resolve=3', '--actor=lead@example.test'])).toEqual({
       mode: 'resolve',
       ids: [3],
       actor: 'lead@example.test',
+      reply: null,
     });
+  });
+  it('--reply — текст ответа при закрытии, без крайних пробелов', () => {
+    expect(parseArgs(['--resolve=7,8', '--actor=lead@example.test', '--reply=Сделано в 0.80.0: поправил отступ'])).toEqual({
+      mode: 'resolve',
+      ids: [7, 8],
+      actor: 'lead@example.test',
+      reply: 'Сделано в 0.80.0: поправил отступ',
+    });
+    expect(parseArgs(['--reply=  Готово\nи ещё строка  ', '--resolve=1'])).toMatchObject({ reply: 'Готово\nи ещё строка' });
+    // Предел — как у ответа в API
+    expect(parseArgs(['--resolve=1', `--reply=${'а'.repeat(2000)}`])).toMatchObject({ reply: 'а'.repeat(2000) });
+  });
+  it('ошибки --reply', () => {
+    expect(() => parseArgs(['--reply=Готово'])).toThrow('--reply нужен только вместе с --resolve');
+    expect(() => parseArgs(['--reply='])).toThrow(/только вместе с --resolve/);
+    expect(() => parseArgs(['--resolve=1', '--reply='])).toThrow('--reply — без текста');
+    expect(() => parseArgs(['--resolve=1', '--reply=   '])).toThrow(/без текста/);
+    expect(() => parseArgs(['--resolve=1', `--reply=${'а'.repeat(2001)}`])).toThrow('--reply: Комментарий длиннее 2000 символов');
+    expect(() => parseArgs(['--resolve=1', '--reply'])).toThrow(/Неизвестные аргументы: --reply\. .*--reply=<текст>/);
   });
   it('ошибки аргументов', () => {
     expect(() => parseArgs(['--status=closed'])).toThrow(/--status/);
@@ -229,10 +250,10 @@ describe('formatMarkdown', () => {
 
 describe('отметка «решено»', () => {
   const rows = [
-    { id: 1, parentId: null, status: 'open', updatedAt: new Date('2026-10-01T09:00:00.000Z') },
-    { id: 2, parentId: 1, status: 'open', updatedAt: new Date('2026-10-01T09:10:00.000Z') },
-    { id: 3, parentId: null, status: 'resolved', updatedAt: new Date('2026-10-01T09:20:00.000Z') },
-    { id: 4, parentId: null, status: 'open', updatedAt: new Date('2026-10-01T09:30:00.000Z') },
+    { id: 1, parentId: null, status: 'open', updatedAt: new Date('2026-10-01T09:00:00.000Z'), path: '/admin/users' },
+    { id: 2, parentId: 1, status: 'open', updatedAt: new Date('2026-10-01T09:10:00.000Z'), path: '/admin/users' },
+    { id: 3, parentId: null, status: 'resolved', updatedAt: new Date('2026-10-01T09:20:00.000Z'), path: '/lead' },
+    { id: 4, parentId: null, status: 'open', updatedAt: new Date('2026-10-01T09:30:00.000Z'), path: '/admin/users?person=5' },
   ];
 
   it('planResolve: только открытые корни, остальное — по полочкам', () => {
@@ -271,7 +292,80 @@ describe('отметка «решено»', () => {
     const $transaction = vi.fn();
     const db = { uiComment: { updateMany: vi.fn() }, $transaction } as unknown as PrismaClient;
     expect(await applyResolve(planResolve([3], rows), rows, 5, db)).toBe(0);
+    expect(await applyResolve(planResolve([3], rows), rows, 5, db, new Date(), 'Готово')).toBe(0);
     expect($transaction).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Поддельный клиент для --reply: записи — в общий журнал по порядку.
+   * updateMany закрывает только id из open; клиент вне транзакции трогать нельзя.
+   */
+  function fakeReplyDb(open: number[]) {
+    const log: string[] = [];
+    const tx = {
+      uiComment: {
+        updateMany: vi.fn(async ({ where }: { where: { id: number } }) => {
+          log.push(`решено #${where.id}`);
+          return { count: open.includes(where.id) ? 1 : 0 };
+        }),
+        create: vi.fn(async ({ data }: { data: { parentId: number; path: string } }) => {
+          log.push(`ответ в #${data.parentId}`);
+          return { id: 100 + data.parentId };
+        }),
+      },
+    };
+    const outside = () => {
+      throw new Error('запись вне транзакции');
+    };
+    const $transaction = vi.fn(async (fn: (client: typeof tx) => Promise<number>, _opts?: unknown) => fn(tx));
+    const db = { uiComment: { updateMany: vi.fn(outside), create: vi.fn(outside) }, $transaction } as unknown as PrismaClient;
+    return { db, tx, log, $transaction };
+  }
+
+  it('applyResolve с ответом: сначала «решено», ответ — только если тред правда закрылся', async () => {
+    // #4 успели закрыть, пока шёл скрипт: updateMany вернёт 0
+    const { db, tx, log, $transaction } = fakeReplyDb([1]);
+    const now = new Date('2026-10-02T08:00:00.000Z');
+    const plan = planResolve([1, 4], rows);
+
+    const count = await applyResolve(plan, rows, 5, db, now, 'Сделано в 0.80.0');
+
+    expect(count).toBe(1);
+    expect($transaction).toHaveBeenCalledTimes(1);
+    expect(log).toEqual(['решено #1', 'ответ в #1', 'решено #4']);
+    expect(tx.uiComment.updateMany.mock.calls.map((c) => c[0])).toEqual([
+      {
+        where: { id: 1, parentId: null, status: 'open' },
+        data: { status: 'resolved', resolvedById: 5, resolvedAt: now, updatedAt: rows[0].updatedAt },
+      },
+      {
+        where: { id: 4, parentId: null, status: 'open' },
+        data: { status: 'resolved', resolvedById: 5, resolvedAt: now, updatedAt: rows[3].updatedAt },
+      },
+    ]);
+    // Поля ответа — как в POST /api/ui-comments: путь родителя, автор — кто закрыл
+    expect(tx.uiComment.create).toHaveBeenCalledTimes(1);
+    expect(tx.uiComment.create.mock.calls[0][0]).toEqual({
+      data: { path: '/admin/users', text: 'Сделано в 0.80.0', authorId: 5, parentId: 1, appVersion: APP_VERSION },
+      select: { id: true },
+    });
+  });
+
+  it('applyResolve с ответом: ответ — с путём своего треда, в каждый закрытый', async () => {
+    const { db, tx, log } = fakeReplyDb([1, 4]);
+    expect(await applyResolve(planResolve([4, 1, 3], rows), rows, 5, db, new Date(), 'Готово')).toBe(2);
+    expect(log).toEqual(['решено #4', 'ответ в #4', 'решено #1', 'ответ в #1']);
+    expect(tx.uiComment.create.mock.calls.map((c) => c[0].data.path)).toEqual([
+      '/admin/users?person=5',
+      '/admin/users',
+    ]);
+  });
+
+  it('applyResolve с ответом: запись упала — ошибка наружу, транзакция откатится', async () => {
+    const { db, tx } = fakeReplyDb([1, 4]);
+    tx.uiComment.create.mockRejectedValueOnce(new Error('нет связи'));
+    await expect(applyResolve(planResolve([1, 4], rows), rows, 5, db, new Date(), 'Готово')).rejects.toThrow('нет связи');
+    expect(tx.uiComment.updateMany).toHaveBeenCalledTimes(1);
   });
 
   it('отчёт', () => {
@@ -286,5 +380,18 @@ describe('отметка «решено»', () => {
       ].join('\n'),
     );
     expect(formatResolveReport(planResolve([], rows), 0)).toBe('Отмечено решёнными: 0');
+  });
+
+  it('отчёт с --reply: текст ответа или что ответа нет', () => {
+    expect(formatResolveReport(planResolve([1, 3], rows), 1, 'Сделано в 0.80.0')).toBe(
+      ['Отмечено решёнными: 1 (#1)', 'Уже решены: #3', 'С ответом: «Сделано в 0.80.0»'].join('\n'),
+    );
+    expect(formatResolveReport(planResolve([1], rows), 0, 'Готово')).toBe(
+      [
+        'Отмечено решёнными: 0 из 1 (#1)',
+        'Не отмечено 1: успели закрыть или удалить, пока шёл скрипт',
+        'Ответ не добавлен: ни один тред не закрыт',
+      ].join('\n'),
+    );
   });
 });
