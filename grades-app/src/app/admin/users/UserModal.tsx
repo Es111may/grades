@@ -16,7 +16,9 @@ import {
   canDeactivateUser,
   canEditOwnProfile,
   canEditUser,
+  canIssuePassword,
 } from '@/lib/permissions';
+import PasswordReset from '@/components/PasswordReset';
 import {
   DISMISSAL_TYPES,
   DISMISSAL_TYPE_LABELS,
@@ -131,25 +133,11 @@ export default function UserModal({
   const isAdmin = meRole === 'admin';
   // Увольнение (дата, тип, причина) правит только админ — см. lib/dismissal
   const canDismiss = canEditDismissal({ role: meRole });
-  // Кто может выдать пароль этому пользователю — синхронизировано с
-  // серверной логикой /api/users/[id]/password:
-  //   - admin: всем
-  //   - lead: designer+stardiz из своего scope (leadId/stardizId === meId)
-  //   - stardiz: designer из своего scope
-  // Себе пароль не выдашь — это закрыто намеренно (см. сервер).
-  let isManagingTarget = false;
-  if (meId !== null && user) {
-    if (meRole === 'lead') {
-      isManagingTarget =
-        (user.role === 'designer' || user.role === 'stardiz') &&
-        (user.leadId === meId || user.stardizId === meId);
-    } else if (meRole === 'stardiz') {
-      isManagingTarget =
-        user.role === 'designer' &&
-        (user.stardizId === meId || user.leadId === meId);
-    }
-  }
-  const canManagePassword = !isNew && (isAdmin || isManagingTarget);
+  // Кто может выдать пароль этому пользователю — тот же хелпер, что
+  // проверяет /api/users/[id]/password: админ всем, лид — своим дизайнерам и
+  // стардизам, стардиз — своим дизайнерам (lib/permissions).
+  const canManagePassword =
+    !isNew && !!user && canIssuePassword(meId !== null ? { id: meId, role: meRole } : null, user);
   // Дата грейдирования при открытии — с ней сравниваем при сохранении:
   // поставили или сменили — открываем Я.Календарь
   const initialNextGradingAt = user?.nextGradingAt ? user.nextGradingAt.split('T')[0] : '';
@@ -254,46 +242,6 @@ export default function UserModal({
   const [newNote, setNewNote] = useState('');
   const [confirmLower, setConfirmLower] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [pwdMode, setPwdMode] = useState<'idle' | 'manual' | 'shown'>('idle');
-  const [pwdManual, setPwdManual] = useState('');
-  const [pwdResult, setPwdResult] = useState<string | null>(null);
-  const [pwdSaving, setPwdSaving] = useState(false);
-
-  async function handleSetPassword(useManual: boolean) {
-    if (!user?.id) return;
-    if (useManual && pwdManual.length < 8) {
-      alert('Минимум 8 символов');
-      return;
-    }
-    setPwdSaving(true);
-    try {
-      const res = await fetch(`/api/users/${user.id}/password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(useManual ? { password: pwdManual } : {}),
-      });
-      const j = await res.json();
-      if (!res.ok) {
-        alert(`Ошибка: ${j.error ?? 'не получилось'}`);
-        return;
-      }
-      setPwdResult(j.password);
-      setPwdMode('shown');
-      setPwdManual('');
-    } finally {
-      setPwdSaving(false);
-    }
-  }
-
-  async function copyPwd() {
-    if (!pwdResult) return;
-    try {
-      await navigator.clipboard.writeText(pwdResult);
-    } catch {
-      // ignore
-    }
-  }
-
   const loadNotes = useCallback(async () => {
     // Заметки о себе лиду не показываем — они для тех, кто ведёт человека
     if (!user?.id || profileOnly) return;
@@ -977,93 +925,15 @@ export default function UserModal({
             </section>
           )}
 
-          {/* Пароль — admin всем, lead/stardiz только своему дизайнеру */}
-          {canManagePassword && (
+          {/* Пароль — admin всем, lead/stardiz только своему дизайнеру.
+              Сам блок — общий с окном из меню «⋯» поп-апа 360 */}
+          {canManagePassword && user && (
             <section>
               <div className="text-xs  text-stone mb-3">
                 Пароль для входа
               </div>
               <div className="card p-5">
-                {pwdMode === 'shown' && pwdResult ? (
-                  <div className="space-y-3">
-                    <div className="text-sm">
-                      Новый пароль для <strong>{user?.email}</strong>
-                    </div>
-                    <div className="bg-canvas border border-lime/40 rounded-card p-3 flex items-center justify-between gap-3">
-                      <code className="font-mono text-base select-all">{pwdResult}</code>
-                      <button onClick={copyPwd} className="btn-ghost btn-sm">
-                        Скопировать
-                      </button>
-                    </div>
-                    <p className="text-xs text-sunset">
-                      Пароль показан один раз — скопируй и отправь пользователю.
-                    </p>
-                    <button
-                      onClick={() => {
-                        setPwdMode('idle');
-                        setPwdResult(null);
-                      }}
-                      className="btn-ghost btn-sm"
-                    >
-                      Скрыть
-                    </button>
-                  </div>
-                ) : pwdMode === 'manual' ? (
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      value={pwdManual}
-                      onChange={(e) => setPwdManual(e.target.value)}
-                      placeholder="Минимум 8 символов"
-                      className="input font-mono"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleSetPassword(true)}
-                        disabled={pwdSaving || pwdManual.length < 8}
-                        className="btn-accent btn-sm"
-                      >
-                        {pwdSaving ? 'Сохраняю…' : 'Сохранить'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setPwdMode('idle');
-                          setPwdManual('');
-                        }}
-                        disabled={pwdSaving}
-                        className="btn-ghost btn-sm"
-                      >
-                        Отмена
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <div className="font-medium text-sm">
-                        Сгенерировать пароль или задать вручную
-                      </div>
-                      <div className="text-xs text-stone mt-1 leading-relaxed">
-                        Покажем один раз — отправь пользователю любым удобным каналом.
-                      </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => setPwdMode('manual')}
-                        className="btn-secondary btn-sm"
-                      >
-                        Задать вручную
-                      </button>
-                      <button
-                        onClick={() => handleSetPassword(false)}
-                        disabled={pwdSaving}
-                        className="btn-accent btn-sm"
-                      >
-                        {pwdSaving ? 'Генерирую…' : 'Сгенерировать'}
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <PasswordReset userId={user.id} email={user.email} />
               </div>
             </section>
           )}

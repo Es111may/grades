@@ -12,6 +12,7 @@
  */
 
 import type { UserRole } from './types';
+import { isGradingExempt } from './employment';
 
 /** Может ли пользователь открыть админский раздел (матрица, пользователи, грейды, аудит)? */
 export function canViewAdmin(role: UserRole | undefined): boolean {
@@ -140,4 +141,58 @@ export function canViewUserDetails(
   if (!me) return false;
   if (me.role === 'admin' || me.id === target.id) return true;
   return target.leadId === me.id || target.stardizId === me.id;
+}
+
+// ── Доступ человека: пароль и приглашение на самооценку ──────────────────
+
+type AccessTarget = {
+  role: string;
+  leadId: number | null;
+  stardizId: number | null;
+};
+
+/**
+ * Может ли выдать человеку пароль для входа (POST /api/users/[id]/password —
+ * сервер проверяет этим же хелпером; модалка «Изменить» и меню «⋯» поп-апа
+ * 360 показывают по нему пункты):
+ *  - admin — любому;
+ *  - lead — дизайнеру или стардизу, у которого он лид или стардиз;
+ *  - stardiz — дизайнеру, у которого он стардиз или лид.
+ * Лидам, админам и самим себе лид и стардиз пароль не выдают — иначе это
+ * эскалация привилегий.
+ */
+export function canIssuePassword(me: Me, target: AccessTarget): boolean {
+  if (!me) return false;
+  if (me.role === 'admin') return true;
+  const mine = target.leadId === me.id || target.stardizId === me.id;
+  if (me.role === 'lead') {
+    return mine && (target.role === 'designer' || target.role === 'stardiz');
+  }
+  if (me.role === 'stardiz') return mine && target.role === 'designer';
+  return false;
+}
+
+/**
+ * Может ли позвать человека на самооценку (пункт меню «⋯» поп-апа 360 —
+ * скопировать приглашение со ссылкой /designer?self=1). Права — те же, что
+ * на пароль: зовут те, кто человека ведёт. Самооценка есть только у
+ * дизайнера (страница /designer, canEditSelfAssessment), активного и
+ * грейдируемого: почасовщику и билду без грейдов она ни к чему — у них и
+ * сезонного напоминания нет. Есть ли у человека опубликованная оценка (без
+ * неё навыков на портрете нет) — решает вызывающий: пункт виден, но выключен.
+ */
+export function canInviteSelfAssessment(
+  me: Me,
+  target: AccessTarget & {
+    active: boolean;
+    employmentType?: string | null;
+    build: { code: string } | null;
+  },
+): boolean {
+  return (
+    target.role === 'designer' &&
+    target.active &&
+    !isGradingExempt(target) &&
+    canIssuePassword(me, target)
+  );
 }

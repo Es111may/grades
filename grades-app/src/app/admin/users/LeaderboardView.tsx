@@ -9,6 +9,7 @@ import Tooltip from '@/components/Tooltip';
 import BuildChip, { BuildDot } from '@/components/BuildChip';
 import { PersonStatusIcon } from '@/components/GradingPlanChip';
 import AvatarWithRaise from '@/components/PlannedRaiseBadge';
+import PersonLink from '@/components/PersonLink';
 import { formatThousands } from '@/lib/compensation';
 import { isGradingExempt, isNonGradingBuild } from '@/lib/employment';
 import { gradeName } from '@/lib/types';
@@ -56,6 +57,7 @@ export default function LeaderboardView({
   users,
   gradeThresholds,
   onRowClick,
+  personHref,
   teamStats,
   nineBox,
   attention,
@@ -67,6 +69,8 @@ export default function LeaderboardView({
   users: UserRow[];
   gradeThresholds: GradeThreshold[];
   onRowClick: (user: UserRow) => void;
+  /** Ссылка на портрет человека (lib/portraitHref) или null — без ссылки. */
+  personHref: (user: UserRow) => string | null;
   teamStats: TeamStats;
   nineBox: Record<string, number>;
   attention: AttentionItem[];
@@ -281,6 +285,7 @@ export default function LeaderboardView({
               user={u}
               place={i + 1}
               skillMax={skillMax}
+              href={personHref(u)}
               onClick={() => onRowClick(u)}
             />
           ))}
@@ -359,7 +364,10 @@ export default function LeaderboardView({
                   />
                 </td>
                 <td className="py-3 px-4">
-                  <div className="flex items-center gap-3">
+                  {/* Аватар с именем — ссылка на портрет: Cmd/Ctrl-клик и
+                      «Открыть в новой вкладке» открывают его отдельно.
+                      Обычный клик всплывает к строке — поп-ап, как раньше */}
+                  <PersonLink href={personHref(u)} className="flex items-center gap-3">
                     <AvatarWithRaise name={u.fullName} avatarUrl={u.avatarUrl} size={32} planned={u.plannedRaise} />
                     <div className="min-w-0">
                       {/* Обрезается только имя, иконка — соседом: внутри
@@ -372,7 +380,7 @@ export default function LeaderboardView({
                         <PersonStatusIcon user={u} />
                       </div>
                     </div>
-                  </div>
+                  </PersonLink>
                 </td>
                 <td className="py-3 px-4">
                   {u.build ? (
@@ -613,26 +621,27 @@ function PodiumCard({
   user,
   place,
   skillMax,
+  href,
   onClick,
 }: {
   user: UserRow;
   place: number;
   skillMax: Record<TaxKey, number>;
+  /** Портрет человека — карточка становится ссылкой (как строки списка). */
+  href: string | null;
   onClick: () => void;
 }) {
   const score = Math.round((user.compositeScore ?? 0) * 100);
   // Спека Pavel: высота тега ровно 24px, шрифт 10px.
   const chipSm =
     'inline-flex items-center gap-1.5 px-2.5 h-6 rounded-pill text-[10px] font-medium leading-none shrink-0';
-  return (
-    // Компактная карточка: тонкий паддинг, теги размером как в списке,
-    // всё в одну строку, аватар в правом углу.
-    <button
-      type="button"
-      onClick={onClick}
-      className="card p-4 text-left w-full transition-all duration-200 ease-apple-out
-                 hover:shadow-soft-md hover:-translate-y-1 hover:border-ash"
-    >
+  // Компактная карточка: тонкий паддинг, теги размером как в списке,
+  // всё в одну строку, аватар в правом углу. Есть портрет — карточка целиком
+  // ссылка на него (обычный клик — поп-ап), нет — кнопка, как раньше.
+  const cardClass = `card p-4 text-left w-full transition-all duration-200 ease-apple-out
+                 hover:shadow-soft-md hover:-translate-y-1 hover:border-ash`;
+  const content = (
+    <>
       <div className="flex items-center justify-between gap-3">
         {/* Обрезается только имя — иконка остаётся видна, как в списке */}
         <div className="font-medium text-[15px] leading-tight min-w-0 flex-1 flex items-center gap-1.5">
@@ -696,6 +705,15 @@ function PodiumCard({
           );
         })}
       </div>
+    </>
+  );
+  return href ? (
+    <PersonLink href={href} onOpen={onClick} className={`block ${cardClass}`}>
+      {content}
+    </PersonLink>
+  ) : (
+    <button type="button" onClick={onClick} className={cardClass}>
+      {content}
     </button>
   );
 }

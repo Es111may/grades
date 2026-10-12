@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import Avatar from '@/components/Avatar';
 import BuildChip from '@/components/BuildChip';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import PersonLink from '@/components/PersonLink';
 import { ChevronDownIcon } from '@/components/icons';
 import { canChangeLead, canEditUser } from '@/lib/permissions';
 import { genitiveFirstName } from '@/lib/names';
@@ -21,6 +22,7 @@ type UserRow = {
   department: string | null;
   leadId: number | null;
   lead: Lead | null;
+  stardizId: number | null;
   active: boolean;
   effectiveGrade?: string | null;
   gradeFloor: string | null;
@@ -60,6 +62,7 @@ export default function KanbanView({
   meId,
   meRole,
   onCardClick,
+  personHref,
   onMoved,
 }: {
   users: UserRow[];
@@ -68,6 +71,8 @@ export default function KanbanView({
   meId: number | null;
   meRole: string;
   onCardClick: (user: UserRow) => void;
+  /** Ссылка на портрет человека (lib/portraitHref) или null — без ссылки. */
+  personHref: (user: UserRow) => string | null;
   /** PATCH прошёл — строку из ответа сливаем в список (как после модалки). */
   onMoved: (updated: UserRow) => void;
 }) {
@@ -267,14 +272,19 @@ export default function KanbanView({
               {col.users.map((u) => {
                 const draggable = canDrag(u);
                 return (
-                  <div
+                  // Карточка целиком — ссылка на портрет (внутри нет кнопок):
+                  // Cmd/Ctrl-клик открывает его в новой вкладке, обычный клик —
+                  // поп-ап. draggable задан всегда: true — наш перенос по
+                  // колонкам, false — ссылку не тащат вовсе, как и раньше
+                  <PersonLink
                     key={u.id}
+                    href={personHref(u)}
+                    onOpen={() => onCardClick(u)}
                     draggable={draggable && !moving}
                     // Чужие карточки не перетаскиваются вовсе — без обработчиков
                     onDragStart={draggable ? () => setDragId(u.id) : undefined}
                     onDragEnd={draggable ? resetDrag : undefined}
-                    onClick={() => onCardClick(u)}
-                    className={`bg-snow border border-cloud rounded-[10px] px-3 py-2.5 shadow-soft hover:shadow-soft-md transition-all duration-150 ${
+                    className={`block bg-snow border border-cloud rounded-[10px] px-3 py-2.5 shadow-soft hover:shadow-soft-md transition-all duration-150 ${
                       draggable ? 'cursor-grab' : 'cursor-pointer'
                     } ${!u.active ? 'opacity-50' : ''} ${dragId === u.id ? 'opacity-40' : ''}`}
                   >
@@ -292,7 +302,7 @@ export default function KanbanView({
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </PersonLink>
                 );
               })}
               {col.users.length === 0 && (

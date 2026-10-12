@@ -93,10 +93,76 @@ export function InlineConfirm({
 }
 
 /**
- * Модальное подтверждение. Escape и клик по затемнению — отмена (пока не
- * идёт запрос). Пока в слое комментариев что-то открыто, Escape — его, а клик
- * из слоя — не «мимо». Фокус — на «Отмене»: подтверждают обычно то, что
- * самому не отыграть.
+ * Модальное окно: затемнение и карточка snow / rounded-modal шириной 420,
+ * как поп-ап 360. Оболочка ConfirmDialog и окон с формой (пароль из меню «⋯»
+ * поп-апа 360). Escape и клик по затемнению — onClose, пока не
+ * closeDisabled (идёт запрос). Пока в слое комментариев что-то открыто,
+ * Escape — его, а клик из слоя — не «мимо».
+ *
+ * Escape ловим на window в фазе перехвата и помечаем preventDefault: окно
+ * может стоять поверх поп-апа 360, а его обработчик Escape (пропускает
+ * defaultPrevented) иначе закрыл бы вместе с окном и поп-ап.
+ */
+export function Dialog({
+  role = 'dialog',
+  labelledBy,
+  describedBy,
+  closeDisabled = false,
+  onClose,
+  children,
+}: {
+  role?: 'dialog' | 'alertdialog';
+  /** id заголовка окна. */
+  labelledBy: string;
+  describedBy?: string;
+  closeDisabled?: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape' || isCommentsLayerOpen()) return;
+      e.preventDefault();
+      if (!closeDisabled) onClose();
+    }
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [closeDisabled, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[20vh]">
+      <div
+        className="absolute inset-0 bg-black/60 animate-fade-in"
+        onClick={(e) => {
+          if (!closeDisabled && !isFromCommentsLayer(e.nativeEvent)) onClose();
+        }}
+        aria-hidden
+      />
+      <div
+        role={role}
+        aria-modal="true"
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
+        className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg p-6 animate-scale-in"
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Заголовок окна Dialog — как у ConfirmDialog. */
+export function DialogTitle({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <h2 id={id} className="font-display text-xl font-medium tracking-tight">
+      {children}
+    </h2>
+  );
+}
+
+/**
+ * Модальное подтверждение на оболочке Dialog. Фокус — на «Отмене»:
+ * подтверждают обычно то, что самому не отыграть.
  */
 export default function ConfirmDialog({
   title,
@@ -122,51 +188,32 @@ export default function ConfirmDialog({
 }) {
   const titleId = useId();
   const textId = useId();
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !pending && !isCommentsLayerOpen()) onCancel();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [pending, onCancel]);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[20vh]">
-      <div
-        className="absolute inset-0 bg-black/60 animate-fade-in"
-        onClick={(e) => {
-          if (!pending && !isFromCommentsLayer(e.nativeEvent)) onCancel();
-        }}
-        aria-hidden
+    <Dialog
+      role="alertdialog"
+      labelledBy={titleId}
+      describedBy={children != null ? textId : undefined}
+      closeDisabled={pending}
+      onClose={onCancel}
+    >
+      <DialogTitle id={titleId}>{title}</DialogTitle>
+      {children != null && (
+        <p id={textId} className="text-sm text-stone mt-2 leading-relaxed">
+          {children}
+        </p>
+      )}
+      <InlineConfirm
+        className="justify-end gap-2 mt-5"
+        confirmLabel={confirmLabel}
+        pendingLabel={pendingLabel}
+        cancelLabel={cancelLabel}
+        tone={tone}
+        pending={pending}
+        cancelDisabled={pending}
+        focusCancel
+        onConfirm={onConfirm}
+        onCancel={onCancel}
       />
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={children != null ? textId : undefined}
-        className="relative w-full max-w-[420px] bg-snow rounded-modal shadow-soft-lg p-6 animate-scale-in"
-      >
-        <h2 id={titleId} className="font-display text-xl font-medium tracking-tight">
-          {title}
-        </h2>
-        {children != null && (
-          <p id={textId} className="text-sm text-stone mt-2 leading-relaxed">
-            {children}
-          </p>
-        )}
-        <InlineConfirm
-          className="justify-end gap-2 mt-5"
-          confirmLabel={confirmLabel}
-          pendingLabel={pendingLabel}
-          cancelLabel={cancelLabel}
-          tone={tone}
-          pending={pending}
-          cancelDisabled={pending}
-          focusCancel
-          onConfirm={onConfirm}
-          onCancel={onCancel}
-        />
-      </div>
-    </div>
+    </Dialog>
   );
 }

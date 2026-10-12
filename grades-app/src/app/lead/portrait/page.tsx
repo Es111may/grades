@@ -90,8 +90,8 @@ export default async function LeadPortraitPage({
   // (не почасовщик и не билд без грейдов, активен, дизайнер/стардиз) и
   // зритель вправе его оценивать. Иначе /lead/assess вернёт назад или
   // скажет «не грейдируется».
-  // Те же условия — у кнопок «Продолжить черновик» и «Новый цикл» в hero и
-  // у «Провести оценку» на портрете без оценки.
+  // Те же условия — у кнопок «Продолжить черновик» и «Провести оценку» в
+  // hero — и с оценкой, и без неё.
   const canAssess = isGradable(designer) && canGradeDesigner(user, designer);
   const canViewSalary = canViewCompensation({ id: user.id, role: user.role }, designer);
   const canEditProjects = user.role === 'admin' || designerId === user.id;

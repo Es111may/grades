@@ -22,6 +22,7 @@ import { canViewCompensation } from '@/lib/compPermissions';
 import { canViewDismissalDate } from '@/lib/dismissal';
 import { needsDismissalDate, todayMoscowDate } from '@/lib/userUpdate';
 import { PERSON_PARAM, parsePersonParam, withPersonParam } from '@/lib/personParam';
+import { portraitHref, type PortraitHrefPerson } from '@/lib/portraitHref';
 import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
 
 // ─── Ленивые куски страницы ─────────────────────────────────────────────
@@ -488,6 +489,11 @@ export default function UsersClient({
     writePersonParam(user.id);
   }
 
+  // Строки и карточки — настоящие ссылки на портрет (новая вкладка по
+  // Cmd/Ctrl-клику), обычный клик — поп-ап. null — портрет зрителю не открыть.
+  const personHref = (u: PortraitHrefPerson) =>
+    portraitHref(u, meId !== null ? { id: meId, role: meRole } : null);
+
   function close360() {
     setCard360User(null);
     writePersonParam(null);
@@ -655,6 +661,7 @@ export default function UsersClient({
               users={filtered}
               gradeThresholds={gradeThresholds}
               onRowClick={open360}
+              personHref={personHref}
               teamStats={scoped.stats}
               nineBox={scoped.nineBox}
               attention={scoped.attention}
@@ -677,6 +684,7 @@ export default function UsersClient({
               meId={meId}
               meRole={meRole}
               onCardClick={(u) => open360(u as UserRow)}
+              personHref={personHref}
               onMoved={(u) => mergeRow(u as UserRow)}
             />
           )}

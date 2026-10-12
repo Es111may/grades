@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/session';
 import { writeAudit, AUDIT_ACTIONS } from '@/lib/audit';
+import { canIssuePassword } from '@/lib/permissions';
 
 const PostSchema = z.object({
   /** Если задан — используем этот пароль. Иначе сгенерируем сами. */
@@ -67,22 +68,12 @@ export async function POST(
   });
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const isAdmin = me.role === 'admin';
   // Лид: designer+stardiz из его scope. Стардиз: только designer из его scope.
-  // Логика идентична `canCreateChecklistFor` из checklistPermissions.ts,
-  // только без «себе» — пароль самому себе через эту ручку не выдашь.
-  let isManaging = false;
-  if (me.role === 'lead') {
-    isManaging =
-      (user.role === 'designer' || user.role === 'stardiz') &&
-      (user.leadId === me.id || user.stardizId === me.id);
-  } else if (me.role === 'stardiz') {
-    isManaging =
-      user.role === 'designer' &&
-      (user.stardizId === me.id || user.leadId === me.id);
-  }
-
-  if (!isAdmin && !isManaging) {
+  // Логика как у `canCreateChecklistFor` из checklistPermissions.ts, только
+  // без «себе» — пароль самому себе через эту ручку не выдашь. Хелпер общий с
+  // модалкой «Изменить» и меню «⋯» поп-апа 360 — пункты видят ровно те, кого
+  // пустит сервер.
+  if (!canIssuePassword({ id: me.id, role: me.role }, user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

@@ -7,13 +7,14 @@ import { fetchOnTimeStatsByEmail } from '@/lib/clickhousePerfBatch';
 import { PAGE_BUDGET_MS, withTimeout } from '@/lib/perfCache';
 import { canCreateChecklistFor, type Role } from '@/lib/checklistPermissions';
 import { pendingPortraitView } from '@/lib/portraitPending';
+import { isSelfParam } from '@/lib/selfInvite';
 import Portrait from './Portrait';
 import PortraitPending from './PortraitPending';
 
 export default async function DesignerPortraitPage({
   searchParams,
 }: {
-  searchParams: { assessmentId?: string };
+  searchParams: { assessmentId?: string; self?: string };
 }) {
   const user = await getCurrentUser();
   if (!user?.id) return null;
@@ -70,7 +71,8 @@ export default async function DesignerPortraitPage({
 
   // Оценки ещё нет — тот же портрет без блоков, которым она нужна: hero,
   // bento (XP пуст, «в срок»), проекты и перформанс. Кнопки оценки нет —
-  // оценку проводит лид.
+  // оценку проводит лид. Навыков нет — ?self=1 (приглашение на самооценку)
+  // здесь молча не действует.
   if (result.kind === 'no_assessment') {
     return (
       <PortraitPending
@@ -109,6 +111,7 @@ export default async function DesignerPortraitPage({
       meRole={(user.role ?? 'designer') as Role}
       meUserId={user.id}
       canCreateChecklists={canCreateChecklists}
+      focusSelfAssessment={isSelfParam(searchParams.self)}
     />
   );
 }

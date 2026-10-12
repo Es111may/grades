@@ -14,6 +14,7 @@ import { useTheme, CHART_AXIS } from '@/lib/theme';
 import { onest } from '@/app/fonts';
 import Tooltip from '@/components/Tooltip';
 import { isFromCommentsLayer } from '@/lib/commentsLayer';
+import { withoutSelfParam } from '@/lib/selfInvite';
 import { ChecklistsSkeleton, RadarSkeleton } from '@/components/skeletons/portrait';
 // Шапка, ячейки bento и разделы «Проекты»/«Перформанс» — общие с портретом
 // без оценки (PortraitPending)
@@ -136,6 +137,7 @@ export default function Portrait({
   canCreateChecklists = false,
   nineBoxTitle = null,
   teamGrowthMedian = null,
+  focusSelfAssessment = false,
 }: {
   data: PortraitData;
   /** Кнопки-действия (mgmt): рендерятся по центру под чипами hero. */
@@ -183,6 +185,9 @@ export default function Portrait({
   /** Медиана прироста XP за цикл по команде. Сервер передаёт только
    *  admin/lead/stardiz — для сравнения скорости роста с командой. */
   teamGrowthMedian?: number | null;
+  /** /designer?self=1 — пришли по приглашению «Позвать на самооценку»:
+   *  сразу к навыкам, как по кнопке «Добавить самооценку» (только владельцу). */
+  focusSelfAssessment?: boolean;
 }) {
   const [rowHovered, setRowHovered] = useState(false);
   // Цвета осей радара зависят от темы (CSS до опций chart.js не дотягивается).
@@ -197,6 +202,17 @@ export default function Portrait({
   // Phase 14: самооценка и подтверждения. null = ещё не загружено или
   // нет прав (403) — UI просто не показывается. Правит только владелец.
   const isSelfOwner = meUserId === userId && meRole === 'designer';
+
+  // Приглашение на самооценку (lib/selfInvite): один раз при открытии —
+  // к навыкам, затем ?self=1 из адреса долой, чтобы перезагрузка и копия
+  // адреса не тянули страницу к навыкам снова.
+  useEffect(() => {
+    if (!focusSelfAssessment || !isSelfOwner) return;
+    const stop = keepSkillsInView();
+    window.history.replaceState(null, '', withoutSelfParam(window.location.href));
+    return stop;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [selfMap, setSelfMap] = useState<Record<number, SelfEntry> | null>(null);
   const [evidenceMap, setEvidenceMap] = useState<Record<number, EvidenceEntry[]>>({});
   useEffect(() => {
@@ -1226,21 +1242,54 @@ const SELF_ASSESSMENT_HINT = (
   </>
 );
 
+/** Поправка к разделу «Навыки» без анимации, если он уехал от места
+ *  больше чем на 12px. 96px = scroll-mt-24. */
+function alignSkills() {
+  const el = document.getElementById('skills');
+  if (!el) return;
+  const top = el.getBoundingClientRect().top;
+  if (Math.abs(top - 96) > 12) {
+    window.scrollTo({ top: window.scrollY + top - 96, behavior: 'auto' });
+  }
+}
+
 /** Скролл к разделу «Навыки» с само-коррекцией: блоки выше (перформанс,
  *  чек-листы) догружаются асинхронно и сдвигают якорь — без коррекции
- *  первый клик промахивался. 96px = scroll-mt-24. */
+ *  первый клик промахивался. */
 function scrollToSkills() {
   document.getElementById('skills')?.scrollIntoView({ behavior: 'smooth' });
-  const correct = () => {
-    const el = document.getElementById('skills');
-    if (!el) return;
-    const top = el.getBoundingClientRect().top;
-    if (Math.abs(top - 96) > 12) {
-      window.scrollTo({ top: window.scrollY + top - 96, behavior: 'auto' });
-    }
+  setTimeout(alignSkills, 700);
+  setTimeout(alignSkills, 1400);
+}
+
+/**
+ * То же при открытии страницы (?self=1). Сразу после загрузки блоки выше
+ * навыков (перформанс из ClickHouse, ИПР, радары) догружаются дольше, чем к
+ * моменту клика по кнопке, — поэтому после плавного скролла и его поправок
+ * (1,4 с) якорь держим, пока меняется высота страницы: до первого жеста
+ * человека (колесо, касание, клавиша, нажатие) или 6 секунд от открытия.
+ * Раньше 1,4 с не следим: поправка посреди плавного скролла сорвала бы его
+ * в прыжок. Возвращает отписку.
+ */
+function keepSkillsInView(): () => void {
+  scrollToSkills();
+  let done = false;
+  const ro = new ResizeObserver(() => {
+    if (!done) alignSkills();
+  });
+  const GESTURES = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+  const watch = window.setTimeout(() => ro.observe(document.body), 1400);
+  const stop = () => {
+    if (done) return;
+    done = true;
+    ro.disconnect();
+    window.clearTimeout(watch);
+    window.clearTimeout(timer);
+    for (const g of GESTURES) window.removeEventListener(g, stop);
   };
-  setTimeout(correct, 700);
-  setTimeout(correct, 1400);
+  const timer = window.setTimeout(stop, 6000);
+  for (const g of GESTURES) window.addEventListener(g, stop, { passive: true });
+  return stop;
 }
 
 /** Phase 14: информер «как работает самооценка» — единый Tooltip. */

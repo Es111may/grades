@@ -4,6 +4,8 @@ import {
   canDeactivateUser,
   canEditOwnProfile,
   canEditUser,
+  canInviteSelfAssessment,
+  canIssuePassword,
   canViewUserDetails,
 } from '../permissions';
 
@@ -129,5 +131,71 @@ describe('canEditOwnProfile', () => {
   });
   it('без сессии — нет', () => {
     expect(canEditOwnProfile(null, { id: 10 })).toBe(false);
+  });
+});
+
+// Цель для пароля и приглашения: лид — 10, стардиз — 20
+const person = (role: string, leadId: number | null, stardizId: number | null = null) => ({
+  role,
+  leadId,
+  stardizId,
+});
+
+describe('canIssuePassword — как POST /api/users/[id]/password', () => {
+  it('админ — любому, включая лидов, админов и себя', () => {
+    expect(canIssuePassword(admin, person('designer', 11))).toBe(true);
+    expect(canIssuePassword(admin, person('lead', null))).toBe(true);
+    expect(canIssuePassword(admin, person('admin', null))).toBe(true);
+  });
+  it('лид — своим дизайнерам и стардизам (он лид или стардиз)', () => {
+    expect(canIssuePassword(lead, person('designer', 10))).toBe(true);
+    expect(canIssuePassword(lead, person('stardiz', 10))).toBe(true);
+    expect(canIssuePassword(lead, person('designer', 11, 10))).toBe(true);
+  });
+  it('лид — не чужим и не лидам/админам, даже если указан их лидом', () => {
+    expect(canIssuePassword(lead, person('designer', 11))).toBe(false);
+    expect(canIssuePassword(lead, person('designer', null))).toBe(false);
+    expect(canIssuePassword(lead, person('lead', 10))).toBe(false);
+    expect(canIssuePassword(lead, person('admin', 10))).toBe(false);
+  });
+  it('стардиз — только своим дизайнерам', () => {
+    expect(canIssuePassword(stardiz, person('designer', 10, 20))).toBe(true);
+    expect(canIssuePassword(stardiz, person('designer', 20))).toBe(true);
+    expect(canIssuePassword(stardiz, person('stardiz', 10, 20))).toBe(false);
+    expect(canIssuePassword(stardiz, person('designer', 10, 21))).toBe(false);
+  });
+  it('дизайнер и без сессии — нет', () => {
+    expect(canIssuePassword(designer, person('designer', 30, 30))).toBe(false);
+    expect(canIssuePassword(null, person('designer', 10))).toBe(false);
+  });
+});
+
+describe('canInviteSelfAssessment', () => {
+  const invitee = (over: Record<string, unknown> = {}) => ({
+    ...person('designer', 10, 20),
+    active: true,
+    employmentType: 'staff',
+    build: { code: 'visioner' },
+    ...over,
+  });
+  it('те же, кто выдаёт пароль: админ, лид и стардиз дизайнера', () => {
+    expect(canInviteSelfAssessment(admin, invitee())).toBe(true);
+    expect(canInviteSelfAssessment(lead, invitee())).toBe(true);
+    expect(canInviteSelfAssessment(stardiz, invitee())).toBe(true);
+  });
+  it('чужие и без сессии — нет', () => {
+    expect(canInviteSelfAssessment(otherLead, invitee())).toBe(false);
+    expect(canInviteSelfAssessment({ id: 21, role: 'stardiz' }, invitee())).toBe(false);
+    expect(canInviteSelfAssessment(null, invitee())).toBe(false);
+  });
+  it('самооценка только у дизайнера: стардиза и лида не зовём', () => {
+    expect(canInviteSelfAssessment(admin, invitee({ role: 'stardiz' }))).toBe(false);
+    expect(canInviteSelfAssessment(lead, invitee({ role: 'stardiz' }))).toBe(false);
+    expect(canInviteSelfAssessment(admin, invitee({ role: 'lead' }))).toBe(false);
+  });
+  it('неактивного, почасовщика и билд без грейдов — нет', () => {
+    expect(canInviteSelfAssessment(admin, invitee({ active: false }))).toBe(false);
+    expect(canInviteSelfAssessment(lead, invitee({ employmentType: 'hourly' }))).toBe(false);
+    expect(canInviteSelfAssessment(lead, invitee({ build: { code: 'communications' } }))).toBe(false);
   });
 });

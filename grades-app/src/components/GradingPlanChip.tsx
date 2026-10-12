@@ -8,7 +8,7 @@ import {
 } from '@/lib/gradingPlan';
 import { formatDateShort, todayLocalIso } from '@/lib/dates';
 import { openYandexCalendarOnChange } from '@/lib/yandexCalendar';
-import { CloseIcon, CoinsIcon, InfoIcon, TimerIcon } from '@/components/icons';
+import { CalendarIcon, CloseIcon, CoinsIcon, InfoIcon, TimerIcon } from '@/components/icons';
 import { isGradingExempt, isHourly, nonGradingBuildNote } from '@/lib/employment';
 import Tooltip from '@/components/Tooltip';
 import InlineEditor from '@/components/InlineEditor';
@@ -212,6 +212,10 @@ export default function GradingPlanChip({
       {showLabel && <span className="opacity-70">{chipLabel}</span>}
     </>
   );
+  // Дату можно сменить — в начале пилюли календарь, как у «Назначить» рядом:
+  // без него правка по клику не угадывалась (лиды, 02.10.2026). Только у
+  // тех, кому правка доступна, — у остальных пилюля прежняя.
+  const editIcon = <CalendarIcon className="w-3 h-3 shrink-0 opacity-70" />;
 
   return (
     <span
@@ -236,6 +240,7 @@ export default function GradingPlanChip({
           aria-label={`Изменить дату грейдирования: ${shownText}, ${label}`}
           className="-ml-2 pl-2 self-stretch inline-flex items-center gap-1.5 rounded-l-pill"
         >
+          {editIcon}
           {body}
         </button>
       ) : (

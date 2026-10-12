@@ -4,7 +4,10 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { signIn } from 'next-auth/react';
 import Avatar from '@/components/Avatar';
 import BuildChip from '@/components/BuildChip';
-import { CloseIcon, CoinsIcon } from '@/components/icons';
+import { Dialog, DialogTitle } from '@/components/ConfirmDialog';
+import PasswordReset from '@/components/PasswordReset';
+import Tooltip from '@/components/Tooltip';
+import { CalendarIcon, CheckIcon, CloseIcon, CoinsIcon } from '@/components/icons';
 import type { UserRow } from './UsersClient';
 import TitleAurora from '@/components/TitleAurora';
 import { isCommentsLayerOpen, isFromCommentsLayer } from '@/lib/commentsLayer';
@@ -56,7 +59,17 @@ import {
   showsDismissal,
 } from '@/lib/dismissal';
 import { canEditBonuses, canEditPlannedRaise, canViewCompensation } from '@/lib/compPermissions';
-import { canDeactivateUser, canEditOwnProfile, canEditUser } from '@/lib/permissions';
+import {
+  canDeactivateUser,
+  canEditOwnProfile,
+  canEditUser,
+  canInviteSelfAssessment,
+  canIssuePassword,
+} from '@/lib/permissions';
+import { portraitHref } from '@/lib/portraitHref';
+import { selfAssessmentInvite } from '@/lib/selfInvite';
+import { useCopyFeedback } from '@/lib/clipboard';
+import { firstName, genitiveFirstName } from '@/lib/names';
 import SalaryBlock, { useCompensation } from '@/components/SalaryBlock';
 import type { PlannedRaiseRow } from '@/components/PlannedRaiseBadge';
 
@@ -88,6 +101,9 @@ export default function UserCard360({
   // Редактор даты грейдирования — объявлен до обработчика Escape: тот
   // закрывает сначала редактор, потом поп-ап.
   const [gradingEditing, setGradingEditing] = useState(false);
+  // Окно пароля из меню «⋯». Escape в нём ловит само окно (Dialog) и гасит —
+  // обработчик ниже его пропускает, поп-ап остаётся открытым.
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   // Закрытие по Escape. defaultPrevented — Escape уже обработал кто-то
   // внутри (редактор даты гасит его сам, когда фокус в нём). Пока в слое
@@ -174,10 +190,12 @@ export default function UserCard360({
   const [gradingErr, setGradingErr] = useState<string | null>(null);
   const [clearingGrading, setClearingGrading] = useState(false);
 
-  // Другой человек в том же поп-апе — редактор закрыт, ошибки нет
+  // Другой человек в том же поп-апе — редактор и окно пароля закрыты,
+  // ошибки нет
   useEffect(() => {
     setGradingEditing(false);
     setGradingErr(null);
+    setPasswordOpen(false);
   }, [user.id]);
 
   function openGradingEditor(initial: string) {
@@ -250,14 +268,36 @@ export default function UserCard360({
 
   const canDeactivate = canDeactivateUser(viewer, user) && user.active;
 
-  const canOpenPortrait = user.role === 'designer' && user.active;
+  // «Портрет»: дизайнеру — /lead/portrait, лиду и стардизу (Phase 22) —
+  // портрет 360. Тот же href, что у строк и карточек «Команды»
+  // (lib/portraitHref): null — зрителю страницу не откроют, кнопки нет.
+  const portrait = portraitHref(user, viewer);
 
-  // Лид/стардиз (Phase 22): портрет 360° доступен админу всегда и
-  // самому лиду/стардизу для просмотра своих оценок.
   const isLeadOrStardiz = user.role === 'lead' || user.role === 'stardiz';
-  const canOpenLeadReview =
-    isLeadOrStardiz && user.active && (meRole === 'admin' || isSelf);
   const canImportLeadReview = isLeadOrStardiz && user.active && meRole === 'admin';
+
+  // Доступ человека — тем, кто его ведёт (lib/permissions, как сервер
+  // пароля). «Позвать на самооценку» копирует приглашение со ссылкой на
+  // /designer?self=1. Навыки (а с ними самооценка) есть только у портрета с
+  // опубликованной оценкой: без неё пункт виден, но выключен — с подсказкой.
+  const canInvite = canInviteSelfAssessment(viewer, user);
+  const hasPublishedAssessment = !!user.lastAssessedAt || !!user.effectiveGrade;
+  const invite = useCopyFeedback();
+  function inviteSelf() {
+    void invite.copy(selfAssessmentInvite(user.fullName, window.location.origin));
+  }
+  // Пароль — окно поверх поп-апа (общий PasswordReset с модалкой «Изменить»).
+  // Неактивному не выдаём: войти он всё равно не сможет.
+  const canPassword = canIssuePassword(viewer, user) && user.active;
+  function startPassword() {
+    setMenuOpen(false);
+    setPasswordOpen(true);
+  }
+  function closePassword() {
+    setPasswordOpen(false);
+    // Фокус — обратно на «⋯», откуда окно открыли
+    menuBtnRef.current?.focus();
+  }
 
   // Меню «⋯»: открывается по ховеру (грейс 160мс на уход) и по клику;
   // клик-вне закрывает
@@ -384,12 +424,16 @@ export default function UserCard360({
     setMenuOpen(false);
     setBonusSignal((n) => n + 1);
   }
-  const hasMenu = canPlan || canImpersonate || canImportLeadReview || canDeactivate || canHardDelete;
+  // Пункты меню не про деньги — с ними меню не пустеет и при скрытых зарплатах
+  const hasPlainMenu =
+    canInvite || canPassword || canImpersonate || canImportLeadReview || canDeactivate || canHardDelete;
+  const hasMenu = canPlan || hasPlainMenu;
   // Если в меню только пункты про пересмотр (у лида — когда человека он
   // видит по деньгам, но деактивировать не вправе) — при скрытых зарплатах
   // прячем и саму кнопку, иначе откроется пустое меню. «Добавить премию»
   // тоже salary-sensitive и бывает только вместе с пунктами пересмотра.
-  const menuOnlySalary = canPlan && !canImpersonate && !canImportLeadReview && !canDeactivate && !canHardDelete;
+  const menuOnlySalary = canPlan && !hasPlainMenu;
+  const hasActions = !!portrait || canAssess || canEdit || hasMenu;
 
   async function handleHardDelete() {
     const res = await fetch(`/api/users/${user.id}?hard=true`, { method: 'DELETE' });
@@ -676,15 +720,22 @@ export default function UserCard360({
                                 clearing={clearingGrading}
                               />
                             )}
-                            {/* Хит-зона 32px по высоте, строка остаётся в 24px;
-                                -mx-2 гасит поля — текст ровно по краю значений */}
+                            {/* «Назначить» — пилюлей с календарём, а не серым
+                                текстом: лиды её не замечали (комментарий 02.10).
+                                Высотой с пилюлю даты (24px) — строка та же;
+                                хит-зона 32px — псевдоэлементом на 4px вверх
+                                и вниз, рамка фокуса — по самой пилюле. Обводка
+                                без заливки: заметно, но тише действий внизу. */}
                             {canAssignGrading && (
                               <button
                                 type="button"
                                 onClick={() => openGradingEditor('')}
-                                className="-my-1.5 -mx-2 h-8 px-2 text-xs text-stone hover:text-ink
-                                           transition-colors"
+                                className="relative inline-flex items-center gap-1.5 h-6 px-2.5 rounded-pill
+                                           border border-cloud text-xs text-ink whitespace-nowrap
+                                           hover:bg-ink/5 hover:border-ash transition-colors
+                                           before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']"
                               >
+                                <CalendarIcon className="w-3.5 h-3.5 shrink-0 text-stone" />
                                 Назначить
                               </button>
                             )}
@@ -833,62 +884,59 @@ export default function UserCard360({
 
           </div>
 
-          {/* ---------- Действия: текстом + меню «⋯» (закреплены) ---------- */}
-          <div className="px-4 py-3.5 border-t border-cloud flex items-center gap-0.5 shrink-0">
-            {canOpenPortrait && (
-              <a
-                href={`/lead/portrait?id=${user.id}`}
-                className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
-              >
-                Портрет
-              </a>
-            )}
-            {canOpenLeadReview && (
-              <a
-                href={`/admin/lead-reviews?userId=${user.id}`}
-                className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
-              >
-                Портрет
-              </a>
-            )}
-            {canAssess && (
-              <a
-                href={`/lead/assess?id=${user.id}`}
-                className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
-              >
-                Оценить
-              </a>
-            )}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => onEdit(user)}
-                className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
-              >
-                Изменить
-              </button>
-            )}
-            {hasMenu && (
-              /* Меню — по ховеру (грейс на уход), клик тоже работает */
-              <span
-                className={`ml-auto ${menuOnlySalary ? 'salary-sensitive' : ''}`}
-                onMouseEnter={menuEnter}
-                onMouseLeave={menuLeave}
-              >
-                <button
-                  ref={menuBtnRef}
-                  type="button"
-                  onClick={() => setMenuOpen((v) => !v)}
-                  className="w-9 h-9 rounded-pill flex items-center justify-center
-                             text-stone hover:text-ink hover:bg-ink/5 transition-colors text-lg tracking-widest"
-                  aria-label="Ещё действия"
-                  aria-expanded={menuOpen}
+          {/* ---------- Действия: текстом + меню «⋯» (закреплены) ----------
+              Действий нет (чужой лид смотрит человека не из своей команды:
+              портрет ему не откроют, править нечего) — нет и полосы, а не
+              пустая строка под линией. */}
+          {hasActions && (
+            <div className="px-4 py-3.5 border-t border-cloud flex items-center gap-0.5 shrink-0">
+              {portrait && (
+                <a
+                  href={portrait}
+                  className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
                 >
-                  ⋯
+                  Портрет
+                </a>
+              )}
+              {canAssess && (
+                <a
+                  href={`/lead/assess?id=${user.id}`}
+                  className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
+                >
+                  Оценить
+                </a>
+              )}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(user)}
+                  className="text-sm font-medium px-3.5 py-2 rounded-pill hover:bg-ink/5 transition-colors"
+                >
+                  Изменить
                 </button>
-              </span>
-            )}
-          </div>
+              )}
+              {hasMenu && (
+                /* Меню — по ховеру (грейс на уход), клик тоже работает */
+                <span
+                  className={`ml-auto ${menuOnlySalary ? 'salary-sensitive' : ''}`}
+                  onMouseEnter={menuEnter}
+                  onMouseLeave={menuLeave}
+                >
+                  <button
+                    ref={menuBtnRef}
+                    type="button"
+                    onClick={() => setMenuOpen((v) => !v)}
+                    className="w-9 h-9 rounded-pill flex items-center justify-center
+                               text-stone hover:text-ink hover:bg-ink/5 transition-colors text-lg tracking-widest"
+                    aria-label="Ещё действия"
+                    aria-expanded={menuOpen}
+                  >
+                    ⋯
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Меню «⋯» — редкие/опасные действия не на виду (стрим-safe) */}
@@ -899,11 +947,59 @@ export default function UserCard360({
             onMouseLeave={menuLeave}
             className="absolute right-3 bottom-[58px] w-max z-20 card p-1.5 shadow-soft-lg animate-scale-in"
           >
+            {/* Доступ человека — первыми: самые частые пункты (лиды, 12.10.2026) */}
+            {canInvite &&
+              (hasPublishedAssessment ? (
+                <button type="button" onClick={inviteSelf} className={MENU_ITEM}>
+                  {/* Обе подписи в одной ячейке: меню не меняет ширину,
+                      когда «Позвать на самооценку» сменяется откликом */}
+                  <span className="grid" aria-live="polite">
+                    <span
+                      className={`col-start-1 row-start-1 ${invite.state === 'idle' ? '' : 'invisible'}`}
+                    >
+                      Позвать на самооценку
+                    </span>
+                    <span
+                      className={`col-start-1 row-start-1 inline-flex items-center gap-1.5 ${
+                        invite.state === 'idle' ? 'invisible' : ''
+                      } ${invite.state === 'failed' ? 'text-blaze' : 'text-emerald'}`}
+                    >
+                      {invite.state === 'failed' ? (
+                        'Не скопировалось'
+                      ) : (
+                        <>
+                          <CheckIcon className="w-4 h-4 shrink-0" />
+                          Скопировано
+                        </>
+                      )}
+                    </span>
+                  </span>
+                </button>
+              ) : (
+                // Не disabled, а aria-disabled: выключенная кнопка не ловит
+                // наведение, и подсказка не показалась бы. Портал — меню у
+                // нижнего края поп-апа, хинт может уйти наверх.
+                <Tooltip
+                  portal
+                  className="w-full"
+                  maxWidth={320}
+                  text="Самооценка откроется после первой оценки"
+                >
+                  <button type="button" aria-disabled="true" className={MENU_ITEM_OFF}>
+                    Позвать на самооценку
+                  </button>
+                </Tooltip>
+              ))}
+            {canPassword && (
+              <button type="button" onClick={startPassword} className={MENU_ITEM}>
+                Сгенерировать пароль
+              </button>
+            )}
             {canPlan && (
               <button
                 type="button"
                 onClick={startPlan}
-                className="salary-sensitive block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+                className={`salary-sensitive ${MENU_ITEM}`}
               >
                 {hasPlan ? 'Изменить пересмотр' : 'Запланировать пересмотр'}
               </button>
@@ -912,7 +1008,7 @@ export default function UserCard360({
               <button
                 type="button"
                 onClick={clearPlan}
-                className="salary-sensitive block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+                className={`salary-sensitive ${MENU_ITEM}`}
               >
                 Снять пересмотр
               </button>
@@ -921,7 +1017,7 @@ export default function UserCard360({
               <button
                 type="button"
                 onClick={startBonus}
-                className="salary-sensitive block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+                className={`salary-sensitive ${MENU_ITEM}`}
               >
                 Добавить премию
               </button>
@@ -935,34 +1031,23 @@ export default function UserCard360({
                     callbackUrl: '/',
                   })
                 }
-                className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
+                className={MENU_ITEM}
               >
-                Войти как {user.fullName.split(' ')[0]}
+                Войти как {firstName(user.fullName)}
               </button>
             )}
             {canImportLeadReview && (
-              <a
-                href={`/admin/lead-reviews/new?userId=${user.id}`}
-                className="block px-3 py-2 rounded-[10px] text-sm text-ink hover:bg-canvas transition-colors"
-              >
+              <a href={`/admin/lead-reviews/new?userId=${user.id}`} className={MENU_ITEM}>
                 Импорт опроса
               </a>
             )}
             {canDeactivate &&
               (!deactivateArmed ? (
-                <button
-                  type="button"
-                  onClick={armDeactivate}
-                  className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-blaze hover:bg-canvas transition-colors"
-                >
+                <button type="button" onClick={armDeactivate} className={MENU_ITEM_DANGER}>
                   Деактивировать
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleDeactivate}
-                  className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm font-medium text-white bg-blaze hover:brightness-95 transition-all"
-                >
+                <button type="button" onClick={handleDeactivate} className={MENU_ITEM_ARMED}>
                   Точно деактивировать?
                 </button>
               ))}
@@ -974,23 +1059,69 @@ export default function UserCard360({
                     setDeleteArmed(true);
                     setTimeout(() => setDeleteArmed(false), 5000);
                   }}
-                  className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm text-blaze hover:bg-canvas transition-colors"
+                  className={MENU_ITEM_DANGER}
                 >
                   Удалить
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleHardDelete}
-                  className="block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm font-medium text-white bg-blaze hover:brightness-95 transition-all"
-                >
+                <button type="button" onClick={handleHardDelete} className={MENU_ITEM_ARMED}>
                   Точно удалить навсегда?
                 </button>
               ))}
           </div>
         )}
       </div>
+
+      {/* Пароль из меню «⋯» — окном поверх поп-апа: Escape и клик мимо
+          закрывают только окно (Dialog), поп-ап остаётся */}
+      {passwordOpen && (
+        <PasswordDialog
+          userId={user.id}
+          fullName={user.fullName}
+          email={user.email}
+          onClose={closePassword}
+        />
+      )}
     </div>
+  );
+}
+
+// Пункт меню «⋯»: строка на всю ширину меню. Тоны — обычный, опасный,
+// взведённое подтверждение и выключенный (с подсказкой, почему).
+const MENU_ITEM_BASE = 'block w-full whitespace-nowrap text-left px-3 py-2 rounded-[10px] text-sm';
+const MENU_ITEM = `${MENU_ITEM_BASE} text-ink hover:bg-canvas transition-colors`;
+const MENU_ITEM_DANGER = `${MENU_ITEM_BASE} text-blaze hover:bg-canvas transition-colors`;
+const MENU_ITEM_ARMED = `${MENU_ITEM_BASE} font-medium text-white bg-blaze hover:brightness-95 transition-all`;
+const MENU_ITEM_OFF = `${MENU_ITEM_BASE} text-ash cursor-default`;
+
+/**
+ * «Сгенерировать пароль» из меню «⋯»: окно с тем же PasswordReset, что в
+ * модалке «Изменить» (layout="stack" — колонка поп-апа уже). Заголовок — чей
+ * пароль, по имени в родительном падеже: «Пароль для Марии».
+ */
+function PasswordDialog({
+  userId,
+  fullName,
+  email,
+  onClose,
+}: {
+  userId: number;
+  fullName: string;
+  email: string;
+  onClose: () => void;
+}) {
+  const titleId = useId();
+  return (
+    <Dialog labelledBy={titleId} onClose={onClose}>
+      <DialogTitle id={titleId}>Пароль для {genitiveFirstName(fullName)}</DialogTitle>
+      <PasswordReset
+        userId={userId}
+        email={email}
+        layout="stack"
+        onCancel={onClose}
+        onDone={onClose}
+      />
+    </Dialog>
   );
 }
 

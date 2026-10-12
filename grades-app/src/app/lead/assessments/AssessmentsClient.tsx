@@ -7,6 +7,8 @@ import TitleAurora from '@/components/TitleAurora';
 import EmptyState from '@/components/EmptyState';
 import BuildChip from '@/components/BuildChip';
 import { CheckIcon } from '@/components/icons';
+import PersonLink from '@/components/PersonLink';
+import { designerPortraitHref } from '@/lib/portraitHref';
 import { gradeName } from '@/lib/types';
 import Link from 'next/link';
 
@@ -211,11 +213,15 @@ export default function AssessmentsClient({
               {rows.map((r) => (
                 <tr
                   key={r.id}
-                  onClick={() => router.push(`/lead/portrait?id=${r.designerId}`)}
+                  onClick={() => router.push(designerPortraitHref(r.designerId))}
                   className="hover:bg-canvas/60 transition-colors cursor-pointer"
                 >
                   <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
+                    {/* Аватар с именем — настоящая ссылка на портрет (новая
+                        вкладка по Cmd/Ctrl-клику); обычный клик всплывает
+                        к строке и переходит, как раньше. «Удалить» в строке
+                        остаётся кнопкой вне ссылки */}
+                    <PersonLink href={designerPortraitHref(r.designerId)} className="flex items-center gap-3">
                       <Avatar
                         name={r.designerName}
                         avatarUrl={r.designerAvatarUrl}
@@ -229,7 +235,7 @@ export default function AssessmentsClient({
                           {r.designerEmail}
                         </div>
                       </div>
-                    </div>
+                    </PersonLink>
                   </td>
                   <td className="py-3 px-4 text-stone tabular-nums whitespace-nowrap">
                     {formatDate(r.publishedAt)}

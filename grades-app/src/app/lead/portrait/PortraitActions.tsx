@@ -66,9 +66,11 @@ export default function PortraitActions({
           Продолжить черновик
         </Link>
       )}
-      {/* «Новый цикл» — всегда создаёт свежий draft поверх опубликованной.
-          AssessPage по ?new=1 принудительно создаёт новую assessment, копируя
-          scores из последней опубликованной как стартовую точку. */}
+      {/* «Провести оценку» (до 12.10.2026 — «Новый цикл»; та же подпись, что
+          на портрете без оценки) — всегда создаёт свежий draft поверх
+          опубликованной. AssessPage по ?new=1 принудительно создаёт новую
+          assessment, копируя scores из последней опубликованной как
+          стартовую точку. */}
       {canAssess && (
         <Link
           href={`/lead/assess?id=${designerId}&new=1`}
@@ -76,7 +78,7 @@ export default function PortraitActions({
                      bg-snow/60 backdrop-blur-md border border-cloud/40
                      hover:bg-snow/80 transition-colors"
         >
-          Новый цикл
+          Провести оценку
         </Link>
       )}
       {!deleteArmed ? (
