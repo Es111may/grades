@@ -25,6 +25,7 @@
  */
 
 import { createClient, type ClickHouseClient } from '@clickhouse/client';
+import { withClickHouseGate } from './clickhouseGate';
 import { getOrCompute, makeEmailsCacheKey, setCached, DEFAULT_TTL_MS } from './perfCache';
 
 // ============================================================
@@ -231,18 +232,22 @@ async function loadOnTimeRows(unique: string[]): Promise<OnTimeRow[]> {
     rowsKey(unique),
     async () => {
       const client = getClient();
-      const result = await client.query({
-        query: buildOnTimeRowsSQL(),
-        query_params: { emails: unique },
-        format: 'JSONEachRow',
-      });
       type Row = {
         user_email: string;
         month: string;
         total_tasks: number | string;
         on_time_tasks: number | string;
       };
-      const rows = ((await result.json()) as Row[]).map((r) => ({
+      // Хост не отвечает на /ping — падаем сразу, а не через request_timeout
+      const raw = await withClickHouseGate(async () => {
+        const result = await client.query({
+          query: buildOnTimeRowsSQL(),
+          query_params: { emails: unique },
+          format: 'JSONEachRow',
+        });
+        return (await result.json()) as Row[];
+      });
+      const rows = raw.map((r) => ({
         email: r.user_email.toLowerCase(),
         month: String(r.month),
         total: Number(r.total_tasks) || 0,

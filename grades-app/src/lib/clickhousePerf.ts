@@ -34,6 +34,7 @@
  */
 
 import { createClient, type ClickHouseClient } from '@clickhouse/client';
+import { withClickHouseGate } from './clickhouseGate';
 
 // ============================================================
 // Singleton-клиент
@@ -672,10 +673,13 @@ async function runQuery<T>(
   sql: string,
   params: Record<string, string>,
 ): Promise<T[]> {
-  const result = await client.query({
-    query: sql,
-    query_params: params,
-    format: 'JSONEachRow',
+  // Хост не отвечает на /ping — падаем сразу, а не через request_timeout
+  return withClickHouseGate(async () => {
+    const result = await client.query({
+      query: sql,
+      query_params: params,
+      format: 'JSONEachRow',
+    });
+    return (await result.json()) as T[];
   });
-  return (await result.json()) as T[];
 }

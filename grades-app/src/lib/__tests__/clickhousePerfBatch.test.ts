@@ -5,6 +5,10 @@ const query = vi.fn();
 vi.mock('@clickhouse/client', () => ({
   createClient: () => ({ query }),
 }));
+// Пинг хоста — отдельный модуль со своими тестами; тут пропускаем насквозь.
+vi.mock('../clickhouseGate', () => ({
+  withClickHouseGate: <T>(run: () => Promise<T>) => run(),
+}));
 
 import {
   fetchOnTimeStatsByEmail,

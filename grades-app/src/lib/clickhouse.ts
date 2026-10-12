@@ -19,6 +19,8 @@
  * склеивать строку SQL руками.
  */
 
+import { withClickHouseGate } from './clickhouseGate';
+
 function getCreds(): { url: string; user: string; password: string } {
   const host = process.env.CLICKHOUSE_HOST;
   const port = process.env.CLICKHOUSE_PORT;
@@ -52,22 +54,25 @@ export async function chQuery<T>(
   for (const [k, v] of Object.entries(params)) {
     u.searchParams.set(`param_${k}`, String(v));
   }
-  const res = await fetch(u.toString(), {
-    method: 'POST',
-    headers: {
-      Authorization: auth,
-      'Content-Type': 'text/plain',
-    },
-    // Принудительно требуем JSON-формат — у нас единый парсер ответа.
-    body: sql + '\nFORMAT JSON',
-    // 6 секунд достаточно для большинства HR-запросов; если ClickHouse недоступен,
-    // не блокируем рендер карточки пользователя.
-    signal: AbortSignal.timeout(6000),
+  // Хост не отвечает на /ping — падаем сразу, не дожидаясь таймаута
+  return withClickHouseGate(async () => {
+    const res = await fetch(u.toString(), {
+      method: 'POST',
+      headers: {
+        Authorization: auth,
+        'Content-Type': 'text/plain',
+      },
+      // Принудительно требуем JSON-формат — у нас единый парсер ответа.
+      body: sql + '\nFORMAT JSON',
+      // 6 секунд достаточно для большинства HR-запросов; если ClickHouse недоступен,
+      // не блокируем рендер карточки пользователя.
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`ClickHouse ${res.status}: ${t.slice(0, 300)}`);
+    }
+    const json = (await res.json()) as { data: T[] };
+    return json.data;
   });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`ClickHouse ${res.status}: ${t.slice(0, 300)}`);
-  }
-  const json = (await res.json()) as { data: T[] };
-  return json.data;
 }
