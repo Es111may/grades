@@ -143,6 +143,9 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   // Снимок отметки: если отправка не удалась, повтор не снимает заново
   const draftShot = useRef<{ key: string; shot: CapturedShot | null } | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Тред другой страницы, открытый прямо в поповере вместо списка (из «Все
+  // страницы»): туда не переходим — страница могла бы и не пустить
+  const [detailId, setDetailId] = useState<number | null>(null);
   // Тред, который надо открыть, когда загрузятся треды его страницы и
   // откроется его место (ссылка с #comment-<id>, переход из списка в поп-ап
   // другого человека или на другую страницу). moved — адрес места уже
@@ -169,15 +172,25 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
   }, []);
 
   // Новая страница — свои треды; открытое на прошлой закрываем. Поп-ап на
-  // той же странице — не новая страница: треды те же, меняются метки
+  // той же странице — не новая страница: треды те же, меняются метки.
+  // Тред, который ждал другую страницу, забываем: страница не пустила и
+  // увела (оценка чужого дизайнера → «Команда») — иначе он открылся бы
+  // внезапно, когда человек сам туда придёт
   useEffect(() => {
     setThreads([]);
     setState('loading');
     setSelectedId(null);
+    setDetailId(null);
     setDraft(null);
     setPlacing(false);
+    setPending((p) => (p && uiCommentPageOf(p.path) !== page ? null : p));
     void load();
-  }, [load]);
+  }, [load, page]);
+
+  // Поповер закрыли — в следующий раз он откроется списком
+  useEffect(() => {
+    if (!popover) setDetailId(null);
+  }, [popover]);
 
   // Ссылка с #comment-<id>: при загрузке и при смене hash. Путь — тот же,
   // что у тредов (из usePathname + useSearchParams), а не из location: у
@@ -387,7 +400,8 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
     }
   }, []);
 
-  const removeFromThread = useCallback((threadId: number, replyId?: number) => {
+  /** Убрать удалённый тред (или ответ) из обоих списков. */
+  const dropComment = useCallback((threadId: number, replyId?: number) => {
     const apply = (list: CommentThread[]) =>
       replyId == null
         ? list.filter((x) => x.id !== threadId)
@@ -396,11 +410,27 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
           );
     setThreads(apply);
     setAll((prev) => (prev ? apply(prev) : prev));
-    if (replyId == null) {
-      setSelectedId(null);
-      focusButton();
-    }
   }, []);
+
+  const removeFromThread = useCallback(
+    (threadId: number, replyId?: number) => {
+      dropComment(threadId, replyId);
+      if (replyId == null) {
+        setSelectedId(null);
+        focusButton();
+      }
+    },
+    [dropComment],
+  );
+
+  // Тред в поповере удалили — обратно к списку (фокус ставит поповер)
+  const removeFromDetail = useCallback(
+    (threadId: number, replyId?: number) => {
+      dropComment(threadId, replyId);
+      if (replyId == null) setDetailId(null);
+    },
+    [dropComment],
+  );
 
   function pick(t: CommentThread) {
     if (sameUiCommentPath(t.path, path)) {
@@ -414,9 +444,18 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
       setPending({ id: t.id, path: t.path });
       return;
     }
-    // Другая страница: переходим, тред откроется там, когда придут её треды.
-    // Если сменится и layout (admin → lead), слой смонтируется заново и
-    // прочитает hash.
+    // Другая страница — тред открывается прямо в поповере. Раньше здесь был
+    // переход, но страница могла не пустить (оценка, портрет чужого
+    // дизайнера, портрет другого лида → redirect), и тред со снимком так и
+    // не открывался. Переход — по «Перейти к месту» (goToPlace)
+    setSelectedId(null);
+    setDetailId(t.id);
+  }
+
+  // На страницу треда: он откроется там, когда придут её треды. Если
+  // сменится и layout (admin → lead), слой смонтируется заново и прочитает
+  // hash. Страница не пустила — pending забудется со сменой страницы
+  function goToPlace(t: CommentThread) {
     setPopover(false);
     setPending({ id: t.id, path: t.path });
     router.push(`${t.path}${commentHash(t.id)}`);
@@ -460,6 +499,8 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
 
   const listThreads = scope === 'page' ? [...threads].reverse() : (all ?? []);
   const listState = scope === 'page' ? state : allState;
+  // Тред в поповере — из «Все страницы»; удалили — снова список
+  const detail = detailId != null ? (all?.find((t) => t.id === detailId) ?? null) : null;
 
   // Карточка без видимой метки: слева от поповера, если он открыт, иначе
   // над кнопкой
@@ -599,6 +640,12 @@ export default function CommentsRoot({ viewer }: { viewer: CommentsViewer }) {
             setPopover(false);
             focusButton();
           }}
+          detail={detail}
+          viewer={viewer}
+          onBack={() => setDetailId(null)}
+          onGo={goToPlace}
+          onChanged={replaceThread}
+          onDeleted={removeFromDetail}
         />
       )}
 
