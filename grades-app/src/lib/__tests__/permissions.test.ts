@@ -4,8 +4,10 @@ import {
   canDeactivateUser,
   canEditOwnProfile,
   canEditUser,
+  canImpersonateUser,
   canInviteSelfAssessment,
   canIssuePassword,
+  canSwitchToUser,
   canViewUserDetails,
 } from '../permissions';
 
@@ -135,17 +137,28 @@ describe('canEditOwnProfile', () => {
 });
 
 // Цель для пароля и приглашения: лид — 10, стардиз — 20
-const person = (role: string, leadId: number | null, stardizId: number | null = null) => ({
+const person = (
+  role: string,
+  leadId: number | null,
+  stardizId: number | null = null,
+  id = 500,
+) => ({
+  id,
   role,
   leadId,
   stardizId,
 });
 
 describe('canIssuePassword — как POST /api/users/[id]/password', () => {
-  it('админ — любому, включая лидов, админов и себя', () => {
+  it('админ — дизайнерам, стардизам, лидам и себе', () => {
     expect(canIssuePassword(admin, person('designer', 11))).toBe(true);
+    expect(canIssuePassword(admin, person('stardiz', 11))).toBe(true);
     expect(canIssuePassword(admin, person('lead', null))).toBe(true);
-    expect(canIssuePassword(admin, person('admin', null))).toBe(true);
+    expect(canIssuePassword(admin, person('admin', null, null, admin.id))).toBe(true);
+  });
+  it('админ — не другому админу: пароль админа меняет только он сам', () => {
+    expect(canIssuePassword(admin, person('admin', null, null, 2))).toBe(false);
+    expect(canIssuePassword({ id: 2, role: 'admin' }, person('admin', null, null, admin.id))).toBe(false);
   });
   it('лид — своим дизайнерам и стардизам (он лид или стардиз)', () => {
     expect(canIssuePassword(lead, person('designer', 10))).toBe(true);
@@ -167,6 +180,61 @@ describe('canIssuePassword — как POST /api/users/[id]/password', () => {
   it('дизайнер и без сессии — нет', () => {
     expect(canIssuePassword(designer, person('designer', 30, 30))).toBe(false);
     expect(canIssuePassword(null, person('designer', 10))).toBe(false);
+  });
+});
+
+describe('canImpersonateUser — «Войти как» и провайдер impersonate', () => {
+  const target = (role: string, id = 500, active = true) => ({ id, role, active });
+  it('админ — под активным дизайнером, стардизом и лидом', () => {
+    expect(canImpersonateUser(admin, target('designer'))).toBe(true);
+    expect(canImpersonateUser(admin, target('stardiz'))).toBe(true);
+    expect(canImpersonateUser(admin, target('lead'))).toBe(true);
+  });
+  it('под другим админом — нельзя никому, в обе стороны', () => {
+    expect(canImpersonateUser(admin, target('admin', 2))).toBe(false);
+    expect(canImpersonateUser({ id: 2, role: 'admin' }, target('admin', admin.id))).toBe(false);
+  });
+  it('не под собой и не под неактивным', () => {
+    expect(canImpersonateUser(admin, target('admin', admin.id))).toBe(false);
+    expect(canImpersonateUser(admin, target('designer', 500, false))).toBe(false);
+  });
+  it('не админ — ни под кем: из-под дизайнера или лида дальше не войти', () => {
+    for (const me of [lead, stardiz, designer, null]) {
+      expect(canImpersonateUser(me, target('designer'))).toBe(false);
+      expect(canImpersonateUser(me, target('admin', admin.id))).toBe(false);
+    }
+  });
+});
+
+describe('canSwitchToUser — цепочки «Войти как» (провайдер impersonate)', () => {
+  const row = (id: number, role: string, active = true) => ({ id, role, active });
+  const adminA = row(1, 'admin');
+  const adminB = row(2, 'admin');
+  const designerD = row(30, 'designer');
+  const leadL = row(10, 'lead');
+  const own = { impersonatorId: null };
+  const asA = { impersonatorId: 1 };
+
+  it('админ в своей сессии: к дизайнеру и лиду — да, к другому админу — нет', () => {
+    expect(canSwitchToUser(own, adminA, designerD)).toBe(true);
+    expect(canSwitchToUser(own, adminA, leadL)).toBe(true);
+    expect(canSwitchToUser(own, adminA, adminB)).toBe(false);
+  });
+  it('из-под дизайнера или лида — не к админу и не к другим', () => {
+    for (const actor of [designerD, leadL]) {
+      expect(canSwitchToUser(asA, actor, adminB)).toBe(false);
+      expect(canSwitchToUser(asA, actor, row(31, 'designer'))).toBe(false);
+    }
+  });
+  it('возврат к исходному админу работает, к неактивному — нет', () => {
+    expect(canSwitchToUser(asA, null, adminA)).toBe(true);
+    expect(canSwitchToUser(asA, designerD, adminA)).toBe(true);
+    expect(canSwitchToUser(asA, null, row(1, 'admin', false))).toBe(false);
+  });
+  it('админа разжаловали или деактивировали — войти не может', () => {
+    expect(canSwitchToUser(own, row(1, 'lead'), designerD)).toBe(false);
+    expect(canSwitchToUser(own, row(1, 'admin', false), designerD)).toBe(false);
+    expect(canSwitchToUser(own, null, designerD)).toBe(false);
   });
 });
 

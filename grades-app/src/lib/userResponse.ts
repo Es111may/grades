@@ -7,6 +7,8 @@
 //     (lib/dismissal);
 //   • плановый пересмотр з/п — тем, кому можно видеть деньги этого человека
 //     (lib/compPermissions). Премии — отдельная таблица, в строку не входят;
+//     база пересмотра (plannedRaiseBaselineAt) — служебная, считается по
+//     данным HR как есть и клиенту не нужна — никому;
 //   • аватар — ссылкой /api/avatar вместо data URL (lib/avatar): ответ
 //     сливается в строку списка, и base64 не должен туда вернуться.
 //
@@ -24,7 +26,6 @@ const PLANNED_RAISE_KEYS = [
   'plannedRaiseSalary',
   'plannedRaiseNote',
   'plannedRaiseSetById',
-  'plannedRaiseBaselineAt',
 ] as const;
 
 export function userForViewer<T extends { id: number; leadId: number | null }>(
@@ -33,6 +34,7 @@ export function userForViewer<T extends { id: number; leadId: number | null }>(
 ): Partial<T> {
   const out = { ...user } as Record<string, unknown>;
   delete out.passwordHash;
+  delete out.plannedRaiseBaselineAt;
   if (!canViewDismissalDate(me)) delete out.dismissedAt;
   if (!canViewDismissalStatus(me)) {
     delete out.dismissalType;

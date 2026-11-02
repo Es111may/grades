@@ -27,6 +27,7 @@ import {
   type PlannedRaiseState,
 } from '@/lib/compensation';
 import { fetchHrCompensation, type HrCompensation } from '@/lib/hrSalary';
+import { displayCompensationFor, loadDisplayRates } from '@/lib/salaryOverride';
 
 const bodySchema = z.object({
   at: z.string().nullable().optional(),
@@ -56,7 +57,7 @@ async function guard(idParam: string) {
     },
   });
   if (!target) return { error: NextResponse.json({ error: 'Not found' }, { status: 404 }) };
-  const viewer = me?.id ? { id: me.id, role: me.role } : null;
+  const viewer = me?.id ? { id: me.id, role: me.role, impersonatorId: me.impersonatorId } : null;
   if (!viewer || !canEditPlannedRaise(viewer, target)) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
@@ -80,9 +81,18 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   // HR — тот же кэш и те же входы, что у GET /compensation: выполнен ли
   // текущий статус и какая база у нового. Недоступен — без него.
+  // Выполнен ли — как статус видит этот зритель (тот же расчёт, что у GET,
+  // lib/salaryOverride); база — по данным HR как есть: она хранится одна на
+  // всех и наружу не отдаётся.
   let hr: HrCompensation | null = null;
+  let shown: HrCompensation | null = null;
   try {
-    hr = await fetchHrCompensation(g.target.email);
+    const [c, rates] = await Promise.all([
+      fetchHrCompensation(g.target.email),
+      loadDisplayRates(g.me),
+    ]);
+    hr = c;
+    shown = displayCompensationFor(c, g.target.email, rates);
   } catch (err) {
     console.error('[planned-raise] HR unavailable:', err);
   }
@@ -91,14 +101,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const setAt = g.target.plannedRaiseSetAt;
   const state: PlannedRaiseState | null = !setAt
     ? 'none'
-    : hr
+    : shown
       ? plannedRaiseState(
           {
             setAt: setAt.toISOString(),
             baselineAt: g.target.plannedRaiseBaselineAt?.toISOString() ?? null,
           },
-          log,
-          hiredAt,
+          shown.log,
+          shown.hr?.hiredAt ?? null,
         )
       : null;
   const restart = shouldRestartPlan(state, data.fresh === true);

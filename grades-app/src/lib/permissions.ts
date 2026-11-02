@@ -3,7 +3,9 @@
  * расходиться в проверках.
  *
  * Главные роли:
- *  - admin   — всё, включая назначение админов и сброс паролей
+ *  - admin   — всё, включая назначение админов и сброс паролей (кроме
+ *              пароля и входа «под» другим админом — canIssuePassword,
+ *              canImpersonateUser)
  *  - lead    — всё что админ, кроме: назначения роли admin и сброса паролей
  *  - stardiz — senior-дизайнер с правами лида при грейдировании своих
  *              подопечных; сам грейдируется лидом/админом. Не имеет
@@ -143,9 +145,13 @@ export function canViewUserDetails(
   return target.leadId === me.id || target.stardizId === me.id;
 }
 
-// ── Доступ человека: пароль и приглашение на самооценку ──────────────────
+// ── Доступ человека: пароль, вход «под» ним, приглашение на самооценку ──
+//
+// Аккаунт админа — только его владельцу: другой админ не входит «под» ним и
+// не выдаёт ему пароль. Правило общее для всех админов.
 
 type AccessTarget = {
+  id: number;
   role: string;
   leadId: number | null;
   stardizId: number | null;
@@ -155,7 +161,7 @@ type AccessTarget = {
  * Может ли выдать человеку пароль для входа (POST /api/users/[id]/password —
  * сервер проверяет этим же хелпером; модалка «Изменить» и меню «⋯» поп-апа
  * 360 показывают по нему пункты):
- *  - admin — любому;
+ *  - admin — любому, кроме других админов (свой пароль — сам себе);
  *  - lead — дизайнеру или стардизу, у которого он лид или стардиз;
  *  - stardiz — дизайнеру, у которого он стардиз или лид.
  * Лидам, админам и самим себе лид и стардиз пароль не выдают — иначе это
@@ -163,13 +169,46 @@ type AccessTarget = {
  */
 export function canIssuePassword(me: Me, target: AccessTarget): boolean {
   if (!me) return false;
-  if (me.role === 'admin') return true;
+  if (me.role === 'admin') return target.role !== 'admin' || target.id === me.id;
   const mine = target.leadId === me.id || target.stardizId === me.id;
   if (me.role === 'lead') {
     return mine && (target.role === 'designer' || target.role === 'stardiz');
   }
   if (me.role === 'stardiz') return mine && target.role === 'designer';
   return false;
+}
+
+/**
+ * Может ли войти «под» человеком (меню «⋯» поп-апа 360 → «Войти как»;
+ * сервер — провайдер impersonate в lib/auth проверяет этим же хелпером по
+ * роли из БД). Только админ, только под активным, не под собой и не под
+ * другим админом. Возврат «под» исходного админа после входа — отдельный
+ * путь в lib/auth (по impersonatorId из токена), этим хелпером не решается.
+ */
+export function canImpersonateUser(
+  me: Me,
+  target: { id: number; role: string; active: boolean },
+): boolean {
+  if (!me || me.role !== 'admin') return false;
+  return target.active && target.id !== me.id && target.role !== 'admin';
+}
+
+/**
+ * Решение провайдера impersonate (lib/auth): можно ли из текущей сессии
+ * перейти в аккаунт target. Возврат в исходный аккаунт (target —
+ * impersonatorId сессии) — всегда, если он активен: это выход из «Войти как».
+ * Иначе — canImpersonateUser для того, кто сейчас в сессии (actor — его
+ * строка из БД). Поэтому из-под дизайнера или лида дальше не войти ни к
+ * кому, а к админу — ни из-под кого.
+ */
+export function canSwitchToUser(
+  session: { impersonatorId: number | null },
+  actor: { id: number; role: string; active: boolean } | null,
+  target: { id: number; role: string; active: boolean },
+): boolean {
+  if (!target.active) return false;
+  if (session.impersonatorId !== null && session.impersonatorId === target.id) return true;
+  return !!actor?.active && canImpersonateUser(actor, target);
 }
 
 /**

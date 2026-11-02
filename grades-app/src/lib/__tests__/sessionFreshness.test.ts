@@ -64,6 +64,19 @@ describe('resolveSessionRefresh', () => {
     expect(resolveSessionRefresh(t, [designer, { ...admin, active: false }])).toEqual({ ok: false });
     expect(resolveSessionRefresh(t, [designer])).toEqual({ ok: false });
   });
+  it('имперсонация: под админом сессия не живёт (в т.ч. открытая раньше или цель стала админом)', () => {
+    const otherAdmin = { id: 2, role: 'admin', active: true, fullName: 'Админ Второй' };
+    expect(resolveSessionRefresh({ numericId: 2, impersonatorId: 1 }, [otherAdmin, admin])).toEqual({ ok: false });
+    expect(
+      resolveSessionRefresh({ numericId: 5, impersonatorId: 1 }, [{ ...designer, role: 'admin' }, admin]),
+    ).toEqual({ ok: false });
+    // Своя сессия админа — как прежде
+    expect(resolveSessionRefresh({ numericId: 1, impersonatorId: null }, [admin])).toEqual({
+      ok: true,
+      role: 'admin',
+      fullName: 'Админ Тестов',
+    });
+  });
   it('имперсонация: цель деактивирована — сессия мертва', () => {
     expect(
       resolveSessionRefresh({ numericId: 5, impersonatorId: 1 }, [{ ...designer, active: false }, admin]),

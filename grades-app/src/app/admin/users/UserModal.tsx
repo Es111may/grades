@@ -134,8 +134,9 @@ export default function UserModal({
   // Увольнение (дата, тип, причина) правит только админ — см. lib/dismissal
   const canDismiss = canEditDismissal({ role: meRole });
   // Кто может выдать пароль этому пользователю — тот же хелпер, что
-  // проверяет /api/users/[id]/password: админ всем, лид — своим дизайнерам и
-  // стардизам, стардиз — своим дизайнерам (lib/permissions).
+  // проверяет /api/users/[id]/password: админ всем, кроме других админов
+  // (себе — можно), лид — своим дизайнерам и стардизам, стардиз — своим
+  // дизайнерам (lib/permissions).
   const canManagePassword =
     !isNew && !!user && canIssuePassword(meId !== null ? { id: meId, role: meRole } : null, user);
   // Дата грейдирования при открытии — с ней сравниваем при сохранении:

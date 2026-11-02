@@ -241,6 +241,9 @@ model User {
   plannedRaisesSet    User[]    @relation("PlannedRaiseSetter")
   bonuses             Bonus[]   @relation("BonusOwner")
   bonusesCreated      Bonus[]   @relation("BonusCreator")
+  // Отображение ставки (lib/salaryOverride) — служебное, клиенту не уходит
+  salaryDisplay       SalaryDisplayOverride?  @relation("SalaryDisplayUser")
+  salaryDisplaysOwned SalaryDisplayOverride[] @relation("SalaryDisplayOwner")
   // Комментарии к интерфейсу (как в Figma) — админ и лиды
   commentsAuthored    UiComment[] @relation("UiCommentAuthor")
   commentsResolved    UiComment[] @relation("UiCommentResolver")
@@ -610,6 +613,23 @@ model Bonus {
 
   @@index([userId])
   @@map("bonuses")
+}
+
+// Отображение ставки человека (lib/salaryOverride) — только сервер, без UI;
+// запись ведёт scripts/salary-override.ts. Всем, кроме владельца записи,
+// ставка показывается суммой amount (₽/мес на руки, как ставки HR).
+// Владельца удалили — запись остаётся без него (SetNull), а не исчезает.
+model SalaryDisplayOverride {
+  userId    Int      @id
+  user      User     @relation("SalaryDisplayUser", fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int      // ₽/мес на руки
+  ownerId   Int?
+  owner     User?    @relation("SalaryDisplayOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@map("salary_display_overrides")
 }
 
 // Phase 23.6 — настройки сервиса (key-value), правит только админ.

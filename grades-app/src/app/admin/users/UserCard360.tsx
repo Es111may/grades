@@ -64,6 +64,7 @@ import {
   canEditOwnProfile,
   canEditUser,
   canInviteSelfAssessment,
+  canImpersonateUser,
   canIssuePassword,
 } from '@/lib/permissions';
 import { portraitHref } from '@/lib/portraitHref';
@@ -390,7 +391,8 @@ export default function UserCard360({
       ? lastA.totalXp - prevA.totalXp
       : null;
 
-  const canImpersonate = meRole === 'admin' && !isSelf && user.active;
+  // «Войти как» — не под собой и не под другим админом (lib/permissions, как сервер)
+  const canImpersonate = canImpersonateUser(viewer, user);
   const canHardDelete = meRole === 'admin' && !isSelf;
   // Phase 23.4 — компенсации: админ всех, лид своих (сервер проверяет тоже)
   const canViewComp = canViewCompensation(viewer, user);

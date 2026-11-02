@@ -6,6 +6,7 @@ import { todayMoscowIso } from '@/lib/dates';
 import { avatarSrc } from '@/lib/avatar';
 import { loadHrEconomics } from '@/lib/hrEconomics';
 import { loadSettings } from '@/lib/settings';
+import { displayEconomics, loadDisplayRates } from '@/lib/salaryOverride';
 import { buildEconomicsDataset, inEconomicsContour, type GradesOverlay } from '@/lib/economics';
 import EconomicsView from './EconomicsView';
 
@@ -18,6 +19,8 @@ import EconomicsView from './EconomicsView';
  * раньше TRACK_SINCE), даты — из Грейдов. Ставки и журнал — из HR по их
  * email (lib/hrEconomics, кэш + бюджет PAGE_BUDGET_MS). HR не ответил —
  * последняя удачная выборка с меткой «Данные от …» или пустое состояние.
+ * Ставки — какими их видит этот зритель (lib/salaryOverride): выборка в
+ * кэше общая, копию под зрителя делаем здесь.
  */
 
 const MOSCOW_TIME = new Intl.DateTimeFormat('ru-RU', {
@@ -32,7 +35,7 @@ const MOSCOW_TIME = new Intl.DateTimeFormat('ru-RU', {
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 
 export default async function EconomicsPage() {
-  await requireRole('admin');
+  const me = await requireRole('admin');
   const today = todayMoscowIso();
 
   // Люди — первыми: по их email идём в HR, параллельно с остальными чтениями
@@ -67,7 +70,7 @@ export default async function EconomicsPage() {
     ),
   );
 
-  const [users, hr, grades, settings] = await Promise.all([
+  const [users, hr, grades, settings, rates] = await Promise.all([
     usersP,
     hrP,
     // Грейд — последней опубликованной оценки, как в «Команде»
@@ -78,7 +81,13 @@ export default async function EconomicsPage() {
       ORDER BY "designerId", "publishedAt" DESC
     `,
     loadSettings(),
+    // Не прочитались — как недоступный HR: без ставок
+    loadDisplayRates(me).catch((err: unknown) => {
+      console.error('[economics] HR unavailable:', err);
+      return null;
+    }),
   ]);
+  const raw = hr.raw && rates ? displayEconomics(hr.raw, rates) : null;
 
   const gradeById = new Map(grades.map((g) => [g.designerId, g.effectiveGrade]));
   const overlay: GradesOverlay[] = users.map((u) => ({
@@ -106,8 +115,8 @@ export default async function EconomicsPage() {
       : null,
   }));
 
-  const dataset = hr.raw ? buildEconomicsDataset({ raw: hr.raw, grades: overlay, today }) : null;
-  const asOfLabel = hr.raw ? MOSCOW_TIME.format(new Date(hr.raw.fetchedAt)) : null;
+  const dataset = raw ? buildEconomicsDataset({ raw, grades: overlay, today }) : null;
+  const asOfLabel = raw ? MOSCOW_TIME.format(new Date(raw.fetchedAt)) : null;
 
   return <EconomicsView dataset={dataset} initialSettings={settings} asOfLabel={asOfLabel} stale={hr.stale} />;
 }

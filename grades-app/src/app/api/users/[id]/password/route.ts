@@ -31,7 +31,8 @@ function generatePassword(length = 12): string {
  *
  * Кто может выдавать пароли (синхронизировано с правами на ИПР —
  * lib/checklistPermissions.ts):
- *   - admin    — любому
+ *   - admin    — любому, кроме других админов: пароль админа меняет только
+ *                он сам (из своей карточки)
  *   - lead     — designer'у или stardiz'у, у которого leadId/stardizId = me.id
  *   - stardiz  — designer'у, у которого stardizId или leadId = me.id
  *

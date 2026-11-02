@@ -6,7 +6,9 @@
 // Имперсонация: в токене numericId — тот, под кем вошли, impersonatorId —
 // админ, который вошёл. Данные берём у первого, а второй должен оставаться
 // активным админом — иначе сессия, выданная по админскому праву, живёт
-// дольше самого права.
+// дольше самого права. Под админом сессия «Войти как» не живёт (вход под
+// админом закрыт — lib/permissions → canImpersonateUser): так заканчиваются
+// и сессии, открытые раньше, и те, где цель стала админом уже после входа.
 
 export const SESSION_REFRESH_MS = 5 * 60 * 1000;
 
@@ -39,6 +41,7 @@ export function resolveSessionRefresh(
   if (typeof token.impersonatorId === 'number') {
     const admin = rows.find((r) => r.id === token.impersonatorId);
     if (!admin || !admin.active || admin.role !== 'admin') return { ok: false };
+    if (self.role === 'admin') return { ok: false };
   }
   return { ok: true, role: self.role, fullName: self.fullName };
 }

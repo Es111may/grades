@@ -34,6 +34,13 @@ describe('userForViewer', () => {
     expect(userForViewer(row, ownLead)).not.toHaveProperty('passwordHash');
   });
 
+  it('база пересмотра — служебная, не уходит никому', () => {
+    for (const me of [admin, ownLead, otherLead, stardiz, null]) {
+      expect(userForViewer(row, me)).not.toHaveProperty('plannedRaiseBaselineAt');
+    }
+    expect(row.plannedRaiseBaselineAt).toEqual(new Date('2026-07-01'));
+  });
+
   it('админ видит увольнение целиком и пересмотр', () => {
     const r = userForViewer(row, admin);
     expect(r.dismissedAt).toEqual(row.dismissedAt);

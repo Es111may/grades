@@ -20,6 +20,7 @@ import {
 } from '@/lib/compPermissions';
 import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
 import { fetchHrCompensation } from '@/lib/hrSalary';
+import { displayCompensationFor, loadDisplayRates } from '@/lib/salaryOverride';
 import { isHourly, isNonGradingBuild } from '@/lib/employment';
 import { todayMoscowIso } from '@/lib/dates';
 
@@ -56,17 +57,20 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 
   // Грейд для вилки — из последней опубликованной оценки (уже с учётом floor).
-  // HR запрашиваем параллельно: одно от другого не зависит.
+  // HR запрашиваем параллельно: одно от другого не зависит. Ставка — какой
+  // её видит этот зритель (lib/salaryOverride), из неё и всё ниже.
   const [lastAssessment, hr] = await Promise.all([
     prisma.assessment.findFirst({
       where: { designerId: id, status: 'published' },
       orderBy: { publishedAt: 'desc' },
       select: { effectiveGrade: true },
     }),
-    fetchHrCompensation(target.email).catch((err) => {
-      console.error('[compensation] HR unavailable:', err);
-      return null;
-    }),
+    Promise.all([fetchHrCompensation(target.email), loadDisplayRates(me)])
+      .then(([c, rates]) => displayCompensationFor(c, target.email, rates))
+      .catch((err) => {
+        console.error('[compensation] HR unavailable:', err);
+        return null;
+      }),
   ]);
 
   const bonuses = target.bonuses.map((b) => ({

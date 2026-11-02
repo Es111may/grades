@@ -18,6 +18,7 @@ import { canViewCompensation } from '@/lib/compPermissions';
 import { canViewDismissalDate, canViewDismissalStatus } from '@/lib/dismissal';
 import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
 import { fetchHrCompensationBatch, fetchHrLogsByEmail } from '@/lib/hrSalary';
+import { displayCompensationMap, displayLogsByEmail, loadDisplayRates } from '@/lib/salaryOverride';
 import { todayMoscowIso } from '@/lib/dates';
 import { avatarSrc } from '@/lib/avatar';
 import { SEASONS, type Season } from '@/lib/assessmentSeason';
@@ -85,7 +86,7 @@ async function loadExternal(
     leadId: number | null;
     plannedRaiseSetAt: Date | null;
   }>,
-  me: { id: number; role: string },
+  me: { id: number; role: string; impersonatorId: number | null },
 ): Promise<{
   onTimeByEmail: OnTimeStatsByEmail;
   onTimeSpark: number[];
@@ -114,18 +115,25 @@ async function loadExternal(
   );
   // Админу — ещё и колонка «Зарплата»: один батч по всей странице, из него же
   // берём журналы для плановых пересмотров. Лиду — только журналы тех, у кого
-  // стоит статус.
+  // стоит статус. Ставки — какими их видит этот зритель (lib/salaryOverride):
+  // батч в кэше общий, копию под зрителя делаем здесь.
   const loadHr = async (): Promise<{ hrBatch: HrBatch | null; hrLogs: HrLogs }> => {
     if (me.role === 'admin') {
-      const hrBatch = await fetchHrCompensationBatch(
-        usersRaw.filter((u) => u.active && u.email).map((u) => u.email),
-      );
+      const [batch, rates] = await Promise.all([
+        fetchHrCompensationBatch(usersRaw.filter((u) => u.active && u.email).map((u) => u.email)),
+        loadDisplayRates(me),
+      ]);
+      const hrBatch = displayCompensationMap(batch, rates);
       const hrLogs: HrLogs = new Map();
       for (const [em, c] of hrBatch) hrLogs.set(em, { hiredAt: c.hr?.hiredAt ?? null, log: c.log });
       return { hrBatch, hrLogs };
     }
     if (withPlan.length) {
-      return { hrBatch: null, hrLogs: await fetchHrLogsByEmail(withPlan.map((u) => u.email)) };
+      const [logs, rates] = await Promise.all([
+        fetchHrLogsByEmail(withPlan.map((u) => u.email)),
+        loadDisplayRates(me),
+      ]);
+      return { hrBatch: null, hrLogs: displayLogsByEmail(logs, rates) };
     }
     return { hrBatch: null, hrLogs: new Map() };
   };
@@ -202,7 +210,9 @@ export default async function AdminUsersPage() {
       orderBy: [{ active: 'desc' }, { role: 'asc' }, { fullName: 'asc' }],
     }),
   );
-  const externalP = usersP.then((list) => loadExternal(list, { id: me.id, role: me.role }));
+  const externalP = usersP.then((list) =>
+    loadExternal(list, { id: me.id, role: me.role, impersonatorId: me.impersonatorId }),
+  );
 
   // «Сегодня» — по Москве: сервер в UTC, и с 00:00 до 03:00 МСК
   // toISOString() дал бы вчерашнюю дату.

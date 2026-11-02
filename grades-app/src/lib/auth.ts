@@ -15,6 +15,7 @@ import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { prisma } from './db';
 import { writeAudit } from './audit';
+import { canSwitchToUser } from './permissions';
 import {
   isRefreshDue,
   resolveSessionRefresh,
@@ -50,10 +51,11 @@ if (isDevAuth) {
   );
 }
 
-// Имперсонация: админ входит «под» любым активным пользователем
-// (кнопка «Войти как» в карточке 360). Не-админу разрешён единственный
-// переход — обратно в свой аккаунт (по impersonatorId из текущего JWT).
-// Каждый вход логируется в аудит.
+// Имперсонация: админ входит «под» активным пользователем, кроме себя и
+// других админов (кнопка «Войти как» в карточке 360, canImpersonateUser).
+// Не-админу разрешён единственный переход — обратно в свой аккаунт (по
+// impersonatorId из текущего JWT): из-под дизайнера или лида дальше никуда,
+// в том числе к админу. Каждый вход логируется в аудит.
 providers.push(
   CredentialsProvider({
     id: 'impersonate',
@@ -83,21 +85,25 @@ providers.push(
       const returningToSelf =
         typeof token.impersonatorId === 'number' &&
         token.impersonatorId === targetId;
-      if (!returningToSelf) {
-        // Роль в cookie может отставать от БД (сессия живёт 8 часов, а
-        // getToken читает cookie как есть) — админство проверяем по БД.
-        const actor = await prisma.user.findUnique({
-          where: { id: token.numericId },
-          select: { role: true, active: true },
-        });
-        if (!actor?.active || actor.role !== 'admin') return null;
-      }
 
       const target = await prisma.user.findUnique({
         where: { id: targetId },
         include: { build: true },
       });
-      if (!target || !target.active) return null;
+      if (!target) return null;
+      // Роль в cookie может отставать от БД (сессия живёт 8 часов, а
+      // getToken читает cookie как есть) — роль того, кто сейчас в сессии,
+      // и роль цели берём из БД; правило — canSwitchToUser (тот же
+      // canImpersonateUser, что прячет пункт меню).
+      const actor = returningToSelf
+        ? null
+        : await prisma.user.findUnique({
+            where: { id: token.numericId },
+            select: { id: true, role: true, active: true },
+          });
+      if (!canSwitchToUser({ impersonatorId: token.impersonatorId ?? null }, actor, target)) {
+        return null;
+      }
 
       // Кто «настоящий» админ в новой сессии: при возврате в себя — никто,
       // при входе под другим — исходный админ (или уже сохранённый).

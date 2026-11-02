@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDownIcon, CheckIcon, PencilIcon, TrashIcon, SearchIcon } from '@/components/icons';
 import EmptyState from '@/components/EmptyState';
 import { roleLabel } from '@/lib/roleTone';
-import { AUDIT_ACTIONS, AUDIT_ACTION_LABEL, AUDIT_TARGET_TYPE_LABEL } from '@/lib/audit';
+import { AUDIT_ACTIONS, AUDIT_ACTION_LABEL, AUDIT_TARGET_TYPE_LABEL } from '@/lib/auditShared';
 import TitleAurora from '@/components/TitleAurora';
 
 interface ActorInfo {
