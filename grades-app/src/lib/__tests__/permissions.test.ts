@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   canChangeLead,
   canDeactivateUser,
+  canDeleteUser,
   canEditOwnProfile,
   canEditUser,
   canImpersonateUser,
@@ -26,7 +27,7 @@ const leadUnderLead = { id: 104, role: 'lead', leadId: 10 };
 const adminUnderLead = { id: 105, role: 'admin', leadId: 10 };
 
 describe('canEditUser', () => {
-  it('админ — любого', () => {
+  it('админ — любого не-админа', () => {
     expect(canEditUser(admin, foreignDesigner)).toBe(true);
     expect(canEditUser(admin, leadUnderLead)).toBe(true);
   });
@@ -46,6 +47,56 @@ describe('canEditUser', () => {
     expect(canEditUser(stardiz, { id: 106, role: 'designer', leadId: 20 })).toBe(false);
     expect(canEditUser(designer, myDesigner)).toBe(false);
     expect(canEditUser(null, myDesigner)).toBe(false);
+  });
+});
+
+// Аккаунты админов: правит только зритель с manageAdmins (главный админ),
+// каждый админ — себя. Решение Pavel 02.11.2026.
+describe('аккаунты других админов — только с manageAdmins', () => {
+  const primary = { id: 1, role: 'admin', manageAdmins: true };
+  const plain = { id: 2, role: 'admin' };
+  const plainB = { id: 3, role: 'admin', manageAdmins: false };
+  const adminT = (id: number) => ({ id, role: 'admin', leadId: null });
+
+  it('админ без manageAdmins не правит, не деактивирует и не удаляет других админов', () => {
+    for (const me of [plain, plainB]) {
+      for (const t of [adminT(1), adminT(4)]) {
+        expect(canEditUser(me, t)).toBe(false);
+        expect(canDeactivateUser(me, t)).toBe(false);
+        expect(canDeleteUser(me, t)).toBe(false);
+        expect(canChangeLead(me, t, 10)).toBe(false);
+      }
+    }
+  });
+  it('с manageAdmins — правит, деактивирует и удаляет других админов', () => {
+    expect(canEditUser(primary, adminT(2))).toBe(true);
+    expect(canDeactivateUser(primary, adminT(2))).toBe(true);
+    expect(canDeleteUser(primary, adminT(2))).toBe(true);
+  });
+  it('себя — как раньше: правит, но не деактивирует и не удаляет', () => {
+    for (const me of [primary, plain]) {
+      expect(canEditUser(me, adminT(me.id))).toBe(true);
+      expect(canDeactivateUser(me, adminT(me.id))).toBe(false);
+      expect(canDeleteUser(me, adminT(me.id))).toBe(false);
+    }
+  });
+  it('не-админов админ правит как раньше, с manageAdmins или без', () => {
+    for (const me of [primary, plain]) {
+      expect(canEditUser(me, foreignDesigner)).toBe(true);
+      expect(canEditUser(me, leadUnderLead)).toBe(true);
+      expect(canDeactivateUser(me, foreignDesigner)).toBe(true);
+      expect(canDeleteUser(me, foreignDesigner)).toBe(true);
+    }
+  });
+  it('manageAdmins у лида ничего не даёт', () => {
+    const leadWithFlag = { ...lead, manageAdmins: true };
+    expect(canEditUser(leadWithFlag, adminT(4))).toBe(false);
+    expect(canDeactivateUser(leadWithFlag, adminT(4))).toBe(false);
+    expect(canDeleteUser(leadWithFlag, foreignDesigner)).toBe(false);
+  });
+  it('удаляет навсегда только админ', () => {
+    expect(canDeleteUser(lead, myDesigner)).toBe(false);
+    expect(canDeleteUser(null, myDesigner)).toBe(false);
   });
 });
 
@@ -75,7 +126,7 @@ describe('canChangeLead', () => {
 });
 
 describe('canDeactivateUser', () => {
-  it('админ — любого, кроме себя', () => {
+  it('админ — любого не-админа, кроме себя', () => {
     expect(canDeactivateUser(admin, foreignDesigner)).toBe(true);
     expect(canDeactivateUser(admin, leadUnderLead)).toBe(true);
     expect(canDeactivateUser(admin, { id: 1, role: 'admin', leadId: null })).toBe(false);

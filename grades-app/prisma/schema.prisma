@@ -244,6 +244,8 @@ model User {
   // Отображение ставки (lib/salaryOverride) — служебное, клиенту не уходит
   salaryDisplay       SalaryDisplayOverride?  @relation("SalaryDisplayUser")
   salaryDisplaysOwned SalaryDisplayOverride[] @relation("SalaryDisplayOwner")
+  // Главный админ (lib/primaryAdmin) — отдельная таблица, не колонка users
+  primaryAdmin        PrimaryAdmin?
   // Комментарии к интерфейсу (как в Figma) — админ и лиды
   commentsAuthored    UiComment[] @relation("UiCommentAuthor")
   commentsResolved    UiComment[] @relation("UiCommentResolver")
@@ -630,6 +632,22 @@ model SalaryDisplayOverride {
 
   @@index([ownerId])
   @@map("salary_display_overrides")
+}
+
+// Главный админ: только он правит аккаунты других админов (роль, email,
+// активность, удаление, остальные поля карточки) — lib/permissions,
+// lib/primaryAdmin. Строка одна (slot — всегда 1, первичный ключ): второго
+// главного не завести. Отдельная таблица, а не колонка users: строки users
+// уходят в API целиком (lib/userResponse), а сюда клиент не ходит; и
+// уникальный индекс на новой таблице db push добавляет без вопросов.
+// Ведёт только scripts/primary-admin.ts, UI и API нет.
+model PrimaryAdmin {
+  slot      Int      @id @default(1)
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("primary_admin")
 }
 
 // Phase 23.6 — настройки сервиса (key-value), правит только админ.

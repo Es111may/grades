@@ -61,6 +61,7 @@ import {
 import { canEditBonuses, canEditPlannedRaise, canViewCompensation } from '@/lib/compPermissions';
 import {
   canDeactivateUser,
+  canDeleteUser,
   canEditOwnProfile,
   canEditUser,
   canInviteSelfAssessment,
@@ -79,6 +80,7 @@ export default function UserCard360({
   rank = null,
   meId,
   meRole,
+  manageAdmins,
   onClose,
   onEdit,
   onDeactivated,
@@ -90,6 +92,8 @@ export default function UserCard360({
   rank?: number | null;
   meId: number | null;
   meRole: string;
+  /** Правит аккаунты других админов (lib/permissions). */
+  manageAdmins?: boolean;
   onClose: () => void;
   onEdit: (user: UserRow) => void;
   /** patch — поля, которые сервер проставил сам (дата увольнения), если вернул. */
@@ -257,7 +261,7 @@ export default function UserCard360({
   // оставит в ней только имя и аватар (canEditOwnProfile). Стардизу
   // «Изменить» не показываем: PATCH карточки ему закрыт, дату грейдирования
   // он ставит прямо в строке «Грейдирование».
-  const viewer = meId !== null ? { id: meId, role: meRole } : null;
+  const viewer = meId !== null ? { id: meId, role: meRole, manageAdmins } : null;
   const canEdit = canEditUser(viewer, user) || canEditOwnProfile(viewer, user);
 
   const canAssess =
@@ -393,7 +397,7 @@ export default function UserCard360({
 
   // «Войти как» — не под собой и не под другим админом (lib/permissions, как сервер)
   const canImpersonate = canImpersonateUser(viewer, user);
-  const canHardDelete = meRole === 'admin' && !isSelf;
+  const canHardDelete = canDeleteUser(viewer, user);
   // Phase 23.4 — компенсации: админ всех, лид своих (сервер проверяет тоже)
   const canViewComp = canViewCompensation(viewer, user);
   const canPlan = canEditPlannedRaise(viewer, user) && user.active;

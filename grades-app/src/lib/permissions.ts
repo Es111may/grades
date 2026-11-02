@@ -79,14 +79,26 @@ export function canGradeDesigner(
 // передать их другому лиду; перекладывать людей между чужими командами —
 // только админ. Лид не трогает админов и других лидов, даже если формально
 // указан у них лидом.
+//
+// Аккаунт другого админа (решение Pavel 02.11.2026): роль, email,
+// активность, удаление и остальные поля карточки — только у зрителя с
+// manageAdmins (главный админ, lib/primaryAdmin; ставится скриптом одному
+// человеку). Без него админ правит из админов только себя; нет главного —
+// чужие админы не правятся никем. Свою карточку каждый правит как раньше.
 
-type Me = { id: number; role: string } | null;
+/** manageAdmins — правит аккаунты других админов (сервер считает в lib/primaryAdmin). */
+type Me = { id: number; role: string; manageAdmins?: boolean } | null;
 type Target = { id: number; role: string; leadId: number | null };
+
+/** Человек — другой админ, его аккаунт правит только тот, у кого manageAdmins. */
+function guardedAdmin(me: NonNullable<Me>, target: { id: number; role: string }): boolean {
+  return target.role === 'admin' && target.id !== me.id && me.manageAdmins !== true;
+}
 
 /** Может ли править карточку человека (отдел, стардиза, билд и т.п.)? */
 export function canEditUser(me: Me, target: Target): boolean {
   if (!me) return false;
-  if (me.role === 'admin') return true;
+  if (me.role === 'admin') return !guardedAdmin(me, target);
   if (me.role === 'lead') {
     return (
       target.leadId === me.id && (target.role === 'designer' || target.role === 'stardiz')
@@ -113,7 +125,7 @@ export function canEditOwnProfile(me: Me, target: { id: number }): boolean {
  */
 export function canChangeLead(me: Me, target: Target, newLeadId: number | null): boolean {
   if (!me) return false;
-  if (me.role === 'admin') return true;
+  if (me.role === 'admin') return canEditUser(me, target);
   if (me.role === 'lead') {
     return canEditUser(me, target) && newLeadId !== null && newLeadId !== me.id;
   }
@@ -121,15 +133,21 @@ export function canChangeLead(me: Me, target: Target, newLeadId: number | null):
 }
 
 /**
- * Может ли деактивировать (уволить). Админ — кого угодно, кроме себя: иначе
- * можно остаться без единого админа. Лид — только своих. Удаление навсегда —
- * отдельно, только админ.
+ * Может ли деактивировать (уволить) или вернуть. Админ — кого угодно, кроме
+ * себя (иначе можно остаться без единого админа) и других админов без
+ * manageAdmins. Лид — только своих. Удаление навсегда — canDeleteUser.
  */
 export function canDeactivateUser(me: Me, target: Target): boolean {
   if (!me) return false;
-  if (me.role === 'admin') return target.id !== me.id;
+  if (me.role === 'admin') return target.id !== me.id && !guardedAdmin(me, target);
   if (me.role === 'lead') return canEditUser(me, target);
   return false;
+}
+
+/** Может ли удалить навсегда: только админ, не себя и не других админов без manageAdmins. */
+export function canDeleteUser(me: Me, target: { id: number; role: string }): boolean {
+  if (!me || me.role !== 'admin') return false;
+  return target.id !== me.id && !guardedAdmin(me, target);
 }
 
 /**

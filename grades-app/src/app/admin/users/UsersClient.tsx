@@ -241,6 +241,7 @@ export default function UsersClient({
   gradeThresholds,
   meId,
   meRole,
+  manageAdmins,
   teamStats,
   nineBox,
   attention,
@@ -252,6 +253,8 @@ export default function UsersClient({
   gradeThresholds: GradeThreshold[];
   meId: number | null;
   meRole: string;
+  /** Правит аккаунты других админов (lib/permissions); у остальных пропа нет. */
+  manageAdmins?: boolean;
   teamStats: TeamStats;
   nineBox: Record<string, number>;
   attention: AttentionItem[];
@@ -683,6 +686,7 @@ export default function UsersClient({
               }
               meId={meId}
               meRole={meRole}
+              manageAdmins={manageAdmins}
               onCardClick={(u) => open360(u as UserRow)}
               personHref={personHref}
               onMoved={(u) => mergeRow(u as UserRow)}
@@ -700,6 +704,7 @@ export default function UsersClient({
           stardizes={stardizes}
           meRole={meRole}
           meId={meId}
+          manageAdmins={manageAdmins}
           onClose={() => setModalOpen(false)}
           onSaved={handleSaved}
           onDeleted={handleDeleted}
@@ -725,6 +730,7 @@ export default function UsersClient({
           })()}
           meId={meId}
           meRole={meRole}
+          manageAdmins={manageAdmins}
           onClose={close360}
           onEdit={handleEditFrom360}
           onPlannedRaiseChange={(id, planned) => {

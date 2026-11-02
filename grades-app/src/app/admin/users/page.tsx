@@ -19,6 +19,7 @@ import { canViewDismissalDate, canViewDismissalStatus } from '@/lib/dismissal';
 import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
 import { fetchHrCompensationBatch, fetchHrLogsByEmail } from '@/lib/hrSalary';
 import { displayCompensationMap, displayLogsByEmail, loadDisplayRates } from '@/lib/salaryOverride';
+import { managesAdmins } from '@/lib/primaryAdmin';
 import { todayMoscowIso } from '@/lib/dates';
 import { avatarSrc } from '@/lib/avatar';
 import { SEASONS, type Season } from '@/lib/assessmentSeason';
@@ -213,6 +214,9 @@ export default async function AdminUsersPage() {
   const externalP = usersP.then((list) =>
     loadExternal(list, { id: me.id, role: me.role, impersonatorId: me.impersonatorId }),
   );
+  // Правка аккаунтов других админов (lib/primaryAdmin). Клиенту уходит только
+  // true — у остальных пропа нет вовсе.
+  const manageAdminsP = me.role === 'admin' ? managesAdmins(me) : Promise.resolve(false);
 
   // «Сегодня» — по Москве: сервер в UTC, и с 00:00 до 03:00 МСК
   // toISOString() дал бы вчерашнюю дату.
@@ -790,6 +794,7 @@ export default async function AdminUsersPage() {
     });
   });
 
+  const manageAdmins = await manageAdminsP;
   return (
     <UsersClient
       initialUsers={users}
@@ -799,6 +804,7 @@ export default async function AdminUsersPage() {
       gradeThresholds={gradeThresholds}
       meId={me.id ?? null}
       meRole={me.role ?? ''}
+      {...(manageAdmins && { manageAdmins: true })}
       teamStats={teamStats}
       nineBox={nineBox}
       // «Требует внимания» — все пункты, без обрезки (Pavel, 03.10.2026)

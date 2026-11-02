@@ -61,6 +61,7 @@ export default function KanbanView({
   groupBy,
   meId,
   meRole,
+  manageAdmins,
   onCardClick,
   personHref,
   onMoved,
@@ -70,6 +71,8 @@ export default function KanbanView({
   groupBy: GroupBy;
   meId: number | null;
   meRole: string;
+  /** Правит аккаунты других админов (lib/permissions). */
+  manageAdmins?: boolean;
   onCardClick: (user: UserRow) => void;
   /** Ссылка на портрет человека (lib/portraitHref) или null — без ссылки. */
   personHref: (user: UserRow) => string | null;
@@ -81,7 +84,7 @@ export default function KanbanView({
   const [moving, setMoving] = useState(false);
   const [handoff, setHandoff] = useState<Handoff | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const me = meId !== null ? { id: meId, role: meRole } : null;
+  const me = meId !== null ? { id: meId, role: meRole, manageAdmins } : null;
 
   function scrollBy(delta: number) {
     scrollRef.current?.scrollBy({ left: delta, behavior: 'smooth' });

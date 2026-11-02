@@ -10,10 +10,12 @@ import {
   canAssignAdminRole,
   canChangeLead,
   canDeactivateUser,
+  canDeleteUser,
   canEditOwnProfile,
   canEditUser,
   canManageUsers,
 } from '@/lib/permissions';
+import { managesAdmins } from '@/lib/primaryAdmin';
 import { canSetGradingDate } from '@/lib/gradingPlan';
 import { canSetEmploymentType, nonGradingBuildNote } from '@/lib/employment';
 import { DISMISSAL_TYPES, canEditDismissal } from '@/lib/dismissal';
@@ -91,18 +93,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // ── Права и проверки. Все — до любых записей: отказ не должен оставлять
   // следов в журнале. Сравниваем с текущими значениями, а не с присутствием
   // поля: модалка шлёт карточку целиком, и неизменённые поля права не требуют.
-  const viewer = { id: me.id, role: me.role };
+  // manageAdmins — аккаунты других админов (lib/primaryAdmin), из БД.
+  const viewer = { id: me.id, role: me.role, manageAdmins: await managesAdmins(me) };
   const isAdmin = me.role === 'admin';
 
   // Лид правит только своих дизайнеров и стардизов (решение Pavel). Свою
-  // карточку — только имя и аватар: остальное в ней меняет админ.
+  // карточку — только имя и аватар: остальное в ней меняет админ. Другого
+  // админа — только с manageAdmins.
   const canEdit = canEditUser(viewer, existing);
   const selfEdit = !canEdit && canEditOwnProfile(viewer, existing);
   if (!canEdit && !selfEdit) {
-    return NextResponse.json(
-      { error: 'Править можно только своих дизайнеров и стардизов' },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: forbiddenText(me.role) }, { status: 403 });
   }
   if (selfEdit && selfEditLockedFields(input, existing).length > 0) {
     return NextResponse.json(
@@ -422,6 +423,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 /** Кандидат в лиды/стардизы — для mentorError. */
+/** Отказ в правке: лиду — его правило, остальным — без подробностей. */
+function forbiddenText(role: string): string {
+  return role === 'lead' ? 'Править можно только своих дизайнеров и стардизов' : 'Нет прав на эту карточку';
+}
+
 function findMentor(id: number) {
   return prisma.user.findUnique({
     where: { id },
@@ -474,6 +480,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     const target = await prisma.user.findUnique({ where: { id: userId } });
     if (!target) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    // Другого админа — только с manageAdmins (lib/primaryAdmin)
+    if (!canDeleteUser({ id: me.id, role: me.role, manageAdmins: await managesAdmins(me) }, target)) {
+      return NextResponse.json({ error: forbiddenText(me.role) }, { status: 403 });
     }
 
     const reassignToParam = url.searchParams.get('reassignTo');
@@ -611,10 +621,15 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!target) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
-  const viewer = { id: me.id, role: me.role };
+  const viewer = { id: me.id, role: me.role, manageAdmins: await managesAdmins(me) };
   if (!canDeactivateUser(viewer, target)) {
     return NextResponse.json(
-      { error: 'Деактивировать можно только своих дизайнеров и стардизов' },
+      {
+        error:
+          me.role === 'lead'
+            ? 'Деактивировать можно только своих дизайнеров и стардизов'
+            : 'Нет прав на эту карточку',
+      },
       { status: 403 },
     );
   }

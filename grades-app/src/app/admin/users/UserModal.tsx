@@ -14,6 +14,7 @@ import { GRADE_CODES, GRADE_NAMES } from '@/lib/types';
 import {
   canChangeLead,
   canDeactivateUser,
+  canDeleteUser,
   canEditOwnProfile,
   canEditUser,
   canIssuePassword,
@@ -113,6 +114,7 @@ export default function UserModal({
   stardizes,
   meRole,
   meId,
+  manageAdmins,
   onClose,
   onSaved,
   onDeleted,
@@ -126,6 +128,8 @@ export default function UserModal({
   /** id текущего пользователя — нужен для проверки прав «свой подопечный»
    *  у lead/stardiz (выдача паролей). */
   meId: number | null;
+  /** Правит аккаунты других админов (lib/permissions). */
+  manageAdmins?: boolean;
   onClose: () => void;
   onSaved: (u: UserData) => void;
   onDeleted: (id: number) => void;
@@ -168,7 +172,7 @@ export default function UserModal({
   // Билд без грейдов («Коммуникации») — даты грейдирования у него нет
   const nonGradingBuild =
     hasBuild && isNonGradingBuild({ build: builds.find((b) => b.id === form.buildId) ?? null });
-  const me = meId !== null ? { id: meId, role: meRole } : null;
+  const me = meId !== null ? { id: meId, role: meRole, manageAdmins } : null;
   // Phase 23.2 — поле «Ближайшее грейдирование». Только у тех, кто
   // грейдируется (не почасовщик и не билд без грейдов), и только тем, у кого
   // есть на это права (админ всем, лид/стардиз своим подопечным). По нему же
@@ -190,6 +194,7 @@ export default function UserModal({
   const handingOff =
     meRole === 'lead' && !!user && user.leadId === meId && form.leadId !== user.leadId;
   const canDeactivate = !isNew && !!user && canDeactivateUser(me, user);
+  const canHardDelete = !isNew && !!user && canDeleteUser(me, user);
   // Лид в своей карточке: правит только имя и аватар (lib/permissions →
   // canEditOwnProfile), остальные поля видны, но заблокированы. Сервер
   // проверяет то же самое.
@@ -967,8 +972,8 @@ export default function UserModal({
                 )}
               </div>
 
-              {/* Hard-delete — только admin */}
-              {isAdmin && (
+              {/* Hard-delete — только admin (другого админа — с manageAdmins) */}
+              {canHardDelete && (
                 <div className="card p-5 mt-3 space-y-3">
                   <div className="flex items-center justify-between gap-4">
                     <div>
