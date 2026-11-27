@@ -343,7 +343,7 @@ export function printReport(
 
   const similar = plan.conflicts.filter((c) => c.kind === 'name_matches_user');
   const fills = new Map(plan.update.filter((u) => u.byName).map((u) => [u.hrId, u] as const));
-  console.log(`\n  Похоже, уже есть — совпало имя, email другой (не заводим): ${similar.length}`);
+  console.log(`\n  Похоже, уже есть — совпало имя или фамилия с датой найма, email другой (не заводим): ${similar.length}`);
   for (const c of similar) {
     const pair = c.userIds ? c.userIds.map((id) => `#${id}`).join(', ') : `#${c.userId}`;
     const fill = fills.get(c.hrId);
@@ -352,7 +352,8 @@ export function printReport(
       : fill
         ? `дозаполним найм${v ? ` ${fill.set.hiredAt}` : ''}`
         : 'однозначно, даты не трогаем';
-    console.log(`    HR ${c.hrId}${v && c.email ? ` <${c.email}>` : ''} ↔ user ${pair} · ${note}`);
+    const how = c.bySurnameAndHire ? ' · фамилия и дата найма' : '';
+    console.log(`    HR ${c.hrId}${v && c.email ? ` <${c.email}>` : ''} ↔ user ${pair}${how} · ${note}`);
   }
 
   console.log(`\n  Деактивируем — в HR ни одной живой учётки: ${plan.deactivate.length}`);

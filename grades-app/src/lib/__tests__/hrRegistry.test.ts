@@ -691,6 +691,92 @@ describe('правила 27.11.2026 — не дублировать', () => {
   });
 });
 
+describe('правила 27.11.2026 — не дублировать: фамилия и дата найма', () => {
+  it('уменьшительное имя, другая почта, тот же найм — «Похоже, уже есть», карточку не создаём (неактивный в Грейдах)', () => {
+    const p = plan(
+      [
+        hrRow({
+          id: 'hr-vl',
+          email: 'v.primerov@example.test',
+          firstNameRu: 'Владимир',
+          lastNameRu: 'Примеров',
+          firstName: 'Vladimir',
+          lastName: 'Primerov',
+          department: 'Improve',
+          hiredAt: '2026-10-08',
+          dismissedAt: '2026-10-16',
+        }),
+      ],
+      [
+        user({
+          id: 40,
+          email: 'vl.primerov@example.test',
+          fullName: 'Вова Примеров',
+          active: false,
+          hiredAt: '2026-10-08T00:00:00.000Z',
+          dismissedAt: '2026-10-15T00:00:00.000Z',
+        }),
+      ],
+    );
+    expect(p.create).toEqual([]);
+    expect(p.conflicts).toEqual([
+      { kind: 'name_matches_user', hrId: 'hr-vl', email: 'v.primerov@example.test', userId: 40, bySurnameAndHire: true },
+    ]);
+    // Найм уже стоит — дозаполнять нечего
+    expect(p.update).toEqual([]);
+  });
+
+  it('то же для активного в Грейдах; фамилия латиницей, «ё» = «е»', () => {
+    const p = plan(
+      [
+        hrRow({ id: 'hr-a', email: 'alexander@example.test', firstNameRu: 'Александр', lastNameRu: 'Семёнов', hiredAt: '2024-02-01' }),
+        hrRow({ id: 'hr-b', email: 'kate@example.test', firstNameRu: 'Екатерина', lastNameRu: 'Ершова', firstName: 'Ekaterina', lastName: 'Ershova', hiredAt: '2025-05-12' }),
+      ],
+      [
+        user({ id: 41, email: 'sasha@example.test', fullName: 'Саша Семенов', hiredAt: '2024-02-01T00:00:00.000Z' }),
+        user({ id: 42, email: 'katya@example.test', fullName: 'Katya Ershova', hiredAt: '2025-05-12T00:00:00.000Z' }),
+      ],
+    );
+    expect(p.create).toEqual([]);
+    expect(p.conflicts.map((c) => [c.hrId, c.userId, c.bySurnameAndHire])).toEqual([
+      ['hr-a', 41, true],
+      ['hr-b', 42, true],
+    ]);
+  });
+
+  it('та же фамилия, другой найм, другое имя — не дубль: заводим', () => {
+    const p = plan(
+      [hrRow({ id: 'hr-p', email: 'petr.primerov@example.test', firstNameRu: 'Пётр', lastNameRu: 'Примеров', hiredAt: '2025-03-01', dismissedAt: '2025-09-01' })],
+      [user({ id: 43, email: 'ivan.primerov@example.test', fullName: 'Иван Примеров', hiredAt: '2021-01-01T00:00:00.000Z' })],
+    );
+    expect(p.conflicts).toEqual([]);
+    expect(p.create.map((c) => [c.hrId, c.active])).toEqual([['hr-p', false]]);
+  });
+
+  it('тот же найм, другая фамилия — не дубль', () => {
+    const p = plan(
+      [hrRow({ id: 'hr-q', email: 'q@example.test', firstNameRu: 'Вова', lastNameRu: 'Другов', hiredAt: '2026-10-08' })],
+      [user({ id: 44, email: 'vova@example.test', fullName: 'Вова Примеров', hiredAt: '2026-10-08T00:00:00.000Z' })],
+    );
+    expect(p.conflicts).toEqual([]);
+    expect(p.create.map((c) => c.hrId)).toEqual(['hr-q']);
+  });
+
+  it('фамилия и найм совпали у двоих в Грейдах — неоднозначно, только отчёт', () => {
+    const p = plan(
+      [hrRow({ id: 'hr-t', email: 't@example.test', firstNameRu: 'Тимофей', lastNameRu: 'Близнецов', hiredAt: '2024-09-02' })],
+      [
+        user({ id: 45, email: 'tim@example.test', fullName: 'Тима Близнецов', hiredAt: '2024-09-02T00:00:00.000Z' }),
+        user({ id: 46, email: 'tolya@example.test', fullName: 'Толя Близнецов', hiredAt: '2024-09-02T00:00:00.000Z' }),
+      ],
+    );
+    expect(p.create).toEqual([]);
+    expect(p.conflicts).toEqual([
+      { kind: 'name_matches_user', hrId: 'hr-t', email: 't@example.test', userIds: [45, 46], ambiguous: true, bySurnameAndHire: true },
+    ]);
+  });
+});
+
 describe('правила 27.11.2026 — ушедшие', () => {
   const working = (over: Partial<HrPerson> & { id: string; email: string }) => hrRow(over);
   const gone = (over: Partial<HrPerson> & { id: string; email: string }) =>

@@ -41,6 +41,11 @@
 //     найма такой паре дозаполняем, только если совпадение однозначное:
 //     один человек в Грейдах, на него претендует одна учётка HR, и своей
 //     учётки HR по email у него нет. Неоднозначное — только отчёт.
+//     Второе правило (там же, 27.11): совпали фамилия (ru или en, как
+//     nameKey) и дата найма по дню — тоже «Похоже, уже есть» (в Грейдах имя
+//     бывает уменьшительным: «Вова» вместо «Владимир»). Для активных и
+//     неактивных. Одна фамилия без даты найма — не дубль: в HR бывают
+//     разные люди с одним именем и фамилией в разные годы.
 //   • Ушедшие. Активный в Грейдах, у кого по email в HR нет ни одной живой
 //     учётки (все в архиве или с наступившей датой увольнения), —
 //     «Деактивируем»: как кнопкой в интерфейсе (lib/deactivation), дата
@@ -226,6 +231,19 @@ export function hrNameKeys(p: {
   return Array.from(new Set([ru, lat].filter(Boolean).map(nameKey))).filter(Boolean);
 }
 
+/**
+ * Фамилии учётки HR для второго правила дублей: русская и латинская —
+ * каждая словами nameKey (составная фамилия — несколько слов).
+ */
+export function hrSurnameKeys(p: { lastNameRu?: string | null; lastName?: string | null }): string[][] {
+  const out: string[][] = [];
+  for (const raw of [p.lastNameRu, p.lastName]) {
+    const words = nameKey(clean(raw)).split(' ').filter(Boolean);
+    if (words.length && !out.some((w) => w.join(' ') === words.join(' '))) out.push(words);
+  }
+  return out;
+}
+
 // ── Входы и выходы планировщика ─────────────────────────────────────────
 
 /** Учётка HR (`employee_employee`, отдел через команду) — строка набора HR. */
@@ -332,6 +350,8 @@ export type RegistryConflict = {
   userIds?: number[];
   /** name_matches_user: пара неоднозначна — даты не трогаем, только отчёт. */
   ambiguous?: true;
+  /** name_matches_user: имя другое, совпали фамилия и дата найма. */
+  bySurnameAndHire?: true;
 };
 
 export type RegistryPlan = {
@@ -499,6 +519,7 @@ export function planRegistrySync({
   const people: RegistryPerson[] = [];
   const onLeave = new Set<string>();
   const keysByHrId = new Map<string, string[]>();
+  const surnamesByHrId = new Map<string, string[][]>();
   for (const [email, rows] of groups) {
     const r = pickHrRecord(rows)!;
     plan.stats.mergedDuplicates += rows.length - 1;
@@ -525,6 +546,7 @@ export function planRegistrySync({
     }
     if (flag(r.maternityLeave)) onLeave.add(email);
     keysByHrId.set(r.id, Array.from(new Set([nameKey(fullName), ...hrNameKeys(r)])));
+    surnamesByHrId.set(r.id, hrSurnameKeys(r));
     const { department, buildCode } = mapHrDepartment(r.department);
     people.push({
       hrId: r.id,
@@ -555,6 +577,13 @@ export function planRegistrySync({
     if (key) takenNames.set(key, (takenNames.get(key) ?? new Set<number>()).add(id));
   };
   for (const u of users) take(nameKey(u.fullName), u.id);
+  // Второе правило: слова имени в Грейдах и дата найма в Грейдах — для
+  // «фамилия + дата найма»
+  const nameWords = new Map(users.map((u) => [u.id, new Set(nameKey(u.fullName).split(' ').filter(Boolean))]));
+  const usersByHire = new Map<string, GradesUser[]>();
+  for (const u of users) {
+    if (u.hiredAt) usersByHire.set(day(u.hiredAt), [...(usersByHire.get(day(u.hiredAt)) ?? []), u]);
+  }
 
   // 3. Совпавшие по email: только пустые даты, остальное — Грейды главнее
   const pending: RegistryPerson[] = [];
@@ -607,12 +636,20 @@ export function planRegistrySync({
   for (const p of candidates) {
     for (const k of keysOf(p)) pendingByName.set(k, (pendingByName.get(k) ?? new Set<string>()).add(p.hrId));
   }
-  const nameMatches: Array<{ p: RegistryPerson; userIds: number[] }> = [];
+  const nameMatches: Array<{ p: RegistryPerson; userIds: number[]; bySurnameAndHire: boolean }> = [];
   for (const p of candidates) {
     const ids = new Set<number>();
     for (const k of keysOf(p)) for (const id of takenNames.get(k) ?? []) ids.add(id);
-    if (ids.size) {
-      nameMatches.push({ p, userIds: Array.from(ids).sort((a, b) => a - b) });
+    // Фамилия и дата найма — только вместе: одна фамилия ещё не тот же человек
+    const bySurname = new Set<number>();
+    const surnames = surnamesByHrId.get(p.hrId) ?? [];
+    for (const u of p.hiredAt ? usersByHire.get(p.hiredAt) ?? [] : []) {
+      const words = nameWords.get(u.id) ?? new Set<string>();
+      if (surnames.some((s) => s.every((w) => words.has(w)))) bySurname.add(u.id);
+    }
+    if (ids.size || bySurname.size) {
+      const all = new Set([...ids, ...bySurname]);
+      nameMatches.push({ p, userIds: Array.from(all).sort((a, b) => a - b), bySurnameAndHire: !ids.size });
       continue;
     }
     if (keysOf(p).some((k) => (pendingByName.get(k)?.size ?? 0) > 1)) {
@@ -627,7 +664,7 @@ export function planRegistrySync({
   // пустую дату найма берём из этой учётки. Иначе — только отчёт.
   const claims = new Map<number, number>();
   for (const m of nameMatches) for (const id of m.userIds) claims.set(id, (claims.get(id) ?? 0) + 1);
-  for (const { p, userIds } of nameMatches) {
+  for (const { p, userIds, bySurnameAndHire } of nameMatches) {
     const ambiguous = userIds.length > 1 || (claims.get(userIds[0]) ?? 0) > 1;
     conflict({
       kind: 'name_matches_user',
@@ -635,6 +672,7 @@ export function planRegistrySync({
       email: p.email,
       ...(userIds.length === 1 ? { userId: userIds[0] } : { userIds }),
       ...(ambiguous ? { ambiguous: true as const } : {}),
+      ...(bySurnameAndHire ? { bySurnameAndHire: true as const } : {}),
     });
     if (ambiguous) continue;
     const u = userById.get(userIds[0]);

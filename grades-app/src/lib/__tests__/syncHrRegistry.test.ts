@@ -364,10 +364,31 @@ describe('printReport — отчёт', () => {
       options: { today: '2026-10-01' },
     });
     const out = capture(false, p);
-    expect(out).toContain('Похоже, уже есть — совпало имя, email другой (не заводим): 1');
+    expect(out).toContain('Похоже, уже есть — совпало имя или фамилия с датой найма, email другой (не заводим): 1');
     expect(out).toContain('HR hr-twin ↔ user #30 · дозаполним найм');
     expect(out).toContain('Проверьте вручную — ушли по HR, сверка не трогает: 1');
     expect(out).toContain('user #31 · HR hr-adm · админ');
+  });
+});
+
+describe('printReport — «Похоже, уже есть» по фамилии и дате найма', () => {
+  it('пара с пометкой, без имён и почт', () => {
+    const lines: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => void lines.push(a.join(' ')));
+    const p = planRegistrySync({
+      hr: [{ ...hr[7], id: 'hr-vl', email: 'v.primerov@example.test', firstNameRu: 'Владимир', lastNameRu: 'Примеров', hiredAt: '2026-10-08', dismissedAt: '2026-10-16' }],
+      users: [
+        { id: 40, email: 'vl.primerov@example.test', fullName: 'Вова Примеров', active: false, hiredAt: '2026-10-08T00:00:00.000Z', dismissedAt: '2026-10-15T00:00:00.000Z' },
+      ],
+      excluded: [],
+      options: { today: '2026-11-27' },
+    });
+    printReport(p, { verbose: false, today: '2026-11-27' });
+    const out = lines.join('\n');
+    expect(out).toContain('Создать неактивными (ушли с 2025): 0');
+    expect(out).toContain('HR hr-vl ↔ user #40 · фамилия и дата найма · однозначно, даты не трогаем');
+    expect(out).not.toContain('Примеров');
+    expect(out).not.toContain('primerov');
   });
 });
 
