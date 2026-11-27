@@ -626,6 +626,16 @@ grades-app/
      → длительность `/designer` ≈8 с, `/api/performance/tasks` ≈15 с,
      `/compensation` ≈6 с = источник не отвечает. `railway ssh` требует
      SSH-ключ в аккаунте (не заведён).
+   - **27.11.2026:** данные живы — те же `hr_portal_current` / `manage` видны
+     через MCP ida.hub (`https://hub.idacloud.ru/mcp`, OAuth Keycloak
+     `idahub`; в Claude Code подключён как `ida-hub`). Пропал только прямой
+     адрес. Решение Pavel: ждём от платформы прямой read-only доступ для
+     `designgrades` (новый адрес CH или разрешение с адреса Railway), затем
+     меняем `CLICKHOUSE_HOST`/`PORT` (и креды, если выдадут новые) в Railway —
+     код не трогаем. Запасной путь — готовые снипеты ida.hub для Грейдов +
+     сервисная учётка Keycloak (client_credentials); `dwh_ask` для прода не
+     годится (LLM-генерация SQL, лимит строк). Готовые снипеты хаба не отдают
+     оклады по людям.
 ## Стартовый промпт для нового чата
 
 ```
