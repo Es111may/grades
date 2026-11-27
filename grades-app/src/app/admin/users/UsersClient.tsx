@@ -92,7 +92,8 @@ export type UserRow = {
   /** Phase 23.4 — плановый пересмотр з/п. Сервер кладёт его только тем, кому
    *  можно видеть деньги (админ, лид по своим), и только невыполненный. */
   plannedRaise?: PlannedRaiseRow | null;
-  /** Phase 23.4 — текущая зарплата, ₽. Есть только у админа; null — нет данных в HR. */
+  /** Phase 23.4 — текущая зарплата, ₽. Сервер кладёт её админу и лиду по своим
+   *  людям (lib/teamSalary); null — нет данных в HR. */
   salary?: number | null;
   /** Phase 23.4 — дата увольнения (деактивированные и почасовщики).
    *  Сервер кладёт её только админу и лиду. */
@@ -492,6 +493,13 @@ export default function UsersClient({
     writePersonParam(user.id);
   }
 
+  // Чья ставка в колонке «З/п» зрителю положена — то же правило, что у
+  // сервера и поп-апа. Стабильная ссылка: от неё зависит сортировка.
+  const salaryVisible = useMemo(() => {
+    const viewer = meId !== null ? { id: meId, role: meRole } : null;
+    return (u: UserRow) => canViewCompensation(viewer, u);
+  }, [meId, meRole]);
+
   // Строки и карточки — настоящие ссылки на портрет (новая вкладка по
   // Cmd/Ctrl-клику), обычный клик — поп-ап. null — портрет зрителю не открыть.
   const personHref = (u: PortraitHrefPerson) =>
@@ -670,7 +678,9 @@ export default function UsersClient({
               attention={scoped.attention}
               searching={search.trim().length > 0}
               showPodium={PODIUM_ENABLED && meRole !== 'stardiz'}
-              showSalary={meRole === 'admin'}
+              // «З/п» — админу и лиду; у лида чужие строки пустые
+              showSalary={meRole === 'admin' || meRole === 'lead'}
+              salaryVisible={salaryVisible}
               includeStardiz={meRole !== 'stardiz'}
             />
           ) : (

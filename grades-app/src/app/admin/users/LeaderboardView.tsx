@@ -11,6 +11,7 @@ import { PersonStatusIcon } from '@/components/GradingPlanChip';
 import AvatarWithRaise from '@/components/PlannedRaiseBadge';
 import PersonLink from '@/components/PersonLink';
 import { formatThousands } from '@/lib/compensation';
+import { compareSalaryCells, salaryCell, type SalaryCell } from '@/lib/teamSalary';
 import { isGradingExempt, isNonGradingBuild } from '@/lib/employment';
 import { gradeName } from '@/lib/types';
 
@@ -52,6 +53,8 @@ function formatTenure(months: number): string {
   return `${years} ${yearWord(years)} ${m} мес.`;
 }
 
+/** Без salaryVisible колонка показывает ставки всех строк (как у админа). */
+const ALL_SALARIES_VISIBLE = () => true;
 
 export default function LeaderboardView({
   users,
@@ -64,6 +67,7 @@ export default function LeaderboardView({
   searching = false,
   showPodium = true,
   showSalary = false,
+  salaryVisible = ALL_SALARIES_VISIBLE,
   includeStardiz = false,
 }: {
   users: UserRow[];
@@ -80,8 +84,11 @@ export default function LeaderboardView({
   /** false — подиум не показываем вовсе (стардиз: подопечных мало,
    *  таблица информативнее карточек). */
   showPodium?: boolean;
-  /** Phase 23.4 — колонка «Зарплата» (только админ). Прячется выключателем в шапке. */
+  /** Phase 23.4 — колонка «З/п» (админ и лид). Прячется выключателем в шапке. */
   showSalary?: boolean;
+  /** Чья ставка зрителю положена (canViewCompensation). У остальных ячейка
+   *  пустая — не «—»: прочерк значит «нет данных в HR». */
+  salaryVisible?: (user: UserRow) => boolean;
   /** Стардизы в рейтинге вместе с дизайнерами — у админа и лида (Pavel
    *  29.09.2026). Стардизу себя и коллег не показываем. */
   includeStardiz?: boolean;
@@ -163,8 +170,12 @@ export default function LeaderboardView({
         av = tenureMonths(a.hiredAt, tenureUntil(a));
         bv = tenureMonths(b.hiredAt, tenureUntil(b));
       } else if (sortKey === 'salary') {
-        av = a.salary ?? -1;
-        bv = b.salary ?? -1;
+        // Ставки по направлению, за ними «—», в конце пустые — в обе стороны
+        return compareSalaryCells(
+          salaryCell(a.salary, salaryVisible(a)),
+          salaryCell(b.salary, salaryVisible(b)),
+          sortDir,
+        );
       } else {
         // taxonomy
         av = a.xpByTaxonomy?.[sortKey] ?? -1;
@@ -175,7 +186,7 @@ export default function LeaderboardView({
       return 0;
     });
     return arr;
-  }, [designers, sortKey, sortDir, gradeThresholds]);
+  }, [designers, sortKey, sortDir, gradeThresholds, salaryVisible]);
 
   // Подиум — топ-3 по composite, независимо от сортировки таблицы (витрина).
   const podium = useMemo(
@@ -419,11 +430,7 @@ export default function LeaderboardView({
                 <td className="py-3 px-4 text-center text-stone whitespace-nowrap">
                   {formatTenure(tenureMonths(u.hiredAt, tenureUntil(u)))}
                 </td>
-                {showSalary && (
-                  <td className="salary-sensitive py-3 px-4 text-center tabular-nums whitespace-nowrap">
-                    {u.salary != null ? formatThousands(u.salary) : <span className="text-ash">—</span>}
-                  </td>
-                )}
+                {showSalary && <SalaryTd cell={salaryCell(u.salary, salaryVisible(u))} />}
               </tr>
             );
           })}
@@ -441,6 +448,19 @@ export default function LeaderboardView({
 }
 
 /* ================= Компоненты редизайна (концепт v4) ================= */
+
+/** Ячейка «З/п»: ставка в тысячах, «—» — нет данных в HR, пусто — не свой человек. */
+function SalaryTd({ cell }: { cell: SalaryCell }) {
+  return (
+    <td className="salary-sensitive py-3 px-4 text-center tabular-nums whitespace-nowrap">
+      {typeof cell === 'number' ? (
+        formatThousands(cell)
+      ) : cell === 'none' ? (
+        <span className="text-ash">—</span>
+      ) : null}
+    </td>
+  );
+}
 
 /** «Стардиз» в колонке «Грейд» — в стиле подписи уровня, со звёздочкой. */
 function StardizMark() {

@@ -16,7 +16,8 @@ import { isGradable, isGradingExempt } from '@/lib/employment';
 import { ensureNonGradingBuilds } from '@/lib/oneTimeMigrations';
 import { canViewCompensation } from '@/lib/compPermissions';
 import { canViewDismissalDate, canViewDismissalStatus } from '@/lib/dismissal';
-import { buildCompensation, plannedRaiseState } from '@/lib/compensation';
+import { plannedRaiseState } from '@/lib/compensation';
+import { rowSalary, salaryBatchEmails } from '@/lib/teamSalary';
 import { fetchHrCompensationBatch, fetchHrLogsByEmail } from '@/lib/hrSalary';
 import { displayCompensationMap, displayLogsByEmail, loadDisplayRates } from '@/lib/salaryOverride';
 import { managesAdmins } from '@/lib/primaryAdmin';
@@ -114,14 +115,16 @@ async function loadExternal(
   const withPlan = usersRaw.filter(
     (u) => u.active && u.plannedRaiseSetAt && u.email && canViewCompensation(viewer, u),
   );
-  // Админу — ещё и колонка «Зарплата»: один батч по всей странице, из него же
-  // берём журналы для плановых пересмотров. Лиду — только журналы тех, у кого
-  // стоит статус. Ставки — какими их видит этот зритель (lib/salaryOverride):
-  // батч в кэше общий, копию под зрителя делаем здесь.
+  // Колонка «З/п» — батч ставок по тем, чью ставку зритель видит
+  // (lib/teamSalary): админу — по всей странице, лиду — по своим людям,
+  // стардизу — ни по кому. Ставки — какими их видит этот зритель
+  // (lib/salaryOverride): батч в кэше общий, копию под зрителя делаем здесь.
+  const salaryEmails = salaryBatchEmails(viewer, usersRaw);
   const loadHr = async (): Promise<{ hrBatch: HrBatch | null; hrLogs: HrLogs }> => {
+    // Админ: журналы для плановых пересмотров — из того же батча
     if (me.role === 'admin') {
       const [batch, rates] = await Promise.all([
-        fetchHrCompensationBatch(usersRaw.filter((u) => u.active && u.email).map((u) => u.email)),
+        fetchHrCompensationBatch(salaryEmails),
         loadDisplayRates(me),
       ]);
       const hrBatch = displayCompensationMap(batch, rates);
@@ -129,14 +132,20 @@ async function loadExternal(
       for (const [em, c] of hrBatch) hrLogs.set(em, { hiredAt: c.hr?.hiredAt ?? null, log: c.log });
       return { hrBatch, hrLogs };
     }
-    if (withPlan.length) {
-      const [logs, rates] = await Promise.all([
-        fetchHrLogsByEmail(withPlan.map((u) => u.email)),
-        loadDisplayRates(me),
-      ]);
-      return { hrBatch: null, hrLogs: displayLogsByEmail(logs, rates) };
-    }
-    return { hrBatch: null, hrLogs: new Map() };
+    // Лид: журналы пересмотров — как раньше, отдельной выборкой по тем, у
+    // кого стоит статус (все учётки HR с этой почтой — бейдж не меняется).
+    // Обе читают один набор HR (кэш и склейка в perfCache) — второго
+    // запроса в HR нет.
+    if (!salaryEmails.length && !withPlan.length) return { hrBatch: null, hrLogs: new Map() };
+    const [batch, logs, rates] = await Promise.all([
+      salaryEmails.length ? fetchHrCompensationBatch(salaryEmails) : Promise.resolve(null),
+      withPlan.length ? fetchHrLogsByEmail(withPlan.map((u) => u.email)) : Promise.resolve(null),
+      loadDisplayRates(me),
+    ]);
+    return {
+      hrBatch: batch ? displayCompensationMap(batch, rates) : null,
+      hrLogs: logs ? displayLogsByEmail(logs, rates) : new Map(),
+    };
   };
 
   const hasDesigners = designerEmails.length > 0;
@@ -524,21 +533,12 @@ export default async function AdminUsersPage() {
         dismissalType: u.dismissalType,
         dismissalReason: u.dismissalReason,
       }),
-      // Текущая зарплата для колонки — только админу (Phase 23.4)
-      salary: (() => {
-        const c = hrBatch?.get(u.email.toLowerCase());
-        if (!c) return undefined;
-        const v = buildCompensation({
-          hr: c.hr,
-          log: c.log,
-          bonuses: [],
-          role: u.role,
-          grade: last?.grade ?? null,
-          employmentType: u.employmentType,
-          activeInGrades: u.active,
-          today: todayIso,
-        });
-        return v.state === 'ok' ? v.current : null;
+      // Текущая зарплата для колонки «З/п» — админу и лиду по своим людям
+      // (lib/teamSalary). Остальным поля нет вовсе — ни в данных страницы,
+      // ни в RSC.
+      ...(() => {
+        const salary = rowSalary(viewer, u, hrBatch, { grade: last?.grade ?? null, today: todayIso });
+        return salary === undefined ? {} : { salary };
       })(),
       plannedRaise: (() => {
         if (!live || !u.plannedRaiseSetAt || !canViewCompensation(viewer, u)) return null;
