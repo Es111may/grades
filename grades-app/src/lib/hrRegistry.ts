@@ -3,7 +3,9 @@
 // Сверка «HR → Грейды»: у каждого, кто в HR числится на дизайнерской
 // позиции, должна быть карточка в Грейдах. Нынешние уже есть — совпадают по
 // email; ушедшие заводятся неактивными (active = false, без пароля — войти
-// нельзя), с поп-апом, как у всех. Решения Pavel, 01.10.2026:
+// нельзя), с поп-апом, как у всех.
+//
+// История. Решения Pavel, 01.10.2026 (что из них поменялось 27.11 — ниже):
 //   • поля существующих людей не перетираем — Грейды главнее HR (отдел,
 //     роль, оргисключения); дозаполняем только пустые даты найма и
 //     увольнения, дату увольнения — только неактивным;
@@ -21,7 +23,34 @@
 //     дизайнеры: в контур дизайна не входят никогда, в отчёте — числом;
 //   • в декрете (maternity_leave) активных не заводим, пока в декрете.
 // Тип и причину ухода сюда не берём — их переносят из таблички отдельно.
-// Выборка из ClickHouse и запись в БД — scripts/sync-hr-registry.ts.
+//
+// Решения владельца, 27.11.2026. Источник — набор HR (lib/hrDataset): живой
+// ClickHouse или слепок через ida.hub. В набор входят учётки на позициях
+// сверки (9, 20, 29) и учётки с почтой любого пользователя Грейдов — с
+// любой позицией: по ним видно, ушёл ли человек.
+//   • Новые. Работающие в HR в контуре дизайна, которых нет в Грейдах, —
+//     «Заведём»: активная карточка без пароля, роль, отдел и билд — из HR.
+//     Флаг больше не нужен: includeActiveMissing и includeHrIds убраны,
+//     исключить человека — skipHrIds.
+//   • Не дублировать. Человек уже есть в Грейдах — карточку не создаём:
+//     по email (без регистра и пробелов — normalizeEmail; среди неактивных
+//     и ExcludedEmail тоже) или по имени и фамилии (ru и en, без регистра,
+//     «ё» = «е», порядок слов не важен — nameKey; в Грейдах и у совпавших по
+//     email в HR). Совпало только имя — расхождение name_matches_user,
+//     в отчёте группа «Похоже, уже есть» с парой HR ↔ Грейды. Пустую дату
+//     найма такой паре дозаполняем, только если совпадение однозначное:
+//     один человек в Грейдах, на него претендует одна учётка HR, и своей
+//     учётки HR по email у него нет. Неоднозначное — только отчёт.
+//   • Ушедшие. Активный в Грейдах, у кого по email в HR нет ни одной живой
+//     учётки (все в архиве или с наступившей датой увольнения), —
+//     «Деактивируем»: как кнопкой в интерфейсе (lib/deactivation), дата
+//     увольнения — из HR, если в Грейдах пусто.
+//   • Никогда не деактивируем: админов (строка «Проверьте вручную»); тех, кого
+//     нет в HR (числом); тех, кто в декрете (это не увольнение). Почасовщиков
+//     тоже: выведенный из штата HR почасовщик работает (решение 01.10).
+//   • Никого не активируем обратно; поля существующих людей не перетираем —
+//     дозаполняются только пустые даты.
+// Выборка набора, отчёт и запись в БД — scripts/sync-hr-registry.ts.
 
 import type { BuildCode } from './types';
 
@@ -162,10 +191,12 @@ function flag(v: unknown): boolean {
 
 /**
  * Ключ сравнения имён: без регистра, «ё» как «е», порядок слов не важен —
- * «Иванова Анна» и «Анна Иванова» совпадут.
+ * «Иванова Анна» и «Анна Иванова» совпадут; латинские двойники внутри
+ * кириллических слов — кириллицей (fixLatinLookalikes), с какой бы стороны
+ * они ни были набраны.
  */
 export function nameKey(fullName: string): string {
-  return clean(fullName)
+  return fixLatinLookalikes(clean(fullName))
     .toLowerCase()
     .replace(/ё/g, 'е')
     .split(' ')
@@ -179,9 +210,25 @@ export function normalizeEmail(email: string | null | undefined): string {
   return (email ?? '').replace(/\s+/g, '').toLowerCase();
 }
 
+/**
+ * Ключи имени учётки HR для поиска совпадений: русское и латинское «Имя
+ * Фамилия» — каждое, что заполнено (nameKey: без регистра, ё = е, порядок
+ * слов не важен, латинские двойники в кириллице исправлены).
+ */
+export function hrNameKeys(p: {
+  firstNameRu?: string | null;
+  lastNameRu?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}): string[] {
+  const ru = [clean(p.firstNameRu), clean(p.lastNameRu)].filter(Boolean).join(' ');
+  const lat = [clean(p.firstName), clean(p.lastName)].filter(Boolean).join(' ');
+  return Array.from(new Set([ru, lat].filter(Boolean).map(nameKey))).filter(Boolean);
+}
+
 // ── Входы и выходы планировщика ─────────────────────────────────────────
 
-/** Строка `employee_employee` (с названием отдела через команду) — как из ClickHouse. */
+/** Учётка HR (`employee_employee`, отдел через команду) — строка набора HR. */
 export type HrPerson = {
   id: string;
   email: string | null;
@@ -229,7 +276,7 @@ export type RegistryPerson = {
   hrRows: number;
 };
 
-/** Новая карточка: ушедшие — неактивными, активные — только по флагу. */
+/** Новая карточка: работающие — активными («Заведём»), ушедшие — неактивными. */
 export type RegistryCreate = RegistryPerson & { active: boolean };
 
 /** Дозаполнение пустых дат у существующего человека. */
@@ -237,6 +284,28 @@ export type RegistryUpdate = {
   userId: number;
   hrId: string;
   set: { hiredAt?: string; dismissedAt?: string };
+  /** Пара найдена по имени («Похоже, уже есть», однозначно), а не по email. */
+  byName?: true;
+};
+
+/** «Деактивируем»: в Грейдах активен, в HR живых учёток с этим email нет. */
+export type RegistryDeactivate = {
+  userId: number;
+  /** Учётка HR, по которой видно уход (живых нет — самая поздняя по найму). */
+  hrId: string;
+  email: string;
+  fullName: string;
+  /** Дата увольнения в HR — её получит пустая дата в Грейдах. */
+  dismissedAt: string | null;
+};
+
+/** «Проверьте вручную»: ушёл по HR, но сверка его не трогает. */
+export type RegistryManualCheck = {
+  userId: number;
+  hrId: string;
+  email: string;
+  fullName: string;
+  reason: 'admin';
 };
 
 export type RegistryConflictKind =
@@ -244,16 +313,14 @@ export type RegistryConflictKind =
   | 'no_email'
   /** В HR нет ни имени, ни фамилии. */
   | 'no_name'
-  /** По email нет, но есть человек с тем же именем: старая учётка или сменённый email. */
+  /** «Похоже, уже есть»: по email нет, но в Грейдах есть человек с тем же именем — старая учётка или сменённый email. */
   | 'name_matches_user'
   /** Несколько учёток HR с одним именем, ни одной в Грейдах — какая настоящая, неясно. */
   | 'duplicate_name_in_hr'
   /** В HR дата увольнения раньше найма (вернулся, а увольнение не сняли?). */
   | 'dismissal_before_hire'
   /** Справка: в HR работает, в Грейдах неактивен — не активируем. */
-  | 'active_in_hr_inactive_in_grades'
-  /** Справка: в HR уволен, в Грейдах активен (не почасовщик) — не деактивируем. */
-  | 'dismissed_in_hr_active_in_grades';
+  | 'active_in_hr_inactive_in_grades';
 
 export type RegistryConflict = {
   kind: RegistryConflictKind;
@@ -261,51 +328,36 @@ export type RegistryConflict = {
   email: string | null;
   /** Человек в Грейдах, с которым связано расхождение. */
   userId?: number;
+  /** name_matches_user: тёзок в Грейдах несколько — все они. */
+  userIds?: number[];
+  /** name_matches_user: пара неоднозначна — даты не трогаем, только отчёт. */
+  ambiguous?: true;
 };
 
-/** Почему HR id из includeHrIds не создаётся: его нет среди activeMissing. */
-export type RegistryIncludeErrorReason =
-  /** Такой учётки нет в выборке (позиции 9, 20, 29) — опечатка или другая позиция. */
-  | 'not_found'
-  /** Учётка склеена с другой учёткой того же email — нужен id из отчёта. */
-  | 'merged'
-  /** Lite или «Дизайн-инженер» — вне контура дизайна. */
-  | 'outside_contour'
-  /** Уже есть в Грейдах (совпал по email). */
-  | 'in_grades'
-  /** В ExcludedEmail. */
-  | 'excluded'
-  /** В декрете — пока в декрете, не заводим. */
-  | 'on_maternity'
-  /** Ушёл: заводится неактивным и без флага либо пропущен по границе. */
-  | 'departed'
-  /** Расхождение (нет email или имени, тёзка, увольнение раньше найма) — сначала разобрать. */
-  | 'conflict';
-
-export type RegistryIncludeError = { hrId: string; reason: RegistryIncludeErrorReason };
-
 export type RegistryPlan = {
+  /** «Заведём» (active) и ушедшие с границы (неактивными). */
   create: RegistryCreate[];
   update: RegistryUpdate[];
+  /** «Деактивируем». */
+  deactivate: RegistryDeactivate[];
+  /** «Проверьте вручную»: админы, ушедшие по HR. */
+  manualCheck: RegistryManualCheck[];
   skipExcluded: RegistryPerson[];
   /** Ушли раньше departedSince — карточку не заводим. */
   skipDepartedBefore: RegistryPerson[];
   /** Ушли (учётка в архиве), но даты увольнения нет — когда ушли, неизвестно, не заводим. */
   skipDepartedUndated: RegistryPerson[];
-  /**
-   * Активные в HR, которых нет в Грейдах. Создаются только с
-   * includeActiveMissing (все) или includeHrIds (перечисленные).
-   */
-  activeMissing: RegistryPerson[];
-  /** Активные в HR, которых нет в Грейдах, но они в декрете: не заводим никогда, даже по флагам. */
+  /** Работают в HR, нет в Грейдах, но в декрете: не заводим, пока в декрете. */
   onMaternity: RegistryPerson[];
-  /** HR id из includeHrIds, которых нет среди activeMissing: для них ничего не создаём. */
-  includeErrors: RegistryIncludeError[];
+  /** Кого не тронули из-за skipHrIds / skipUserIds — то, что иначе было бы сделано. */
+  skipped: { hrIds: string[]; userIds: number[] };
+  /** Id из skipHrIds / skipUserIds, которых нет ни в HR, ни в Грейдах — опечатка. */
+  skipErrors: { hrIds: string[]; userIds: number[] };
   conflicts: RegistryConflict[];
   stats: {
     /** Строк HR на входе. */
     hrRows: number;
-    /** Из них не на позициях дизайна и дизайн-инженеров — пропущены. */
+    /** Из них не на позициях дизайна и дизайн-инженеров — в реестр не идут (только сверка ушедших). */
     ignoredPositions: number;
     /** Людей после склейки дублей по email (вместе с Lite и дизайн-инженерами). */
     people: number;
@@ -317,21 +369,24 @@ export type RegistryPlan = {
     skippedEngineer: number;
     /** Совпали с Грейдами по email. */
     matched: number;
+    /** Активных в Грейдах, кого нет в HR по email, — не деактивируем. */
+    notInHr: number;
+    /** Ушли по HR, но в декрете — не деактивируем. */
+    keptOnLeave: number;
+    /** Ушли по HR, но в Грейдах почасовщики — не деактивируем. */
+    keptHourly: number;
   };
 };
 
 export type RegistryOptions = {
   /** Сегодня (YYYY-MM-DD, по Москве) — увольнение в будущем ещё не уход. */
   today: string;
-  /** Создавать всех активных в HR, которых нет в Грейдах (активными, без пароля). */
-  includeActiveMissing?: boolean;
-  /**
-   * Создавать только этих активных, которых нет в Грейдах (HR id). Id не из
-   * activeMissing — в includeErrors, для него ничего не создаётся.
-   */
-  includeHrIds?: readonly string[];
   /** Ушедших заводим с этой даты увольнения (YYYY-MM-DD, включительно). По умолчанию — REGISTRY_DEPARTED_SINCE. */
   departedSince?: string;
+  /** Учётки HR, которые не трогаем: не заводим, не дозаполняем, не деактивируем по ним. */
+  skipHrIds?: readonly string[];
+  /** Люди Грейдов, которых не трогаем: ни дат, ни деактивации. */
+  skipUserIds?: readonly number[];
 };
 
 // ── Склейка дублей ──────────────────────────────────────────────────────
@@ -351,17 +406,24 @@ export function pickHrRecord<T extends Pick<HrPerson, 'hiredAt' | 'dismissedAt' 
   return [...pool].sort((a, b) => (hired(a) < hired(b) ? 1 : hired(a) > hired(b) ? -1 : 0))[0];
 }
 
+/** Учётка ещё работает: не в архиве и увольнение не наступило (в будущем — ещё работает). */
+function isWorking(r: Pick<HrPerson, 'dismissedAt' | 'isArchive'>, today: string): boolean {
+  const dismissed = normalizeHrDate(r.dismissedAt);
+  return !flag(r.isArchive) && !(dismissed && dismissed <= today);
+}
+
 const day = (iso: string) => iso.slice(0, 10);
 const byEmail = <T extends { email: string | null }>(a: T, b: T) =>
   (a.email ?? '').localeCompare(b.email ?? '');
+const hrKey = (id: string) => id.trim().toLowerCase();
 
 // ── Планировщик ─────────────────────────────────────────────────────────
 
 /**
- * План сверки реестра: кого создать, кому дозаполнить даты, кого пропустить
- * и где расхождения. Ничего не пишет — запись делает скрипт по плану.
- * Повторный прогон после записи даёт пустой план (кроме справок
- * и нерешённых расхождений).
+ * План сверки реестра: кого завести, кому дозаполнить даты, кого
+ * деактивировать, кого пропустить и где расхождения. Ничего не пишет —
+ * запись делает скрипт по плану. Повторный прогон после записи даёт пустой
+ * план (кроме справок и нерешённых расхождений).
  */
 export function planRegistrySync({
   hr,
@@ -379,12 +441,14 @@ export function planRegistrySync({
   const plan: RegistryPlan = {
     create: [],
     update: [],
+    deactivate: [],
+    manualCheck: [],
     skipExcluded: [],
     skipDepartedBefore: [],
     skipDepartedUndated: [],
-    activeMissing: [],
     onMaternity: [],
-    includeErrors: [],
+    skipped: { hrIds: [], userIds: [] },
+    skipErrors: { hrIds: [], userIds: [] },
     conflicts: [],
     stats: {
       hrRows: hr.length,
@@ -394,16 +458,24 @@ export function planRegistrySync({
       skippedLite: 0,
       skippedEngineer: 0,
       matched: 0,
+      notInHr: 0,
+      keptOnLeave: 0,
+      keptHourly: 0,
     },
   };
-  const conflict = (kind: RegistryConflictKind, hrId: string, email: string | null, userId?: number) =>
-    plan.conflicts.push(userId === undefined ? { kind, hrId, email } : { kind, hrId, email, userId });
-  // Чем кончилась каждая учётка — чтобы объяснить, почему id из includeHrIds
-  // не создаётся. null — в activeMissing, создать можно.
-  const hrKey = (id: string) => id.trim().toLowerCase();
-  const fate = new Map<string, RegistryIncludeErrorReason | null>();
-  const mark = (hrId: string, reason: RegistryIncludeErrorReason | null) => fate.set(hrKey(hrId), reason);
-  const includeIds = new Set((options.includeHrIds ?? []).map(hrKey).filter(Boolean));
+  const conflict = (c: RegistryConflict) => plan.conflicts.push(c);
+  const skipHr = new Set((options.skipHrIds ?? []).map(hrKey).filter(Boolean));
+  const skipUser = new Set(options.skipUserIds ?? []);
+  const skippedHr = new Set<string>();
+  const skippedUser = new Set<number>();
+
+  // Все учётки набора по email — с любой позицией: по ним видно, ушёл ли
+  // человек и есть ли у него своя учётка в HR
+  const hrByEmail = new Map<string, HrPerson[]>();
+  for (const row of hr) {
+    const em = normalizeEmail(row.email);
+    if (em) hrByEmail.set(em, [...(hrByEmail.get(em) ?? []), row]);
+  }
 
   // 1. Позиции дизайна и дизайн-инженеров; без email сопоставить не с чем
   const groups = new Map<string, HrPerson[]>();
@@ -412,14 +484,11 @@ export function planRegistrySync({
       plan.stats.ignoredPositions++;
       continue;
     }
-    const email = (row.email ?? '').trim().toLowerCase();
+    const email = normalizeEmail(row.email);
     if (!email) {
-      conflict('no_email', row.id, null);
-      mark(row.id, 'conflict');
+      conflict({ kind: 'no_email', hrId: row.id, email: null });
       continue;
     }
-    // Пока — «склеена с другой»; выбранная учётка ниже получит свой итог
-    mark(row.id, 'merged');
     groups.set(email, [...(groups.get(email) ?? []), row]);
   }
 
@@ -429,35 +498,33 @@ export function planRegistrySync({
   // инженер из Lite — в счётчике Lite.
   const people: RegistryPerson[] = [];
   const onLeave = new Set<string>();
+  const keysByHrId = new Map<string, string[]>();
   for (const [email, rows] of groups) {
     const r = pickHrRecord(rows)!;
     plan.stats.mergedDuplicates += rows.length - 1;
     if (isLiteDepartment(r.department)) {
       plan.stats.skippedLite++;
-      mark(r.id, 'outside_contour');
       continue;
     }
     const role = roleForPosition(r.positionId);
     if (!role) {
       // Сюда доходит только позиция 29: прочие отсеяны в шаге 1
       plan.stats.skippedEngineer++;
-      mark(r.id, 'outside_contour');
       continue;
     }
     const fullName = hrFullName(r);
     if (!fullName) {
-      conflict('no_name', r.id, email);
-      mark(r.id, 'conflict');
+      conflict({ kind: 'no_name', hrId: r.id, email });
       continue;
     }
     const hiredAt = normalizeHrDate(r.hiredAt);
     const dismissedAt = normalizeHrDate(r.dismissedAt);
     if (hiredAt && dismissedAt && dismissedAt < hiredAt) {
-      conflict('dismissal_before_hire', r.id, email);
-      mark(r.id, 'conflict');
+      conflict({ kind: 'dismissal_before_hire', hrId: r.id, email });
       continue;
     }
     if (flag(r.maternityLeave)) onLeave.add(email);
+    keysByHrId.set(r.id, Array.from(new Set([nameKey(fullName), ...hrNameKeys(r)])));
     const { department, buildCode } = mapHrDepartment(r.department);
     people.push({
       hrId: r.id,
@@ -474,30 +541,32 @@ export function planRegistrySync({
     });
   }
   plan.stats.people = groups.size;
+  const keysOf = (p: RegistryPerson) => keysByHrId.get(p.hrId) ?? [nameKey(p.fullName)];
 
-  const userByEmail = new Map(users.map((u) => [u.email.trim().toLowerCase(), u]));
-  const excludedSet = new Set(excluded.map((e) => e.trim().toLowerCase()));
+  const userByEmail = new Map(users.map((u) => [normalizeEmail(u.email), u]));
+  const userById = new Map(users.map((u) => [u.id, u]));
+  const excludedSet = new Set(excluded.map(normalizeEmail));
   // Имена, уже занятые в Грейдах: и как записаны в Грейдах, и как в HR у
   // совпавших по email (в Грейдах имя бывает короче — «Саша» вместо
-  // «Александр»), — чтобы старая учётка того же человека не стала второй
-  // карточкой.
-  const takenNames = new Map<string, number>();
-  for (const u of users) takenNames.set(nameKey(u.fullName), u.id);
+  // «Александр»; русское и латинское), — чтобы старая учётка того же
+  // человека не стала второй карточкой. Ключ → все люди с ним.
+  const takenNames = new Map<string, Set<number>>();
+  const take = (key: string, id: number) => {
+    if (key) takenNames.set(key, (takenNames.get(key) ?? new Set<number>()).add(id));
+  };
+  for (const u of users) take(nameKey(u.fullName), u.id);
 
   // 3. Совпавшие по email: только пустые даты, остальное — Грейды главнее
   const pending: RegistryPerson[] = [];
   for (const p of people) {
     const u = userByEmail.get(p.email);
     if (!u) {
-      if (excludedSet.has(p.email)) {
-        plan.skipExcluded.push(p);
-        mark(p.hrId, 'excluded');
-      } else pending.push(p);
+      if (excludedSet.has(p.email)) plan.skipExcluded.push(p);
+      else pending.push(p);
       continue;
     }
     plan.stats.matched++;
-    mark(p.hrId, 'in_grades');
-    if (!takenNames.has(nameKey(p.fullName))) takenNames.set(nameKey(p.fullName), u.id);
+    for (const k of keysOf(p)) take(k, u.id);
 
     const set: RegistryUpdate['set'] = {};
     if (!u.hiredAt && p.hiredAt) set.hiredAt = p.hiredAt;
@@ -505,78 +574,116 @@ export function planRegistrySync({
       // Дата увольнения не раньше найма — иначе в карточке «уволен до прихода»
       const hire = u.hiredAt ? day(u.hiredAt) : p.hiredAt;
       if (!hire || p.dismissedAt >= hire) set.dismissedAt = p.dismissedAt;
-      else conflict('dismissal_before_hire', p.hrId, p.email, u.id);
+      else conflict({ kind: 'dismissal_before_hire', hrId: p.hrId, email: p.email, userId: u.id });
     }
-    if (set.hiredAt || set.dismissedAt) plan.update.push({ userId: u.id, hrId: p.hrId, set });
+    if (set.hiredAt || set.dismissedAt) {
+      if (skipHr.has(hrKey(p.hrId)) || skipUser.has(u.id)) {
+        if (skipHr.has(hrKey(p.hrId))) skippedHr.add(p.hrId);
+        else skippedUser.add(u.id);
+      } else plan.update.push({ userId: u.id, hrId: p.hrId, set });
+    }
 
-    if (!p.departed && !u.active) conflict('active_in_hr_inactive_in_grades', p.hrId, p.email, u.id);
-    if (p.departed && u.active && u.employmentType !== 'hourly') {
-      conflict('dismissed_in_hr_active_in_grades', p.hrId, p.email, u.id);
+    if (!p.departed && !u.active) {
+      conflict({ kind: 'active_in_hr_inactive_in_grades', hrId: p.hrId, email: p.email, userId: u.id });
     }
   }
 
-  // 4. Нет в Грейдах. Сначала граница: ушедшие раньше неё (и без даты
-  // увольнения) не заводятся — и в проверке тёзок не участвуют, чтобы
-  // старая учётка не заблокировала свежую. Так же активные в декрете: пока
-  // в декрете, не заводим, ни по каким флагам. Дальше: тёзка уже есть — не
-  // создаём (дубль учётки или сменённый email), тёзки внутри HR — тоже:
-  // какая учётка настоящая, решает человек. Остальных — ушедших создаём,
-  // активных перечисляем (и создаём по флагу).
+  // 4. Нет в Грейдах по email. Сначала граница: ушедшие раньше неё (и без
+  // даты увольнения) не заводятся — и в проверке тёзок не участвуют, чтобы
+  // старая учётка не заблокировала свежую. Так же работающие в декрете: пока
+  // в декрете, не заводим. Дальше: тёзка уже есть в Грейдах — «Похоже, уже
+  // есть», не создаём (дубль учётки или сменённый email); тёзки внутри HR —
+  // тоже не создаём: какая учётка настоящая, решает человек. Остальных
+  // заводим: работающих — активными, ушедших — неактивными.
   const candidates: RegistryPerson[] = [];
   for (const p of pending) {
-    if (p.departed && !p.dismissedAt) {
-      plan.skipDepartedUndated.push(p);
-      mark(p.hrId, 'departed');
-    } else if (p.departed && p.dismissedAt! < since) {
-      plan.skipDepartedBefore.push(p);
-      mark(p.hrId, 'departed');
-    } else if (!p.departed && onLeave.has(p.email)) {
-      plan.onMaternity.push(p);
-      mark(p.hrId, 'on_maternity');
-    } else candidates.push(p);
+    if (p.departed && !p.dismissedAt) plan.skipDepartedUndated.push(p);
+    else if (p.departed && p.dismissedAt! < since) plan.skipDepartedBefore.push(p);
+    else if (!p.departed && onLeave.has(p.email)) plan.onMaternity.push(p);
+    else if (skipHr.has(hrKey(p.hrId))) skippedHr.add(p.hrId);
+    else candidates.push(p);
   }
-  const pendingByName = new Map<string, number>();
+  const pendingByName = new Map<string, Set<string>>();
   for (const p of candidates) {
-    const key = nameKey(p.fullName);
-    pendingByName.set(key, (pendingByName.get(key) ?? 0) + 1);
+    for (const k of keysOf(p)) pendingByName.set(k, (pendingByName.get(k) ?? new Set<string>()).add(p.hrId));
   }
+  const nameMatches: Array<{ p: RegistryPerson; userIds: number[] }> = [];
   for (const p of candidates) {
-    const key = nameKey(p.fullName);
-    const userId = takenNames.get(key);
-    if (userId !== undefined) {
-      conflict('name_matches_user', p.hrId, p.email, userId);
-      mark(p.hrId, 'conflict');
+    const ids = new Set<number>();
+    for (const k of keysOf(p)) for (const id of takenNames.get(k) ?? []) ids.add(id);
+    if (ids.size) {
+      nameMatches.push({ p, userIds: Array.from(ids).sort((a, b) => a - b) });
       continue;
     }
-    if ((pendingByName.get(key) ?? 0) > 1) {
-      conflict('duplicate_name_in_hr', p.hrId, p.email);
-      mark(p.hrId, 'conflict');
+    if (keysOf(p).some((k) => (pendingByName.get(k)?.size ?? 0) > 1)) {
+      conflict({ kind: 'duplicate_name_in_hr', hrId: p.hrId, email: p.email });
       continue;
     }
-    if (p.departed) {
-      plan.create.push({ ...p, active: false });
-      mark(p.hrId, 'departed');
-    } else {
-      plan.activeMissing.push(p);
-      mark(p.hrId, null);
-      if (options.includeActiveMissing || includeIds.has(hrKey(p.hrId))) plan.create.push({ ...p, active: true });
-    }
+    plan.create.push({ ...p, active: !p.departed });
   }
 
-  // 5. Id из includeHrIds не из activeMissing — ошибка в отчёт, ничего не создаём
-  for (const id of includeIds) {
-    const reason = fate.has(id) ? fate.get(id) ?? null : 'not_found';
-    if (reason) plan.includeErrors.push({ hrId: id, reason });
+  // «Похоже, уже есть». Однозначно — один человек в Грейдах, на него
+  // претендует одна учётка HR, и своей учётки HR по email у него нет: тогда
+  // пустую дату найма берём из этой учётки. Иначе — только отчёт.
+  const claims = new Map<number, number>();
+  for (const m of nameMatches) for (const id of m.userIds) claims.set(id, (claims.get(id) ?? 0) + 1);
+  for (const { p, userIds } of nameMatches) {
+    const ambiguous = userIds.length > 1 || (claims.get(userIds[0]) ?? 0) > 1;
+    conflict({
+      kind: 'name_matches_user',
+      hrId: p.hrId,
+      email: p.email,
+      ...(userIds.length === 1 ? { userId: userIds[0] } : { userIds }),
+      ...(ambiguous ? { ambiguous: true as const } : {}),
+    });
+    if (ambiguous) continue;
+    const u = userById.get(userIds[0]);
+    if (!u || u.hiredAt || !p.hiredAt || hrByEmail.has(normalizeEmail(u.email))) continue;
+    if (skipUser.has(u.id)) skippedUser.add(u.id);
+    else plan.update.push({ userId: u.id, hrId: p.hrId, set: { hiredAt: p.hiredAt }, byName: true });
   }
+
+  // 5. Ушедшие: активный в Грейдах, у кого по email в HR нет ни одной живой
+  // учётки. Кого нет в HR, админов, декрет и почасовщиков не деактивируем.
+  for (const u of users) {
+    if (!u.active) continue;
+    const recs = hrByEmail.get(normalizeEmail(u.email)) ?? [];
+    if (!recs.length) {
+      plan.stats.notInHr++;
+      continue;
+    }
+    if (recs.some((r) => isWorking(r, today))) continue;
+    const r = pickHrRecord(recs)!;
+    const who = { userId: u.id, hrId: r.id, email: normalizeEmail(u.email), fullName: u.fullName };
+    if (u.role === 'admin') plan.manualCheck.push({ ...who, reason: 'admin' });
+    else if (recs.some((x) => flag(x.maternityLeave))) plan.stats.keptOnLeave++;
+    else if (u.employmentType === 'hourly') plan.stats.keptHourly++;
+    else if (skipUser.has(u.id)) skippedUser.add(u.id);
+    else if (recs.some((x) => skipHr.has(hrKey(x.id)))) skippedHr.add(recs.find((x) => skipHr.has(hrKey(x.id)))!.id);
+    else plan.deactivate.push({ ...who, dismissedAt: normalizeHrDate(r.dismissedAt) });
+  }
+
+  // 6. Id из флагов, которых нет ни в HR, ни в Грейдах, — скорее опечатка
+  const knownHr = new Set(hr.map((r) => hrKey(r.id)));
+  const knownUser = new Set(users.map((u) => u.id));
+  plan.skipErrors = {
+    hrIds: Array.from(skipHr).filter((id) => !knownHr.has(id)).sort(),
+    userIds: Array.from(skipUser).filter((id) => !knownUser.has(id)).sort((a, b) => a - b),
+  };
+  plan.skipped = {
+    hrIds: Array.from(skippedHr).sort(),
+    userIds: Array.from(skippedUser).sort((a, b) => a - b),
+  };
 
   // Порядок — по email: отчёты двух прогонов сравниваются построчно
   plan.create.sort(byEmail);
   plan.skipExcluded.sort(byEmail);
   plan.skipDepartedBefore.sort(byEmail);
   plan.skipDepartedUndated.sort(byEmail);
-  plan.activeMissing.sort(byEmail);
   plan.onMaternity.sort(byEmail);
   plan.update.sort((a, b) => a.userId - b.userId);
+  plan.deactivate.sort((a, b) => a.userId - b.userId);
+  plan.manualCheck.sort((a, b) => a.userId - b.userId);
   plan.conflicts.sort((a, b) => a.kind.localeCompare(b.kind) || byEmail(a, b));
   return plan;
 }

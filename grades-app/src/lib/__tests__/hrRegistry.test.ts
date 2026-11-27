@@ -20,11 +20,13 @@ import {
 // Все люди и адреса выдуманы.
 const TODAY = '2026-10-01';
 
+// Латинское имя у каждой учётки своё: по нему тоже ищем тёзок (27.11.2026),
+// а одинаковое у всех склеило бы людей, которых тест различает по-русски
 const hrRow = (over: Partial<HrPerson> & { id: string; email: string | null }): HrPerson => ({
   firstNameRu: 'Тест',
   lastNameRu: 'Тестов',
   firstName: 'Test',
-  lastName: 'Testov',
+  lastName: `Testov-${over.id}`,
   positionId: 9,
   department: 'Create',
   hiredAt: '2023-03-01',
@@ -44,8 +46,9 @@ const user = (over: Partial<GradesUser> & { id: number; email: string }): Grades
   ...over,
 });
 
-const plan = (hr: HrPerson[], users: GradesUser[] = [], excluded: string[] = [], include = false) =>
-  planRegistrySync({ hr, users, excluded, options: { today: TODAY, includeActiveMissing: include } });
+const plan = (hr: HrPerson[], users: GradesUser[] = [], excluded: string[] = []) =>
+  planRegistrySync({ hr, users, excluded, options: { today: TODAY } });
+const active = (p: ReturnType<typeof plan>) => p.create.filter((c) => c.active);
 
 describe('roleForPosition', () => {
   it('Lead Designer — лид, Design — дизайнер', () => {
@@ -193,7 +196,7 @@ describe('planRegistrySync', () => {
         active: false,
       },
     ]);
-    expect(p.activeMissing).toEqual([]);
+    expect(active(p)).toEqual([]);
   });
 
   it('учётка в архиве — ушедший, даже если дата увольнения в будущем', () => {
@@ -202,26 +205,26 @@ describe('planRegistrySync', () => {
     expect(p.create[0]).toMatchObject({ active: false, departed: true });
   });
 
-  it('активного в HR без карточки только перечисляет', () => {
-    const hr = [hrRow({ id: 'hr-3', email: 'new@example.test', department: 'Самолет' })];
+  it('работающего в HR без карточки — «Заведём»: активным, роль, отдел и билд из HR (27.11.2026)', () => {
+    const hr = [hrRow({ id: 'hr-3', email: 'new@example.test', department: 'Самолет', positionId: 20 })];
     const p = plan(hr);
-    expect(p.create).toEqual([]);
-    expect(p.activeMissing).toHaveLength(1);
-    expect(p.activeMissing[0]).toMatchObject({ department: 'Самолет', buildCode: null, departed: false });
-    expect(p.includeErrors).toEqual([]);
-  });
-
-  it('с includeActiveMissing создаёт активного и оставляет его в списке', () => {
-    const p = plan([hrRow({ id: 'hr-3', email: 'new@example.test' })], [], [], true);
     expect(p.create).toHaveLength(1);
-    expect(p.create[0]).toMatchObject({ active: true, email: 'new@example.test' });
-    expect(p.activeMissing).toHaveLength(1);
+    expect(p.create[0]).toMatchObject({
+      hrId: 'hr-3',
+      email: 'new@example.test',
+      role: 'lead',
+      department: 'Самолет',
+      buildCode: null,
+      departed: false,
+      active: true,
+    });
+    const q = plan([hrRow({ id: 'hr-3b', email: 'new2@example.test', department: 'design.inhouse' })]);
+    expect(q.create[0]).toMatchObject({ active: true, department: 'Инхаус', buildCode: 'creator', role: 'designer' });
   });
 
-  it('увольнение в будущем — ещё работает', () => {
+  it('увольнение в будущем — ещё работает: заводим активным', () => {
     const p = plan([hrRow({ id: 'hr-4', email: 'leaving@example.test', dismissedAt: '2026-10-15' })]);
-    expect(p.create).toEqual([]);
-    expect(p.activeMissing[0]?.departed).toBe(false);
+    expect(p.create).toMatchObject([{ hrId: 'hr-4', active: true, departed: false }]);
   });
 
   it('исключённых не создаёт, а перечисляет', () => {
@@ -288,9 +291,9 @@ describe('planRegistrySync', () => {
       expect(p.skipDepartedBefore).toEqual([]);
     });
 
-    it('активных граница не касается', () => {
+    it('работающих граница не касается', () => {
       const p = plan([hrRow({ id: 'act', email: 'act@example.test', hiredAt: '2018-01-01' })]);
-      expect(p.activeMissing.map((c) => c.hrId)).toEqual(['act']);
+      expect(active(p).map((c) => c.hrId)).toEqual(['act']);
     });
 
     it('существующему неактивному, ушедшему до границы, дату всё равно дозаполняет', () => {
@@ -327,19 +330,22 @@ describe('planRegistrySync', () => {
       expect(p.update).toEqual([{ userId: 2, hrId: 'hr-9', set: { dismissedAt: '2025-05-05' } }]);
     });
 
-    it('активному дату увольнения не ставит и не деактивирует — только справка', () => {
+    it('активного, ушедшего по HR, деактивирует (27.11.2026); дату увольнения ставит деактивация, а не дозаполнение', () => {
       const hr = [hrRow({ id: 'hr-10', email: 'back@example.test', dismissedAt: '2025-05-05' })];
-      const p = plan(hr, [user({ id: 3, email: 'back@example.test' })]);
+      const p = plan(hr, [user({ id: 3, email: 'back@example.test', fullName: 'Тест Тестов' })]);
       expect(p.update).toEqual([]);
-      expect(p.conflicts).toEqual([
-        { kind: 'dismissed_in_hr_active_in_grades', hrId: 'hr-10', email: 'back@example.test', userId: 3 },
+      expect(p.conflicts).toEqual([]);
+      expect(p.deactivate).toEqual([
+        { userId: 3, hrId: 'hr-10', email: 'back@example.test', fullName: 'Тест Тестов', dismissedAt: '2025-05-05' },
       ]);
     });
 
-    it('почасовщик, выведенный из штата HR, — не расхождение', () => {
+    it('почасовщик, выведенный из штата HR, — не расхождение и не деактивация', () => {
       const hr = [hrRow({ id: 'hr-11', email: 'h@example.test', dismissedAt: '2025-05-05' })];
       const p = plan(hr, [user({ id: 4, email: 'h@example.test', employmentType: 'hourly' })]);
       expect(p.conflicts).toEqual([]);
+      expect(p.deactivate).toEqual([]);
+      expect(p.stats.keptHourly).toBe(1);
     });
 
     it('неактивного, который в HR работает, не активирует — только справка', () => {
@@ -483,12 +489,8 @@ describe('контур дизайна — без Lite и дизайн-инжен
         hrRow({ id: 'lite-gone', email: 'lite.gone@example.test', firstNameRu: 'Лайтушёл', department: 'Lite', dismissedAt: '2025-05-01' }),
         hrRow({ id: 'lite-lead', email: 'lite.lead@example.test', firstNameRu: 'Лайтлид', department: 'lite', positionId: 20 }),
       ],
-      [],
-      [],
-      true,
     );
     expect(p.create).toEqual([]);
-    expect(p.activeMissing).toEqual([]);
     expect(p.conflicts).toEqual([]);
     expect(p.stats).toMatchObject({ people: 3, skippedLite: 3, skippedEngineer: 0, ignoredPositions: 0 });
   });
@@ -500,16 +502,12 @@ describe('контур дизайна — без Lite и дизайн-инжен
         hrRow({ id: 'eng-gone', email: 'eng.gone@example.test', firstNameRu: 'Инженерушёл', positionId: '29', dismissedAt: '2025-03-01' }),
         hrRow({ id: 'eng-lite', email: 'eng.lite@example.test', firstNameRu: 'Инженерлайт', positionId: 29, department: 'Lite' }),
       ],
-      [],
-      [],
-      true,
     );
     expect(p.create).toEqual([]);
-    expect(p.activeMissing).toEqual([]);
     expect(p.stats).toMatchObject({ skippedEngineer: 2, skippedLite: 1 });
   });
 
-  it('совпавшего с Грейдами из Lite не трогает: ни дат, ни справок', () => {
+  it('совпавшему с Грейдами из Lite дат не дозаполняет и справок не даёт; ушёл из компании — деактивируем', () => {
     const p = plan(
       [hrRow({ id: 'lite-cur', email: 'lite.cur@example.test', department: 'Lite', dismissedAt: '2025-05-05' })],
       [user({ id: 1, email: 'lite.cur@example.test', hiredAt: null })],
@@ -517,6 +515,8 @@ describe('контур дизайна — без Lite и дизайн-инжен
     expect(p.update).toEqual([]);
     expect(p.conflicts).toEqual([]);
     expect(p.stats.matched).toBe(0);
+    // Уход — по любым учёткам с этим email, контур тут ни при чём
+    expect(p.deactivate.map((d) => d.userId)).toEqual([1]);
   });
 
   it('решает живая учётка: перешёл в Lite — вне контура, из Lite в дизайн — в контуре', () => {
@@ -529,8 +529,7 @@ describe('контур дизайна — без Lite и дизайн-инжен
       hrRow({ id: 'from-new', email: 'from.lite@example.test', firstNameRu: 'Вернулся', hiredAt: '2025-04-02' }),
     ]);
     expect(p.stats).toMatchObject({ people: 2, skippedLite: 1, mergedDuplicates: 2 });
-    expect(p.create).toEqual([]);
-    expect(p.activeMissing.map((x) => x.hrId)).toEqual(['from-new']);
+    expect(p.create.map((x) => [x.hrId, x.active])).toEqual([['from-new', true]]);
   });
 
   it('тёзка из Lite не создаёт конфликт тёзок в HR', () => {
@@ -544,20 +543,14 @@ describe('контур дизайна — без Lite и дизайн-инжен
 });
 
 describe('декрет — пока в декрете, не заводим', () => {
-  it('активная в декрете: не в «нет в Грейдах» и не создаётся даже с includeActiveMissing', () => {
-    const p = plan(
-      [
-        hrRow({ id: 'mat', email: 'mat@example.test', firstNameRu: 'Декрет', maternityLeave: 1 }),
-        hrRow({ id: 'mat-s', email: 'mat.s@example.test', firstNameRu: 'Декретстрока', maternityLeave: '1' }),
-        hrRow({ id: 'work', email: 'work@example.test', firstNameRu: 'Работает', maternityLeave: 0 }),
-      ],
-      [],
-      [],
-      true,
-    );
+  it('работающая в декрете — не заводим, пока в декрете', () => {
+    const p = plan([
+      hrRow({ id: 'mat', email: 'mat@example.test', firstNameRu: 'Декрет', maternityLeave: 1 }),
+      hrRow({ id: 'mat-s', email: 'mat.s@example.test', firstNameRu: 'Декретстрока', maternityLeave: '1' }),
+      hrRow({ id: 'work', email: 'work@example.test', firstNameRu: 'Работает', maternityLeave: 0 }),
+    ]);
     // Порядок — по email: «mat.s@» раньше «mat@»
     expect(p.onMaternity.map((x) => x.hrId)).toEqual(['mat-s', 'mat']);
-    expect(p.activeMissing.map((x) => x.hrId)).toEqual(['work']);
     expect(p.create.map((c) => c.hrId)).toEqual(['work']);
   });
 
@@ -592,103 +585,248 @@ describe('декрет — пока в декрете, не заводим', () 
   });
 });
 
-describe('includeHrIds — создать только перечисленных активных', () => {
-  const planIds = (hr: HrPerson[], ids: string[], users: GradesUser[] = [], excluded: string[] = []) =>
-    planRegistrySync({ hr, users, excluded, options: { today: TODAY, includeHrIds: ids } });
-
-  it('создаёт только указанных; остальные — только в списке', () => {
-    const p = planIds(
+describe('правила 27.11.2026 — не дублировать', () => {
+  it('дубль по email: без регистра и пробелов, среди неактивных — карточку не создаём', () => {
+    const p = plan(
       [
-        hrRow({ id: 'pick', email: 'pick@example.test', firstNameRu: 'Нужная', department: 'design.inhouse' }),
-        hrRow({ id: 'skip', email: 'skip@example.test', firstNameRu: 'Другая' }),
+        hrRow({ id: 'a', email: ' Anna.Primer@Example.test ', firstNameRu: 'Анна', lastNameRu: 'Пример' }),
+        hrRow({ id: 'b', email: 'GONE@example.test', firstNameRu: 'Борис', lastNameRu: 'Пример', dismissedAt: '2025-06-01' }),
       ],
-      ['PICK'],
+      [
+        user({ id: 1, email: 'anna.primer@example.test', fullName: 'Аня' }),
+        user({ id: 2, email: 'gone@example.test ', fullName: 'Боря', active: false, dismissedAt: '2025-06-01T00:00:00.000Z' }),
+      ],
     );
-    expect(p.activeMissing.map((x) => x.hrId)).toEqual(['pick', 'skip']);
-    expect(p.create).toEqual([
-      expect.objectContaining({ hrId: 'pick', active: true, department: 'Инхаус', buildCode: 'creator' }),
-    ]);
-    expect(p.includeErrors).toEqual([]);
+    expect(p.create).toEqual([]);
+    expect(p.stats.matched).toBe(2);
   });
 
-  it('ушедших создаёт как обычно — флаг касается только активных', () => {
-    const p = planIds(
+  it('ExcludedEmail — не создаём ни работающего, ни ушедшего, без регистра', () => {
+    const p = plan(
       [
-        hrRow({ id: 'pick', email: 'pick@example.test', firstNameRu: 'Нужная' }),
-        hrRow({ id: 'gone', email: 'gone@example.test', firstNameRu: 'Ушедшая', dismissedAt: '2025-06-01' }),
+        hrRow({ id: 'x', email: 'X@example.test', firstNameRu: 'Икс' }),
+        hrRow({ id: 'y', email: 'y@example.test', firstNameRu: 'Игрек', dismissedAt: '2025-06-01' }),
       ],
-      ['pick'],
+      [],
+      [' x@EXAMPLE.test', 'y@example.test'],
     );
-    expect(p.create.map((c) => [c.hrId, c.active])).toEqual([
-      ['gone', false],
-      ['pick', true],
-    ]);
+    expect(p.create).toEqual([]);
+    expect(p.skipExcluded.map((s) => s.hrId)).toEqual(['x', 'y']);
   });
 
-  it('вместе с includeActiveMissing — все активные, без ошибок', () => {
-    const p = planRegistrySync({
-      hr: [
-        hrRow({ id: 'a', email: 'a@example.test', firstNameRu: 'Первая' }),
-        hrRow({ id: 'b', email: 'b@example.test', firstNameRu: 'Вторая' }),
-      ],
-      users: [],
-      excluded: [],
-      options: { today: TODAY, includeActiveMissing: true, includeHrIds: ['a'] },
-    });
-    expect(p.create.map((c) => c.hrId)).toEqual(['a', 'b']);
-    expect(p.includeErrors).toEqual([]);
-  });
-
-  it('id не из «нет в Грейдах» — ошибка с причиной, ничего для него не создаём', () => {
-    const p = planIds(
-      [
-        hrRow({ id: 'cur', email: 'cur@example.test', firstNameRu: 'Есть' }),
-        hrRow({ id: 'exc', email: 'exc@example.test', firstNameRu: 'Исключена' }),
-        hrRow({ id: 'lite', email: 'lite@example.test', firstNameRu: 'Лайт', department: 'Lite' }),
-        hrRow({ id: 'eng', email: 'eng@example.test', firstNameRu: 'Инженер', positionId: 29 }),
-        hrRow({ id: 'mat', email: 'mat@example.test', firstNameRu: 'Декрет', maternityLeave: 1 }),
-        hrRow({ id: 'gone', email: 'gone@example.test', firstNameRu: 'Ушла', dismissedAt: '2025-06-01' }),
-        hrRow({ id: 'old', email: 'old@example.test', firstNameRu: 'Давно', dismissedAt: '2023-06-01' }),
-        hrRow({ id: 'twin', email: 'twin@example.test', firstNameRu: 'Тёзка' }),
-        hrRow({ id: 'dup-old', email: 'dup@example.test', firstNameRu: 'Дубль', isArchive: 1, dismissedAt: '2024-01-01' }),
-        hrRow({ id: 'dup-new', email: 'dup@example.test', firstNameRu: 'Дубль', hiredAt: '2024-02-01' }),
-        hrRow({ id: 'ba', email: 'ba@example.test', firstNameRu: 'Аналитик', positionId: 4 }),
-      ],
-      ['cur', 'exc', 'lite', 'eng', 'mat', 'gone', 'old', 'twin', 'dup-old', 'ba', 'nobody', 'dup-new'],
-      [
-        user({ id: 1, email: 'cur@example.test', fullName: 'Есть Тестов' }),
-        user({ id: 2, email: 'twin.other@example.test', fullName: 'Тёзка Тестов' }),
-      ],
-      ['exc@example.test'],
+  it('дубль по имени: ru, без регистра, ё = е, порядок слов — «Похоже, уже есть», не создаём', () => {
+    const p = plan(
+      [hrRow({ id: 'h', email: 'new.mail@example.test', firstNameRu: 'Алёна', lastNameRu: 'Образцова', hiredAt: '2024-05-06' })],
+      [user({ id: 5, email: 'old.mail@example.test', fullName: 'ОБРАЗЦОВА алена', hiredAt: null })],
     );
-    expect(p.includeErrors).toEqual([
-      { hrId: 'cur', reason: 'in_grades' },
-      { hrId: 'exc', reason: 'excluded' },
-      { hrId: 'lite', reason: 'outside_contour' },
-      { hrId: 'eng', reason: 'outside_contour' },
-      { hrId: 'mat', reason: 'on_maternity' },
-      { hrId: 'gone', reason: 'departed' },
-      { hrId: 'old', reason: 'departed' },
-      { hrId: 'twin', reason: 'conflict' },
-      { hrId: 'dup-old', reason: 'merged' },
-      { hrId: 'ba', reason: 'not_found' },
-      { hrId: 'nobody', reason: 'not_found' },
+    expect(p.create).toEqual([]);
+    expect(p.conflicts).toEqual([{ kind: 'name_matches_user', hrId: 'h', email: 'new.mail@example.test', userId: 5 }]);
+    // Однозначно и своей учётки HR по email у человека нет — пустую дату найма дозаполняем
+    expect(p.update).toEqual([{ userId: 5, hrId: 'h', set: { hiredAt: '2024-05-06' }, byName: true }]);
+  });
+
+  it('дубль по латинскому имени (в Грейдах имя латиницей)', () => {
+    const p = plan(
+      [hrRow({ id: 'h', email: 'mark@example.test', firstNameRu: 'Марк', lastNameRu: 'Образец', firstName: 'Mark', lastName: 'Obrazets' })],
+      [user({ id: 6, email: 'm.obrazets@example.test', fullName: 'Obrazets Mark' })],
+    );
+    expect(p.create).toEqual([]);
+    expect(p.conflicts.map((c) => [c.kind, c.userId])).toEqual([['name_matches_user', 6]]);
+    // Дата найма в Грейдах уже есть — не трогаем
+    expect(p.update).toEqual([]);
+  });
+
+  it('латинские двойники в имени из Грейдов — тоже совпадение', () => {
+    const p = plan(
+      [hrRow({ id: 'h', email: 'h@example.test', firstNameRu: 'Анна', lastNameRu: 'Текстова' })],
+      // «Aнна Тeкстовa» — латинские A, e, a
+      [user({ id: 7, email: 'other@example.test', fullName: 'Aнна Тeкстовa' })],
+    );
+    expect(p.conflicts.map((c) => c.kind)).toEqual(['name_matches_user']);
+  });
+
+  it('неоднозначно: двое тёзок в Грейдах — только отчёт, дат не трогаем', () => {
+    const p = plan(
+      [hrRow({ id: 'h', email: 'h@example.test', firstNameRu: 'Иван', lastNameRu: 'Тёзкин' })],
+      [
+        user({ id: 8, email: 'ivan1@example.test', fullName: 'Иван Тезкин', hiredAt: null }),
+        user({ id: 9, email: 'ivan2@example.test', fullName: 'Тёзкин Иван', hiredAt: null }),
+      ],
+    );
+    expect(p.create).toEqual([]);
+    expect(p.conflicts).toEqual([
+      { kind: 'name_matches_user', hrId: 'h', email: 'h@example.test', userIds: [8, 9], ambiguous: true },
     ]);
-    // Активным создаётся только dup-new; ушедшая — неактивной, как без флага
-    expect(p.create.map((c) => [c.hrId, c.active])).toEqual([
-      ['dup-new', true],
-      ['gone', false],
+    expect(p.update).toEqual([]);
+  });
+
+  it('неоднозначно: на одного человека претендуют две учётки HR — только отчёт', () => {
+    const p = plan(
+      [
+        hrRow({ id: 'h1', email: 'h1@example.test', firstNameRu: 'Ольга', lastNameRu: 'Двойная', firstName: 'Olga', lastName: 'Dvoinaya' }),
+        hrRow({ id: 'h2', email: 'h2@example.test', firstNameRu: 'Ольга', lastNameRu: 'Двойная', firstName: 'Olga', lastName: 'Dvoinaya', dismissedAt: '2025-03-01' }),
+      ],
+      [user({ id: 10, email: 'olga@example.test', fullName: 'Ольга Двойная', hiredAt: null })],
+    );
+    expect(p.create).toEqual([]);
+    expect(p.conflicts.map((c) => [c.hrId, c.userId, c.ambiguous])).toEqual([
+      ['h1', 10, true],
+      ['h2', 10, true],
+    ]);
+    expect(p.update).toEqual([]);
+  });
+
+  it('однозначно, но у человека своя учётка HR по email — даты из неё, тёзку не трогаем', () => {
+    const p = plan(
+      [
+        hrRow({ id: 'own', email: 'cur@example.test', firstNameRu: 'Пётр', lastNameRu: 'Свой', positionId: 4 }),
+        hrRow({ id: 'twin', email: 'twin@example.test', firstNameRu: 'Пётр', lastNameRu: 'Свой', hiredAt: '2020-01-01' }),
+      ],
+      [user({ id: 11, email: 'cur@example.test', fullName: 'Петр Свой', hiredAt: null })],
+    );
+    expect(p.conflicts.map((c) => [c.kind, c.hrId, c.userId, c.ambiguous])).toEqual([
+      ['name_matches_user', 'twin', 11, undefined],
+    ]);
+    expect(p.update).toEqual([]);
+  });
+});
+
+describe('правила 27.11.2026 — ушедшие', () => {
+  const working = (over: Partial<HrPerson> & { id: string; email: string }) => hrRow(over);
+  const gone = (over: Partial<HrPerson> & { id: string; email: string }) =>
+    hrRow({ dismissedAt: '2025-08-01', isArchive: 1, ...over });
+
+  it('нет ни одной живой учётки — «Деактивируем», дата увольнения — самой поздней по найму', () => {
+    const p = plan(
+      [
+        gone({ id: 'old', email: 'leaver@example.test', hiredAt: '2019-01-01', dismissedAt: '2020-01-01' }),
+        gone({ id: 'last', email: 'LEAVER@example.test', hiredAt: '2021-01-01', dismissedAt: '2025-08-01' }),
+      ],
+      [user({ id: 20, email: 'leaver@example.test', fullName: 'Ушёл Тестов' })],
+    );
+    expect(p.deactivate).toEqual([
+      { userId: 20, hrId: 'last', email: 'leaver@example.test', fullName: 'Ушёл Тестов', dismissedAt: '2025-08-01' },
     ]);
   });
 
-  it('повторный прогон после записи — тот же id уже «в Грейдах»', () => {
-    const hr = [hrRow({ id: 'pick', email: 'pick@example.test', firstNameRu: 'Нужная' })];
-    const first = planIds(hr, ['pick']);
-    expect(first.create).toHaveLength(1);
-    const c = first.create[0];
-    const second = planIds(hr, ['pick'], [user({ id: 50, email: c.email, fullName: c.fullName, hiredAt: `${c.hiredAt}T00:00:00.000Z` })]);
-    expect(second.create).toEqual([]);
+  it('архивный дубль при живой записи — работает, не трогаем', () => {
+    const p = plan(
+      [
+        gone({ id: 'arch', email: 'dup@example.test', hiredAt: '2019-01-01' }),
+        working({ id: 'live', email: 'dup@example.test', hiredAt: '2025-09-01' }),
+      ],
+      [user({ id: 21, email: 'dup@example.test' })],
+    );
+    expect(p.deactivate).toEqual([]);
+    expect(p.manualCheck).toEqual([]);
+  });
+
+  it('живая учётка на другой позиции (перевёлся) — работает, не трогаем', () => {
+    const p = plan(
+      [gone({ id: 'design', email: 'moved@example.test' }), working({ id: 'pm', email: 'moved@example.test', positionId: 4 })],
+      [user({ id: 22, email: 'moved@example.test' })],
+    );
+    expect(p.deactivate).toEqual([]);
+  });
+
+  it('увольнение в будущем — ещё работает', () => {
+    const p = plan(
+      [working({ id: 'soon', email: 'soon@example.test', dismissedAt: '2026-12-31' })],
+      [user({ id: 23, email: 'soon@example.test' })],
+    );
+    expect(p.deactivate).toEqual([]);
+  });
+
+  it('админа не деактивируем — строка «Проверьте вручную»', () => {
+    const p = plan(
+      [gone({ id: 'adm', email: 'admin@example.test', positionId: 4 })],
+      [user({ id: 24, email: 'admin@example.test', role: 'admin', fullName: 'Админ Тестов' })],
+    );
+    expect(p.deactivate).toEqual([]);
+    expect(p.manualCheck).toEqual([
+      { userId: 24, hrId: 'adm', email: 'admin@example.test', fullName: 'Админ Тестов', reason: 'admin' },
+    ]);
+  });
+
+  it('в декрете — не увольнение, не деактивируем', () => {
+    const p = plan(
+      [gone({ id: 'mat', email: 'mat@example.test', maternityLeave: 1 })],
+      [user({ id: 25, email: 'mat@example.test' })],
+    );
+    expect(p.deactivate).toEqual([]);
+    expect(p.stats.keptOnLeave).toBe(1);
+  });
+
+  it('нет в HR — только число', () => {
+    const p = plan([working({ id: 'w', email: 'w@example.test' })], [user({ id: 26, email: 'nohr@example.test' })]);
+    expect(p.deactivate).toEqual([]);
+    expect(p.stats.notInHr).toBe(1);
+  });
+
+  it('неактивного не трогаем и обратно не активируем', () => {
+    const p = plan(
+      [gone({ id: 'g', email: 'g@example.test' }), working({ id: 'w', email: 'w@example.test' })],
+      [
+        user({ id: 27, email: 'g@example.test', active: false, dismissedAt: '2025-08-01T00:00:00.000Z' }),
+        user({ id: 28, email: 'w@example.test', active: false, dismissedAt: '2025-01-01T00:00:00.000Z' }),
+      ],
+    );
+    expect(p.deactivate).toEqual([]);
+    expect(p.create).toEqual([]);
+    expect(p.conflicts.map((c) => [c.kind, c.userId])).toEqual([['active_in_hr_inactive_in_grades', 28]]);
+  });
+
+  it('повторный прогон после деактивации — делать нечего', () => {
+    const hr = [gone({ id: 'g', email: 'g@example.test' })];
+    const first = plan(hr, [user({ id: 29, email: 'g@example.test' })]);
+    expect(first.deactivate).toHaveLength(1);
+    const second = plan(hr, [user({ id: 29, email: 'g@example.test', active: false, dismissedAt: '2025-08-01T00:00:00.000Z' })]);
+    expect(second.deactivate).toEqual([]);
     expect(second.update).toEqual([]);
-    expect(second.includeErrors).toEqual([{ hrId: 'pick', reason: 'in_grades' }]);
+  });
+});
+
+describe('skipHrIds / skipUserIds — не трогать', () => {
+  const opts = (skipHrIds: string[] = [], skipUserIds: number[] = []) => ({ today: TODAY, skipHrIds, skipUserIds });
+
+  it('учётка HR: не заводим, не дозаполняем, не деактивируем по ней', () => {
+    const hr = [
+      hrRow({ id: 'new', email: 'new@example.test', firstNameRu: 'Новая' }),
+      hrRow({ id: 'cur', email: 'cur@example.test', firstNameRu: 'Есть' }),
+      hrRow({ id: 'gone', email: 'gone@example.test', firstNameRu: 'Ушла', dismissedAt: '2025-08-01', isArchive: 1 }),
+    ];
+    const users = [
+      user({ id: 1, email: 'cur@example.test', fullName: 'Есть Тестов', hiredAt: null }),
+      user({ id: 2, email: 'gone@example.test', fullName: 'Ушла Тестова' }),
+    ];
+    const all = planRegistrySync({ hr, users, excluded: [], options: opts() });
+    expect([all.create.length, all.update.length, all.deactivate.length]).toEqual([1, 1, 1]);
+    const p = planRegistrySync({ hr, users, excluded: [], options: opts(['NEW', 'cur', 'gone']) });
+    expect([p.create, p.update, p.deactivate]).toEqual([[], [], []]);
+    expect(p.skipped).toEqual({ hrIds: ['cur', 'gone', 'new'], userIds: [] });
+    expect(p.skipErrors).toEqual({ hrIds: [], userIds: [] });
+  });
+
+  it('человек Грейдов: ни дат, ни деактивации', () => {
+    const hr = [hrRow({ id: 'gone', email: 'gone@example.test', dismissedAt: '2025-08-01', isArchive: 1 })];
+    const p = planRegistrySync({
+      hr,
+      users: [user({ id: 2, email: 'gone@example.test', hiredAt: null })],
+      excluded: [],
+      options: opts([], [2]),
+    });
+    expect(p.update).toEqual([]);
+    expect(p.deactivate).toEqual([]);
+    expect(p.skipped.userIds).toEqual([2]);
+  });
+
+  it('id, которого нет ни в HR, ни в Грейдах, — ошибка (скорее опечатка)', () => {
+    const p = planRegistrySync({
+      hr: [hrRow({ id: 'a', email: 'a@example.test' })],
+      users: [user({ id: 1, email: 'b@example.test' })],
+      excluded: [],
+      options: opts(['a', 'nope'], [1, 404]),
+    });
+    expect(p.skipErrors).toEqual({ hrIds: ['nope'], userIds: [404] });
   });
 });

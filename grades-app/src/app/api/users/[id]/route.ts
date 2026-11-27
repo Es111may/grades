@@ -23,6 +23,7 @@ import { userForViewer } from '@/lib/userResponse';
 import { GRADE_CODES } from '@/lib/types';
 import { parseAvatarInput } from '@/lib/avatarShared';
 import { AUDIT_ACTIONS } from '@/lib/audit';
+import { deactivationWrites } from '@/lib/deactivation';
 import {
   canHaveGradingDate,
   gradingDateChange,
@@ -642,45 +643,14 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   }
 
   // Деактивация сама ставит дату увольнения — сегодня по Москве, если даты
-  // нет или она осталась от прошлого трудоустройства (раньше найма).
-  const autoDismissal = needsDismissalDate(target);
-  const dismissedAt = autoDismissal ? todayMoscowDate() : target.dismissedAt;
+  // нет или она осталась от прошлого трудоустройства (раньше найма). Что
+  // пишется в карточку и «Действия» — lib/deactivation, общий со сверкой с HR.
+  const { data, audits } = deactivationWrites(target, { actorId: me.id, today: todayMoscowDate() });
 
   const [updated] = await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      data: { active: false, ...(autoDismissal && { dismissedAt }) },
-      include: USER_RESPONSE_INCLUDE,
-    }),
-    prisma.auditLog.create({
-      data: {
-        actorId: me.id,
-        action: AUDIT_ACTIONS.USER_DEACTIVATED,
-        targetType: 'user',
-        targetId: userId,
-        details: { before: true, after: false },
-      },
-    }),
+    prisma.user.update({ where: { id: userId }, data, include: USER_RESPONSE_INCLUDE }),
     // Как в PATCH: в журнал — только дата, без типа и причины.
-    ...(autoDismissal
-      ? [
-          prisma.auditLog.create({
-            data: {
-              actorId: me.id,
-              action: AUDIT_ACTIONS.DISMISSAL_UPDATED,
-              targetType: 'user',
-              targetId: userId,
-              details: {
-                before: dayKey(target.dismissedAt),
-                after: dayKey(dismissedAt),
-                typeChanged: false,
-                reasonChanged: false,
-                auto: true,
-              },
-            },
-          }),
-        ]
-      : []),
+    ...audits.map((a) => prisma.auditLog.create({ data: a })),
   ]);
   forgetSessionUser(userId);
 
