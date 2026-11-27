@@ -38,6 +38,13 @@
  *       С какой даты увольнения заводить ушедших (включительно). По умолчанию
  *       2025-01-01 (REGISTRY_DEPARTED_SINCE). Существующих людей граница не
  *       касается.
+ *   --snapshot-dir=<папка>
+ *       Только отчёт: набор HR — из папки ответов ida.hub (той же проверкой,
+ *       что scripts/hr-snapshot.ts --import: SQL, страницы, CRC), а не из БД.
+ *       Чтобы показать план до загрузки слепка. --apply с ним — ошибка:
+ *       сначала загрузите слепок в базу. Отпечаток совпадёт с отчётом по
+ *       загруженному слепку тех же ответов (loadHrForSync) — если в Грейдах
+ *       ничего не поменялось, «сегодня» то же и флаги те же.
  *
  * Убраны 27.11.2026: --include-active-missing и --include-hr-id. Новых теперь
  * заводим без флага; не заводить кого-то — --skip-hr-id. Старые флаги —
@@ -69,7 +76,10 @@ import { prisma } from '../src/lib/db';
 import { AUDIT_ACTIONS } from '../src/lib/auditShared';
 import { todayMoscowIso } from '../src/lib/dates';
 import { deactivationWrites } from '../src/lib/deactivation';
+import { resolve } from 'node:path';
 import { loadHrDataset, type HrDataset, type HrRow } from '../src/lib/hrDataset';
+import { HrSnapshotRejected, importSnapshotAnswers } from '../src/lib/hrSnapshot';
+import { readAnswersDir, takenAtFromFiles } from './hr-snapshot';
 import { canDeactivateUser } from '../src/lib/permissions';
 import {
   REGISTRY_DEPARTED_SINCE,
@@ -83,7 +93,14 @@ import {
 } from '../src/lib/hrRegistry';
 
 const FLAGS = ['--apply', '--verbose'] as const;
-const VALUE_FLAGS = ['--actor=', '--departed-since=', '--skip-hr-id=', '--skip-user-id=', '--confirm='] as const;
+const VALUE_FLAGS = [
+  '--actor=',
+  '--departed-since=',
+  '--skip-hr-id=',
+  '--skip-user-id=',
+  '--confirm=',
+  '--snapshot-dir=',
+] as const;
 /** Флаги, убранные 27.11.2026 — понятная ошибка вместо «неизвестного». */
 const REMOVED_FLAGS = ['--include-active-missing', '--include-hr-id'] as const;
 
@@ -119,7 +136,8 @@ export function parseArgs(argv: string[]) {
   if (unknown.length) {
     throw new Error(
       `Неизвестные аргументы: ${unknown.join(' ')}. Есть: ${FLAGS.join(' ')} --confirm=<отпечаток> ` +
-        '--skip-hr-id=<uuid>[,…] --skip-user-id=<id>[,…] --actor=<email> --departed-since=YYYY-MM-DD',
+        '--skip-hr-id=<uuid>[,…] --skip-user-id=<id>[,…] --actor=<email> --departed-since=YYYY-MM-DD ' +
+        '--snapshot-dir=<папка>',
     );
   }
   const sinceArg = value('--departed-since=');
@@ -136,10 +154,23 @@ export function parseArgs(argv: string[]) {
   const notId = (skipUser ?? []).filter((id) => !/^\d+$/.test(id) || Number(id) <= 0);
   if (notId.length) throw new Error(`--skip-user-id — id пользователя числом; не число: ${notId.join(', ')}`);
 
+  const snapshotDir = value('--snapshot-dir=');
+  if (argv.some((a) => a.startsWith('--snapshot-dir=')) && !snapshotDir) {
+    throw new Error('--snapshot-dir — нужна папка с ответами ida.hub');
+  }
+  const apply = argv.includes('--apply');
+  if (apply && snapshotDir) {
+    throw new Error(
+      '--snapshot-dir — только отчёт, записи по папке нет: сначала загрузите слепок в базу ' +
+        '(scripts/hr-snapshot.ts --import <папка> --apply), затем --apply без --snapshot-dir',
+    );
+  }
+
   return {
-    apply: argv.includes('--apply'),
+    apply,
     verbose: argv.includes('--verbose'),
     confirm: value('--confirm='),
+    snapshotDir,
     skipHrIds: skipHr ?? [],
     skipUserIds: (skipUser ?? []).map(Number),
     actor: value('--actor='),
@@ -178,6 +209,38 @@ export function describeSource(ds: Pick<HrDataset, 'source' | 'takenAt'>): strin
     new Date(ds.takenAt),
   );
   return `слепок на ${day}`;
+}
+
+/**
+ * Набор HR для сверки. Без папки — как везде (lib/hrDataset): живой
+ * ClickHouse или последний слепок из БД. С папкой (--snapshot-dir) — из
+ * ответов ida.hub той же проверкой, что импорт слепка; не прошла — отказ.
+ * Таблицы и порядок строк те же, что окажутся в БД после
+ * hr-snapshot.ts --import --apply, поэтому и план, и отпечаток те же.
+ */
+export async function loadHrForSync(snapshotDir: string | null): Promise<{ dataset: HrDataset; source: string }> {
+  if (!snapshotDir) {
+    const dataset = await loadHrDataset();
+    return { dataset, source: describeSource(dataset) };
+  }
+  const dir = resolve(snapshotDir);
+  const checked = (() => {
+    try {
+      const files = readAnswersDir(dir);
+      return { names: Array.from(files.keys()), tables: importSnapshotAnswers(files).tables };
+    } catch (e) {
+      if (e instanceof HrSnapshotRejected) {
+        throw new Error(`Папка ответов не прошла проверку — отчёта нет. ${e.message}`);
+      }
+      throw e;
+    }
+  })();
+  const dataset: HrDataset = {
+    ...checked.tables,
+    source: 'snapshot',
+    takenAt: takenAtFromFiles(dir, checked.names).toISOString(),
+  };
+  return { dataset, source: `${describeSource(dataset)} — из папки ответов ida.hub, в базу ещё не загружен` };
 }
 
 // ── Отчёт ───────────────────────────────────────────────────────────────
@@ -546,8 +609,8 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const today = todayMoscowIso();
 
-  // Сначала HR: нет ни живого, ни слепка — дальше не идём
-  const dataset = await loadHrDataset();
+  // Сначала HR: нет ни живого, ни слепка (или папка не прошла проверку) — дальше не идём
+  const { dataset, source } = await loadHrForSync(args.snapshotDir);
   const hr = dataset.employees.map(toHrPerson);
   // Пустой набор — скорее сломанный запрос или не та база, чем «все ушли»
   if (!hr.length) throw new Error('В наборе HR нет ни одной учётки — проверь источник');
@@ -588,16 +651,20 @@ async function main() {
     verbose: args.verbose,
     today,
     departedSince: args.departedSince,
-    source: describeSource(dataset),
+    source,
   });
   const fingerprint = planFingerprint(plan);
   console.log(`\n  Отпечаток плана: ${fingerprint}`);
 
   if (!args.apply) {
     console.log(
-      planHasWork(plan)
-        ? `\nРежим просмотра — ничего не записано. Записать этот план: --apply --confirm=${fingerprint}\n`
-        : '\nРежим просмотра — делать нечего: состав сходится с HR.\n',
+      !planHasWork(plan)
+        ? '\nРежим просмотра — делать нечего: состав сходится с HR.\n'
+        : args.snapshotDir
+          ? '\nОтчёт по папке ответов — ничего не записано. Записать: загрузите слепок ' +
+            '(scripts/hr-snapshot.ts --import <папка> --apply), затем ' +
+            `--apply --confirm=${fingerprint} без --snapshot-dir — отчёт по базе даст тот же отпечаток.\n`
+          : `\nРежим просмотра — ничего не записано. Записать этот план: --apply --confirm=${fingerprint}\n`,
     );
     return;
   }
