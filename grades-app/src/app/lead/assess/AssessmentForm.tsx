@@ -791,9 +791,9 @@ function selfTone(selfLevel: number, currentLevel: number): string {
 /**
  * Пилюля самооценки — одна на два места, тон из selfTone:
  *  • chip — «Сам: <уровень>» в шапке навыка, `.chip` в ряд с весом;
- *  • mark — метка «Самооценка» на варианте дизайнера, в правой колонке
- *    рядом с XP: 16px в высоту — как строка XP, с тем же mt-0.5 верх и низ
- *    совпадают с числом.
+ *  • mark — метка «Самооценка» на варианте дизайнера, справа в строке
+ *    заголовка, слева от XP: 16px в высоту — как строка XP, с тем же mt-0.5
+ *    верх и низ совпадают с числом.
  */
 function SelfPill({
   size,
@@ -820,7 +820,7 @@ function MasteryOption({
   selected,
   onClick,
   disabled,
-  selfTone,
+  selfMarkTone,
 }: {
   title: string;
   criteria: string | null;
@@ -829,7 +829,7 @@ function MasteryOption({
   onClick: () => void;
   disabled: boolean;
   /** Вариант выбрал дизайнер в самооценке — метка «Самооценка» этого тона. */
-  selfTone?: string;
+  selfMarkTone?: string;
 }) {
   return (
     <button
@@ -850,20 +850,25 @@ function MasteryOption({
         {selected && <span className="w-1.5 h-1.5 rounded-full bg-ink" />}
       </span>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-ink leading-snug">{title}</div>
+        {/* Метка — в строке заголовка, а не отдельной колонкой: критерии
+            ниже остаются на всю ширину. Длинный заголовок переносится, метка
+            держится справа на первой строке. */}
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0 text-sm font-medium text-ink leading-snug">{title}</div>
+          {selfMarkTone && (
+            <SelfPill
+              size="mark"
+              tone={selfMarkTone}
+              className="shrink-0 ml-auto mt-0.5 whitespace-nowrap"
+            >
+              Самооценка
+            </SelfPill>
+          )}
+        </div>
         {criteria && (
           <div className="text-xs text-stone leading-relaxed mt-1">{criteria}</div>
         )}
       </div>
-      {selfTone && (
-        <SelfPill
-          size="mark"
-          tone={selfTone}
-          className="shrink-0 self-start mt-0.5 whitespace-nowrap"
-        >
-          Самооценка
-        </SelfPill>
-      )}
       <div className="shrink-0 text-xs text-stone tabular-nums self-start mt-0.5">
         {xp}
       </div>
@@ -1005,7 +1010,7 @@ export function SkillCard({
             selected={currentLevel === lvl.level}
             onClick={() => !disabled && onSetLevel(lvl.level)}
             disabled={disabled}
-            selfTone={self?.level === lvl.level ? tone : undefined}
+            selfMarkTone={self?.level === lvl.level ? tone : undefined}
           />
         ))}
       </div>
