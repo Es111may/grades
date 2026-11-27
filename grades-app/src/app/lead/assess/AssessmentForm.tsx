@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { GRADE_NAMES, BUILD_NAMES } from '@/lib/types';
 import type { BuildCode, GradeCode } from '@/lib/types';
@@ -774,6 +774,45 @@ export default function AssessmentForm({
   );
 }
 
+/**
+ * Phase 14: тон самооценки — по расхождению с ТЕКУЩИМ выбором лида. Лид ещё
+ * не выбрал — нейтральный glass; самооценка выше выбора — sunset
+ * («переоценка?»), ниже — sky («скромничает?»), совпала — emerald. Один тон
+ * на чип «Сам: …» в шапке навыка и метку «Самооценка» на варианте — они
+ * читаются как связанные.
+ */
+function selfTone(selfLevel: number, currentLevel: number): string {
+  if (currentLevel === 0) return 'bg-snow/60 border border-cloud/40 text-ink';
+  if (selfLevel > currentLevel) return 'bg-sunset/10 border border-sunset/25 text-sunset';
+  if (selfLevel < currentLevel) return 'bg-sky/10 border border-sky/25 text-sky';
+  return 'bg-emerald/10 border border-emerald/25 text-emerald';
+}
+
+/**
+ * Пилюля самооценки — одна на два места, тон из selfTone:
+ *  • chip — «Сам: <уровень>» в шапке навыка, `.chip` в ряд с весом;
+ *  • mark — метка «Самооценка» на варианте дизайнера, в правой колонке
+ *    рядом с XP: 16px в высоту — как строка XP, с тем же mt-0.5 верх и низ
+ *    совпадают с числом.
+ */
+function SelfPill({
+  size,
+  tone,
+  className = '',
+  children,
+}: {
+  size: 'chip' | 'mark';
+  tone: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  const look =
+    size === 'chip'
+      ? 'chip'
+      : 'inline-flex items-center px-1.5 py-[2px] rounded-pill text-[10px] font-medium leading-none';
+  return <span className={`${look} ${tone}${className ? ` ${className}` : ''}`}>{children}</span>;
+}
+
 function MasteryOption({
   title,
   criteria,
@@ -781,6 +820,7 @@ function MasteryOption({
   selected,
   onClick,
   disabled,
+  selfTone,
 }: {
   title: string;
   criteria: string | null;
@@ -788,6 +828,8 @@ function MasteryOption({
   selected: boolean;
   onClick: () => void;
   disabled: boolean;
+  /** Вариант выбрал дизайнер в самооценке — метка «Самооценка» этого тона. */
+  selfTone?: string;
 }) {
   return (
     <button
@@ -813,6 +855,15 @@ function MasteryOption({
           <div className="text-xs text-stone leading-relaxed mt-1">{criteria}</div>
         )}
       </div>
+      {selfTone && (
+        <SelfPill
+          size="mark"
+          tone={selfTone}
+          className="shrink-0 self-start mt-0.5 whitespace-nowrap"
+        >
+          Самооценка
+        </SelfPill>
+      )}
       <div className="shrink-0 text-xs text-stone tabular-nums self-start mt-0.5">
         {xp}
       </div>
@@ -820,7 +871,7 @@ function MasteryOption({
   );
 }
 
-function SkillCard({
+export function SkillCard({
   skill,
   currentLevel,
   flagged,
@@ -842,13 +893,20 @@ function SkillCard({
   self: SelfInfo | null;
   evidences: EvidenceInfo[];
 }) {
+  // Phase 14: самооценка — название уровня, не номер: номер рядом с XP
+  // вариантов читался как баллы. Уровня с таким номером в матрице может уже
+  // не быть — тогда «Уровень N».
+  const selfTitle = self
+    ? (skill.levels.find((l) => l.level === self.level)?.title ?? `Уровень ${self.level}`)
+    : null;
+  const tone = self ? selfTone(self.level, currentLevel) : undefined;
   return (
     <article
       className={`px-6 py-5 border-b border-cloud last:border-b-0 transition-colors ${
         flagged ? 'bg-blaze/5' : ''
       }`}
     >
-      {/* Header: чек-сессии · имя · CORE · вес · флаг */}
+      {/* Header: чек-сессии · имя · CORE · вес · самооценка · флаг */}
       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
         {touched && !disabled && (
           <Tooltip text="Уровень изменён в этой сессии" className="shrink-0">
@@ -866,30 +924,22 @@ function SkillCard({
           {skill.type}
         </span>
         <span className="text-xs text-stone">{skill.weight} вес</span>
-        {/* Phase 14: самооценка. Тон — по расхождению с ТЕКУЩИМ выбором
-            лида: выше выбора — sunset («переоценка?»), ниже — sky
-            («скромничает?»), совпадает/не выбрано — нейтральный glass. */}
-        {self && (
+        {/* Phase 14: самооценка — название уровня, тон из selfTone (тот же
+            у метки на варианте). Длинное название обрезается, полное — в
+            хинте. Чип занимает остаток строки до 16rem (grow, но не шире
+            содержимого — max-w-max) и переносится, только если места меньше
+            6rem (basis-24): флаг остаётся справа в той же строке. */}
+        {self && tone && (
           <Tooltip
             align="center"
-            className="shrink-0"
-            text={`Самооценка от ${formatSelfDate(self.updatedAt)}${
+            className="grow basis-24 min-w-0 max-w-max"
+            text={`Самооценка от ${formatSelfDate(self.updatedAt)}: «${selfTitle}»${
               self.comment ? ` — ${self.comment}` : ''
             }`}
           >
-            <span
-              className={`chip ${
-                currentLevel === 0
-                  ? 'bg-snow/60 border border-cloud/40 text-ink'
-                  : self.level > currentLevel
-                    ? 'bg-sunset/10 border border-sunset/25 text-sunset'
-                    : self.level < currentLevel
-                      ? 'bg-sky/10 border border-sky/25 text-sky'
-                      : 'bg-emerald/10 border border-emerald/25 text-emerald'
-              }`}
-            >
-              Сам: {self.level}
-            </span>
+            <SelfPill size="chip" tone={tone} className="min-w-0 max-w-[16rem]">
+              <span className="truncate">Сам: {selfTitle}</span>
+            </SelfPill>
           </Tooltip>
         )}
         {!disabled && (
@@ -955,6 +1005,7 @@ function SkillCard({
             selected={currentLevel === lvl.level}
             onClick={() => !disabled && onSetLevel(lvl.level)}
             disabled={disabled}
+            selfTone={self?.level === lvl.level ? tone : undefined}
           />
         ))}
       </div>
