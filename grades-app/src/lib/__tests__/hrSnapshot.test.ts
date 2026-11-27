@@ -7,6 +7,7 @@ import {
   hrChecksumSql,
   hrDataSql,
   hrPageSql,
+  inList,
   normalizeScopeEmails,
   type HrDatasetKey,
 } from '../hrDatasetQueries';
@@ -136,10 +137,15 @@ describe('SQL набора', () => {
   it('охват: позиции 9, 20, 29 или почта пользователя Грейдов — литералом с экранированием', () => {
     const sql = hrDataSql('employees', PLAN.emails);
     expect(sql).toContain('e.position_id IN (9, 20, 29)');
-    expect(sql).toContain("lowerUTF8(trimBoth(e.email)) IN ['grades.only@example.test','o\\'neil@example.test',");
+    // Кортеж с «, » — в эту форму хаб переписывает литерал массива; сверка SQL строгая
+    expect(sql).toContain(
+      "lowerUTF8(trimBoth(e.email)) IN ('grades.only@example.test', 'o\\'neil@example.test', 'p1@example.test', 'p2@example.test')",
+    );
+    expect(sql).not.toContain('IN [');
     // Журнал — только этих учёток
     expect(hrDataSql('salaryLog', PLAN.emails)).toContain('l.employee_id IN (SELECT e.id FROM hr_portal_current.employee_employee AS e WHERE e.position_id IN (9, 20, 29) OR');
     expect(hrDataSql('salaryLog', PLAN.emails)).toContain('ORDER BY l.date_start, employeeId');
+    expect(hrDataSql('salaryLog', PLAN.emails)).toContain("lowerUTF8(trimBoth(e.email)) IN ('grades.only@example.test', ");
     // Почт нет — только позиции
     expect(hrDataSql('employees', [])).not.toContain('lowerUTF8');
   });
@@ -154,6 +160,18 @@ describe('SQL набора', () => {
     expect(sql).toBe(
       `SELECT count() AS n, sum(CRC32(q.id)) AS id, sum(CRC32(q.initiator)) AS initiator, sum(CRC32(q.title)) AS title FROM (${hrDataSql('reasons', [])}) AS q`,
     );
+  });
+
+  it('inList: кортеж, разделитель «, », экранирование \\ и \'', () => {
+    expect(inList(['a@x.test', 'b@x.test'])).toBe("('a@x.test', 'b@x.test')");
+    expect(inList(["o'neil@x.test", 'a\\b'])).toBe("('o\\'neil@x.test', 'a\\\\b')");
+  });
+
+  it('хаб вернул охват литералом массива (старая форма) — сверка SQL это не пропускает', () => {
+    const planned = hrPageSql(hrDataSql('employees', PLAN.emails), 1);
+    const asArray = planned.replace(/IN \(('[^)]*')\)/, (_, list: string) => `IN [${list.split(', ').join(',')}]`);
+    expect(asArray).not.toBe(planned);
+    expect(sqlMatches(asArray, planned)).toBe(false);
   });
 
   it('страница — LIMIT 150 OFFSET', () => {

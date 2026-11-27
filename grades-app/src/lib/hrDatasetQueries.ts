@@ -11,7 +11,9 @@
 //   • ORDER BY — по всем выходным колонкам (журнал — сначала по моменту
 //     пересмотра): страницы LIMIT/OFFSET не пересекаются и не теряют строк;
 //   • SQL в одну строку: хаб возвращает выполненный запрос, лишние переводы
-//     строк только мешали бы сравнению.
+//     строк только мешали бы сравнению;
+//   • список почт — кортежем ('a', 'b') (inList): литерал массива хаб
+//     переписывает именно в эту форму.
 //
 // Охват — минимально нужный: сотрудники на позициях сверки состава (9, 20,
 // 29 — HR_REGISTRY_POSITION_IDS) и все, чей email совпадает с почтой любого
@@ -149,6 +151,19 @@ export function arrayParam(values: readonly string[]): string {
   return `[${values.map((v) => `'${v.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`).join(',')}]`;
 }
 
+/** Строковый литерал ClickHouse в одинарных кавычках — с экранированием \ и '. */
+const quote = (v: string) => `'${v.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+
+/**
+ * Список для IN: ('a', 'b') — ровно в той форме, в какую ida.hub
+ * переписывает литерал массива (кортеж, разделитель «запятая + пробел»):
+ * иначе выполненный хабом SQL не совпал бы с планом. Для ClickHouse
+ * IN ('a', 'b') и IN ['a','b'] равнозначны.
+ */
+export function inList(values: readonly string[]): string {
+  return `(${values.map(quote).join(', ')})`;
+}
+
 /** Почты охвата: нормализованы, без пустых и повторов, по алфавиту — SQL от порядка не зависит. */
 export function normalizeScopeEmails(emails: readonly (string | null | undefined)[]): string[] {
   return Array.from(new Set(emails.map(normalizeEmail).filter(Boolean))).sort();
@@ -159,7 +174,7 @@ function scopeWhere(emails: readonly string[]): string {
   // id позиций — числа из нашего же справочника
   const positions = `e.position_id IN (${HR_REGISTRY_POSITION_IDS.map((n) => String(Math.trunc(n))).join(', ')})`;
   const scope = normalizeScopeEmails(emails);
-  return scope.length ? `${positions} OR lowerUTF8(trimBoth(e.email)) IN ${arrayParam(scope)}` : positions;
+  return scope.length ? `${positions} OR lowerUTF8(trimBoth(e.email)) IN ${inList(scope)}` : positions;
 }
 
 const WHERE: Partial<Record<HrDatasetKey, (emails: readonly string[]) => string>> = {
