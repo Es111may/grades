@@ -21,20 +21,26 @@ import {
 const TODAY = '2026-10-01';
 
 // Латинское имя у каждой учётки своё: по нему тоже ищем тёзок (27.11.2026),
-// а одинаковое у всех склеило бы людей, которых тест различает по-русски
-const hrRow = (over: Partial<HrPerson> & { id: string; email: string | null }): HrPerson => ({
-  firstNameRu: 'Тест',
-  lastNameRu: 'Тестов',
-  firstName: 'Test',
-  lastName: `Testov-${over.id}`,
-  positionId: 9,
-  department: 'Create',
-  hiredAt: '2023-03-01',
-  dismissedAt: '1970-01-01',
-  isArchive: 0,
-  isHourly: 0,
-  ...over,
-});
+// а одинаковое у всех склеило бы людей, которых тест различает по-русски.
+// Ушедший в HR — учётка в архиве (признак ухода — архив, 27.11.2026): с
+// наступившей датой увольнения архив по умолчанию стоит; вернувшихся (не в
+// архиве, но с датой) тесты задают явно — isArchive: 0.
+const hrRow = (over: Partial<HrPerson> & { id: string; email: string | null }): HrPerson => {
+  const dismissed = normalizeHrDate(over.dismissedAt);
+  return {
+    firstNameRu: 'Тест',
+    lastNameRu: 'Тестов',
+    firstName: 'Test',
+    lastName: `Testov-${over.id}`,
+    positionId: 9,
+    department: 'Create',
+    hiredAt: '2023-03-01',
+    dismissedAt: '1970-01-01',
+    isArchive: dismissed && dismissed <= TODAY ? 1 : 0,
+    isHourly: 0,
+    ...over,
+  };
+};
 
 const user = (over: Partial<GradesUser> & { id: number; email: string }): GradesUser => ({
   fullName: 'Кто-то Другой',
@@ -869,6 +875,93 @@ describe('правила 27.11.2026 — ушедшие', () => {
     const second = plan(hr, [user({ id: 29, email: 'g@example.test', active: false, dismissedAt: '2025-08-01T00:00:00.000Z' })]);
     expect(second.deactivate).toEqual([]);
     expect(second.update).toEqual([]);
+  });
+});
+
+describe('признак «ушёл» — архив, а не дата (27.11.2026)', () => {
+  it('вернувшийся: не в архиве, старая дата увольнения, есть в Грейдах — «Проверьте вручную», не деактивируем', () => {
+    const p = plan(
+      [hrRow({ id: 'back', email: 'back@example.test', hiredAt: '2022-01-10', dismissedAt: '2025-03-01', isArchive: 0 })],
+      // В Грейдах уже новая дата найма — после той даты увольнения
+      [user({ id: 50, email: 'back@example.test', fullName: 'Вернулся Тестов', hiredAt: '2025-06-02T00:00:00.000Z' })],
+    );
+    expect(p.deactivate).toEqual([]);
+    expect(p.manualCheck).toEqual([
+      { userId: 50, hrId: 'back', email: 'back@example.test', fullName: 'Вернулся Тестов', reason: 'returned' },
+    ]);
+    expect(p.update).toEqual([]);
+  });
+
+  it('вернувшийся, которого нет в Грейдах, — «Проверьте вручную», не заводим ни активным, ни неактивным', () => {
+    const p = plan([
+      hrRow({ id: 'back1', email: 'back1@example.test', firstNameRu: 'Первый', dismissedAt: '2025-08-01', isArchive: 0 }),
+      // Дата до границы 2025 — всё равно не «ушли до 2025»: учётка не в архиве
+      hrRow({ id: 'back2', email: 'back2@example.test', firstNameRu: 'Второй', dismissedAt: '2023-05-01', isArchive: '0' }),
+    ]);
+    expect(p.create).toEqual([]);
+    expect(p.skipDepartedBefore).toEqual([]);
+    expect(p.manualCheck.map((m) => [m.hrId, m.userId, m.reason])).toEqual([
+      ['back1', undefined, 'returned'],
+      ['back2', undefined, 'returned'],
+    ]);
+  });
+
+  it('архивный с датой — деактивируем, как раньше', () => {
+    const p = plan(
+      [hrRow({ id: 'gone', email: 'gone@example.test', dismissedAt: '2025-03-01', isArchive: 1 })],
+      [user({ id: 51, email: 'gone@example.test' })],
+    );
+    expect(p.deactivate.map((d) => [d.userId, d.hrId, d.dismissedAt])).toEqual([[51, 'gone', '2025-03-01']]);
+    expect(p.manualCheck).toEqual([]);
+  });
+
+  it('две учётки: архивная и не в архиве с датой — «Проверьте вручную» по той, что не в архиве', () => {
+    const p = plan(
+      [
+        hrRow({ id: 'arch', email: 'mix@example.test', hiredAt: '2019-01-01', dismissedAt: '2021-01-01', isArchive: 1 }),
+        hrRow({ id: 'open', email: 'mix@example.test', hiredAt: '2022-01-01', dismissedAt: '2025-02-01', isArchive: 0 }),
+      ],
+      [user({ id: 52, email: 'mix@example.test' })],
+    );
+    expect(p.deactivate).toEqual([]);
+    expect(p.manualCheck.map((m) => [m.userId, m.hrId, m.reason])).toEqual([[52, 'open', 'returned']]);
+  });
+
+  it('архивные, которых нет в Грейдах, — как раньше: с границы неактивными, до неё и без даты — пропуск', () => {
+    const p = plan([
+      hrRow({ id: 'g25', email: 'g25@example.test', firstNameRu: 'Летняя', dismissedAt: '2025-07-01', isArchive: 1 }),
+      hrRow({ id: 'g23', email: 'g23@example.test', firstNameRu: 'Давняя', dismissedAt: '2023-07-01', isArchive: 1 }),
+      hrRow({ id: 'gnd', email: 'gnd@example.test', firstNameRu: 'Бездатная', isArchive: 1 }),
+    ]);
+    expect(p.create.map((c) => [c.hrId, c.active])).toEqual([['g25', false]]);
+    expect(p.skipDepartedBefore.map((x) => x.hrId)).toEqual(['g23']);
+    expect(p.skipDepartedUndated.map((x) => x.hrId)).toEqual(['gnd']);
+    expect(p.manualCheck).toEqual([]);
+  });
+
+  it('админ, почасовщик и декрет — как раньше, даже если учётка не в архиве', () => {
+    const open = (id: string, over: Partial<HrPerson> = {}) =>
+      hrRow({ id, email: `${id}@example.test`, dismissedAt: '2025-03-01', isArchive: 0, positionId: 4, ...over });
+    const p = plan(
+      [open('adm'), open('hour'), open('mat', { maternityLeave: 1 })],
+      [
+        user({ id: 53, email: 'adm@example.test', role: 'admin' }),
+        user({ id: 54, email: 'hour@example.test', employmentType: 'hourly' }),
+        user({ id: 55, email: 'mat@example.test' }),
+      ],
+    );
+    expect(p.deactivate).toEqual([]);
+    expect(p.manualCheck.map((m) => [m.userId, m.reason])).toEqual([[53, 'admin']]);
+    expect(p.stats).toMatchObject({ keptHourly: 1, keptOnLeave: 1 });
+  });
+
+  it('увольнение в будущем и не в архиве — ещё работает, не «вернулся»', () => {
+    const p = plan(
+      [hrRow({ id: 'soon', email: 'soon@example.test', dismissedAt: '2026-12-31', isArchive: 0 })],
+      [user({ id: 56, email: 'soon@example.test' })],
+    );
+    expect(p.deactivate).toEqual([]);
+    expect(p.manualCheck).toEqual([]);
   });
 });
 

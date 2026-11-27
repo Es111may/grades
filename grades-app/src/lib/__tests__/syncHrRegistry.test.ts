@@ -20,7 +20,7 @@ const hr: HrPerson[] = [
     department: 'Improve',
     hiredAt: '2021-02-01',
     dismissedAt: '2025-06-30',
-    isArchive: 0,
+    isArchive: 1,
     isHourly: 0,
   },
   {
@@ -319,7 +319,7 @@ describe('printReport — отчёт', () => {
     expect(out).toContain('Заведём — работают в HR, нет в Грейдах (активными, без пароля): 1');
     expect(out).toContain('Создать неактивными (ушли с 2025): 2');
     expect(out).toContain('Пропущено: ушли до 2025 — 1');
-    expect(out).toContain('Деактивируем — в HR ни одной живой учётки: 1');
+    expect(out).toContain('Деактивируем — все учётки HR в архиве: 1');
     expect(out).toContain('user #8 · HR hr-left · дата увольнения из HR');
     expect(out).toContain('user #7: найм');
     expect(out).toContain('hr-gone');
@@ -366,8 +366,8 @@ describe('printReport — отчёт', () => {
     const out = capture(false, p);
     expect(out).toContain('Похоже, уже есть — совпало имя или фамилия с датой найма, email другой (не заводим): 1');
     expect(out).toContain('HR hr-twin ↔ user #30 · дозаполним найм');
-    expect(out).toContain('Проверьте вручную — ушли по HR, сверка не трогает: 1');
-    expect(out).toContain('user #31 · HR hr-adm · админ');
+    expect(out).toContain('Проверьте вручную — сверка не трогает: 1');
+    expect(out).toContain('user #31 · HR hr-adm · ушёл по HR, но админ');
   });
 });
 
@@ -376,7 +376,7 @@ describe('printReport — «Похоже, уже есть» по фамилии 
     const lines: string[] = [];
     vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => void lines.push(a.join(' ')));
     const p = planRegistrySync({
-      hr: [{ ...hr[7], id: 'hr-vl', email: 'v.primerov@example.test', firstNameRu: 'Владимир', lastNameRu: 'Примеров', hiredAt: '2026-10-08', dismissedAt: '2026-10-16' }],
+      hr: [{ ...hr[7], id: 'hr-vl', email: 'v.primerov@example.test', firstNameRu: 'Владимир', lastNameRu: 'Примеров', hiredAt: '2026-10-08', dismissedAt: '2026-10-16', isArchive: 1 }],
       users: [
         { id: 40, email: 'vl.primerov@example.test', fullName: 'Вова Примеров', active: false, hiredAt: '2026-10-08T00:00:00.000Z', dismissedAt: '2026-10-15T00:00:00.000Z' },
       ],
@@ -389,6 +389,30 @@ describe('printReport — «Похоже, уже есть» по фамилии 
     expect(out).toContain('HR hr-vl ↔ user #40 · фамилия и дата найма · однозначно, даты не трогаем');
     expect(out).not.toContain('Примеров');
     expect(out).not.toContain('primerov');
+  });
+});
+
+describe('printReport — «Проверьте вручную»: возможно, вернулся', () => {
+  it('и в Грейдах, и нет в Грейдах — id и причина, без имён и почт', () => {
+    const lines: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => void lines.push(a.join(' ')));
+    const p = planRegistrySync({
+      hr: [
+        { ...hr[7], id: 'hr-back', email: 'back@example.test', lastNameRu: 'Вернувшийся', dismissedAt: '2025-03-01', isArchive: 0 },
+        { ...hr[7], id: 'hr-back2', email: 'back2@example.test', lastNameRu: 'Новенький', dismissedAt: '2025-04-01', isArchive: 0 },
+      ],
+      users: [{ id: 60, email: 'back@example.test', fullName: 'Вернувшийся', active: true, hiredAt: '2025-06-02T00:00:00.000Z', dismissedAt: null }],
+      excluded: [],
+      options: { today: '2026-11-27' },
+    });
+    printReport(p, { verbose: false, today: '2026-11-27' });
+    const out = lines.join('\n');
+    expect(out).toContain('Деактивируем — все учётки HR в архиве: 0');
+    expect(out).toContain('Проверьте вручную — сверка не трогает: 2');
+    expect(out).toContain('user #60 · HR hr-back · в HR дата увольнения, но учётка не в архиве (возможно, вернулся)');
+    expect(out).toContain('нет в Грейдах · HR hr-back2 · в HR дата увольнения, но учётка не в архиве (возможно, вернулся)');
+    expect(out).toContain('Создать неактивными (ушли с 2025): 0');
+    for (const x of ['back@', 'back2@', 'Вернувшийся', 'Новенький']) expect(out).not.toContain(x);
   });
 });
 

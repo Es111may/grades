@@ -55,6 +55,18 @@
 //     тоже: выведенный из штата HR почасовщик работает (решение 01.10).
 //   • Никого не активируем обратно; поля существующих людей не перетираем —
 //     дозаполняются только пустые даты.
+// И от 27.11.2026, после проверки отчёта: признак «ушёл» — архив, а не дата.
+// При возвращении HR снимает учётку с архива, а старую дату увольнения не
+// чистит. Поэтому:
+//   • «Деактивируем» — только если все учётки HR с этой почтой в архиве;
+//     есть учётка не в архиве, но с наступившей датой увольнения — «Проверьте
+//     вручную» (возможно, вернулся), ничего не делаем. Админы, декрет,
+//     почасовщики и те, кого нет в HR, — как выше;
+//   • такую же учётку (не в архиве, дата увольнения в прошлом) человека,
+//     которого нет в Грейдах, не заводим ни активным, ни неактивным —
+//     тоже «Проверьте вручную»;
+//   • граница ушедших и «ушли без даты увольнения» — как были: это учётки в
+//     архиве. Ставки, «Экономика» и pickEmployee это решение не меняет.
 // Выборка набора, отчёт и запись в БД — scripts/sync-hr-registry.ts.
 
 import type { BuildCode } from './types';
@@ -317,13 +329,21 @@ export type RegistryDeactivate = {
   dismissedAt: string | null;
 };
 
-/** «Проверьте вручную»: ушёл по HR, но сверка его не трогает. */
+/** Почему «Проверьте вручную». */
+export type RegistryManualReason =
+  /** Ушёл по HR, но админ — сверка админов не деактивирует. */
+  | 'admin'
+  /** В HR дата увольнения, но учётка не в архиве — возможно, вернулся. */
+  | 'returned';
+
+/** «Проверьте вручную»: сверка не трогает, решает человек. */
 export type RegistryManualCheck = {
-  userId: number;
+  /** Человек в Грейдах; нет — в Грейдах его нет (по email). */
+  userId?: number;
   hrId: string;
   email: string;
   fullName: string;
-  reason: 'admin';
+  reason: RegistryManualReason;
 };
 
 export type RegistryConflictKind =
@@ -432,6 +452,24 @@ function isWorking(r: Pick<HrPerson, 'dismissedAt' | 'isArchive'>, today: string
   return !flag(r.isArchive) && !(dismissed && dismissed <= today);
 }
 
+/**
+ * Учётка не в архиве, а дата увольнения уже наступила: так HR оставляет
+ * вернувшегося — снимает архив, старую дату не чистит (27.11.2026).
+ */
+function isUnarchivedDismissed(r: Pick<HrPerson, 'dismissedAt' | 'isArchive'>, today: string): boolean {
+  const dismissed = normalizeHrDate(r.dismissedAt);
+  return !flag(r.isArchive) && !!dismissed && dismissed <= today;
+}
+
+/** Ни одной работающей учётки, но есть не в архиве с датой увольнения — возможно, вернулся. */
+function maybeReturned<T extends Pick<HrPerson, 'dismissedAt' | 'isArchive' | 'hiredAt'>>(
+  rows: T[],
+  today: string,
+): T | null {
+  if (rows.some((r) => isWorking(r, today))) return null;
+  return pickHrRecord(rows.filter((r) => isUnarchivedDismissed(r, today)));
+}
+
 const day = (iso: string) => iso.slice(0, 10);
 const byEmail = <T extends { email: string | null }>(a: T, b: T) =>
   (a.email ?? '').localeCompare(b.email ?? '');
@@ -518,6 +556,8 @@ export function planRegistrySync({
   // инженер из Lite — в счётчике Lite.
   const people: RegistryPerson[] = [];
   const onLeave = new Set<string>();
+  /** email → учётка «не в архиве, но с датой увольнения» при отсутствии работающих. */
+  const returned = new Map<string, HrPerson>();
   const keysByHrId = new Map<string, string[]>();
   const surnamesByHrId = new Map<string, string[][]>();
   for (const [email, rows] of groups) {
@@ -545,6 +585,8 @@ export function planRegistrySync({
       continue;
     }
     if (flag(r.maternityLeave)) onLeave.add(email);
+    const back = maybeReturned(rows, today);
+    if (back) returned.set(email, back);
     keysByHrId.set(r.id, Array.from(new Set([nameKey(fullName), ...hrNameKeys(r)])));
     surnamesByHrId.set(r.id, hrSurnameKeys(r));
     const { department, buildCode } = mapHrDepartment(r.department);
@@ -626,6 +668,13 @@ export function planRegistrySync({
   // заводим: работающих — активными, ушедших — неактивными.
   const candidates: RegistryPerson[] = [];
   for (const p of pending) {
+    // Не в архиве, но с датой увольнения — возможно, вернулся: не заводим
+    // ни активным, ни неактивным (27.11.2026)
+    const back = returned.get(p.email);
+    if (back) {
+      plan.manualCheck.push({ hrId: back.id, email: p.email, fullName: p.fullName, reason: 'returned' });
+      continue;
+    }
     if (p.departed && !p.dismissedAt) plan.skipDepartedUndated.push(p);
     else if (p.departed && p.dismissedAt! < since) plan.skipDepartedBefore.push(p);
     else if (!p.departed && onLeave.has(p.email)) plan.onMaternity.push(p);
@@ -683,6 +732,8 @@ export function planRegistrySync({
 
   // 5. Ушедшие: активный в Грейдах, у кого по email в HR нет ни одной живой
   // учётки. Кого нет в HR, админов, декрет и почасовщиков не деактивируем.
+  // Деактивируем, только если все учётки в архиве: не в архиве, но с датой
+  // увольнения — «Проверьте вручную», возможно, вернулся (27.11.2026).
   for (const u of users) {
     if (!u.active) continue;
     const recs = hrByEmail.get(normalizeEmail(u.email)) ?? [];
@@ -696,7 +747,9 @@ export function planRegistrySync({
     if (u.role === 'admin') plan.manualCheck.push({ ...who, reason: 'admin' });
     else if (recs.some((x) => flag(x.maternityLeave))) plan.stats.keptOnLeave++;
     else if (u.employmentType === 'hourly') plan.stats.keptHourly++;
-    else if (skipUser.has(u.id)) skippedUser.add(u.id);
+    else if (!recs.every((x) => flag(x.isArchive))) {
+      plan.manualCheck.push({ ...who, hrId: maybeReturned(recs, today)?.id ?? r.id, reason: 'returned' });
+    } else if (skipUser.has(u.id)) skippedUser.add(u.id);
     else if (recs.some((x) => skipHr.has(hrKey(x.id)))) skippedHr.add(recs.find((x) => skipHr.has(hrKey(x.id)))!.id);
     else plan.deactivate.push({ ...who, dismissedAt: normalizeHrDate(r.dismissedAt) });
   }
@@ -721,7 +774,10 @@ export function planRegistrySync({
   plan.onMaternity.sort(byEmail);
   plan.update.sort((a, b) => a.userId - b.userId);
   plan.deactivate.sort((a, b) => a.userId - b.userId);
-  plan.manualCheck.sort((a, b) => a.userId - b.userId);
+  // «Проверьте вручную»: сначала люди Грейдов по id, потом нет в Грейдах — по email
+  plan.manualCheck.sort(
+    (a, b) => (a.userId ?? Infinity) - (b.userId ?? Infinity) || a.email.localeCompare(b.email),
+  );
   plan.conflicts.sort((a, b) => a.kind.localeCompare(b.kind) || byEmail(a, b));
   return plan;
 }

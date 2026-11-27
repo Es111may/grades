@@ -52,7 +52,9 @@
  *
  * Не трогаем никогда: админов (строка «Проверьте вручную»), тех, кого нет в
  * HR, кто в декрете, почасовщиков (числом); никого не активируем; поля
- * существующих людей не перетираем. Вне контура дизайна: отдел Lite и
+ * существующих людей не перетираем. Признак «ушёл» — архив (27.11.2026):
+ * учётка не в архиве, но с датой увольнения (так HR оставляет вернувшихся)
+ * — «Проверьте вручную», не деактивируем и не заводим. Вне контура дизайна: отдел Lite и
  * позиция 29 «Дизайн-инженер» (числом).
  *
  * Данные HR — набор lib/hrDataset: живой ClickHouse, если CLICKHOUSE_* заданы
@@ -88,6 +90,7 @@ import {
   type HrPerson,
   type RegistryConflictKind,
   type RegistryCreate,
+  type RegistryManualReason,
   type RegistryPerson,
   type RegistryPlan,
 } from '../src/lib/hrRegistry';
@@ -255,6 +258,11 @@ const CONFLICT_LABEL: Record<Exclude<RegistryConflictKind, 'name_matches_user'>,
 
 const ROLE_LABEL: Record<string, string> = { designer: 'дизайнер', lead: 'лид' };
 
+const MANUAL_LABEL: Record<RegistryManualReason, string> = {
+  admin: 'ушёл по HR, но админ',
+  returned: 'в HR дата увольнения, но учётка не в архиве (возможно, вернулся)',
+};
+
 /** Строка о человеке — только для --verbose (имена и email). */
 function describe(p: RegistryPerson): string {
   const dates = `${p.hiredAt ?? '?'} → ${p.dismissedAt ?? (p.departed ? 'без даты' : 'работает')}`;
@@ -356,14 +364,18 @@ export function printReport(
     console.log(`    HR ${c.hrId}${v && c.email ? ` <${c.email}>` : ''} ↔ user ${pair}${how} · ${note}`);
   }
 
-  console.log(`\n  Деактивируем — в HR ни одной живой учётки: ${plan.deactivate.length}`);
+  console.log(`\n  Деактивируем — все учётки HR в архиве: ${plan.deactivate.length}`);
   for (const d of plan.deactivate) {
     const date = d.dismissedAt ? `дата увольнения из HR${v ? ` ${d.dismissedAt}` : ''}` : 'в HR без даты увольнения';
     console.log(`    ${who(d.userId, d.email, d.fullName)} · HR ${d.hrId} · ${date}`);
   }
-  console.log(`  Проверьте вручную — ушли по HR, сверка не трогает: ${plan.manualCheck.length}`);
+  console.log(`  Проверьте вручную — сверка не трогает: ${plan.manualCheck.length}`);
   for (const m of plan.manualCheck) {
-    console.log(`    ${who(m.userId, m.email, m.fullName)} · HR ${m.hrId} · админ`);
+    const person =
+      m.userId !== undefined
+        ? who(m.userId, m.email, m.fullName)
+        : `нет в Грейдах${v ? ` ${m.fullName} <${m.email}>` : ''}`;
+    console.log(`    ${person} · HR ${m.hrId} · ${MANUAL_LABEL[m.reason]}`);
   }
   console.log(
     `  Не деактивируем: нет в HR — ${s.notInHr}, в декрете — ${s.keptOnLeave}, почасовщики — ${s.keptHourly}`,
