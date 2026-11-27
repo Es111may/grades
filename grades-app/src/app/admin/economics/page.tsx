@@ -19,6 +19,7 @@ import EconomicsView from './EconomicsView';
  * раньше TRACK_SINCE), даты — из Грейдов. Ставки и журнал — из HR по их
  * email (lib/hrEconomics, кэш + бюджет PAGE_BUDGET_MS). HR не ответил —
  * последняя удачная выборка с меткой «Данные от …» или пустое состояние.
+ * Набор из слепка HR (lib/hrDataset) — с подписью «Данные HR на …».
  * Ставки — какими их видит этот зритель (lib/salaryOverride): выборка в
  * кэше общая, копию под зрителя делаем здесь.
  */
@@ -33,6 +34,16 @@ const MOSCOW_TIME = new Intl.DateTimeFormat('ru-RU', {
 });
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
+
+const MOSCOW_DAY = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long' });
+const MOSCOW_YEAR = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', year: 'numeric' });
+
+/** «Данные HR на 27 ноября» — для набора из слепка; год — только не текущий. */
+function snapshotLabel(takenAt: string, today: string): string {
+  const d = new Date(takenAt);
+  const year = MOSCOW_YEAR.format(d);
+  return `Данные HR на ${MOSCOW_DAY.format(d)}${year === today.slice(0, 4) ? '' : ` ${year}`}`;
+}
 
 export default async function EconomicsPage() {
   const me = await requireRole('admin');
@@ -117,6 +128,16 @@ export default async function EconomicsPage() {
 
   const dataset = raw ? buildEconomicsDataset({ raw, grades: overlay, today }) : null;
   const asOfLabel = raw ? MOSCOW_TIME.format(new Date(raw.fetchedAt)) : null;
+  // Набор из слепка — дата данных рядом с цифрами
+  const hrDateLabel = raw?.source === 'snapshot' ? snapshotLabel(raw.fetchedAt, today) : null;
 
-  return <EconomicsView dataset={dataset} initialSettings={settings} asOfLabel={asOfLabel} stale={hr.stale} />;
+  return (
+    <EconomicsView
+      dataset={dataset}
+      initialSettings={settings}
+      asOfLabel={asOfLabel}
+      stale={hr.stale}
+      hrDateLabel={hrDateLabel}
+    />
+  );
 }

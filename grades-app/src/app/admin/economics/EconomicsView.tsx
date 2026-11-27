@@ -84,6 +84,7 @@ export default function EconomicsView({
   initialSettings,
   asOfLabel,
   stale,
+  hrDateLabel = null,
 }: {
   /** null — HR не ответил, а удачной выборки ещё не было. */
   dataset: EconomicsDataset | null;
@@ -92,6 +93,8 @@ export default function EconomicsView({
   asOfLabel: string | null;
   /** HR сейчас не ответил — показываем последнюю удачную выборку. */
   stale: boolean;
+  /** «Данные HR на 27 ноября» — набор из слепка HR; null — живые данные. */
+  hrDateLabel?: string | null;
 }) {
   const router = useRouter();
   const [dept, setDept] = useState<DeptFilter>('all');
@@ -240,6 +243,12 @@ export default function EconomicsView({
           <div className="flex items-center gap-2 mb-4 text-xs text-stone animate-fade-in" role="status">
             <InfoIcon className="w-3.5 h-3.5 text-sunset shrink-0" />
             HR-портал сейчас не отвечает — показываем данные от {asOfLabel}
+          </div>
+        )}
+        {!stale && hrDateLabel && dataset && (
+          <div className="flex items-center gap-2 mb-4 text-xs text-stone animate-fade-in" role="status">
+            <InfoIcon className="w-3.5 h-3.5 shrink-0" />
+            {hrDateLabel}
           </div>
         )}
 

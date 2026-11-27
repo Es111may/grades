@@ -650,6 +650,26 @@ model PrimaryAdmin {
   @@map("primary_admin")
 }
 
+// Слепок HR-портала (0.83.0): запасной источник ставок, «Экономики» и сверки
+// состава, пока Грейды не видят ClickHouse напрямую (lib/hrDataset). Пишет
+// только scripts/hr-snapshot.ts --import --apply из ответов ida.hub,
+// проверенных по контрольным суммам; хранятся последние 5. data — набор
+// целиком (lib/hrDataset → HrDatasetTables), checksums — count и
+// sum(CRC32) по колонкам, с которыми он сошёлся. UI и API нет.
+model HrSnapshot {
+  id        Int      @id @default(autoincrement())
+  /// Когда данные взяты из HR
+  takenAt   DateTime
+  source    String   // 'ida-hub'
+  data      Json
+  checksums Json
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([takenAt])
+  @@map("hr_snapshots")
+}
+
 // Phase 23.6 — настройки сервиса (key-value), правит только админ.
 // Ключи: 'payrollTaxRate' (налоговая нагрузка, доля: '0.36'),
 // 'fotGrowthTarget' (ориентир роста ФОТ в год, доля: '0.10'),

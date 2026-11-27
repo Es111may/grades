@@ -1,11 +1,12 @@
 // Ставки и журнал изменений из HR-портала (Phase 23.4) — только сервер.
 //
-// Источник — ClickHouse-копия HR-портала (`hr_portal_current`), та же, что у
-// перформанса. Суммы берём из журнала `salary_changesalarylog`: в старых
-// запросах на повышение они пустые. Логика расчёта — в lib/compensation.ts,
-// здесь только выборка.
+// Источник — набор HR (lib/hrDataset): живой ClickHouse-копии HR-портала
+// (`hr_portal_current`) или последний слепок. Суммы берём из журнала
+// `salary_changesalarylog`: в старых запросах на повышение они пустые.
+// Логика расчёта — в lib/compensation.ts, здесь только выборка из набора —
+// та же, что раньше делали SQL-запросы.
 
-import { chQuery } from './clickhouse';
+import { loadHrDataset, type HrDataset, type HrRow } from './hrDataset';
 import { getOrCompute, makeEmailsCacheKey, setCached, DEFAULT_TTL_MS } from './perfCache';
 import type { HrEmployee, HrLogRow } from './compensation';
 
@@ -31,51 +32,83 @@ export type HrCompensation = { hr: HrEmployee | null; log: HrLogRow[] };
 
 /** Ключ кэша одного человека — общий для fetchHrCompensation и батча. */
 const compKey = (email: string) => `hr-comp:${email.trim().toLowerCase()}`;
+const emailKey = (email: string) => email.trim().toLowerCase();
+
+// ── Набор → строки в прежнем виде ───────────────────────────────────────
+
+/** Флаг набора — строка: '1'/'0' (UInt8) или 'true'/'false' (Bool). */
+const isSet = (v: string) => v === '1' || v === 'true';
+
+type Index = {
+  /** Учётки по email (нижний регистр), с дублями. */
+  byEmail: Map<string, EmpRow[]>;
+  /** Учётка по id. */
+  byId: Map<string, EmpRow>;
+  /** Журнал по id учётки — в порядке набора (по моменту пересмотра). */
+  logById: Map<string, LogRow[]>;
+};
+
+const indexes = new WeakMap<HrDataset, Index>();
+
+const toEmpRow = (e: HrRow<'employees'>): EmpRow => ({
+  id: e.id,
+  salary: e.salary,
+  hired: e.hiredAt,
+  dismissed: e.dismissedAt,
+  arch: isSet(e.isArchive) ? 1 : 0,
+});
+
+/** Индекс набора — один на набор: набор в кэше один и тот же объект. */
+function indexOf(ds: HrDataset): Index {
+  const hit = indexes.get(ds);
+  if (hit) return hit;
+  const byEmail = new Map<string, EmpRow[]>();
+  const byId = new Map<string, EmpRow>();
+  for (const e of ds.employees) {
+    const row = toEmpRow(e);
+    const em = emailKey(e.email);
+    if (em) byEmail.set(em, [...(byEmail.get(em) ?? []), row]);
+    if (!byId.has(row.id)) byId.set(row.id, row);
+  }
+  const logById = new Map<string, LogRow[]>();
+  for (const l of ds.salaryLog) {
+    logById.set(l.employeeId, [...(logById.get(l.employeeId) ?? []), { d: l.date, f: l.salaryFrom, t: l.salaryTo }]);
+  }
+  const ix = { byEmail, byId, logById };
+  indexes.set(ds, ix);
+  return ix;
+}
+
+/** Ставка и журнал одной живой учётки — как в одиночном запросе. */
+function compensationOf(ix: Index, email: string): HrCompensation {
+  const e = pickEmployee(ix.byEmail.get(emailKey(email)) ?? []);
+  if (!e) return { hr: null, log: [] };
+  return {
+    hr: {
+      salary: Number(e.salary),
+      hiredAt: EMPTY_DATE(e.hired) ? null : e.hired,
+      dismissedAt: EMPTY_DATE(e.dismissed) ? null : e.dismissed,
+    },
+    log: (ix.logById.get(e.id) ?? []).map(toLog),
+  };
+}
+
+// ── Выборки ─────────────────────────────────────────────────────────────
 
 /** Ставка и журнал одного человека по рабочему email. Кэш 15 минут. */
 export async function fetchHrCompensation(email: string): Promise<HrCompensation> {
   return getOrCompute(
     compKey(email),
-    async () => {
-      const emps = await chQuery<EmpRow>(
-        `SELECT toString(id) AS id, salary,
-                toString(toDate(date_of_employee)) AS hired,
-                toString(toDate(date_of_dismissal)) AS dismissed,
-                is_archive AS arch
-           FROM hr_portal_current.employee_employee
-          WHERE lowerUTF8(email) = lowerUTF8({email:String})`,
-        { email },
-      );
-      const e = pickEmployee(emps);
-      if (!e) return { hr: null, log: [] };
-      const log = await chQuery<LogRow>(
-        `SELECT toString(toDate(date_start)) AS d, salary_start AS f, salary AS t
-           FROM hr_portal_current.salary_changesalarylog
-          WHERE employee_id = toUUID({id:String})
-          ORDER BY date_start`,
-        { id: e.id },
-      );
-      return {
-        hr: {
-          salary: Number(e.salary),
-          hiredAt: EMPTY_DATE(e.hired) ? null : e.hired,
-          dismissedAt: EMPTY_DATE(e.dismissed) ? null : e.dismissed,
-        },
-        log: log.map(toLog),
-      };
-    },
+    async () => compensationOf(indexOf(await loadHrDataset([email])), email),
     DEFAULT_TTL_MS,
   );
-}
-
-/** Литерал Array(String) для параметра ClickHouse: ['a','b']. */
-function arrayParam(values: string[]): string {
-  return `[${values.map((v) => `'${v.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`).join(',')}]`;
 }
 
 /**
  * Журналы сразу по нескольким людям — чтобы в списке понять, выполнен ли
  * плановый пересмотр. Запрашиваем только тех, у кого статус стоит.
+ * Журнал — всех учёток с этим email (и архивных), по дате; дата найма — у
+ * учётки первой записи журнала. Нет записей журнала — человека нет в ответе.
  */
 export async function fetchHrLogsByEmail(
   emails: string[],
@@ -85,16 +118,19 @@ export async function fetchHrLogsByEmail(
   if (!unique.length) return out;
   const rows = await getOrCompute(
     makeEmailsCacheKey('hr-logs', unique),
-    () =>
-      chQuery<{ em: string; hired: string; d: string; f: number | string; t: number | string }>(
-        `SELECT lowerUTF8(e.email) AS em, toString(toDate(e.date_of_employee)) AS hired,
-                toString(toDate(l.date_start)) AS d, l.salary_start AS f, l.salary AS t
-           FROM hr_portal_current.salary_changesalarylog AS l
-           INNER JOIN hr_portal_current.employee_employee AS e ON e.id = l.employee_id
-          WHERE lowerUTF8(e.email) IN {emails:Array(String)}
-          ORDER BY l.date_start`,
-        { emails: arrayParam(unique) },
-      ),
+    async () => {
+      const ds = await loadHrDataset(unique);
+      const ix = indexOf(ds);
+      const emailById = new Map<string, string>();
+      for (const em of unique) for (const e of ix.byEmail.get(em) ?? []) emailById.set(e.id, em);
+      // Порядок — набора, то есть по моменту пересмотра, как ORDER BY date_start
+      const picked: Array<{ em: string; hired: string } & LogRow> = [];
+      for (const l of ds.salaryLog) {
+        const em = emailById.get(l.employeeId);
+        if (em) picked.push({ em, hired: ix.byId.get(l.employeeId)!.hired, d: l.date, f: l.salaryFrom, t: l.salaryTo });
+      }
+      return picked;
+    },
     DEFAULT_TTL_MS,
   );
   for (const r of rows) {
@@ -107,14 +143,14 @@ export async function fetchHrLogsByEmail(
 
 /**
  * Ставки и журналы сразу по многим людям — для колонки «Зарплата» в таблице
- * у админа. Два запроса на всю страницу (сотрудники + журналы), кэш 15 минут.
- * Текущую ставку считает тот же buildCompensation, что и поп-ап, — цифры в
- * таблице и в карточке не могут разойтись.
+ * у админа. Один заход в набор на всю страницу, кэш 15 минут. Текущую ставку
+ * считает тот же buildCompensation, что и поп-ап, — цифры в таблице и в
+ * карточке не могут разойтись.
  *
  * Результат заодно раскладываем по ключам fetchHrCompensation: поп-ап,
- * открытый после списка, берёт ставку из кэша, а не идёт в ClickHouse.
- * Выборка та же — одна живая учётка через pickEmployee и её журнал, для
- * email без учётки — `{ hr: null, log: [] }`, как и в одиночном запросе.
+ * открытый после списка, берёт ставку из кэша. Выборка та же — одна живая
+ * учётка через pickEmployee и её журнал, для email без учётки —
+ * `{ hr: null, log: [] }`, как и в одиночном запросе.
  */
 export async function fetchHrCompensationBatch(
   emails: string[],
@@ -125,52 +161,9 @@ export async function fetchHrCompensationBatch(
   return getOrCompute(
     makeEmailsCacheKey('hr-comp-batch', unique),
     async () => {
-      const emps = await chQuery<EmpRow & { em: string }>(
-        `SELECT lowerUTF8(email) AS em, toString(id) AS id, salary,
-                toString(toDate(date_of_employee)) AS hired,
-                toString(toDate(date_of_dismissal)) AS dismissed,
-                is_archive AS arch
-           FROM hr_portal_current.employee_employee
-          WHERE lowerUTF8(email) IN {emails:Array(String)}`,
-        { emails: arrayParam(unique) },
-      );
-      const byEmail = new Map<string, EmpRow[]>();
-      for (const e of emps) byEmail.set(e.em, [...(byEmail.get(e.em) ?? []), e]);
-      const picked = new Map<string, EmpRow>();
-      for (const [em, rows] of byEmail) {
-        const e = pickEmployee(rows);
-        if (e) picked.set(em, e);
-      }
-      const ids = Array.from(picked.values()).map((e) => e.id);
-      const logs = ids.length
-        ? await chQuery<LogRow & { id: string }>(
-            `SELECT toString(employee_id) AS id, toString(toDate(date_start)) AS d,
-                    salary_start AS f, salary AS t
-               FROM hr_portal_current.salary_changesalarylog
-              WHERE toString(employee_id) IN {ids:Array(String)}
-              ORDER BY date_start`,
-            { ids: arrayParam(ids) },
-          )
-        : [];
-      const logById = new Map<string, HrLogRow[]>();
-      for (const l of logs) logById.set(l.id, [...(logById.get(l.id) ?? []), toLog(l)]);
+      const ix = indexOf(await loadHrDataset(unique));
       const result = new Map<string, HrCompensation>();
-      for (const em of unique) {
-        const e = picked.get(em);
-        result.set(
-          em,
-          e
-            ? {
-                hr: {
-                  salary: Number(e.salary),
-                  hiredAt: EMPTY_DATE(e.hired) ? null : e.hired,
-                  dismissedAt: EMPTY_DATE(e.dismissed) ? null : e.dismissed,
-                },
-                log: logById.get(e.id) ?? [],
-              }
-            : { hr: null, log: [] },
-        );
-      }
+      for (const em of unique) result.set(em, compensationOf(ix, em));
       for (const [em, c] of result) setCached(compKey(em), c, DEFAULT_TTL_MS);
       return result;
     },

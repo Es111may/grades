@@ -124,8 +124,10 @@ export type HrEconomicsRaw = {
   reasons: HrReasonRaw[];
   subs: HrSubRaw[];
   company: CompanyStats;
-  /** Когда выборка пришла из HR (ISO). */
+  /** Когда данные взяты из HR (ISO): у слепка — дата слепка. */
   fetchedAt: string;
+  /** Откуда набор HR (lib/hrDataset): живой ClickHouse или слепок. */
+  source?: 'clickhouse' | 'snapshot';
 };
 
 /** Что Грейды знают о человеке — накладывается поверх HR по email. */

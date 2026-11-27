@@ -174,6 +174,11 @@ export function nameKey(fullName: string): string {
     .join(' ');
 }
 
+/** Почта для сравнения: без регистра и пробелов. */
+export function normalizeEmail(email: string | null | undefined): string {
+  return (email ?? '').replace(/\s+/g, '').toLowerCase();
+}
+
 // ── Входы и выходы планировщика ─────────────────────────────────────────
 
 /** Строка `employee_employee` (с названием отдела через команду) — как из ClickHouse. */

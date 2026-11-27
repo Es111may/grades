@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Подменяем HTTP-клиент ClickHouse: ответ выбираем по таблице в SQL.
-const chQuery = vi.fn();
-vi.mock('../clickhouse', () => ({ chQuery: (...args: unknown[]) => chQuery(...args) }));
+// Подменяем набор HR (lib/hrDataset): живой ClickHouse или слепок — здесь всё равно.
+const loadHrDataset = vi.fn();
+vi.mock('../hrDataset', () => ({ loadHrDataset: (...args: unknown[]) => loadHrDataset(...args) }));
 
 import {
   arrayParam,
+  economicsFromDataset,
   fetchHrEconomics,
   loadHrEconomics,
   resetHrEconomicsForTests,
@@ -14,6 +15,7 @@ import {
   toEmployee,
   toReason,
 } from '../hrEconomics';
+import type { HrDataset } from '../hrDataset';
 import { clearCache } from '../perfCache';
 import { buildEconomicsDataset, type GradesOverlay, type HrEconomicsRaw } from '../economics';
 
@@ -49,9 +51,6 @@ const DESIGN = [
 ];
 const EMAILS = ['Anna@ida.test', 'oleg@ida.test'];
 
-// Какой из запросов пришёл — по характерному куску SQL
-const isEmployees = (sql: string) => sql.includes('e.first_name_ru');
-const isDesign = (sql: string) => sql.includes("IN ('9', '20')") && !sql.includes('salary_changesalarylog');
 const WAGE = [
   { m: '2026-08-01', v: '31000000' },
   { m: '2026-09-01', v: 32000000 },
@@ -61,30 +60,84 @@ const MONTHLY = [
   { id: '2', date: '2026-09-01', all_employees: '625', active_employees: '512', new_employees: '6', dismissed_employees: '4' },
 ];
 
-function answer(sql: string) {
-  if (sql.includes('salary_changesalarylog')) return LOGS;
-  if (sql.includes('employee_dismissalreasonsubcategory')) return SUBS;
-  if (sql.includes('employee_dismissalreason')) return REASONS;
-  if (sql.includes('stats_wagefundstats')) return WAGE;
-  if (sql.includes('stats_monthlyemployeestats')) return MONTHLY;
-  if (isDesign(sql)) return DESIGN;
-  if (isEmployees(sql)) return EMPLOYEES;
-  throw new Error('unexpected SQL');
-}
+/**
+ * Те же строки — в виде набора HR: все значения строками, как их отдаёт SQL
+ * набора (toString), Bool — 'true'/'false'. Учётки контура и справка по
+ * позициям 9, 20 — в одной таблице, как в наборе.
+ */
+const s = (v: unknown) => (v == null ? '' : String(v));
+const DATASET: HrDataset = {
+  employees: [
+    ...EMPLOYEES.map((e) => ({
+      id: e.id,
+      email: e.em,
+      firstNameRu: e.fn,
+      lastNameRu: e.ln,
+      firstName: '',
+      lastName: '',
+      positionId: e.pos,
+      department: e.dept,
+      hiredAt: e.hired,
+      dismissedAt: e.dismissed,
+      isArchive: s(e.arch),
+      isHourly: '0',
+      maternityLeave: '0',
+      salary: s(e.salary),
+      reasonId: s(e.reason),
+      subId: s(e.sub),
+    })),
+    ...DESIGN.filter((d) => d.em !== 'anna@ida.test').map((d, i) => ({
+      id: `d-${i}`,
+      email: d.em,
+      firstNameRu: 'Тест',
+      lastNameRu: 'Тестов',
+      firstName: '',
+      lastName: '',
+      positionId: d.pos,
+      department: d.dept,
+      hiredAt: '2023-01-01',
+      dismissedAt: d.dismissed,
+      isArchive: s(d.arch),
+      isHourly: '0',
+      maternityLeave: s(d.mat),
+      salary: '100000',
+      reasonId: '',
+      subId: '',
+    })),
+  ],
+  salaryLog: [
+    ...LOGS.map((l) => ({ employeeId: l.id, date: l.d, salaryFrom: l.f, salaryTo: l.t })),
+    // Журнал учётки вне контура — в «Экономику» не попадает
+    { employeeId: 'd-0', date: '2025-01-01', salaryFrom: '0', salaryTo: '100000' },
+  ],
+  reasons: REASONS.map((r) => ({ id: r.id, initiator: s(r.initiator), title: r.title })),
+  subs: SUBS.map((x) => ({ id: x.id, reasonId: x.rid, title: x.title })),
+  wageFundByMonth: WAGE.map((w) => ({ month: w.m, wageFund: s(w.v) })),
+  monthlyStats: MONTHLY.map((m) => ({
+    id: m.id,
+    date: m.date,
+    new_employees_cnt: m.new_employees,
+    dismissed_employees_cnt: m.dismissed_employees,
+    active_employees_cnt: m.active_employees,
+    all_employees_cnt: m.all_employees,
+  })),
+  source: 'snapshot',
+  takenAt: '2026-11-27T07:00:00.000Z',
+};
 
 beforeEach(() => {
   // Ошибки HR в тестах ожидаемы — не шумим в выводе
   vi.spyOn(console, 'error').mockImplementation(() => {});
   clearCache();
   resetHrEconomicsForTests();
-  chQuery.mockReset();
-  chQuery.mockImplementation(async (sql: string) => answer(sql));
+  loadHrDataset.mockReset();
+  loadHrDataset.mockResolvedValue(DATASET);
 });
 
 describe('fetchHrEconomics', () => {
-  it('семь запросов параллельно, строки приведены к типам', async () => {
+  it('один заход в набор, строки приведены к типам — как раньше из семи запросов', async () => {
     const raw = await fetchHrEconomics(EMAILS);
-    expect(chQuery).toHaveBeenCalledTimes(7);
+    expect(loadHrDataset).toHaveBeenCalledTimes(1);
     expect(raw.designWorkingEmails.sort()).toEqual(['anna@ida.test', 'lead@ida.test']);
     expect(raw.employees).toEqual([
       {
@@ -109,92 +162,66 @@ describe('fetchHrEconomics', () => {
       headcountByMonth: { '2026-08': 510, '2026-09': 512 },
       exitsByMonth: { '2026-08': 7, '2026-09': 4 },
     });
-    expect(typeof raw.fetchedAt).toBe('string');
+    // Дата данных — дата набора (у слепка — дата слепка), источник — для подписи на странице
+    expect(raw.fetchedAt).toBe('2026-11-27T07:00:00.000Z');
+    expect(raw.source).toBe('snapshot');
   });
 
   it('сотрудники и журнал — по email контура с любой позицией; позиции 9, 20 — только для справки', async () => {
-    await fetchHrEconomics(EMAILS);
-    const calls = chQuery.mock.calls.map((c) => ({ sql: String(c[0]), params: c[1] as Record<string, string> | undefined }));
-    const emp = calls.find((c) => isEmployees(c.sql))!;
-    const log = calls.find((c) => c.sql.includes('salary_changesalarylog'))!;
-    const design = calls.find((c) => isDesign(c.sql))!;
-    for (const c of [emp, log]) {
-      expect(c.sql).toContain('IN {emails:Array(String)}');
-      expect(c.sql).not.toContain("IN ('9', '20')");
-      expect(c.params).toEqual({ emails: "['anna@ida.test','oleg@ida.test']" });
-    }
-    // Справка: без 29 «Дизайн-инженер», с отделом (Lite) и декретом
-    expect(design.sql).toContain("IN ('9', '20')");
-    expect(design.sql).not.toContain("'29'");
-    expect(design.sql).toContain('employee_department');
-    expect(design.sql).toContain('maternity_leave');
+    const raw = await fetchHrEconomics(EMAILS);
+    // Учётки дизайнерских позиций не из контура — не в сотрудниках и не в журнале
+    expect(raw.employees.map((e) => e.email)).toEqual(['anna@ida.test', 'oleg@ida.test']);
+    expect(raw.logs.map((l) => l.employeeId)).toEqual(['e-1']);
+    // Охват набора — почты контура: если набор собран до появления человека, он перечитается
+    expect(loadHrDataset).toHaveBeenCalledWith(['anna@ida.test', 'oleg@ida.test']);
   });
 
-  it('справка не прошла (например, нет справочника отделов) — справки нет, страница живёт', async () => {
-    chQuery.mockImplementation(async (sql: string) => {
-      if (isDesign(sql)) throw new Error('ClickHouse 404: Unknown identifier: t.department_id');
-      return answer(sql);
-    });
+  it('в наборе нет дизайнерских позиций — справки нет, страница живёт', async () => {
+    loadHrDataset.mockResolvedValue({ ...DATASET, employees: DATASET.employees.filter((e) => e.id.startsWith('e-')) });
     const raw = await fetchHrEconomics(EMAILS);
     expect(raw.employees).toHaveLength(2);
-    expect(raw.designWorkingEmails).toEqual([]);
+    expect(raw.designWorkingEmails).toEqual(['anna@ida.test']);
   });
 
   it('второй заход с тем же набором email (в другом порядке) — из кэша', async () => {
     const a = await fetchHrEconomics(EMAILS);
     const b = await fetchHrEconomics(['OLEG@ida.test', 'anna@ida.test']);
-    expect(chQuery).toHaveBeenCalledTimes(7);
+    expect(loadHrDataset).toHaveBeenCalledTimes(1);
     expect(b).toBe(a);
     await fetchHrEconomics(['new@ida.test']);
-    expect(chQuery).toHaveBeenCalledTimes(14);
+    expect(loadHrDataset).toHaveBeenCalledTimes(2);
   });
 
-  it('пустой контур — без запросов сотрудников и журнала', async () => {
+  it('пустой контур — без сотрудников и журнала, компания и справка на месте', async () => {
     const raw = await fetchHrEconomics([]);
     expect(raw.employees).toEqual([]);
     expect(raw.logs).toEqual([]);
-    expect(chQuery).toHaveBeenCalledTimes(5);
+    expect(raw.company.fotByMonth).toEqual({ '2026-08': 31000000, '2026-09': 32000000 });
   });
 
-  it('справочник причин и статистика компании — по возможности', async () => {
-    chQuery.mockImplementation(async (sql: string) => {
-      if (sql.includes('dismissalreason') || sql.includes('stats_')) throw new Error('ClickHouse 500');
-      return answer(sql);
-    });
+  it('справочник причин и статистика компании — по возможности (живой набор без них)', async () => {
+    loadHrDataset.mockResolvedValue({ ...DATASET, reasons: [], subs: [], wageFundByMonth: [], monthlyStats: [] });
     const raw = await fetchHrEconomics(EMAILS);
     expect(raw.employees).toHaveLength(2);
     expect(raw.reasons).toEqual([]);
-    expect(raw.designWorkingEmails).toEqual(['anna@ida.test', 'lead@ida.test']);
+    expect(raw.designWorkingEmails.sort()).toEqual(['anna@ida.test', 'lead@ida.test']);
     expect(raw.company).toEqual({ fotByMonth: {}, headcountByMonth: {}, exitsByMonth: {} });
   });
 
-  it('нет справочника отделов — повтор без него', async () => {
-    let first = true;
-    chQuery.mockImplementation(async (sql: string) => {
-      if (isEmployees(sql) && sql.includes('employee_department') && first) {
-        first = false;
-        throw new Error('ClickHouse 404: Code: 47. DB::Exception: Unknown identifier: t.department_id');
-      }
-      return answer(sql);
-    });
-    const raw = await fetchHrEconomics(EMAILS);
-    expect(raw.employees).toHaveLength(2);
-    const retried = chQuery.mock.calls.map((c) => String(c[0])).filter((s) => isEmployees(s) && !s.includes('employee_department'));
-    expect(retried).toHaveLength(1);
+  it('набор недоступен — вся выборка падает', async () => {
+    loadHrDataset.mockRejectedValue(new Error('HR: данные недоступны'));
+    await expect(fetchHrEconomics(EMAILS)).rejects.toThrow('HR: данные недоступны');
   });
 
-  it('другая ошибка сотрудников — без повтора, вся выборка падает', async () => {
-    chQuery.mockImplementation(async (sql: string) => {
-      if (isEmployees(sql)) throw new Error('ClickHouse 503');
-      return answer(sql);
-    });
-    await expect(fetchHrEconomics(EMAILS)).rejects.toThrow('ClickHouse 503');
+  it('живой набор — источник clickhouse', () => {
+    const raw = economicsFromDataset({ ...DATASET, source: 'clickhouse' }, EMAILS);
+    expect(raw.source).toBe('clickhouse');
   });
 });
 
 describe('loadHrEconomics', () => {
   it('HR лежит и данных ещё не было — пусто и ошибка', async () => {
-    chQuery.mockRejectedValue(new Error('connect ECONNREFUSED'));
+    loadHrDataset.mockRejectedValue(new Error('connect ECONNREFUSED'));
     const r = await loadHrEconomics(EMAILS);
     expect(r).toMatchObject({ raw: null, stale: false });
     expect(r.error).toContain('ECONNREFUSED');
@@ -204,14 +231,14 @@ describe('loadHrEconomics', () => {
     const ok = await loadHrEconomics(EMAILS);
     expect(ok.stale).toBe(false);
     clearCache();
-    chQuery.mockRejectedValue(new Error('timeout'));
+    loadHrDataset.mockRejectedValue(new Error('timeout'));
     const r = await loadHrEconomics(EMAILS);
     expect(r.stale).toBe(true);
     expect(r.raw).toBe(ok.raw);
   });
 
   it('не уложились в бюджет — не ждём', async () => {
-    chQuery.mockImplementation(() => new Promise(() => {}));
+    loadHrDataset.mockImplementation(() => new Promise(() => {}));
     const t0 = Date.now();
     const r = await loadHrEconomics(EMAILS, 30);
     expect(Date.now() - t0).toBeLessThan(1000);
